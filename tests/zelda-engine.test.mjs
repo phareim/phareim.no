@@ -650,3 +650,174 @@ describe('a tap too many at the end of the lines (2026-10-06)', () => {
     assert.equal(s.mode, 'dialog', 'after a rest A talks again')
   })
 })
+
+describe('real-time combat: the chain, the roll (2026-11-25)', () => {
+  /** An empty room, the hero in it with the blade, facing east; a foe `d` tiles in front (0: none). */
+  function arena(d = 1.2, kind = 'blob') {
+    const W = {
+      start: { map: 'pit', entry: 'start' },
+      maps: {
+        pit: {
+          id: 'pit', name: 'ARENA', kind: 'interior', track: 'indoor',
+          rows: ['##############', '#............#', '#............#', '#............#', '#...@........#', '#............#', '#............#', '#............#', '##############'],
+          marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'right' } } },
+        },
+      },
+    }
+    const s = Z.createGame(W)
+    s.mode = 'play'
+    s.dialog = null
+    s.inv.sword = true
+    s.hero.dir = 'right'
+    s.hero.aim = 0
+    if (d) {
+      const st = Z.STATS[kind]
+      s.map.enemies.push({ id: 'foe', kind, x: s.hero.x + d, y: s.hero.y, r: st.r, hp: 99, maxHp: 99, dir: 'left', cell: s.zoneIndex, invuln: 0, stun: 0, knock: null, ai: { mode: 'idle', t: 99, tell: 0 }, home: { x: s.hero.x + d, y: s.hero.y }, dead: false, flash: 0 })
+    }
+    const ev = []
+    const go = (i = inp(), n = 1) => { for (let k = 0; k < n; k++) ev.push(...Z.stepGame(W, s, 1 / 60, i)) }
+    return { W, s, ev, go, foe: s.map.enemies[0] }
+  }
+  const A = inp({ aPress: true, a: true })
+
+  it('a press during a swing waits, and starts the next hit of the chain from 60 % in, back the other way', () => {
+    const { s, ev, go } = arena(0)
+    go(A)
+    assert.equal(s.hero.swing.n, 0)
+    go(inp(), 3) // 0.067 s in
+    go(A)
+    assert.equal(s.hero.swing.n, 0, 'too early: still hit 1')
+    assert.ok(s.hero.bufA > 0, 'the press waits')
+    let k = 0
+    while (s.hero.swing.n === 0 && k++ < 30) go()
+    assert.equal(s.hero.swing.n, 1)
+    assert.equal(s.hero.swing.side, -1)
+    assert.deepEqual(ev.filter(e => e.type === 'swing').map(e => e.n), [0, 1])
+    // It came at 60 % of hit 1, not at its end.
+    assert.ok((4 + k) / 60 < Z.COMBO[0].time, `hit 2 began ${k} frames later`)
+  })
+
+  it('a press long after the chain starts it over; the third hit is the finisher', () => {
+    const { s, ev, go } = arena(0)
+    go(A); go(inp(), 12); go(A); go(inp(), 12); go(A)
+    assert.equal(s.hero.swing.n, 2)
+    go(inp(), 40)
+    go(A)
+    assert.equal(s.hero.swing.n, 0, 'after the finisher the chain starts over')
+    go(inp(), 40)
+    go(A)
+    assert.equal(s.hero.swing.n, 0, 'a press after the window starts over too')
+    assert.deepEqual(ev.filter(e => e.type === 'swing').map(e => e.n), [0, 1, 2, 0, 0])
+  })
+
+  it('a chain foe stays within reach between hits 1 and 2, and both land', () => {
+    const { s, ev, go, foe } = arena(1.2)
+    go(A)
+    go(inp(), 12)
+    assert.ok(Math.hypot(foe.x - s.hero.x, foe.y - s.hero.y) < Z.SWORD_REACH + foe.r, 'shoved out of reach')
+    go(A)
+    go(inp(), 20)
+    assert.equal(ev.filter(e => e.type === 'hit').length, 2)
+  })
+
+  it('the finisher lunges and drives the foe at least 1.5 tiles, heavy', () => {
+    const { s, ev, go, foe } = arena(1.2)
+    go(A); go(inp(), 11); go(A); go(inp(), 11)
+    const x0 = s.hero.x
+    const f0 = foe.x
+    const hp0 = foe.hp
+    go(A)
+    assert.equal(s.hero.swing.n, 2)
+    go(inp(), 30)
+    assert.ok(s.hero.x > x0, 'no lunge')
+    assert.ok(foe.x - f0 >= 1.5, `driven ${(foe.x - f0).toFixed(2)} tiles`)
+    const fin = ev.filter(e => e.type === 'hit').at(-1)
+    assert.equal(fin.heavy, true)
+    assert.equal(hp0 - foe.hp, Z.COMBO[2].dmg, 'a plain chain\'s finisher is not critical')
+    assert.equal(fin.crit, false)
+    assert.ok(ev.some(e => e.type === 'hitStop' && e.ms >= 80))
+  })
+
+  it('a chain at any pace deals 1 + 1 + 2: its own reeling makes no crit', () => {
+    for (const gap of [4, 11, 20]) {
+      const { ev, go, foe } = arena(1.2)
+      go(A); go(inp(), gap); go(A); go(inp(), gap); go(A); go(inp(), 40)
+      const hits = ev.filter(e => e.type === 'hit')
+      assert.equal(hits.length, 3, `gap ${gap}: ${hits.length} hits`)
+      assert.deepEqual(hits.map(e => !!e.crit), [false, false, false], `gap ${gap}`)
+      assert.equal(99 - foe.hp, Z.COMBO[0].dmg + Z.COMBO[1].dmg + Z.COMBO[2].dmg, `gap ${gap}`)
+    }
+  })
+
+  it('the finisher on a stunned foe is critical', () => {
+    const { ev, go, foe } = arena(1.2)
+    go(A); go(inp(), 11); go(A); go(inp(), 11)
+    foe.stun = 1
+    const hp0 = foe.hp
+    go(A); go(inp(), 30)
+    const fin = ev.filter(e => e.type === 'hit').at(-1)
+    assert.equal(fin.crit, true)
+    assert.equal(hp0 - foe.hp, Z.COMBO[2].dmg + 1)
+  })
+
+  it('a reeling foe harms no one', () => {
+    const { s, go, foe } = arena(1.2)
+    go(A)
+    go(inp(), 3)
+    assert.ok(foe.stagger > 0 || foe.knock)
+    // Right on top of the hero, still reeling.
+    foe.x = s.hero.x + 0.4
+    foe.knock = null
+    foe.stagger = 0.3
+    const hp = s.hero.hp
+    go(inp(), 5)
+    assert.equal(s.hero.hp, hp)
+  })
+
+  it('the roll ignores harm for its first 0.2 s, then not; it goes about 2 tiles', () => {
+    const { W, s, ev, go } = arena(0)
+    const c = Z.ctx(W, s, [])
+    go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
+    assert.equal(s.hero.act, 'roll')
+    assert.ok(ev.some(e => e.type === 'roll'))
+    assert.equal(Z.hurtHero(c, 1, s.hero.x - 1, s.hero.y), false, 'hurt in the roll\'s first moment')
+    go(inp(), 12)
+    assert.equal(Z.hurtHero(c, 1, s.hero.x - 1, s.hero.y), true, 'not hurt after the i-frames')
+    const b = arena(0)
+    const x0 = b.s.hero.x
+    const y0 = b.s.hero.y
+    b.go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
+    b.go(inp(), 30)
+    assert.ok(Math.abs(b.s.hero.x - x0 - Z.ROLL_DIST) < 0.3, `rolled ${(b.s.hero.x - x0).toFixed(2)}`)
+    assert.ok(Math.abs(b.s.hero.y - y0) < 1e-9)
+    assert.equal(b.s.hero.act, 'idle')
+  })
+
+  it('a press of A late in the roll strikes as it ends', () => {
+    const { s, ev, go } = arena(0)
+    go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
+    go(inp(), 10)
+    go(A)
+    assert.equal(s.hero.act, 'roll')
+    go(inp(), 10)
+    assert.ok(ev.some(e => e.type === 'swing' && e.n === 0), 'no strike out of the roll')
+  })
+
+  it('a roll press belongs to a frame\'s first substep only', () => {
+    const { W, s, ev } = arena(0)
+    // One 0.1 s frame: twelve substeps, the press on the first.
+    ev.push(...Z.stepGame(W, s, 0.1, inp({ rollPress: true, move: { x: 1, y: 0 } })))
+    assert.equal(ev.filter(e => e.type === 'roll').length, 1)
+    for (let k = 0; k < 40; k++) ev.push(...Z.stepGame(W, s, 1 / 60, inp()))
+    assert.equal(ev.filter(e => e.type === 'roll').length, 1, 'a second roll from one press')
+  })
+
+  it('before the blade there is no roll', () => {
+    const { s, ev, go } = arena(0)
+    s.inv.sword = false
+    go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
+    go(inp(), 20)
+    assert.ok(!ev.some(e => e.type === 'roll'))
+    assert.notEqual(s.hero.act, 'roll')
+  })
+})

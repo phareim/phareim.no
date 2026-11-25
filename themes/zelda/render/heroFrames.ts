@@ -33,6 +33,9 @@ export const DRAWN_SHAPE: HeroShape = { hair: 'short', head: 'band', bottom: 'tr
 type Op = [number, number, string]
 type Dir3 = 'down' | 'up' | 'side'
 
+/** The interim roll frames, 0..3: quarter turns clockwise and the shrink (the iso art's `ART_EXTRA_POSES` alike). */
+export const ROLL_TUCKS: ReadonlyArray<readonly [number, number]> = [[0, 0.75], [1, 0.75], [0, 0.6], [3, 0.75]]
+
 /** Nearest-neighbour shrink of a sprite into a w×h frame, centred on row `cy`. */
 function shrink(src: Rows, scale: number, w: number, h: number, cy: number): Rows {
   const sw = src[0]!.length
@@ -526,6 +529,19 @@ export function heroFrames(shape: HeroShape): Record<string, Rows> {
     return join(g)
   })()
 
+  /**
+   * The dodge roll, until it is drawn (`docs/art/codex-tasks.md`): the standing frame tucked small, turned a
+   * quarter clockwise (head forward, the way the side frame faces), tucked smaller still, turned a quarter back,
+   * each sat on the floor (`ROLL_TUCKS`; never upside down). Mirrored for the left, it turns the other way, still
+   * forward.
+   */
+  const rolled = (src: Rows, quarters: number, scale: number): Rows => {
+    let r = src
+    for (let i = 0; i < quarters; i++) r = rotCW(r)
+    return seated(shrink(r, scale, 16, 16, 8))
+  }
+  const rolls = (key: Dir3, src: Rows) => Object.fromEntries(ROLL_TUCKS.map(([q, k], i) => [`hero_${key}_roll_${i}`, rolled(src, q, k)]))
+
   return {
     hero_down_0: down0, hero_down_1: down1, hero_down_2: down2,
     hero_up_0: up0, hero_up_1: up1, hero_up_2: up2,
@@ -540,7 +556,17 @@ export function heroFrames(shape: HeroShape): Record<string, Rows> {
     hero_fall_1: shrink(down0, 0.5, 16, 16, 11),
     hero_fall_2: shrink(down0, 0.25, 16, 16, 12),
     hero_dead: dead,
+    ...rolls('down', down0), ...rolls('up', up0), ...rolls('side', side0),
   }
+}
+
+/** A frame's drawing moved down until it stands on the bottom row. */
+function seated(src: Rows): Rows {
+  let bottom = -1
+  src.forEach((row, y) => { if (row.replace(/\./g, '').length) bottom = Math.max(bottom, y) })
+  const off = src.length - 1 - bottom
+  if (bottom < 0 || off <= 0) return src
+  return [...Array.from({ length: off }, () => '.'.repeat(src[0]!.length)), ...src.slice(0, src.length - off)]
 }
 
 /** The frame names every shape has. */

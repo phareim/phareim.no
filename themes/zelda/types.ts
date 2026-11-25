@@ -35,8 +35,38 @@ export const HERO_R = 0.34
 export const HERO_SPEED = 5.4 // tiles/s
 export const CHARGE_SPEED = 2.8 // while holding a charged sword
 export const CARRY_SPEED = 4.2
+/** A swing without a place in the chain (a field battle's): its length. The chain's own hits are `COMBO`'s. */
 export const SWING_TIME = 0.2
 export const SWING_COOLDOWN = 0.06
+/**
+ * The blade's three-hit chain (`engine/hero.ts`): two quick sweeps, the second back the other way, then a wider,
+ * heavier finisher. `time` s; `arc` rad; `dmg` (doubled by the Arc Blade); `knock` × a foe's ordinary shove;
+ * `stagger` s the foe stands reeling; `lunge` tiles stepped forward in the first LUNGE_TIME; `stop` ms of hitstop;
+ * `cool` s of rest after it.
+ */
+export const COMBO = [
+  { time: 0.17, arc: Math.PI * 0.9, dmg: 1, knock: 0.45, stagger: 0.22, lunge: 0.22, stop: 35, cool: 0 },
+  { time: 0.17, arc: Math.PI * 0.9, dmg: 1, knock: 0.45, stagger: 0.22, lunge: 0.22, stop: 35, cool: 0 },
+  { time: 0.25, arc: Math.PI * 1.15, dmg: 2, knock: 1.7, stagger: 0.4, lunge: 0.5, stop: 85, cool: 0.2 },
+] as const
+/** After a swing ends, a press this soon continues the chain (s). */
+export const COMBO_WINDOW = 0.32
+/** A press waiting in the buffer may start the next hit from this share of a swing on. */
+export const CHAIN_CANCEL = 0.6
+/** The share of a chain swing spent pulling the blade back; it hits nothing yet. */
+export const WINDUP = 0.15
+/** A press of A (or the roll) that cannot act yet is kept this long (s). */
+export const BUFFER_A = 0.18
+/** A chain swing steps forward over its first this many seconds. */
+export const LUNGE_TIME = 0.07
+/** Tiles/s² the hero speeds up by from a stand (stopping is instant). */
+export const HERO_ACCEL = 80
+/** The dodge roll: seconds, tiles covered, seconds no harm lands, rest after it, the share of a swing it may cut. */
+export const ROLL_TIME = 0.3
+export const ROLL_DIST = 2.2
+export const ROLL_IFRAMES = 0.2
+export const ROLL_COOLDOWN = 0.15
+export const ROLL_CANCEL = 0.35
 /** After lines close, A must rest this long before it talks, reads or opens again (s). */
 export const TALK_REST = 0.35
 export const SWORD_REACH = 1.2
@@ -545,6 +575,16 @@ export interface Enemy {
   trek?: { x: number; y: number; out: boolean; stuck: number }
   /** A field battle's foe (`MapDef.battle`): the group it belongs to. It does not fight in real time. */
   group?: string
+  /** Seconds left reeling from a blow: it does nothing and harms no one (small foes only). */
+  stagger?: number
+  /** The reeling came from the blade's own chain (its quick hits): that does not make the finisher critical. */
+  reelChain?: boolean
+  /** Seconds since the last blow landed, and the way it was driven (unit vector): the renderer's squash and pop. */
+  hitT?: number
+  hitDx?: number
+  hitDy?: number
+  /** Seconds since it fell (set on the kill; the renderer's death pop). */
+  deathT?: number
 }
 
 export interface Projectile {
@@ -715,7 +755,7 @@ export interface DigState { h: number[]; g: number; z: number }
 
 export type HeroAct =
   | 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'throw' | 'push'
-  | 'use' | 'hurt' | 'get' | 'fall' | 'dead' | 'hook'
+  | 'use' | 'hurt' | 'get' | 'fall' | 'dead' | 'hook' | 'roll'
 
 export interface Hero {
   x: number
@@ -737,8 +777,11 @@ export interface Hero {
    * this is what a swing sweeps across (`aimOf`), so a hero walking on the diagonal strikes along it.
    */
   aim?: number
-  /** `a`: the angle the sweep is centred on. */
-  swing: null | { t: number; dir: Dir; a?: number; hit: string[] }
+  /**
+   * `a`: the angle the sweep is centred on. `n`: the hit of the chain (0, 1, 2: `COMBO`; none: a swing outside it,
+   * a field battle's); `side`: which way it sweeps (1 the first way, -1 back).
+   */
+  swing: null | { t: number; dir: Dir; a?: number; hit: string[]; n?: 0 | 1 | 2; side?: 1 | -1 }
   spin: null | { t: number; hit: string[] }
   /** Seconds the sword button has been held since the last swing (charge). */
   charge: number
@@ -751,6 +794,14 @@ export interface Hero {
   safe: Vec
   /** Walking out of a door after spawning on a `Spot.out` entry: input is ignored until it ends at (x, y). */
   auto?: null | { dir: Dir; t: number; x: number; y: number; intro?: boolean }
+  /** Seconds a press of A, or of the roll, still waits to be acted on (BUFFER_A). */
+  bufA?: number
+  bufRoll?: number
+  /** The chain's last hit, and how long a press may still follow it (COMBO_WINDOW). */
+  combo?: { n: 0 | 1 | 2; t: number }
+  /** The dodge roll under way: seconds in, and its velocity (tiles/s, at the start). */
+  roll?: null | { t: number; vx: number; vy: number }
+  rollCool?: number
 }
 
 export interface Inventory {
@@ -906,6 +957,8 @@ export interface Input {
   bPress: boolean
   /** Next item. */
   cycle: boolean
+  /** The dodge roll (L, C, the roll pad): pressed this frame. */
+  rollPress?: boolean
   /** Touch: a swing at rest turns to the nearest enemy first. */
   autoFace: boolean
   /** A tap this frame on the left (-1) or right (1) half of the screen; picks YES or NO. */
@@ -919,10 +972,13 @@ export interface Input {
 export const NO_INPUT: Input = { move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false }
 
 export type GameEvent =
-  | { type: 'swing' }
+  /** `n`: the chain's hit (none: a field battle's swing). */
+  | { type: 'swing'; n?: 0 | 1 | 2 }
   | { type: 'spin' }
+  | { type: 'roll' }
   | { type: 'charged' }
-  | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean }
+  /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
+  | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }
   | { type: 'clank'; x: number; y: number }
   | { type: 'hurt'; x: number; y: number }
   | { type: 'shock'; x: number; y: number }

@@ -16,8 +16,8 @@
  * light map.
  */
 import type { BattlePick, Dir, Enemy, GameEvent, GameState, World } from '../types'
-import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
-import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapDef, mapInfo, shardPos, swingAngle } from '../engine/index'
+import { BOMB_FUSE, ROLL_TIME, SPIN_TIME, TILE, WARP_TIME, WINDUP } from '../types'
+import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur } from '../engine/index'
 import { dayLook, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
@@ -46,6 +46,9 @@ import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../v
 /** NPC looks that live on the town's beach and move on its slow beat. */
 const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
 
+/** Seconds a fallen foe's white shape bursts before its poof (`Enemy.deathT`). */
+const DEATH_POP = 0.18
+
 /** Foes drawn larger than a person. */
 const BIG_FOES: ReadonlySet<string> = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
 
@@ -66,6 +69,8 @@ export interface FrameUI {
   /** Game sound is off (shown on the pause screen). */
   muted: boolean
   reducedMotion: boolean
+  /** The shell holds the world still for a hit's weight (hitstop): struck foes shiver in place. */
+  hitStop?: boolean
   touch: boolean
   /** Touch stick in CSS px relative to the canvas. */
   stick: { ox: number; oy: number; dx: number; dy: number } | null
@@ -86,14 +91,21 @@ export interface FrameUI {
   strip?: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number } | null
 }
 
-/** Puts a world point (tiles) on the scene (logical px). */
-export type Place = (x: number, y: number) => Vec
+/** Puts a world point (tiles; `z` tiles up off the ground) on the scene (logical px). */
+export type Place = (x: number, y: number, z?: number) => Vec
 export interface Vec { x: number; y: number }
 /** A queued thing (see `Item`); `hero` marks the hero's own. */
 /** `tree`: the beach tree, which the 16-bit look paints as its own (`iso/flora.ts` `floraWithVisitor`, part 17). */
 export type SceneItem = Item & { hero?: boolean; tree?: boolean }
 
-interface Fx { kind: 'sprite' | 'spark' | 'leaf' | 'ring' | 'bit' | 'text'; x: number; y: number; vx: number; vy: number; t: number; life: number; name?: string; frames?: number; color: string; size: number; text?: string }
+/**
+ * An effect in the world (tiles), drawn over the lit scene. `star`: an impact's four rays; `slash`: a cut across a
+ * foe along (vx, vy) (it does not move); `dust`: a puff that rises off the ground. `lift`: classic px up the screen.
+ */
+interface Fx { kind: 'sprite' | 'spark' | 'leaf' | 'ring' | 'bit' | 'text' | 'star' | 'slash' | 'dust'; x: number; y: number; vx: number; vy: number; t: number; life: number; name?: string; frames?: number; color: string; size: number; text?: string; lift?: number }
+
+/** A short burst of light on the ground (a blow landing, a kill, a roll), on the renderer's clock. */
+interface Pulse { x: number; y: number; r: number; color: string; a: number; at: number; life: number }
 
 /** The dark a visit begins in (the page's own colour behind the canvas), and how long the first picture takes to come up out of it. */
 const NIGHT = '#0b0616'
@@ -248,6 +260,11 @@ export interface Kit {
   ambient(s: GameState, ui: FrameUI, lights: Light[]): string
   projectiles(g: G, s: GameState, place: Place, dirOf?: (vx: number, vy: number) => Vec): void
   fx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash?: number): void
+  /**
+   * The camera's kick from the last blow, in tiles (world axes): the picture leans that far along the blow and
+   * settles in a few hundredths of a second. Zero under reduced motion.
+   */
+  nudge(): Vec
   lakeSun(g: G, s: GameState, cx: number, cy: number, reduced: boolean, qw: number, qh: number): void
   staticMood(s: GameState): boolean
   /** How the view shows a world angle (blades swing by it); null: as it is. */
@@ -329,6 +346,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** The frame's reduced-motion setting (`begin`), for parts drawn without the frame's UI. */
   let frameReduced = false
   let fx: Fx[] = []
+  /** Light bursts on the ground (`Pulse`), pushed with the frame's lights in `ambient`. */
+  let pulses: Pulse[] = []
+  /** The camera's kick (`Kit.nudge`): tiles along the blow, when it began, how long it settles. */
+  let kick = { x: 0, y: 0, at: -1, life: 0.09 }
+  /** Effects at the hero, waiting for the frame's state: a roll's dust, a lunge's. */
+  let heroFx: Array<'roll' | 'lunge'> = []
+  /** Frames drawn (it counts on in a hitstop, when the clock stands still): struck foes shiver by it. */
+  let frameN = 0
+  let frameHitStop = false
   let flashT = 0
   let flashColor = '#ffffff'
   const glowCache = new Map<string, HTMLCanvasElement>()
@@ -421,22 +447,66 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
   }
 
+  function pulse(x: number, y: number, r: number, color: string, life: number, a = 1) {
+    pulses.push({ x, y, r, color, a, at: time, life })
+    if (pulses.length > 24) pulses.shift()
+  }
+
+  /** The impact of a blow: sparks thrown along it, a star, a ring, and on a heavy blow a gold ring and a cut across. */
+  function impact(x: number, y: number, dx: number, dy: number, heavy: boolean, crit: boolean, color: string) {
+    const n = heavy ? 9 : 6
+    const a0 = Math.atan2(dy, dx)
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (Math.random() - 0.5) * 1.2
+      const v = 7 + Math.random() * 3
+      fx.push({ kind: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: 0.14 + Math.random() * 0.1, color: i % 3 ? color : '#ffffff', size: 1, lift: 5 })
+    }
+    fx.push({ kind: 'star', x, y, vx: 0, vy: 0, t: 0, life: crit ? 0.12 : 0.08, color: crit ? '#ffd23f' : color, size: crit ? 11 : heavy ? 9 : 8, lift: 5 })
+    fx.push({ kind: 'ring', x, y, vx: 0, vy: 0, t: 0, life: 0.15, color: '#fff4ff', size: 0.5, lift: 5 })
+    if (heavy || crit) {
+      fx.push({ kind: 'ring', x, y, vx: 0, vy: 0, t: -0.03, life: 0.2, color: '#ffd23f', size: 0.8, lift: 5 })
+      fx.push({ kind: 'slash', x, y, vx: -dy, vy: dx, t: 0, life: 0.1, color: arc ? '#ffd23f' : '#2ff3ff', size: 14, lift: 5 })
+    }
+  }
+
+  function dust(x: number, y: number, n: number, back: { x: number; y: number } = { x: 0, y: 0 }) {
+    for (let i = 0; i < n; i++) {
+      fx.push({ kind: 'dust', x: x + (Math.random() - 0.5) * 0.4, y: y + 0.3 + (Math.random() - 0.5) * 0.2, vx: back.x * (0.8 + Math.random()) + (Math.random() - 0.5) * 1.2, vy: back.y * (0.8 + Math.random()) + (Math.random() - 0.5) * 0.6, t: -i * 0.02, life: 0.3 + Math.random() * 0.15, color: '#cfc6ff', size: i % 2 ? 2 : 1, lift: 0 })
+    }
+  }
+
   function onEvents(ev: GameEvent[]) {
     for (const e of ev) {
       switch (e.type) {
-        case 'hit':
-          spark(e.x, e.y, e.killed ? 10 : 6, e.kind === 'king' ? '#ff2fa0' : '#fff4ff', 6)
+        case 'hit': {
+          const color = e.kind === 'king' ? '#ff2fa0' : arc ? '#ffd23f' : '#2ff3ff'
+          if (e.dx === undefined || e.dy === undefined) { spark(e.x, e.y, e.killed ? 10 : 6, e.kind === 'king' ? '#ff2fa0' : '#fff4ff', 6); pulse(e.x, e.y, 2.4, '#fff4ff', 0.1); break }
+          impact(e.x, e.y, e.dx, e.dy, !!e.heavy, !!e.crit, color)
+          if (e.killed) spark(e.x, e.y, 6, color, 6)
+          pulse(e.x, e.y, 2.4, '#fff4ff', 0.1)
+          if (e.heavy) pulse(e.x, e.y, 3.5, arc ? '#ffd23f' : '#2ff3ff', 0.16)
+          // The camera leans along the blow: harder for the finisher and a kill.
+          const k = 2 * (e.heavy ? 2 : 1) * (e.killed ? 1.5 : 1) / T
+          kick = { x: e.dx * k, y: e.dy * k, at: time, life: e.heavy ? 0.12 : 0.09 }
           break
+        }
+        case 'swing': if (e.n === 2) heroFx.push('lunge'); break
+        case 'roll': heroFx.push('roll'); break
         case 'kill':
-          fx.push(fxSprite('poof', 0.36, e.x, e.y))
+          fx.push(fxSprite('poof', 0.36, e.x, e.y, -0.1))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
+          pulse(e.x, e.y, 3, '#ff2fa0', 0.2)
           if (e.kind === 'king' || e.kind === 'knight') {
             for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
           }
           break
-        case 'clank': spark(e.x, e.y, 5, '#ffd23f', 5, 0.25); break
+        case 'clank':
+          spark(e.x, e.y, 5, '#ffd23f', 5, 0.25)
+          fx.push({ kind: 'star', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.08, color: '#ffd23f', size: 7, lift: 5 })
+          pulse(e.x, e.y, 1.8, '#ffd23f', 0.12)
+          break
         case 'cut':
           for (let i = 0; i < 6; i++) fx.push({ kind: 'leaf', x: e.x, y: e.y, vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 4, t: 0, life: 0.5 + Math.random() * 0.3, color: e.tile === '*' ? '#46b595' : '#56c9b8', size: 1 })
           break
@@ -446,23 +516,24 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'boom':
           fx.push(fxSprite('boom', 0.5, e.x, e.y))
           spark(e.x, e.y, 12, '#ff8a3d', 7, 0.45)
+          pulse(e.x, e.y, 4, '#ff8a3d', 0.25)
           break
         case 'hurt': flashT = 0.12; flashColor = '#ff3b5c'; break
-        case 'shock': flashT = 0.16; flashColor = '#b6ff4a'; spark(e.x, e.y, 10, '#b6ff4a', 7); break
-        case 'chest': spark(e.x, e.y - 0.3, 14, '#ffd23f', 4, 0.6); break
+        case 'shock': flashT = 0.16; flashColor = '#b6ff4a'; spark(e.x, e.y, 10, '#b6ff4a', 7); pulse(e.x, e.y, 3, '#b6ff4a', 0.18); break
+        case 'chest': spark(e.x, e.y - 0.3, 14, '#ffd23f', 4, 0.6); pulse(e.x, e.y - 0.3, 3, '#ffd23f', 0.3); break
         case 'itemGet': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.6, color: '#ffd23f', size: 1, name: 'hero' }); break
         case 'collect': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.25, color: e.kind === 'heart' ? '#ff2fa0' : e.kind === 'key' ? '#ffd23f' : '#b6ff4a', size: 0.5, name: 'hero' }); break
         case 'unlock': case 'gate': spark(e.x, e.y, 12, '#ffd23f', 3, 0.6); break
         case 'crystal': flashT = 0.08; flashColor = e.state === 'pink' ? '#ff2fa0' : '#2ff3ff'; break
-        case 'reflect': spark(e.x, e.y, 6, '#2ff3ff', 5); break
-        case 'discHit': spark(e.x, e.y, 6, '#2ff3ff', 4); break
+        case 'reflect': spark(e.x, e.y, 6, '#2ff3ff', 5); pulse(e.x, e.y, 2, '#2ff3ff', 0.12); break
+        case 'discHit': spark(e.x, e.y, 6, '#2ff3ff', 4); pulse(e.x, e.y, 2, '#2ff3ff', 0.12); break
         case 'charged': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.3, color: '#2ff3ff', size: 0.6, name: 'hero' }); break
         case 'spin': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: SPIN_TIME, color: '#2ff3ff', size: 1.6, name: 'hero' }); break
         case 'bossPhase': flashT = 0.3; flashColor = '#ff2fa0'; break
         case 'won': flashT = 1; flashColor = '#ffd23f'; break
         case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
         case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
-        case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; break
+        case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; pulse(e.x, e.y, 2.5, '#b6ff4a', 0.2); break
         case 'glyph': if (e.ok) fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.4, color: '#2ff3ff', size: 0.6 }); break
         case 'join': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.8, color: '#ff8ae0', size: 1.6, name: 'hero' }); break
         case 'dig': {
@@ -509,9 +580,40 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.globalAlpha = 1
   }
 
-  function put(g: G, name: string, x: number, y: number, flip = false, flash = false) {
-    const c = flash ? silhouette(name, '#ffffff', flip) : sprite(name, flip)
-    g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height))
+  /**
+   * A sprite with its bottom centre at (x, y). `sx`, `sy`: squashed or stretched about that point, to whole px (the
+   * isometric view's art follows a drawing at another size). `color`: its silhouette in that colour instead.
+   */
+  function put(g: G, name: string, x: number, y: number, flip = false, flash = false, sx = 1, sy = 1, color?: string) {
+    const c = color ? silhouette(name, color, flip) : flash ? silhouette(name, '#ffffff', flip) : sprite(name, flip)
+    if (sx === 1 && sy === 1) { g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height)); return }
+    const w = Math.max(1, Math.round(c.width * sx))
+    const h = Math.max(1, Math.round(c.height * sy))
+    g.drawImage(c, Math.round(x - w / 2), Math.round(y - h), w, h)
+  }
+
+  /** The hero's squash and stretch: pulled down into a blow's windup, up as it lands, low into a roll, flat when hurt. */
+  function heroSquash(s: GameState): [number, number] {
+    const h = s.hero
+    const sw = h.swing
+    if (sw && sw.n !== undefined) {
+      const p = sw.t / swingDur(sw)
+      const fin = sw.n === 2
+      if (p < WINDUP) return fin ? [1.1, 0.9] : [1.04, 0.94]
+      if (p < WINDUP + 0.3) return fin ? [0.92, 1.1] : [0.96, 1.06]
+      return [1, 1]
+    }
+    if (h.act === 'roll' && h.roll && h.roll.t < 0.06) return [1.1, 0.88]
+    if (h.act === 'hurt' && h.actT < 0.08) return [1.12, 0.88]
+    return [1, 1]
+  }
+
+  /** The roll's frame: tucked, then turning, a quarter in each of four. */
+  function rollFrame(s: GameState): { name: string; flip: boolean } {
+    const h = s.hero
+    const { key, flip } = dirKey(h.dir)
+    const p = h.roll ? Math.min(0.999, h.roll.t / ROLL_TIME) : 0
+    return { name: `hero_${key}_roll_${Math.floor(p * 4)}`, flip }
   }
 
   /** The beach tree: its crown for today's deploys, one fruit per visitor on top (render/tree.ts). */
@@ -548,11 +650,20 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (h.invuln > 0 && h.act !== 'get' && Math.floor(time * 20) % 2 === 0) return
     if (!heroBare) shadow(g, x, feet - 1, 10)
     let name = `hero_${key}_0`
-    const step = Math.floor(h.walkT * 7) % 4
+    let mirror = flip && h.act !== 'hurt' && h.act !== 'get'
+    const [sx, sy] = heroSquash(s)
+    const step = Math.floor(h.walkT * 8.5) % 4
     const walkFrame = [1, 0, 2, 0][step]!
     switch (h.act) {
       case 'walk': name = `hero_${key}_${walkFrame}`; break
-      case 'swing': case 'throw': case 'use': case 'hook': name = `hero_${key}_atk`; break
+      case 'swing':
+        name = `hero_${key}_atk`
+        // The chain's backhand: the forehand's frame turned the other way (facing the viewer or away: the side
+        // frame would turn the hero round).
+        if (h.swing?.side === -1 && key !== 'side') mirror = !mirror
+        break
+      case 'throw': case 'use': case 'hook': name = `hero_${key}_atk`; break
+      case 'roll': { const r = rollFrame(s); name = r.name; mirror = r.flip; break }
       case 'spin': {
         const order: Dir[] = [h.dir, h.dir === 'down' ? 'left' : h.dir === 'left' ? 'up' : h.dir === 'up' ? 'right' : 'down']
         const p = h.spin ? h.spin.t / SPIN_TIME : 0
@@ -574,7 +685,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     // Blade behind the body when facing up (on the screen: a turned camera may see another side).
     const away = facingDir(h.dir, facing) === 'up'
     if (blade && away) drawBlade(g, s, x, feet - 7, lights)
-    if (!heroBare) put(g, name, x, feet, flip && h.act !== 'hurt' && h.act !== 'get')
+    if (!heroBare) put(g, name, x, feet, mirror, false, sx, sy)
     if (blade && !away) drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
@@ -625,28 +736,32 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function drawBlade(g: G, s: GameState, x: number, y: number, lights: Light[]) {
     const h = s.hero
-    let a: number
+    let wa: number
     let reach = 11
-    if (h.swing) a = swingAngle(h.swing, h.swing.t / SWING_TIME)
+    const p = h.swing ? h.swing.t / swingDur(h.swing) : 0
+    if (h.swing) wa = swingAngle(h.swing, p)
     else {
-      a = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[h.dir]
+      wa = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[h.dir]
       reach = 9
     }
-    a = aim(a)
+    // The lights stand in the world, so they go by the world's angle; the sprite by the one the view shows.
+    const a = aim(wa)
     const charged = !h.swing && h.charge >= 0.55
-    lights.push({ x: (x + Math.cos(a) * 16) / T + camX / T, y: (y + Math.sin(a) * 16) / T + camY / T, r: charged ? 2.6 : 1.8, color: arc ? '#ffd23f' : '#2ff3ff', a: charged ? (Math.floor(time * 12) % 2 ? 1 : 0.5) : 0.7 })
+    const hx = (x + camX) / T
+    const hy = (y + camY) / T
+    const color = arc ? '#ffd23f' : '#2ff3ff'
+    lights.push({ x: hx + Math.cos(wa), y: hy + Math.sin(wa), r: charged ? 2.6 : h.swing ? 2.4 : 1.8, color, a: charged ? (Math.floor(time * 12) % 2 ? 1 : 0.5) : 0.7 })
+    // The sweep's trail lights the ground behind the blade.
+    if (h.swing) for (let k = 1; k <= 2; k++) {
+      const q = p - 0.12 * k
+      if (q < (h.swing.n === undefined ? 0 : WINDUP)) break
+      const ta = swingAngle(h.swing, q)
+      lights.push({ x: hx + Math.cos(ta) * 0.9, y: hy + Math.sin(ta) * 0.9, r: 1.4, color, a: k === 1 ? 0.5 : 0.2 })
+    }
     if (heroBare) return
     const bs = bladeSprite(a)
     const bx = x + Math.cos(a) * reach
     const by = y + Math.sin(a) * reach
-    // Smear behind the swing.
-    if (h.swing) {
-      g.fillStyle = arc ? 'rgba(255,210,63,0.4)' : 'rgba(47,243,255,0.35)'
-      for (let k = 1; k <= 3; k++) {
-        const pa = aim(swingAngle(h.swing, Math.max(0, h.swing.t / SWING_TIME - k * 0.12)))
-        g.fillRect(Math.round(x + Math.cos(pa) * 13) - 1, Math.round(y + Math.sin(pa) * 13) - 1, 3, 3)
-      }
-    }
     blit(g, bs.name, bs.fh, bs.fv, bx, by)
     if (charged && Math.floor(time * 12) % 2 === 0) {
       g.fillStyle = '#ffffff'
@@ -664,11 +779,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const a = aim(base) + p * Math.PI * 2
     lights.push({ x: h.x, y: h.y, r: 3.2, color: '#2ff3ff', a: 0.8 })
     if (heroBare) return
-    g.fillStyle = 'rgba(47,243,255,0.45)'
-    for (let k = 0; k < 10; k++) {
-      const pa = a - k * 0.22
-      g.fillRect(Math.round(x + Math.cos(pa) * 18) - 1, Math.round(y + Math.sin(pa) * 16) - 1, 3, 3)
-    }
     const bs = bladeSprite(a)
     blit(g, bs.name, bs.fh, bs.fv, x + Math.cos(a) * 12, y + Math.sin(a) * 11)
   }
@@ -791,7 +901,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       shadow(g, x, feet - 2, 30)
       feet -= hover
       const shake = e.ai.mode === 'dying' ? (Math.random() - 0.5) * 3 : 0
-      put(g, name, x + shake, feet + 8, flip, e.flash > 0 && Math.floor(time * 30) % 2 === 0)
+      put(g, name, x + shake + shiver(e), feet + 8, flip, flashing(e))
       lights.push({ x: e.x, y: e.y, r: 5, color: '#ff2fa0', a: down ? 1 : 0.7 })
       if (e.ai.tell > 0 && Math.floor(time * 16) % 2 === 0) {
         g.fillStyle = '#ff2fa0'
@@ -816,8 +926,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (flying) feet -= 6 + Math.round(Math.sin(time * 6 + e.home.x) * 1.5)
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
     if (e.kind === 'blob' && e.ai.mode === 'hop') feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.38) * Math.PI) * 3)
-    const flash = e.flash > 0 && Math.floor(time * 30) % 2 === 0
-    put(g, name, x, feet, flip, flash)
+    const [sx, sy] = foeSquash(e)
+    put(g, name, x + shiver(e), feet, flip, flashing(e), sx, sy)
     if (e.kind === 'eye') {
       const a = e.ai.ang as number ?? 0
       const hot = e.ai.tell > 0 || e.ai.mode === 'aim'
@@ -835,6 +945,37 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       g.fillRect(Math.round(x), Math.round(top), 1, 4)
       g.fillRect(Math.round(x), Math.round(top) + 5, 1, 1)
     }
+  }
+
+  /** White while struck: solid for the first 60 ms (a hit held in hitstop always shows it), then flickering out. */
+  function flashing(e: Enemy): boolean {
+    return e.flash > 0.08 || (e.flash > 0 && Math.floor(time * 30) % 2 === 0)
+  }
+
+  /** A struck foe in a hitstop shivers a px either way, frame by frame (the clock stands still; the frames do not). */
+  function shiver(e: Enemy): number {
+    return frameHitStop && e.flash > 0 && !frameReduced ? (frameN % 2 ? 1 : -1) : 0
+  }
+
+  /** A foe squashed flat by a blow, then springing back up a little taller. */
+  function foeSquash(e: Enemy): [number, number] {
+    const t = e.hitT
+    if (t === undefined || BIG_FOES.has(e.kind)) return [1, 1]
+    if (t < 0.07) return [1.2, 0.82]
+    if (t < 0.14) return [0.94, 1.06]
+    return [1, 1]
+  }
+
+  /** A foe's last moment: its white shape bursting wide and flat along the blow, fading, before the poof. */
+  function drawDeathPop(g: G, s: GameState, e: Enemy, cx: number, cy: number) {
+    const p = Math.min(1, (e.deathT ?? 0) / DEATH_POP)
+    const step = span ? span(e.x, e.y, e.x + (e.hitDx ?? 0), e.y + (e.hitDy ?? 0)) : { x: (e.hitDx ?? 0) * T, y: (e.hitDy ?? 0) * T }
+    const x = e.x * T - cx + (step.x * 6 * p) / T
+    const feet = e.y * T - cy + e.r * T + 1 + (step.y * 6 * p) / T
+    const { name, flip } = enemySprite(e, mapInfo(world, s.map.id).def.realm)
+    g.globalAlpha = 1 - p
+    put(g, name, x, feet, flip, false, 1 + 0.5 * p, 1 - 0.8 * p, '#ffffff')
+    g.globalAlpha = 1
   }
 
   function drawStars(g: G, x: number, y: number) {
@@ -855,6 +996,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** Advance the clock and fit the scale to the map. */
   function begin(s: GameState, ui: FrameUI, dt: number) {
     time += ui.paused ? 0 : dt
+    frameN++
+    frameHitStop = !!ui.hitStop
     frameReduced = ui.reducedMotion
     if (layoutMap !== s.map.id) {
       layoutMap = s.map.id
@@ -971,7 +1114,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     queueExits(g, m.exits ?? [], cx, cy, qw, qh, ui.reducedMotion ? 0 : time, ui.reducedMotion, items, lights, emit)
     for (let i = beforeExits; i < items.length; i++) items[i]!.big = true
     for (const e of m.enemies) {
-      if (e.dead) continue
+      if (e.dead) {
+        // Just fallen: the pop, where it stood.
+        if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG_FOES.has(e.kind) && (kind !== 'dungeon' || e.cell === s.zoneIndex)) {
+          items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, draw: () => drawDeathPop(g, s, e, cx, cy) })
+        }
+        continue
+      }
       if (kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG_FOES.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
     }
@@ -984,9 +1133,29 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const o of m.thrown) {
       items.push({ x: o.x, foot: 5 / T, y: o.y, draw: () => { shadow(g, o.x * T - cx, o.y * T - cy + 4, 8); put(g, o.kind === 'rock' ? 'rock' : 'pot', o.x * T - cx, o.y * T - cy + 8 - o.z * T * 1.4) } })
     }
-    if (!ui.attract && s.hero.x > -10) items.push({ x: s.hero.x, foot: 6 / T, y: s.hero.y, hero: true, draw: () => drawHero(g, s, cx, cy, lights) })
+    if (!ui.attract && s.hero.x > -10) {
+      items.push({ x: s.hero.x, foot: 6 / T, y: s.hero.y, hero: true, draw: () => drawHero(g, s, cx, cy, lights) })
+      // The roll leaves the hero's shape behind in cyan for a moment, three of them, fading.
+      const h = s.hero
+      if (h.act === 'roll' && !heroBare && (!ghosts.length || time - ghosts[ghosts.length - 1]!.at >= 0.035)) {
+        ghosts.push({ x: h.x, y: h.y, ...rollFrame(s), at: time })
+      }
+      ghosts = ghosts.filter(gh => time - gh.at < 0.15 && time >= gh.at).slice(-3)
+      ghosts.forEach((gh, i) => {
+        const a = [0.15, 0.3, 0.45][3 - ghosts.length + i]!
+        if (Math.hypot(gh.x - h.x, gh.y - h.y) < 0.12) return
+        items.push({ x: gh.x, foot: 6 / T, y: gh.y - 0.01, draw: () => {
+          g.globalAlpha = a
+          put(g, gh.name, gh.x * T - cx, gh.y * T - cy + 6, gh.flip, false, 1, 1, '#2ff3ff')
+          g.globalAlpha = 1
+        } })
+      })
+    }
     return items
   }
+
+  /** The roll's afterimages: where the hero was and in which frame. */
+  let ghosts: Array<{ x: number; y: number; name: string; flip: boolean; at: number }> = []
 
   /** The light map's base colour for the hero's room, and the lights of the hero and of what flies. */
   function ambient(s: GameState, ui: FrameUI, lights: Light[]): string {
@@ -1004,7 +1173,19 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' ? 1.8 : 1.4, color: p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })
     }
     for (const b of m.blasts) lights.push({ x: b.x, y: b.y, r: 5 * (1 - b.t), color: '#ff8a3d', a: 1 })
+    // Blows, kills and rolls light the ground for a moment.
+    pulses = pulses.filter(P => time - P.at < P.life && time >= P.at - 1)
+    for (const P of pulses) lights.push({ x: P.x, y: P.y, r: P.r, color: P.color, a: P.a * (1 - Math.max(0, time - P.at) / P.life) })
     return amb
+  }
+
+  /** The camera's kick now (`Kit.nudge`), tiles. */
+  function nudge(): Vec {
+    if (frameReduced || kick.at < 0) return { x: 0, y: 0 }
+    const age = time - kick.at
+    if (age < 0 || age >= kick.life) return { x: 0, y: 0 }
+    const k = 1 - age / kick.life
+    return { x: kick.x * k, y: kick.y * k }
   }
 
   /** What flies and glows, drawn after the light: shots and the disc. `place` puts a world point on the scene; `dirOf` turns a world direction into the scene's. */
@@ -1277,6 +1458,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       cx += Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4))
       cy += Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4))
     }
+    // A blow's kick: the picture leans along it (the camera the other way).
+    const kn = nudge()
+    cx -= Math.round(kn.x * T)
+    cy -= Math.round(kn.y * T)
     const lights: Light[] = []
     const g = sg
     g.fillStyle = ground ?? (kind === 'overworld' ? '#0e2a3c' : '#07040f')
@@ -1338,7 +1523,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (s.map.id === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
     if (staticMood(s, mapInfo(world, s.map.id))) drawStaticMood(g, vw, vh, cx, cy, time, ui.reducedMotion)
     projectiles(g, s, (x, y) => ({ x: x * T - cx, y: y * T - cy }))
-    drawFx(g, s, dt, (x, y) => ({ x: x * T - cx, y: y * T - cy }), ui.paused || still)
+    drawFx(g, s, dt, (x, y, z = 0) => ({ x: x * T - cx, y: (y - z) * T - cy }), ui.paused || still)
   }
 
   /** Cover the world outside the current dungeon room. */
@@ -1444,6 +1629,20 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   function drawFx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash = 1) {
+    const h = s.hero
+    // Dust at the hero's heels: off a roll, behind the finisher's lunge, where a run turns round.
+    for (const what of heroFx) {
+      const a = h.swing?.a ?? Math.atan2(h.vy, h.vx)
+      if (what === 'roll') { dust(h.x, h.y, 5, { x: -Math.cos(a) * 1.5, y: -Math.sin(a) * 1.5 }); pulse(h.x, h.y, 1.6, '#2ff3ff', 0.16, 0.8) }
+      else dust(h.x, h.y, 3, { x: -Math.cos(a) * 2, y: -Math.sin(a) * 2 })
+    }
+    heroFx = []
+    if (!paused && dt > 0) {
+      const sp = Math.hypot(h.vx, h.vy)
+      if (sp > 3 && heroV.s > 3 && (h.vx * heroV.x + h.vy * heroV.y) / (sp * heroV.s) < -0.4 && h.act === 'walk') dust(h.x, h.y, 4, { x: -h.vx * 0.2, y: -h.vy * 0.2 })
+      heroV = { x: h.vx, y: h.vy, s: sp }
+    }
+    if (!heroBare && h.x > -10) drawSmear(g, s, place)
     const keep: Fx[] = []
     for (const f of fx) {
       if (!paused) f.t += dt
@@ -1451,6 +1650,63 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       keep.push(f)
       if (f.t < 0) continue
       const p = f.t / f.life
+      const lift = f.lift ?? 0
+      if (f.kind === 'star') {
+        // Four rays out from a white core, growing then gone.
+        const at = place(f.x, f.y, lift / T)
+        const x = Math.round(at.x)
+        const y = Math.round(at.y)
+        const len = Math.round(3 + (f.size - 3) * Math.min(1, p * 1.6))
+        // The rays in the blow's colour, white toward the middle; short diagonals between them; a dark rim so it
+        // reads on a foe flashing white.
+        g.globalAlpha = 0.5
+        g.fillStyle = '#0b0616'
+        g.fillRect(x - len, y - 1, len * 2 + 1, 3)
+        g.fillRect(x - 1, y - len, 3, len * 2 + 1)
+        g.globalAlpha = 1
+        g.fillStyle = f.color
+        g.fillRect(x - len, y, len * 2 + 1, 1)
+        g.fillRect(x, y - len, 1, len * 2 + 1)
+        const d = Math.round(len * 0.45)
+        for (let i = 1; i <= d; i++) { g.fillRect(x - i, y - i, 1, 1); g.fillRect(x + i, y - i, 1, 1); g.fillRect(x - i, y + i, 1, 1); g.fillRect(x + i, y + i, 1, 1) }
+        const w = Math.max(1, Math.round(len / 2))
+        g.fillStyle = '#ffffff'
+        g.fillRect(x - w, y, w * 2 + 1, 1)
+        g.fillRect(x, y - w, 1, w * 2 + 1)
+        g.fillRect(x - 1, y - 1, 2, 2)
+        continue
+      }
+      if (f.kind === 'slash') {
+        // A straight cut across the foe, along the blade's way; it shrinks to its middle as it fades.
+        const at = place(f.x, f.y, lift / T)
+        const to = place(f.x + f.vx, f.y + f.vy, lift / T)
+        let ux = to.x - at.x
+        let uy = to.y - at.y
+        const n = Math.hypot(ux, uy) || 1
+        ux /= n; uy /= n
+        const half = (f.size / 2) * (1 - p * 0.7)
+        for (let i = -half; i <= half; i += 0.5) {
+          const px = Math.round(at.x + ux * i)
+          const py = Math.round(at.y + uy * i)
+          g.fillStyle = Math.abs(i) < half * 0.6 ? '#ffffff' : f.color
+          g.fillRect(px, py, 1, 1)
+        }
+        continue
+      }
+      if (f.kind === 'dust') {
+        if (!paused) {
+          f.x += f.vx * dt
+          f.y += f.vy * dt
+          f.vx *= 0.9
+          f.vy *= 0.9
+        }
+        const at = place(f.x, f.y, (lift + p * 6) / T)
+        g.globalAlpha = 0.8 * (1 - p)
+        g.fillStyle = f.color
+        g.fillRect(Math.round(at.x), Math.round(at.y), f.size, f.size)
+        g.globalAlpha = 1
+        continue
+      }
       if (f.kind === 'sprite') {
         const fr = Math.min(f.frames! - 1, Math.floor(p * f.frames!))
         const spr = sprite(`${f.name}_${fr}`)
@@ -1459,7 +1715,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         continue
       }
       if (f.kind === 'ring') {
-        const at = f.name === 'hero' ? place(s.hero.x, s.hero.y) : place(f.x, f.y)
+        const at = f.name === 'hero' ? place(s.hero.x, s.hero.y) : place(f.x, f.y, lift / T)
         const x = at.x
         const y = at.y
         const rad = 4 + p * 16 * f.size
@@ -1482,11 +1738,113 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       g.globalAlpha = 1 - p * 0.7
       g.fillStyle = f.color
-      const at = place(f.x, f.y)
+      const at = place(f.x, f.y, lift / T)
       g.fillRect(Math.round(at.x), Math.round(at.y), f.size, f.size)
       g.globalAlpha = 1
     }
     fx = keep
+  }
+
+  /** The hero's velocity last frame (a run turning round raises dust). */
+  let heroV = { x: 0, y: 0, s: 0 }
+  /** The chain's finisher, held on screen a moment after the swing ends. */
+  let lastSwing: { sw: NonNullable<GameState['hero']['swing']>; x: number; y: number } | null = null
+  let lingerAt = -1
+
+  /**
+   * The blade's smear: a crescent of hard pixels over the arc the blade has just swept, white at its head, then
+   * cyan (gold for the Arc Blade), then a dithered deep tail, at the finest px the layer has. It is the circle the
+   * blade's sprite sweeps round the hero's hand on the screen (`rOut` px), each px at the world angle the view's
+   * ground gives its direction (`place`), so it follows the blade in every view. The chain's finisher is wider and
+   * lingers a moment; the spin's goes round the whole circle.
+   */
+  function drawSmear(g: G, s: GameState, place: Place) {
+    const h = s.hero
+    let head: number, tail: number, rOut: number, fade = 1
+    // The finisher's linger keeps only the rim, narrowing as it fades: a thin crescent, not the swept wedge.
+    let rim = 0
+    let hx = h.x, hy = h.y
+    if (h.swing) {
+      const sw = h.swing
+      const p = Math.min(1, sw.t / swingDur(sw))
+      const from = sw.n === undefined ? 0 : WINDUP
+      if (p <= from + 0.02) { lastSwing = null; return }
+      head = swingAngle(sw, p)
+      tail = swingAngle(sw, Math.max(from, p - (sw.n === 2 ? 0.5 : 0.35)))
+      rOut = (arc ? 18 : 16) * (sw.n === 2 ? 1.15 : 1)
+      lastSwing = sw.n === 2 ? { sw: { ...sw }, x: h.x, y: h.y } : null
+      lingerAt = -1
+    } else if (h.spin) {
+      const p = Math.min(1, h.spin.t / SPIN_TIME)
+      const base = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[h.dir]
+      head = base + Math.PI * 2 * p
+      tail = head - Math.min(Math.PI * 2 * p, Math.PI * 1.25)
+      rOut = arc ? 20 : 18
+      lastSwing = null
+    } else if (lastSwing) {
+      // The finisher's smear stays a moment after the blow, thinning out.
+      if (lingerAt < 0) lingerAt = time
+      fade = 1 - (time - lingerAt) / 0.06
+      if (fade <= 0 || time < lingerAt) { lastSwing = null; return }
+      const sw = lastSwing.sw
+      head = swingAngle(sw, 1)
+      tail = swingAngle(sw, 0.5)
+      rOut = (arc ? 18 : 16) * 1.15
+      rim = rOut * (0.6 + 0.3 * (1 - fade))
+      hx = lastSwing.x
+      hy = lastSwing.y
+    } else return
+    const span0 = Math.abs(head - tail)
+    if (span0 < 0.05) return
+    const dirS = head > tail ? 1 : -1
+    // The ground's axes on the scene at the hero, and back.
+    const o = place(hx, hy)
+    const ex = place(hx + 1, hy)
+    const ey = place(hx, hy + 1)
+    const ax = ex.x - o.x, ay = ex.y - o.y, bx = ey.x - o.x, by = ey.y - o.y
+    const det = ax * by - bx * ay
+    if (Math.abs(det) < 1e-6) return
+    // The hand: 7 px up over the feet, as the classic painter holds the blade.
+    const hand = place(hx, hy + 6 / T, 7 / T)
+    const px = hand.x
+    const py = hand.y
+    const t = g.getTransform()
+    const cell = 1 / Math.max(1, Math.round(Math.hypot(t.a, t.b)))
+    const ext = rOut + 1
+    const eyt = rOut + 1
+    const x0 = Math.floor((px - ext) / cell) * cell
+    const y0 = Math.floor((py - eyt) / cell) * cell
+    const mid = arc ? '#ffd23f' : '#2ff3ff'
+    const deep = arc ? '#9a4ff0' : '#1a9fc4'
+    const TAU = Math.PI * 2
+    let style = ''
+    for (let y = y0; y <= py + eyt; y += cell) {
+      const v = y + cell / 2 - py
+      for (let x = x0; x <= px + ext; x += cell) {
+        const u = x + cell / 2 - px
+        const wx = (u * by - v * bx) / det
+        const wy = (v * ax - u * ay) / det
+        const r = Math.hypot(u, v)
+        if (r > rOut || r < 4) continue
+        let off = ((Math.atan2(wy, wx) - tail) * dirS) % TAU
+        if (off < 0) off += TAU
+        if (off > span0) continue
+        // 0 at the blade, 1 at the end of the trail.
+        const age = 1 - off / span0
+        // A crescent: the trail thins toward the blade's tip as it ages.
+        if (r < Math.max(5 + rOut * 0.45 * age, rim)) continue
+        const ix = Math.round(x / cell)
+        const iy = Math.round(y / cell)
+        // Fading out (the finisher's linger): fewer and fewer cells.
+        if (fade < 1 && ((ix * 7 + iy * 13) % 10) / 10 > fade) continue
+        let col: string
+        if (age < 0.15) col = '#fff4ff'
+        else if (age < 0.55) col = mid
+        else { if ((ix + iy) & 1) continue; col = deep }
+        if (col !== style) { g.fillStyle = col; style = col }
+        g.fillRect(x, y, cell, cell)
+      }
+    }
   }
 
   /** The Other Side's mood: a dungeon room marked 'static', or an overworld area with the 'static' track. */
@@ -1575,6 +1933,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     ambient,
     projectiles,
     fx: drawFx,
+    nudge,
     lakeSun: drawLakeSun,
     staticMood: s => staticMood(s, mapInfo(world, s.map.id)),
     setAim(fn) { aim = fn ?? (a => a) },

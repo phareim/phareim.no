@@ -5,16 +5,17 @@
  */
 import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '../types'
 import {
-  ARC_REACH, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
-  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED,
+  ARC_REACH, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
+  HERO_SPEED, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
+  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED, WINDUP,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
-import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
+import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
 import { digCycle, digItems, digOutOfReach, isDigItem, useDigTool } from './dig'
-import { hitPuzzle, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
+import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 
@@ -31,6 +32,11 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (h.invuln > 0) h.invuln -= dt
   if (h.cooldown > 0) h.cooldown -= dt
   if (h.talkRest > 0) h.talkRest -= dt
+  if ((h.rollCool ?? 0) > 0) h.rollCool! -= dt
+  if (h.combo && h.combo.t > 0 && !h.swing) h.combo.t -= dt
+  // A roll that something else ended (a shove, a door, a find) leaves no roll behind, nor the other way round.
+  if (h.roll && h.act !== 'roll') h.roll = null
+  if (!h.roll && h.act === 'roll') h.act = 'idle'
   if (h.auto) { walkOut(c, dt); return }
   // On the end of the hook's chain: stepHook moves him.
   if (s.hook) { h.act = 'hook'; return }
@@ -47,7 +53,12 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
     }
     return
   }
+  // Presses that cannot act yet wait a moment (BUFFER_A): through a shove, a swing, a roll.
+  if ((h.bufA ?? 0) > 0) h.bufA! -= dt
+  if (inp.rollPress) h.bufRoll = BUFFER_A
+  else if ((h.bufRoll ?? 0) > 0) h.bufRoll! -= dt
   if (h.knock) {
+    if (inp.aPress && s.inv.sword && !h.carry) h.bufA = BUFFER_A
     const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, h.knock.vx * dt, h.knock.vy * dt)
     h.x = r.x
     h.y = r.y
@@ -62,6 +73,14 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   }
   if ((h.act === 'throw' || h.act === 'use') && h.actT > 0.16) h.act = 'idle'
 
+  // --- the dodge roll ------------------------------------------------------------
+  if ((h.bufRoll ?? 0) > 0 && canRoll(c)) startRoll(c, inp)
+  if (h.roll) {
+    if (inp.aPress && s.inv.sword) h.bufA = BUFFER_A
+    stepRoll(c, inp, dt)
+    return
+  }
+
   // --- A button -------------------------------------------------------------
   if (inp.aPress) {
     if (h.carry) throwCarried(c)
@@ -70,10 +89,11 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
       // until A has rested it only swings, and each press starts the rest again.
       const mashing = h.talkRest > 0
       if (mashing) h.talkRest = TALK_REST
-      if ((mashing || !interact(c)) && s.inv.sword && h.cooldown <= 0) startSwing(c, inp)
-    }
+      // A fresh press talks, reads or opens first; only what is left swings (through the buffer, below).
+      if ((mashing || !interact(c)) && s.inv.sword) h.bufA = BUFFER_A
+    } else if (s.inv.sword) h.bufA = BUFFER_A
     // Talking, reading or an item-get pose freezes the rest of the step.
-    if (s.mode !== 'play') return
+    if (s.mode !== 'play') { h.bufA = 0; return }
   }
   // Charge while A stays held after a swing; release for the spin.
   if (h.charge >= 0) {
@@ -93,8 +113,14 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (inp.cycle) cycleItem(c)
   if (inp.bPress && !h.carry && !h.swing && !h.spin) useItem(c, inp)
 
-  if (h.swing) stepSwing(c, dt)
+  if (h.swing) stepSwing(c, inp, dt)
   if (h.spin) stepSpin(c, dt)
+  // The press waiting in the buffer: the next hit of the chain, from CHAIN_CANCEL into the one before
+  // (never cutting the finisher short), or a fresh swing once the blade is free.
+  if ((h.bufA ?? 0) > 0 && s.inv.sword && !h.carry && !h.spin && h.cooldown <= 0) {
+    const sw = h.swing
+    if (!sw || (sw.n !== undefined && sw.n < 2 && sw.t / swingDur(sw) >= CHAIN_CANCEL)) { h.bufA = 0; startSwing(c, inp) }
+  }
 
   // --- movement ---------------------------------------------------------------
   const charging = h.charge > 0.12
@@ -110,28 +136,34 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
 
   let blockedAhead = false
   // On ice the hero slides (`puzzles/`); null: ordinary ground.
-  const slid = slideHero(c, mx, my, moving, dt)
+  // The step into a blow of the chain moves him on its own (`lunge`).
+  const lunging = lunge(c, dt)
+  const slid = lunging ? null : slideHero(c, mx, my, moving, dt)
   if (slid) blockedAhead = slid.blocked
-  else if (moving && speed > 0) {
-    const dx = mx * speed * dt
-    const dy = my * speed * dt
+  else if (lunging) {
+    // (Moved along the blow.)
+  } else if (moving && speed > 0) {
+    // Up to speed in a few hundredths of a second from a stand; a turn keeps the pace; a stop is at once.
+    const sp = Math.min(speed, Math.hypot(h.vx, h.vy) + HERO_ACCEL * dt)
+    const dx = mx * sp * dt
+    const dy = my * sp * dt
     const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, dx, dy)
     let nx = r.x
     let ny = r.y
     // Corner assist: a mostly-straight walk into a tile edge slips round it.
     if (r.hitX && Math.abs(my) < 0.35) {
       const slip = cornerSlip(c, h.x, h.y, Math.sign(dx), 0)
-      if (slip !== 0) ny += Math.sign(slip) * Math.min(Math.abs(slip), speed * dt)
+      if (slip !== 0) ny += Math.sign(slip) * Math.min(Math.abs(slip), sp * dt)
     }
     if (r.hitY && Math.abs(mx) < 0.35) {
       const slip = cornerSlip(c, h.x, h.y, 0, Math.sign(dy))
-      if (slip !== 0) nx += Math.sign(slip) * Math.min(Math.abs(slip), speed * dt)
+      if (slip !== 0) nx += Math.sign(slip) * Math.min(Math.abs(slip), sp * dt)
     }
     if (!circleBlocked(c.w, s.map, nx, ny, HERO_R)) { h.x = nx; h.y = ny } else { h.x = r.x; h.y = r.y }
-    h.vx = mx * speed
-    h.vy = my * speed
+    h.vx = mx * sp
+    h.vy = my * sp
     blockedAhead = (r.hitX && Math.abs(mx) > 0.7) || (r.hitY && Math.abs(my) > 0.7)
-    h.walkT += dt * (speed / HERO_SPEED)
+    h.walkT += dt * (sp / HERO_SPEED)
   } else {
     h.vx = 0
     h.vy = 0
@@ -217,6 +249,7 @@ function underfoot(c: Ctx) {
     h.actT = 0
     h.swing = null
     h.spin = null
+    h.roll = null
     h.charge = -1
     h.carry = null
     s.mode = 'warp'
@@ -235,6 +268,7 @@ function underfoot(c: Ctx) {
     h.actT = 0
     h.swing = null
     h.spin = null
+    h.roll = null
     h.charge = -1
     h.carry = null
     c.ev.push({ type: 'fall' })
@@ -407,6 +441,8 @@ export function openDialog(c: Ctx, lines: string[], who: string | null, after: i
   s.mode = 'dialog'
   const h = s.hero
   h.swing = null
+  h.roll = null
+  h.bufA = 0
   h.charge = -1
   if (h.act === 'walk' || h.act === 'push') h.act = 'idle'
 }
@@ -419,6 +455,7 @@ export function beginExit(c: Ctx, exit: Pick<ExitSpot, 'id' | 'to'>) {
   s.warp = { t: 0, to: s.map.id, entry: '', swapped: false, exit: { id: exit.id, to: exit.to } }
   h.swing = null
   h.spin = null
+  h.roll = null
   h.charge = -1
   h.vx = 0
   h.vy = 0
@@ -473,7 +510,11 @@ function unlockDoor(c: Ctx, tx: number, ty: number, t: TileChar) {
 function startSwing(c: Ctx, inp: Input) {
   const s = c.s
   const h = s.hero
-  if (inp.autoFace && Math.hypot(inp.move.x, inp.move.y) < 0.1) {
+  // Read the stick afresh for every hit: the chain can turn between blows.
+  const mx = inp.move.x
+  const my = inp.move.y
+  if (Math.hypot(mx, my) > 0.08) { h.dir = faceFor(h.dir, mx, my); h.aim = Math.atan2(my, mx) }
+  if (inp.autoFace && Math.hypot(mx, my) < 0.1) {
     let best: { d: number; dir: Dir; a: number } | null = null
     for (const e of s.map.enemies) {
       if (!enemyActive(c, e)) continue
@@ -482,12 +523,21 @@ function startSwing(c: Ctx, inp: Input) {
     }
     if (best) { h.dir = best.dir; h.aim = best.a }
   }
+  // The next hit of the chain while one is under way or just done; else its first.
+  const prev = h.swing?.n ?? (h.combo && h.combo.t > 0 ? h.combo.n : undefined)
+  const n = (prev === undefined ? 0 : (prev + 1) % 3) as 0 | 1 | 2
   const aim = aimOf(h)
-  h.swing = { t: 0, dir: h.dir, a: aim, hit: [] }
+  h.swing = { t: 0, dir: h.dir, a: aim, hit: [], n, side: n === 1 ? -1 : 1 }
+  h.combo = { n, t: 0 }
   h.act = 'swing'
   h.actT = 0
   h.charge = 0
-  c.ev.push({ type: 'swing' })
+  c.ev.push({ type: 'swing', n })
+}
+
+/** How long a swing lasts: its hit of the chain's time, or SWING_TIME for one outside the chain (a field battle's). */
+export function swingDur(sw: { n?: number }): number {
+  return sw.n === undefined ? SWING_TIME : COMBO[sw.n as 0 | 1 | 2]!.time
 }
 
 /**
@@ -501,29 +551,172 @@ export function aimOf(h: { dir: Dir; aim?: number }): number {
   return Math.abs(d) < Math.PI / 2 - 0.01 ? h.aim : base
 }
 
-/** Angle of the blade at swing progress p (0..1): sweeps across the way the swing was aimed. */
-export function swingAngle(sw: { dir: Dir; a?: number }, p: number): number {
+/**
+ * Angle of the blade at swing progress p (0..1): sweeps across the way the swing was aimed. A hit of the chain
+ * (`n`) first draws back a touch over WINDUP, then cuts across its own arc, fast and settling, the way `side`
+ * says (the second hit comes back the other way). Without `n` the sweep is the plain one, as it always was.
+ */
+export function swingAngle(sw: { dir: Dir; a?: number; n?: number; side?: number }, p: number): number {
   const base = sw.a ?? dirAngle(sw.dir)
-  const e = 1 - (1 - Math.min(1, p)) ** 2
-  return base - SWORD_ARC / 2 + SWORD_ARC * e
+  if (sw.n === undefined) {
+    const e = 1 - (1 - Math.min(1, p)) ** 2
+    return base - SWORD_ARC / 2 + SWORD_ARC * e
+  }
+  const side = sw.side ?? 1
+  const arc = COMBO[sw.n as 0 | 1 | 2]!.arc
+  const q = Math.max(0, Math.min(1, (p - WINDUP) / (1 - WINDUP)))
+  const e = p < WINDUP ? -0.12 * (Math.max(0, p) / WINDUP) : 1 - (1 - q) ** 3
+  return base - (side * arc) / 2 + side * arc * e
 }
 
-function stepSwing(c: Ctx, dt: number) {
+function stepSwing(c: Ctx, inp: Input, dt: number) {
   const h = c.s.hero
   const sw = h.swing!
-  const p0 = sw.t / SWING_TIME
-  sw.t += dt
-  const p1 = Math.min(1, sw.t / SWING_TIME)
-  // Sample the sweep between the last and this step.
-  for (let k = 0; k <= 2; k++) {
-    const a = swingAngle(sw, p0 + ((p1 - p0) * k) / 2)
-    const arc = c.s.inv.arc
-    bladeHits(c, a, arc ? ARC_REACH : SWORD_REACH, arc ? 2 : 1, 'sword', sw.hit)
+  const dur = swingDur(sw)
+  // A stick that lands a moment after A still turns the blow.
+  if (sw.n !== undefined && sw.t < 0.05) {
+    const mx = inp.move.x
+    const my = inp.move.y
+    if (Math.hypot(mx, my) > 0.3) {
+      const a = Math.atan2(my, mx)
+      const d = toDir(mx, my, sw.dir)
+      // (Only toward the way the blow already faces, or across it: a turn right round is the next hit's.)
+      if (angleDiff(a, sw.a ?? dirAngle(sw.dir)) < Math.PI * 0.55) { sw.a = a; sw.dir = d; h.dir = d; h.aim = a }
+    }
   }
-  if (sw.t >= SWING_TIME) {
+  const p0 = sw.t / dur
+  sw.t += dt
+  const p1 = Math.min(1, sw.t / dur)
+  const arc = c.s.inv.arc
+  const hit = sw.n === undefined ? null : COMBO[sw.n]!
+  const dmg = (hit ? hit.dmg : 1) * (arc ? 2 : 1)
+  const reach = (arc ? ARC_REACH : SWORD_REACH) + (sw.n === 2 ? 0.1 : 0)
+  const opt: HitOpts | undefined = hit ? { knock: hit.knock, stagger: hit.stagger, stop: hit.stop, chain: sw.n! < 2, finisher: sw.n === 2 } : undefined
+  // Sample the sweep between the last and this step (the pull-back at the start cuts nothing).
+  for (let k = 0; k <= 2; k++) {
+    const p = p0 + ((p1 - p0) * k) / 2
+    if (hit && p < WINDUP) continue
+    bladeHits(c, swingAngle(sw, p), reach, dmg, 'sword', sw.hit, opt)
+  }
+  if (sw.t >= dur) {
     h.swing = null
-    h.cooldown = SWING_COOLDOWN
     h.act = 'idle'
+    if (sw.n === undefined) { h.cooldown = SWING_COOLDOWN; return }
+    // The chain goes on if A comes again soon; after the finisher it starts over, after a breath.
+    h.combo = { n: sw.n, t: sw.n === 2 ? 0 : COMBO_WINDOW }
+    h.cooldown = COMBO[sw.n]!.cool
+  }
+}
+
+/**
+ * The step forward at the start of a hit of the chain (LUNGE_TIME), along the blow. It stops short of a foe
+ * already within half the blade's reach ahead, of the edge of a pit or spikes, and of ice (on ice, or onto it,
+ * the swing stays where it is and the slide keeps him). True while it holds him.
+ */
+function lunge(c: Ctx, dt: number): boolean {
+  const s = c.s
+  const h = s.hero
+  const sw = h.swing
+  if (!sw || sw.n === undefined || sw.t >= LUNGE_TIME) return false
+  if (iceUnder(c)) return false
+  const a = sw.a ?? dirAngle(sw.dir)
+  const ca = Math.cos(a)
+  const sa = Math.sin(a)
+  if (iceUnder(c, h.x + ca * (HERO_R + 0.1), h.y + sa * (HERO_R + 0.1))) return false
+  h.vx = 0
+  h.vy = 0
+  const reach = (s.inv.arc ? ARC_REACH : SWORD_REACH) * 0.55
+  for (const e of s.map.enemies) {
+    if (!enemyActive(c, e) || e.group) continue
+    const dx = e.x - h.x
+    const dy = e.y - h.y
+    if (dx * ca + dy * sa > 0 && Math.hypot(dx, dy) < reach + e.r) return true
+  }
+  const v = COMBO[sw.n]!.lunge / LUNGE_TIME
+  const ahead = tileAt(s.map, Math.floor(h.x + ca * (HERO_R + 0.3)), Math.floor(h.y + sa * (HERO_R + 0.3)))
+  if (ahead === 'O' || ahead === 'x') return true
+  const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, ca * v * dt, sa * v * dt)
+  h.x = r.x
+  h.y = r.y
+  h.vx = ca * v
+  h.vy = sa * v
+  return true
+}
+
+// ---------------------------------------------------------------------------
+// The dodge roll
+// ---------------------------------------------------------------------------
+
+/** May the hero roll now? With the blade only (before it the town stays quiet), and nothing in his hands or under way. */
+function canRoll(c: Ctx): boolean {
+  const s = c.s
+  const h = s.hero
+  if (!s.inv.sword || h.carry || h.spin || h.roll || (h.rollCool ?? 0) > 0) return false
+  if (h.act === 'lift' || h.act === 'get' || h.act === 'fall' || h.act === 'dead' || h.act === 'hurt') return false
+  // Not on ice, where the hero slides (standing still on it included: a roll would steer him off his lane).
+  if (iceUnder(c)) return false
+  const sw = h.swing
+  return !sw || sw.t / swingDur(sw) >= ROLL_CANCEL
+}
+
+function startRoll(c: Ctx, inp: Input) {
+  const h = c.s.hero
+  let mx = inp.move.x
+  let my = inp.move.y
+  const mag = Math.hypot(mx, my)
+  if (mag > 0.2) { mx /= mag; my /= mag } else { const a = aimOf(h); mx = Math.cos(a); my = Math.sin(a) }
+  const v0 = ROLL_DIST / (ROLL_TIME * 0.7)
+  h.dir = toDir(mx, my, h.dir)
+  h.aim = Math.atan2(my, mx)
+  h.roll = { t: 0, vx: mx * v0, vy: my * v0 }
+  h.bufRoll = 0
+  h.swing = null
+  h.charge = -1
+  h.push = 0
+  h.act = 'roll'
+  h.actT = 0
+  c.ev.push({ type: 'roll' })
+}
+
+function stepRoll(c: Ctx, inp: Input, dt: number) {
+  const s = c.s
+  const h = s.hero
+  const r0 = h.roll!
+  r0.t += dt
+  const p = Math.min(1, r0.t / ROLL_TIME)
+  // A little steering along the way.
+  const mx = inp.move.x
+  const my = inp.move.y
+  const v0 = Math.hypot(r0.vx, r0.vy) || 1
+  if (Math.hypot(mx, my) > 0.3) {
+    const want = Math.atan2(my, mx)
+    const cur = Math.atan2(r0.vy, r0.vx)
+    const d = Math.atan2(Math.sin(want - cur), Math.cos(want - cur))
+    const turn = Math.max(-4 * dt, Math.min(4 * dt, d))
+    r0.vx = Math.cos(cur + turn) * v0
+    r0.vy = Math.sin(cur + turn) * v0
+  }
+  const k = 1 - 0.6 * p
+  const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, r0.vx * k * dt, r0.vy * k * dt)
+  h.x = r.x
+  h.y = r.y
+  h.vx = r0.vx * k
+  h.vy = r0.vy * k
+  h.walkT += dt
+  // Onto ice the roll ends at its edge: the slide takes him from there, along its lanes.
+  if (iceUnder(c)) r0.t = ROLL_TIME
+  underfoot(c)
+  if (!h.roll) return
+  collect(c)
+  if (s.mode !== 'play' || !h.roll) return
+  if (r0.t >= ROLL_TIME) {
+    h.roll = null
+    h.rollCool = ROLL_COOLDOWN
+    h.act = 'idle'
+    h.vx = 0
+    h.vy = 0
+    // A press of A in the roll's last moments: the strike comes straight out of it.
+    if ((h.bufA ?? 0) > 0 && s.inv.sword) { h.bufA = 0; h.combo = undefined; startSwing(c, inp) }
   }
 }
 
@@ -544,17 +737,21 @@ function stepSpin(c: Ctx, dt: number) {
   const base = dirAngle(h.dir)
   for (let k = 0; k <= 3; k++) {
     const a = base + Math.PI * 2 * (p0 + ((p1 - p0) * k) / 3)
-    bladeHits(c, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), c.s.inv.arc ? 3 : 2, 'spin', sp.hit)
+    bladeHits(c, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), c.s.inv.arc ? 3 : 2, 'spin', sp.hit, SPIN_HIT)
   }
   if (sp.t >= SPIN_TIME) {
     h.spin = null
     h.cooldown = SWING_COOLDOWN
+    h.combo = undefined
     h.act = 'idle'
   }
 }
 
+/** The spin's blows: a hard shove and a heavy stop. */
+const SPIN_HIT: HitOpts = { knock: 1.2, stop: 55 }
+
 /** Everything the blade at angle `a` touches: enemies, shards, pellets, tiles. */
-function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' | 'spin', hit: string[]) {
+function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' | 'spin', hit: string[], opt?: HitOpts) {
   const s = c.s
   const h = s.hero
   const ca = Math.cos(a)
@@ -570,7 +767,7 @@ function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' |
     const perp = Math.abs(dx * sa - dy * ca)
     if ((off < 0.5 || perp < e.r + 0.15) && dx * ca + dy * sa > -0.2 && lineClear(c.w, s.map, h.x, h.y, e.x, e.y)) {
       hit.push(e.id)
-      hitEnemy(c, e, dmg, h.x, h.y, src)
+      hitEnemy(c, e, dmg, h.x, h.y, src, opt)
     }
   }
   for (let r = 0.6; r <= reach; r += 0.3) breakShards(c, h.x + ca * r, h.y + sa * r, 0.15)

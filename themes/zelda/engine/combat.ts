@@ -3,7 +3,7 @@
  * calls into. `Ctx` bundles what a step needs.
  */
 import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, World } from '../types'
-import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS } from '../types'
+import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES } from '../types'
 import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
@@ -30,6 +30,8 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
   // Nothing hurts while the hero steps out of a door.
   if (h.auto) return false
   if (s.mode !== 'play' || h.invuln > 0 || h.act === 'fall' || h.act === 'dead' || h.act === 'get') return false
+  // The first moments of a dodge roll: nothing lands.
+  if (h.roll && h.roll.t < ROLL_IFRAMES) return false
   h.hp = Math.max(0, h.hp - dmg)
   h.invuln = INVULN
   let dx = h.x - fromX
@@ -40,6 +42,7 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
   h.knock = { vx: dx * KNOCK_SPEED, vy: dy * KNOCK_SPEED, t: KNOCK_TIME * (shock ? 1.5 : 1) }
   h.swing = null
   h.spin = null
+  h.roll = null
   h.charge = -1
   if (h.carry) {
     c.ev.push({ type: 'shatter', x: h.x, y: h.y - 0.6, kind: h.carry })
@@ -74,8 +77,16 @@ const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepse
 
 const blade = (src: HitSource) => src === 'sword' || src === 'spin'
 
+/**
+ * How a blow lands, beyond its damage (the blade's chain, `COMBO`): `knock` x the ordinary shove, `stagger` s of
+ * reeling (small foes), `stop` ms of hitstop, `chain` a quick hit of the chain (the foe's mercy is short, so the
+ * next hit lands), `finisher` the chain's last (it bites harder on a foe stunned, or reeling from some other
+ * blow: a pot, a bomb, the spin; not on one reeling only from the chain's own hits). Left out: the plain values.
+ */
+export interface HitOpts { knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean }
+
 /** Apply a hit. Returns true if it connected (damage or stun). */
-export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource): boolean {
+export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
   if (e.dead || e.invuln > 0) return false
   // A field battle's foe struck in the field: the fight starts, the party first.
   if (e.group) { startBattle(c, e.group, 'party'); return c.s.mode === 'battle' }
@@ -84,7 +95,7 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
     if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
     return false
   }
-  const special = bossRules(c, e, dmg, fromX, fromY, src)
+  const special = bossRules(c, e, dmg, fromX, fromY, src, opt)
   if (special !== null) return special
   // The hook stuns like the disc, and bites the frail.
   if (src === 'hook') {
@@ -130,7 +141,7 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
     e.invuln = 0.2
     return false
   }
-  return damage(c, e, dmg, fromX, fromY)
+  return damage(c, e, dmg, fromX, fromY, opt)
 }
 
 /**
@@ -140,7 +151,7 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
  * DEEPSEEK: under the floor nothing reaches it but the hook, which hauls it up.
  * GEMINI: ordinary, but a twin at zero only falls down (see damage).
  */
-function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource): boolean | null {
+function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean | null {
   const ai = e.ai
   switch (e.kind) {
     case 'llama':
@@ -155,7 +166,7 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       }
       return false
     case 'mistral':
-      if (ai.mode === 'down') return src === 'hook' || src === 'disc' ? false : damage(c, e, dmg, fromX, fromY)
+      if (ai.mode === 'down') return src === 'hook' || src === 'disc' ? false : damage(c, e, dmg, fromX, fromY, opt)
       // The hook only bites while it holds still to breathe in (or blows).
       if (src === 'hook' && (ai.mode === 'inhale' || ai.mode === 'blow')) {
         ai.mode = 'down'
@@ -182,29 +193,40 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (src === 'hook' || src === 'disc') return false
       // Three blows and it dives back under the floor.
       ai.hits = ((ai.hits as number) ?? 0) + 1
-      if (!damage(c, e, dmg, fromX, fromY)) return false
+      if (!damage(c, e, dmg, fromX, fromY, opt)) return false
       if ((ai.hits as number) >= 3 && !e.dead) { ai.hits = 0; ai.mode = 'under'; ai.t = 2.2; ai.tell = 0; e.invuln = 1.4 }
       return true
     case 'gemini':
       if (ai.mode === 'down') return false
       if (src === 'hook' || src === 'disc') { e.stun = 0.8; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
-      return damage(c, e, dmg, fromX, fromY)
+      return damage(c, e, dmg, fromX, fromY, opt)
     default:
       return null
   }
 }
 
-function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number): boolean {
-  e.hp -= dmg
+function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt?: HitOpts): boolean {
+  const big = BIG.has(e.kind)
+  // The chain's finisher on a foe stunned (the disc, the hook) or reeling from another blow: a critical one.
+  // The chain's own hits leave the foe reeling too, but that is the chain's ordinary course, not a crit.
+  const crit = !!opt?.finisher && !big && (e.stun > 0 || ((e.stagger ?? 0) > 0 && !e.reelChain))
+  e.hp -= dmg + (crit ? 1 : 0)
   e.flash = 0.14
-  e.invuln = BIG.has(e.kind) ? 0.45 : 0.28
+  e.invuln = big ? 0.45 : opt?.chain ? 0.1 : 0.28
+  const ddx = e.x - fromX
+  const ddy = e.y - fromY
+  const len = Math.hypot(ddx, ddy) || 1
+  const dx = ddx / len
+  const dy = ddy / len
   if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini') {
-    const dx = e.x - fromX
-    const dy = e.y - fromY
-    const len = Math.hypot(dx, dy) || 1
-    const k = BIG.has(e.kind) ? 0.4 : 1
-    e.knock = { vx: (dx / len) * 9 * k, vy: (dy / len) * 9 * k, t: 0.14 }
+    const k = (opt?.knock ?? 1) * (big ? 0.4 : 1)
+    e.knock = { vx: dx * 9 * k, vy: dy * 9 * k, t: 0.14 }
   }
+  if (!big) { e.stagger = Math.max(e.stagger ?? 0, opt?.stagger ?? 0.12); e.reelChain = !!opt?.chain }
+  e.hitT = 0
+  e.hitDx = dx
+  e.hitDy = dy
+  const heavy = (opt?.stop ?? 0) >= 50
   if (e.kind === 'gemini' && e.hp <= 0) {
     // A twin at zero falls down; the other must follow before it gets up again.
     const twin = c.s.map.enemies.find(o => o !== e && o.kind === 'gemini' && o.cell === e.cell && !o.dead)
@@ -214,20 +236,22 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number): bo
       e.ai.t = 4
       e.ai.tell = 0
       e.knock = null
-      c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed: false })
-      c.ev.push({ type: 'hitStop', ms: 70 })
+      c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed: false, dx, dy, heavy: true })
+      c.ev.push({ type: 'hitStop', ms: 120 })
       c.ev.push({ type: 'bossPhase', phase: 2 })
       return true
     }
-    if (twin) { twin.hp = 0; twin.dead = true; c.ev.push({ type: 'kill', x: twin.x, y: twin.y, kind: twin.kind }) }
+    if (twin) { twin.hp = 0; twin.dead = true; twin.deathT = 0; c.ev.push({ type: 'kill', x: twin.x, y: twin.y, kind: twin.kind }) }
   }
   const killed = e.hp <= 0
-  c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed })
-  c.ev.push({ type: 'hitStop', ms: killed ? 70 : 40 })
+  c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed, dx, dy, heavy, crit })
+  // Hitstop by weight: a quick hit of the chain, the finisher, a boss, a kill.
+  c.ev.push({ type: 'hitStop', ms: killed ? 90 : BOSSES.has(e.kind) ? 60 : opt?.stop ?? 40 })
   if (killed) killEnemy(c, e)
   else if ((e.kind === 'king' || e.kind === 'mistral' || e.kind === 'deepseek') && e.hp <= STATS[e.kind].hp / 2 && e.ai.phase !== 2) {
     e.ai.phase = 2
     c.ev.push({ type: 'bossPhase', phase: 2 })
+    c.ev.push({ type: 'hitStop', ms: 120 })
     c.s.shake = 0.4
   }
   return true
@@ -235,6 +259,8 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number): bo
 
 export function killEnemy(c: Ctx, e: Enemy) {
   e.dead = true
+  e.deathT = 0
+  e.stagger = 0
   e.knock = null
   c.ev.push({ type: 'kill', x: e.x, y: e.y, kind: e.kind })
   if (e.once) setFlag(c.s, e.once)
@@ -242,7 +268,7 @@ export function killEnemy(c: Ctx, e: Enemy) {
     c.ev.push({ type: 'bossDown', kind: e.kind })
     c.s.shake = 0.6
     // The room's small fry go with their master.
-    for (const o of c.s.map.enemies) if (o !== e && o.cell === e.cell && !o.dead && o.kind !== 'eye') { o.dead = true; c.ev.push({ type: 'kill', x: o.x, y: o.y, kind: o.kind }) }
+    for (const o of c.s.map.enemies) if (o !== e && o.cell === e.cell && !o.dead && o.kind !== 'eye') { o.dead = true; o.deathT = 0; c.ev.push({ type: 'kill', x: o.x, y: o.y, kind: o.kind }) }
     return
   }
   if (e.carries === 'smallKey') { spawnDrop(c, e.x, e.y, 'key'); return }
@@ -292,7 +318,7 @@ export const bombMax = (s: GameState) => (s.inv.bombBag ? (s.inv.bigBag ? 20 : 1
 
 export function itemText(s: GameState, item: ItemId): string[] {
   switch (item) {
-    case 'sword': return ['YOU GOT THE NEON BLADE!', 'PRESS {A} TO SWING. HOLD {A}, THEN LET GO, FOR A SPIN ATTACK.']
+    case 'sword': return ['YOU GOT THE NEON BLADE!', 'PRESS {A} TO SWING, AND AGAIN FOR THE NEXT BLOW. HOLD {A}, THEN LET GO, FOR A SPIN ATTACK.', '{ROLL} ROLLS YOU OUT OF HARM\'S WAY.']
     case 'bombBag': return ['YOU GOT BOMBS!', 'PRESS {B} TO SET ONE. A BLAST BREAKS CRACKED ROCK AND WALLS.']
     case 'bombs5': return ['FIVE BOMBS. HANDLE WITH CARE.']
     case 'disc': return ['YOU GOT THE PRISM DISC!', 'PRESS {B} TO THROW IT. IT STUNS FOES, FETCHES LOOT AND FLIPS FAR SWITCHES.', '{CYCLE} SWAPS BETWEEN BOMBS AND THE DISC.']
@@ -369,6 +395,8 @@ export function acquire(c: Ctx, item: ItemId) {
   h.actT = 0
   h.swing = null
   h.spin = null
+  h.roll = null
+  h.bufA = 0
   h.charge = -1
   h.knock = null
   c.ev.push({ type: 'itemGet', item })

@@ -90,6 +90,49 @@ describe('ice', () => {
     assert.ok(far > 7.2, `the pot slid to ${far}`)
     assert.ok(broke)
   })
+  it('neither the roll nor the swing\'s lunge moves him on ice: only a slide does (2026-11-25)', () => {
+    const w = room([
+      '#########',
+      '#@......#',
+      '#ααααααα#',
+      '#ααααααα#',
+      '#ααααααα#',
+      '#ααααααα#',
+      '#.......#',
+      '#########',
+    ])
+    put(w.s, 4, 4)
+    w.s.hero.dir = 'right'
+    w.s.hero.aim = 0
+    const x0 = w.s.hero.x
+    const y0 = w.s.hero.y
+    // The roll, from rest (the stick at rest: the roll would go the way he faces), any way: no roll at all.
+    for (const [dir, aim] of [['right', 0], ['down', Math.PI / 4], ['up', -Math.PI / 2]]) {
+      w.s.hero.dir = dir
+      w.s.hero.aim = aim
+      const ev = step(w, w.s, inp({ rollPress: true }))
+      ev.push(...step(w, w.s, inp(), 30))
+      assert.ok(!ev.some(e => e.type === 'roll'), `rolled on ice (${dir})`)
+    }
+    w.s.hero.dir = 'right'
+    w.s.hero.aim = 0
+    // A chain of swings with the stick at rest: they land, but in place.
+    let swings = 0
+    for (let k = 0; k < 6; k++) {
+      swings += step(w, w.s, inp({ aPress: true, a: true })).filter(e => e.type === 'swing').length
+      step(w, w.s, inp(), 12)
+    }
+    assert.ok(swings >= 4, `${swings} swings`)
+    assert.ok(Math.abs(w.s.hero.x - x0) < 1e-9 && Math.abs(w.s.hero.y - y0) < 1e-9, `moved to (${w.s.hero.x.toFixed(2)}, ${w.s.hero.y.toFixed(2)})`)
+    assert.equal(w.s.map.phys.slide ?? null, null)
+    // A roll from the floor onto the ice ends at its edge.
+    put(w.s, 4, 1)
+    w.s.hero.rollCool = 0
+    const ev = step(w, w.s, inp({ rollPress: true, move: { x: 0, y: 1 } }))
+    ev.push(...step(w, w.s, inp(), 30))
+    assert.ok(ev.some(e => e.type === 'roll'), 'no roll on the floor')
+    assert.deepEqual(at(w.s), [4, 2], 'rolled on over the ice')
+  })
 })
 
 describe('beams', () => {

@@ -30,6 +30,19 @@ export type ArtFacing = 'front' | 'back'
 export const ART_POSES = ['0', '1', '2', 'atk', 'carry_0', 'carry_1', 'push'] as const
 /** The poses drawn facing the viewer only (`fall_*` and `dead` are made from the standing front). */
 export const ART_FRONT_POSES = ['get', 'hurt'] as const
+/**
+ * Poses the classic hero has (front and back) that the art need not draw yet: while a body for one is missing, its
+ * frame is made from a drawn pose (`from`), turned clockwise a quarter `turn` times and shrunk by `scale`, so a pose
+ * added before its art never turns the whole hero classic (`heroArtCovers` asks only for `ART_POSES`). When the
+ * bodies are drawn (`HERO_BODIES['roll_1/front/trousers']` …) they are used instead.
+ */
+export const ART_EXTRA_POSES: Readonly<Record<string, { from: string; turn?: number; scale?: number }>> = {
+  // As the classic frames (`ROLL_TUCKS`): tucked, a quarter forward, tucked smaller, a quarter back; never upside down.
+  roll_0: { from: '0', scale: 0.75 },
+  roll_1: { from: '0', turn: 1, scale: 0.75 },
+  roll_2: { from: '0', scale: 0.6 },
+  roll_3: { from: '0', turn: 3, scale: 0.75 },
+}
 
 const ROLES: HeroRole[] = ['hair', 'skin', 'head', 'top', 'stripe', 'belt', 'bottom', 'shoes']
 const ROLE_KEY: Record<HeroRole, 'hairColor' | 'skin' | 'headColor' | 'top' | 'stripe' | 'belt' | 'bottomColor' | 'shoes'> = {
@@ -186,6 +199,31 @@ function lying(fr: ArtFrame): ArtFrame {
   return { rows: rows.slice(0, bottom + 1), ax: feet + 16, ay: bottom + 1 }
 }
 
+/** A drawn frame turned clockwise a quarter `turn` times and shrunk, standing on its lowest px, centred (`ART_EXTRA_POSES`). */
+function tucked(fr: ArtFrame, turn: number, scale: number): ArtFrame {
+  let rows = fr.rows
+  for (let i = 0; i < turn % 4; i++) {
+    const h = rows.length
+    const w = rows[0]!.length
+    const out: string[] = []
+    for (let x = 0; x < w; x++) { let r = ''; for (let y = h - 1; y >= 0; y--) r += rows[y]![x]!; out.push(r) }
+    rows = out
+  }
+  const sw = rows[0]!.length
+  const sh = rows.length
+  const dw = Math.max(1, Math.round(sw * scale))
+  const dh = Math.max(1, Math.round(sh * scale))
+  const small: string[] = []
+  for (let y = 0; y < dh; y++) {
+    let r = ''
+    for (let x = 0; x < dw; x++) r += rows[Math.floor((y + 0.5) / scale)]?.[Math.floor((x + 0.5) / scale)] ?? '.'
+    small.push(r)
+  }
+  while (small.length > 1 && !/[^.]/.test(small[small.length - 1]!)) small.pop()
+  while (small.length > 1 && !/[^.]/.test(small[0]!)) small.shift()
+  return { rows: small, ax: Math.round(dw / 2), ay: small.length }
+}
+
 /**
  * The frame for a classic hero sprite's name, mirrored or not, in a shape (null: no art for it). A frame of a pose
  * drawn both ways is the front or the back, mirrored, as `facingOf` maps the folk's four-way frames.
@@ -194,8 +232,14 @@ export function heroArtFrame(name: string, flip: boolean, s: HeroShape, P: HeroP
   const m = /^hero_(down|up|side)_(.+)$/.exec(name)
   if (m) {
     const pose = m[2]!
-    const four = m[1] === 'down' ? { f: 'front' as const, flip: false } : m[1] === 'up' ? { f: 'back' as const, flip: true } : flip ? { f: 'back' as const, flip: false } : { f: 'front' as const, flip: true }
-    const fr = composed(pose, four.f, s, P)
+    // (Facing the viewer or away, a mirrored frame is the pose turned the other way: the chain's backhand.)
+    const four = m[1] === 'down' ? { f: 'front' as const, flip } : m[1] === 'up' ? { f: 'back' as const, flip: !flip } : flip ? { f: 'back' as const, flip: false } : { f: 'front' as const, flip: true }
+    let fr = composed(pose, four.f, s, P)
+    const extra = ART_EXTRA_POSES[pose]
+    if (!fr && extra) {
+      const from = composed(extra.from, four.f, s, P)
+      fr = from ? tucked(from, extra.turn ?? 0, extra.scale ?? 1) : null
+    }
     return fr ? { frame: fr, flip: four.flip } : null
   }
   if (name === 'hero_get' || name === 'hero_hurt') {
@@ -226,7 +270,7 @@ export function heroArtFor(name: string, flip: boolean, s: HeroShape, P: HeroPar
 
 /** Every frame name the art draws, for the lab and the tests. */
 export const HERO_ART_NAMES: readonly string[] = [
-  ...['down', 'up', 'side'].flatMap(d => ART_POSES.map(p => `hero_${d}_${p}`)),
+  ...['down', 'up', 'side'].flatMap(d => [...ART_POSES, ...Object.keys(ART_EXTRA_POSES)].map(p => `hero_${d}_${p}`)),
   'hero_get', 'hero_hurt', 'hero_fall_0', 'hero_fall_1', 'hero_fall_2', 'hero_dead',
 ]
 

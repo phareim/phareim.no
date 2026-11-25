@@ -108,6 +108,9 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   h.safe = { x: spot.x, y: spot.y }
   h.swing = null
   h.spin = null
+  h.roll = null
+  h.bufA = 0
+  h.bufRoll = 0
   h.charge = -1
   h.knock = null
   h.carry = null
@@ -215,7 +218,7 @@ export function stepGame(world: World, s: GameState, dt: number, input: Input): 
   while (left > 1e-9) {
     const h = Math.min(STEP, left)
     left -= h
-    const inp = first ? input : { ...input, aPress: false, bPress: false, cycle: false, pick: undefined }
+    const inp = first ? input : { ...input, aPress: false, bPress: false, cycle: false, rollPress: false, pick: undefined }
     first = false
     substep(world, s, h, inp, ev)
   }
@@ -291,6 +294,7 @@ function play(c: Ctx, dt: number, inp: Input) {
       h.carry = null
       h.swing = null
       h.spin = null
+      h.roll = null
       h.charge = -1
       h.dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up'
       c.ev.push({ type: 'scroll' })

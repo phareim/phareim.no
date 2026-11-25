@@ -16,9 +16,10 @@ import type {
   BattleAction, BattleElement, BattleItem, BattleMenu, BattlePick, BattleState, BattleStatus, Enemy, Fighter, Input,
   MemberId, TechId, Vec,
 } from '../../types'
-import { HERO_R, MAX_BITS, SPIN_TIME, SWING_TIME } from '../../types'
+import { HERO_R, MAX_BITS, SPIN_TIME } from '../../types'
 import { acquire, rollDrop, type Ctx } from '../combat'
 import { has, setFlag, tileAt } from '../map'
+import { swingDur } from '../hero'
 import { rnd, toDir } from '../util'
 import { combosOf, FOES, PARTY, TECHS, TP_MAX, TP_START, type TechDef } from './data'
 import { freeSpot } from './field'
@@ -113,6 +114,8 @@ export function startBattle(c: Ctx, id: string, first: 'party' | 'foes' | null) 
   if (h.carry) { c.ev.push({ type: 'shatter', x: h.x, y: h.y - 0.6, kind: h.carry }); h.carry = null }
   h.swing = null
   h.spin = null
+  h.roll = null
+  h.bufA = 0
   h.charge = -1
   h.knock = null
   h.vx = 0
@@ -500,7 +503,7 @@ function playAction(c: Ctx, b: BattleState, a: BattleAction, dt: number) {
       else { const ang = tgt ? Math.atan2(tgt.home.y - h.y, tgt.home.x - h.x) : undefined; h.swing = { t: 0, dir: h.dir, a: ang, hit: [] }; h.act = 'swing'; c.ev.push({ type: 'swing' }) }
       h.actT = 0
     }
-    if (h.swing) { h.swing.t += dt; if (h.swing.t >= SWING_TIME) { h.swing = null; h.act = 'walk' } }
+    if (h.swing) { h.swing.t += dt; if (h.swing.t >= swingDur(h.swing)) { h.swing = null; h.act = 'walk' } }
     if (h.spin) { h.spin.t += dt; if (h.spin.t >= SPIN_TIME) { h.spin = null; h.act = 'walk' } }
   }
   // Luna's mind at work.

@@ -5,12 +5,12 @@
  * (phase, pause, touch deck) and calls `read()` once per frame.
  *
  * Keys: arrows / WASD move; Space / J / Z / Enter = A; K / X / Shift = B;
- * Q / Tab / C cycle. Touch: a floating stick starts under a finger on the
+ * L / C roll; Q / Tab cycle. Touch: a floating stick starts under a finger on the
  * left 60 % of the screen; a tap on the right 40 % presses A; any tap moves a
  * dialog on, and on a YES / NO line the half it lands on is the answer. A
  * finger that lands on the stick's side during a dialog and stays down is the
  * stick once the lines close. The mouse only moves dialogs on (the deck
- * buttons call pressA …).
+ * buttons call pressA, pressRoll …).
  */
 import type { Input } from './types'
 
@@ -44,6 +44,8 @@ export interface GameInput {
   pressA(): void
   releaseA(): void
   pressB(): void
+  /** The touch deck's roll pad. */
+  pressRoll(): void
   cycle(): void
   attach(): void
   detach(): void
@@ -54,11 +56,12 @@ const TAP_PX = 10
 
 const A_KEYS = new Set(['Space', 'KeyJ', 'KeyZ', 'Enter'])
 const B_KEYS = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight'])
-const CYCLE_KEYS = new Set(['KeyQ', 'Tab', 'KeyC'])
+const CYCLE_KEYS = new Set(['KeyQ', 'Tab'])
+const ROLL_KEYS = new Set(['KeyL', 'KeyC'])
 const MOVE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
 
 export function isGameKey(code: string) {
-  return MOVE_KEYS.has(code) || A_KEYS.has(code) || B_KEYS.has(code) || CYCLE_KEYS.has(code)
+  return MOVE_KEYS.has(code) || A_KEYS.has(code) || B_KEYS.has(code) || CYCLE_KEYS.has(code) || ROLL_KEYS.has(code)
 }
 
 /** Links, buttons and site chrome keep their own clicks and keys. */
@@ -76,6 +79,7 @@ export function createInput(hooks: InputHooks): GameInput {
   let aPress = false
   let bPress = false
   let cyclePress = false
+  let rollPress = false
   let tapSide: -1 | 1 | undefined
   let tap: { x: number; y: number } | undefined
   let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
@@ -104,6 +108,7 @@ export function createInput(hooks: InputHooks): GameInput {
       aPress,
       bPress,
       cycle: cyclePress,
+      ...(rollPress ? { rollPress } : {}),
       autoFace: hooks.touch(),
       tapSide,
       ...(tap ? { tap } : {}),
@@ -113,6 +118,7 @@ export function createInput(hooks: InputHooks): GameInput {
     aPress = false
     bPress = false
     cyclePress = false
+    rollPress = false
     return input
   }
 
@@ -123,6 +129,7 @@ export function createInput(hooks: InputHooks): GameInput {
     aPress = false
     bPress = false
     cyclePress = false
+    rollPress = false
     tapSide = undefined
     tap = undefined
     stick = null
@@ -224,6 +231,7 @@ export function createInput(hooks: InputHooks): GameInput {
     if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }
     else if (B_KEYS.has(e.code)) bPress = true
     else if (CYCLE_KEYS.has(e.code)) cyclePress = true
+    else if (ROLL_KEYS.has(e.code)) rollPress = true
   }
 
   function onKeyUp(e: KeyboardEvent) {
@@ -258,6 +266,7 @@ export function createInput(hooks: InputHooks): GameInput {
     pressA() { if (live()) { aPress = true; aHeldTouch = true } },
     releaseA() { aHeldTouch = false },
     pressB() { if (live()) bPress = true },
+    pressRoll() { if (live()) rollPress = true },
     cycle() { if (live()) cyclePress = true },
     attach,
     detach,
