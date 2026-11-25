@@ -125,6 +125,11 @@ export const GROUND: Record<RealmLook, { grass: Material; path: Material; sand: 
 }
 
 export type Particles = 'snow' | 'spores' | 'dust' | 'petals' | 'none'
+/**
+ * More life in a realm's air (`iso/air.ts` `realmLife`): paper lanterns rising off the water, quartz glinting
+ * on the sand, butterflies over the lawns, birds (or gulls) crossing high up, fish jumping in open water.
+ */
+export type Life = 'lanterns' | 'glints' | 'butterflies' | 'birds' | 'gulls' | 'fish'
 
 /** The 16-bit view's light and air for a look, laid over the hour's (`iso/view.ts`). */
 export interface Mood {
@@ -154,6 +159,25 @@ export interface Mood {
   count: number
   /** The leaves the wind carries (two colours), or none. */
   leaves: [string, string] | null
+  /**
+   * The lamps: how strong they shine against the coast's (a dark realm's pools must read on its art, a bright
+   * one's must not burn it out), how much of their light hangs in the air against the rest of the frontier's
+   * (which has 1.6 times the coast's: `iso/view.ts`), and the two colours of the street lamps (`t`, classic hex,
+   * each one the lamp post's glass in the 16-bit view as well: `LAMP_PROPS` in `iso/view.ts`).
+   */
+  lamps: number
+  glow: number
+  lamp: [string, string]
+  /** The colour of the low sun's shafts. */
+  raysColor: string
+  /**
+   * Fireflies or wisps at dusk (the Wildwood's are `wild.ts` `fireflies`): their colour, the light they give,
+   * how many; `still`: as many by day (under the caps and in the fog it is always dusk).
+   */
+  flies: { color: string; light: string; count: number; still?: boolean } | null
+  life: Life[]
+  /** How far toward a lantern the hero's own light is here (0: the coast's faint one, 1: bright); the night takes it there too. */
+  hero: number
 }
 
 export const MOOD: Record<RealmLook, Mood> = {
@@ -163,6 +187,7 @@ export const MOOD: Record<RealmLook, Mood> = {
     mist: 0.25, mistColor: '#8aa0e0', clear: 0, rays: 0.3,
     ambient: [0.92, 0.98, 1.12], sun: [0.85, 0.95, 1.15], shadowLength: 1.6, shadowColor: '#3a3aa8',
     particles: 'snow', colors: ['#ffffff', '#d6e2ff', '#b4c4ff'], count: 70, leaves: null,
+    lamps: 1.15, glow: 0.9, lamp: ['#ffb13f', '#ffd23f'], raysColor: '#c8d8ff', flies: null, life: ['lanterns', 'gulls', 'fish'], hero: 0.3,
   },
   // A warm haze over pastel dunes, quartz glinting.
   dune: {
@@ -170,20 +195,23 @@ export const MOOD: Record<RealmLook, Mood> = {
     mist: 0, mistColor: '#ffc0a0', clear: 0, rays: 0.6,
     ambient: [1, 1.22, 1.12], sun: [1, 1.12, 1], shadowLength: 1.3, shadowColor: '#7a4a9a',
     particles: 'dust', colors: ['#ffe0c0', '#ffc0b0'], count: 26, leaves: null,
+    lamps: 0.75, glow: 0.55, lamp: ['#ffd23f', '#ffb13f'], raysColor: '#ffd8a0', flies: null, life: ['glints', 'birds'], hero: 0,
   },
   // Always dusk under the caps: a dim green ambient, glowing spores drifting up.
   spore: {
     sky: ['#120c3a', '#3a6aa0'], water: '#0a1e48', haze: 0.8, hazeColor: '#5a40b0', hazeMix: 0.8,
-    mist: 0.9, mistColor: '#4a3aa0', clear: 0, rays: 0,
+    mist: 0.9, mistColor: '#4a3aa0', clear: 0, rays: 0.5,
     ambient: [0.72, 0.9, 0.92], sun: [0.4, 0.55, 0.6], shadowLength: 0.8, shadowColor: '#1a2a5a',
     particles: 'spores', colors: ['#6ff6ff', '#8ffce0', '#ff8ae0', '#c8a0ff'], count: 34, leaves: null,
+    lamps: 1.3, glow: 0.9, lamp: ['#3ff0ff', '#c87ae0'], raysColor: '#6ff6e0', flies: { color: '#8ffce0', light: '#6ff6ff', count: 14, still: true }, life: ['fish'], hero: 1,
   },
   // Rose ground fog that parts round the hero; the hilltops stand clear of it.
   fog: {
     sky: ['#3a1a5a', '#ff7ab8'], water: '#1c1650', haze: 1.4, hazeColor: '#ff8ac0', hazeMix: 0.85,
-    mist: 1.8, mistColor: '#e888b8', clear: 3.2, rays: 0.2,
+    mist: 1.8, mistColor: '#e888b8', clear: 3.2, rays: 0.5,
     ambient: [1.02, 0.94, 1.0], sun: [1, 0.85, 0.95], shadowLength: 0.9, shadowColor: '#5a2a7a',
     particles: 'none', colors: [], count: 0, leaves: ['#ff8ac0', '#c8a0ff'],
+    lamps: 0.85, glow: 0.6, lamp: ['#ff4fb8', '#3ff0ff'], raysColor: '#ffb0d8', flies: { color: '#ffd0f0', light: '#ff8ac0', count: 8, still: true }, life: ['fish'], hero: 0.4,
   },
   // A dusty ochre afternoon: dust on the air, the sun low and orange.
   quarry: {
@@ -191,6 +219,7 @@ export const MOOD: Record<RealmLook, Mood> = {
     mist: 0.3, mistColor: '#c07a5a', clear: 0, rays: 0.7,
     ambient: [1, 1.16, 1.02], sun: [1.05, 1.02, 0.82], shadowLength: 1.2, shadowColor: '#4a2a6a',
     particles: 'dust', colors: ['#ffb070', '#e0905a', '#ffd0a0'], count: 40, leaves: null,
+    lamps: 1.2, glow: 0.9, lamp: ['#ffb13f', '#3ff0ff'], raysColor: '#ffb070', flies: { color: '#ffd23f', light: '#ffb13f', count: 6 }, life: ['birds', 'fish'], hero: 0,
   },
   // A bright eighties afternoon: warm sun, violet shadows, cut grass on the wind.
   suburb: {
@@ -198,6 +227,7 @@ export const MOOD: Record<RealmLook, Mood> = {
     mist: 0, mistColor: '#c0a0e0', clear: 0, rays: 0.5,
     ambient: [1.22, 1.14, 1.06], sun: [1.15, 1.02, 0.88], shadowLength: 1.15, shadowColor: '#6a4aa8',
     particles: 'petals', colors: ['#ffb0e0', '#ffffff', '#b4e484'], count: 14, leaves: ['#7ad890', '#ff9ad4'],
+    lamps: 0.85, glow: 0.6, lamp: ['#ffd23f', '#ffb13f'], raysColor: '#fff0c0', flies: { color: '#e8ff8a', light: '#b6ff4a', count: 10 }, life: ['butterflies', 'birds', 'fish'], hero: 0,
   },
 }
 

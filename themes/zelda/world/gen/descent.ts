@@ -88,8 +88,8 @@ export function generateLayer(ctx: DescentCtx): MapDef {
   if (ctx.layer < DEEP_LAYERS) {
     g[fy + 2]![fx + RW - 4] = mark({ t: 'warp', to: deepId(ctx.top, ctx.layer + 1), entry: 'up' }, '>')
     entries.down = { x: fx + RW - 4 + 0.5, y: fy + 3.5, dir: 'down' }
-    const rank = ['rose', 'pink', 'cyan', 'violet', 'gold'][ctx.layer - 1]!
-    isoLandmarks.push({ art: `underglow_glowstick_${rank}`, x: entries.down.x + 0.95, y: entries.down.y })
+    const rank = (['rose', 'pink', 'cyan', 'violet', 'gold'] as const)[ctx.layer - 1]!
+    isoLandmarks.push({ art: `underglow_glowstick_${rank}`, x: entries.down.x + 0.95, y: entries.down.y, lights: [{ tone: rank, r: 2.5, a: 0.8, z: 0.5, anim: 'pulse' }] })
   } else {
     // The Geyser: a ring of lamps round the hole it comes up through.
     const gx = fx + RW / 2
@@ -97,7 +97,7 @@ export function generateLayer(ctx: DescentCtx): MapDef {
     for (const [dx, dy] of [[-2, -2], [2, -2], [-2, 2], [2, 2]] as const) g[gy + dy]![gx + dx] = 't'
     g[gy]![gx] = mark({ t: 'warp', to: ctx.top, entry: 'deep' }, '>')
     entries.down = { x: gx + 0.5, y: gy + 1.5, dir: 'down' }
-    isoLandmarks.push({ art: 'underglow_sun', x: gx + 0.5, y: gy - 1.3, motion: { frames: 2, fps: 1 } })
+    isoLandmarks.push({ art: 'underglow_sun', x: gx + 0.5, y: gy - 1.3, motion: { frames: 2, fps: 1 }, lights: [{ tone: 'gold', r: 6, a: 0.8, z: 1.5, anim: 'pulse' }] })
     g[gy - 3]![gx - 4] = mark({ t: 'sign', lines: ['THE GEYSER', 'IT GOES UP. ALL THE WAY.'] })
   }
 

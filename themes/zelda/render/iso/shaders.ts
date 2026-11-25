@@ -871,6 +871,7 @@ uniform vec3 uMistColor;
 /** A realm's ground fog (looks.ts): the hero on the ground (x, y), how far round them it parts (0: it does not), how much more of the ground it covers. */
 uniform vec4 uFog;
 uniform float uRays;
+uniform vec3 uRaysColor;
 uniform float uWet;
 out vec4 o0;
 
@@ -993,6 +994,12 @@ void main() {
       float band = floor(m * 4.0 + bayer(s) * 0.99) / 4.0;
       // It lies on the ground: what stands in it (a figure, a clump of grass) keeps most of its colour.
       c = mix(c, c * 0.62 + uMistColor, band * uMist * (mat >= 3 ? 0.14 : 0.42));
+      // And the lamps light it: a halo of their colour hangs in the mist round each one, in the same steps.
+      vec3 lampAir = texture(uL0, (w - uRect.xy) * uLScale).rgb;
+      // (Where the mist is thick: the Wildwood's, a realm's; the coast's breath of it carries none. Laid on as a
+      // screen, so pale fog takes the lamp's colour and is not burnt out to white.)
+      vec3 halo = min(lampAir, vec3(1.0)) * (0.15 + band) * smoothstep(0.25, 0.9, uMist) * (mat >= 3 ? 0.08 : 0.3);
+      c = 1.0 - (1.0 - c) * (1.0 - halo);
     }
     if (uRays > 0.0) {
       // The low sun comes through in shafts, slanting down from the west.
@@ -1000,7 +1007,7 @@ void main() {
       float r = vnoise(vec2(axis * 0.011 + uTime * 0.012, 3.0)) * 0.7 + vnoise(vec2(axis * 0.04 - uTime * 0.02, 9.0)) * 0.3;
       float shaft = smoothstep(0.52, 0.74, r);
       shaft = floor(shaft * 3.0 + bayer(s) * 0.99) / 3.0;
-      c += vec3(1.0, 0.72, 0.5) * shaft * uRays * 0.11 * (0.5 + 0.5 * smoothstep(0.0, 1.5, z + 0.6));
+      c += uRaysColor * shaft * uRays * 0.11 * (0.5 + 0.5 * smoothstep(0.0, 1.5, z + 0.6));
     }
   }
   // A mood's colour cast over the whole picture (the Other Side's red-violet).

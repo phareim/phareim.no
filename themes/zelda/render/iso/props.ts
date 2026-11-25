@@ -31,13 +31,13 @@ import { PUZZLE_BUILD, PUZZLE_PROP_KINDS, type PuzzlePropKind } from './puzzlePr
 
 /** A fence's part of one tile, by where the fence goes on: 1 west, 2 east, 4 north, 8 south, added up. */
 export type FenceKind = `fence${number}`
-export type PropKind = 'lampPink' | 'lampCyan' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
+export type PropKind = 'lampPink' | 'lampCyan' | 'lampGold' | 'lampAmber' | 'lampViolet' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
   | 'counter' | 'counterN' | 'counterS' | 'counterNS' | 'counterY'
   | 'chest' | 'chestOpen' | 'bigChest' | 'bigChestOpen' | 'blockPink' | 'blockCyan'
   | FenceKind
   | PuzzlePropKind // the physical puzzles' things (`puzzleProps.ts`)
 export const PROP_KINDS: readonly PropKind[] = [
-  'lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool',
+  'lampPink', 'lampCyan', 'lampGold', 'lampAmber', 'lampViolet', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool',
   'counter', 'counterN', 'counterS', 'counterNS', 'counterY',
   'chest', 'chestOpen', 'bigChest', 'bigChestOpen', 'blockPink', 'blockCyan',
   ...Array.from({ length: 16 }, (_, i): FenceKind => `fence${i}`),
@@ -82,6 +82,10 @@ export const MATS = {
   pole: mat(0, '#120a20', '#1e1434', '#34285a', '#4e4080', '#7466a8'),
   glassPink: mat(1, '#ff2fa0', '#ff2fa0', '#ff5fd0', '#ff5fd0', '#ffb0ec'),
   glassCyan: mat(1, '#2ff3ff', '#2ff3ff', '#6ff6ff', '#6ff6ff', '#c4fbff'),
+  // The realms' lamps (`../looks.ts` `MOOD.lamp`): warm gold and amber against the snow and the sand, lilac under the caps.
+  glassGold: mat(1, '#ffc21f', '#ffc21f', '#ffd23f', '#ffd23f', '#fff1b0'),
+  glassAmber: mat(1, '#ff9a2f', '#ff9a2f', '#ffb13f', '#ffb13f', '#ffe0a0'),
+  glassLilac: mat(1, '#b05ad8', '#b05ad8', '#c87ae0', '#c87ae0', '#f0d0ff'),
   glassRose: mat(0.8, '#873556', '#ac4765', '#db6b80', '#f58ca1', '#ffd2d9'),
   glassViolet: mat(0.8, '#542984', '#7341ac', '#9c62e3', '#bb92fc', '#e9d8ff'),
   core: mat(1, '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
@@ -324,7 +328,7 @@ function hash(x: number, y: number, salt = 0): number {
 // ---------------------------------------------------------------------------
 
 /** A lamp post: a foot, a thin pole, a lantern with four panes under a lid. */
-function lamp(b: Solids, glass: 'glassPink' | 'glassCyan') {
+function lamp(b: Solids, glass: 'glassPink' | 'glassCyan' | 'glassGold' | 'glassAmber' | 'glassLilac') {
   b.post(0, 0, 0, 2, 4.4, 'pole')
   b.post(0, 0, 2, 4, 3, 'pole')
   b.post(0, 0, 4, 34, 1.5, 'pole')
@@ -481,6 +485,9 @@ function fence(b: Solids, sides: number) {
 export const BUILD: Record<PropKind, (b: Solids) => void> = {
   lampPink: b => lamp(b, 'glassPink'),
   lampCyan: b => lamp(b, 'glassCyan'),
+  lampGold: b => lamp(b, 'glassGold'),
+  lampAmber: b => lamp(b, 'glassAmber'),
+  lampViolet: b => lamp(b, 'glassLilac'),
   grave,
   pot,
   rock,

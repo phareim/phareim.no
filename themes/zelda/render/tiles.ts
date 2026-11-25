@@ -18,7 +18,7 @@ import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './lab
 import { isDigChar, paintDigTile, setDigPaint } from './dig'
 import { beyondTile } from './beyond'
 import { drawPuzzleLive, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
-import { CLASSIC, realmLook } from './looks'
+import { CLASSIC, MOOD, realmLook } from './looks'
 
 /** The Wildwood's deeper night: darker grass, more moonlit violet crowns. Set per paint. */
 let wild = false
@@ -921,18 +921,39 @@ export function updateTileLayer(layer: TileLayer, world: World, m: MapState) {
 // Live tiles (drawn per frame over the layer)
 // ---------------------------------------------------------------------------
 
-export interface Light { x: number; y: number; r: number; color: string; a: number }
+/**
+ * A light, in world tiles: where, how far it reaches, its colour (one of a few fixed `#rrggbb` strings: the
+ * classic view keeps a glow per colour), how strong (0–1). `z`: how high it hangs, when the one who pushes it
+ * knows (a landmark's lantern); the isometric view honours it, the classic one has no height.
+ */
+export interface Light { x: number; y: number; r: number; color: string; a: number; z?: number }
 
 const LAMP_COLORS = ['#ff4fb8', '#3ff0ff', '#ffd23f']
 
+/** A closed chest's glint: a four-pointed star that comes and goes (none under reduced motion). */
+export function chestStar(g: G, x: number, y: number, time: number, seed: number, size = 1) {
+  const ph = (time * 0.7 + hash2(seed, 3, 29)) % 1
+  if (ph > 0.22) return
+  const k = Math.sin((ph / 0.22) * Math.PI)
+  const arm = Math.max(1, Math.round(k * 3 * size))
+  g.fillStyle = '#ffd23f'
+  g.fillRect(Math.round(x) - arm, Math.round(y), arm * 2 + 1, 1)
+  g.fillRect(Math.round(x), Math.round(y) - arm, 1, arm * 2 + 1)
+  g.fillStyle = '#ffffff'
+  g.fillRect(Math.round(x), Math.round(y), 1, 1)
+}
+
 /**
  * Draw animated / state-dependent tiles in view and collect their lights.
- * (cx, cy) is the camera in px; (vw, vh) the view in px.
+ * (cx, cy) is the camera in px; (vw, vh) the view in px. `night` (0–1): how far into the night the hour is
+ * outdoors (`daylight.ts` `nightOf`): the windows burn brighter.
  */
-export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], reduced: boolean) {
+export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], reduced: boolean, night = 0) {
   const m = s.map
   const info = mapInfo(world, m.id)
   const kind = info.def.kind
+  const realm = kind === 'overworld' ? realmLook(info.def.look) : null
+  const lampCols = realm ? MOOD[realm].lamp : LAMP_COLORS
   const x0 = Math.max(0, Math.floor(cx / T) - 1)
   const y0 = Math.max(0, Math.floor(cy / T) - 1)
   const x1 = Math.min(m.w - 1, Math.floor((cx + vw) / T) + 1)
@@ -958,7 +979,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           break
         }
         case 't': {
-          const col = kind === 'dungeon' ? '#ff4fb8' : LAMP_COLORS[Math.floor(hash2(tx, ty, 11) * 2)]!
+          const col = kind === 'dungeon' ? '#ff4fb8' : lampCols[Math.floor(hash2(tx, ty, 11) * 2)]!
           const flick = reduced ? 1 : 0.85 + 0.15 * Math.sin(time * 9 + tx * 3.1 + ty)
           const tiki = kind === 'overworld' && [m.tiles[ty * m.w + tx + 1], m.tiles[ty * m.w + tx - 1], m.tiles[(ty + 1) * m.w + tx], m.tiles[(ty - 1) * m.w + tx]].filter(c => c === '-').length >= 2
           if (tiki) {
@@ -1007,7 +1028,20 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           if (kind === 'overworld' && !cover.has(ty * m.w + tx) && hash2(tx, ty, 3) > 0.35 && !(tx >= 0 && isBuilding(m.tiles[(ty + 2) * m.w + tx] ?? '.'))) {
             // lit windows
             const below = m.tiles[(ty + 1) * m.w + tx]
-            if (below === 'H' || below === 'M') lights.push({ x: wx, y: wy + 0.4, r: 2.2, color: '#ffb13f', a: 0.75 })
+            if (below === 'H' || below === 'M') {
+              // In the suburb one window in four is a television: a cold light that jumps as the picture cuts.
+              if (realm === 'suburb' && hash2(tx, ty, 19) < 0.25) {
+                const cut = reduced ? 0.5 : hash2(Math.floor(time * 4 + hash2(tx, ty, 21) * 7), tx, 23)
+                lights.push({ x: wx, y: wy + 0.4, r: 2 + 0.6 * night, color: '#7ce4ff', a: 0.45 + 0.3 * cut + 0.2 * night })
+              } else lights.push({ x: wx, y: wy + 0.4, r: 2.2 + 0.8 * night, color: '#ffb13f', a: 0.75 + 0.25 * night })
+            }
+          }
+          break
+        case 'T':
+          // Under the spore wood's caps the moss is lit in pools, teal and violet, by a cap here and there.
+          if (realm === 'spore' && hash2(tx, ty, 13) > 0.78) {
+            const v = hash2(tx, ty, 14) > 0.75
+            lights.push({ x: wx, y: wy - 0.2, r: 2.3, color: v ? '#c87ae0' : '#3ad0d8', a: 0.32 + (reduced ? 0 : 0.1 * Math.sin(time * 0.8 + tx * 1.3 + ty)) })
           }
           break
         case ':':
@@ -1081,7 +1115,11 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           g.fillStyle = 'rgba(0,0,0,0.35)'
           g.fillRect(px + 8 - spr.width / 2 + 1, py + T - 3, spr.width - 2, 3)
           g.drawImage(spr, Math.round(px + 8 - spr.width / 2), py + T - spr.height)
-          if (!open) lights.push({ x: wx, y: wy, r: ch?.big ? 1.8 : 1.2, color: '#ffd23f', a: 0.35 })
+          if (!open) {
+            // A closed chest glints and breathes a little gold onto the ground round it.
+            lights.push({ x: wx, y: wy, r: ch?.big ? 2.4 : 1.8, color: '#ffd23f', a: 0.5 + (reduced ? 0 : 0.12 * Math.sin(time * 2.2 + tx)) })
+            if (!reduced) chestStar(g, px + 8 + (hash2(tx, ty, 31) - 0.5) * 6, py + T - spr.height + 2, time, tx * 31 + ty)
+          }
           break
         }
       }

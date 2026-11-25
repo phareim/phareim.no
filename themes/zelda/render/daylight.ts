@@ -124,6 +124,16 @@ function blendOf(b: Blend, of: (h: Hour) => RGB): RGB {
 }
 
 /** The light at `t` seconds into the day; null (no day: before the prism, or under a roof) is the view's own values. */
+/**
+ * How far into the night the hour is, 0–1: none at the stuck dusk and by day, all of it once the sun is well
+ * under (the moon's hours). What burns brighter in the dark (windows, the hero's lantern) takes it.
+ */
+export function nightOf(day: DayLook | null): number {
+  if (!day) return 0
+  const t = Math.max(0, Math.min(1, (0.1 - day.sun) / 0.55))
+  return t * t * (3 - 2 * t)
+}
+
 export function dayLook(t: number | null, b: DayBase): DayLook {
   if (t === null) {
     return { ambient: b.ambient, sunAngle: b.sunAngle, shadowLength: b.shadowLength, shadow: b.shadow, skyTop: b.skyTop, skyHorizon: b.skyHorizon, haze: b.haze, sun: 0.12, low: 1, stars: 1, fireflies: 1, glare: 1, exposure: 0 }

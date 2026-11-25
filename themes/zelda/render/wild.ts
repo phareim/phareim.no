@@ -94,7 +94,8 @@ export function queueProps(
       case 'campfire': {
         const f = Math.floor(tm * 8) % frameCount('prop_campfire', 3)
         items.push({ x: p.x, y: p.y, things: [{ id: `campfire_${f}`, dy: -0.4 }], draw: () => put(g, `prop_campfire_${f}`, x, y) })
-        lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13) })
+        // A wide orange pool, and the heart of it gold (as the bonfire's).
+        lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13) }, { x: p.x, y: p.y - 0.5, r: 2.4, color: '#ffd23f', a: 0.75 + 0.1 * Math.sin(tm * 9 + 1) })
         break
       }
       case 'mast': {
@@ -282,9 +283,12 @@ export function drawStaticMood(g: G, vw: number, vh: number, cx: number, cy: num
   }
 }
 
-/** Fireflies over the Wildwood at night: small lights that wander. */
-export function fireflies(cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], g: G, amount = 1) {
-  const n = Math.round(18 * amount)
+/**
+ * Fireflies over the Wildwood at night: small lights that wander. A realm brings its own (`looks.ts`
+ * `MOOD.flies`): their colour, the light they give and how many at the dusk's strength.
+ */
+export function fireflies(cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], g: G, amount = 1, color = '#e8ff8a', light = '#b6ff4a', count = 18) {
+  const n = Math.round(count * amount)
   for (let i = 0; i < n; i++) {
     const bx = (hash2(i, 3, 17) * (vw + 64)) + cx - 32
     const by = (hash2(i, 4, 17) * (vh + 64)) + cy - 32
@@ -293,9 +297,9 @@ export function fireflies(cx: number, cy: number, vw: number, vh: number, time: 
     const a = 0.5 + 0.5 * Math.sin(time * 2.3 + i * 4.1)
     if (a < 0.15) continue
     g.globalAlpha = a
-    g.fillStyle = '#e8ff8a'
+    g.fillStyle = color
     g.fillRect(Math.round(x - cx), Math.round(y - cy), 1, 1)
     g.globalAlpha = 1
-    lights.push({ x: x / T, y: y / T, r: 0.6, color: '#b6ff4a', a: a * 0.7 })
+    lights.push({ x: x / T, y: y / T, r: 0.6, color: light, a: a * 0.7 })
   }
 }

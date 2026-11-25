@@ -28,7 +28,8 @@ import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH,
 import { aimOf, battleFocus, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
-import { createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
+import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
+import { TONES } from '../tones'
 import { drawDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
@@ -46,12 +47,12 @@ import { REALM_THING_ART } from './frontierArt'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
-import { skyGrade, type DayLook } from '../daylight'
+import { nightOf, skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { buildLookMaterials, buildMaterials, materialId, stepLookMaterials, stepMaterials, type Material } from './materials'
-import { CLASSIC, GROUND, lumaOf, MOOD, realmLook, type RealmLook } from '../looks'
-import { realmAir } from './air'
+import { CLASSIC, GROUND, lumaOf, MOOD, realmLook, type Life, type RealmLook } from '../looks'
+import { realmAir, realmLife } from './air'
 import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind, type PropSprite } from './props'
 import { puzzlePropOf, rollKind } from './puzzleProps'
 import { puzzleInfo } from '../../engine/index'
@@ -67,6 +68,32 @@ const RISE = 56
 const FOOT = 3
 /** Overhang kept above a card's tile (a lamp's head, a crown's top). */
 const UP = 10
+
+/** The lamp post whose glass is a street lamp's colour (`tiles.ts`; a realm's are `looks.ts` `MOOD.lamp`). */
+const LAMP_PROPS: Record<string, PropKind> = { '#ff4fb8': 'lampPink', '#3ff0ff': 'lampCyan', '#ffd23f': 'lampGold', '#ffb13f': 'lampAmber', '#c87ae0': 'lampViolet' }
+/** The life in the air of the frontier's maps without a realm look of their own (`air.ts` `realmLife`). */
+const FRONTIER_LIFE: readonly Life[] = ['birds', 'fish']
+/** What is a fire's light: it throws embers and smoke (the campfire's, a tiki torch's, a landmark's fire). */
+const FIRE = TONES.fire
+/** How far into its cycle a shooting star is, in seconds (`backdrop.ts` `streak`): it shows for the first `on` of them. */
+const streakOf = (k: { every: number; phase: number }, time: number) => (time + k.phase) % k.every
+/** Dithered fills for the visible beams, one per colour (a checker in the colour, hi-res px). */
+const beamPatterns = new Map<string, CanvasPattern | null>()
+function beamPattern(g: G, color: string, zoom: number): CanvasPattern | null {
+  let p = beamPatterns.get(color)
+  if (p === undefined) {
+    const c = makeCanvas(2, 2)
+    const cg = c.getContext('2d')!
+    cg.fillStyle = color
+    cg.fillRect(0, 0, 1, 1)
+    cg.fillRect(1, 1, 1, 1)
+    p = g.createPattern(c, 'repeat')
+    beamPatterns.set(color, p)
+  }
+  // (One cell of the checker is one hi-res px, however large a classic px is.)
+  if (p && typeof DOMMatrix !== 'undefined') p.setTransform(new DOMMatrix([1 / zoom, 0, 0, 1 / zoom, 0, 0]))
+  return p
+}
 
 /** The rock beyond the map's edge, one to three tiles tall (`massifHeight`): a wall's top, further up. */
 const MASSIF: readonly Shape[] = [WALL_TOP, { ...WALL_TOP, h: 2 * TILE }, { ...WALL_TOP, h: 3 * TILE }]
@@ -228,6 +255,10 @@ export default function isoView(kit: Kit): View {
   /** Small things in the air: the dust a step kicks up. World points (tiles), a height, a life. */
   const motes: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; life: number; color: string }> = []
   let stepT = 0
+  /** Prints the hero leaves in spore moss (they glow) and in snow (they are dark): world points, an age, the map they are on. */
+  const prints: Array<{ x: number; y: number; t: number }> = []
+  let printT = 0
+  let printMap = ''
   let flora: FloraAtlas | null = null
   /** The hero's figure: this frame's picture, and the way the body faces on screen (it turns, it does not snap). */
   let fig: FigureSprite | null = null
@@ -447,14 +478,18 @@ export default function isoView(kit: Kit): View {
     const sinkPx = day ? Math.round(Math.max(0, 0.12 - day.sun) * h * 0.32) : 0
     const sunA = day ? Math.round(Math.max(0, Math.min(1, 1 - (day.sun - 0.25) / 0.4)) * 10) / 10 : 1
     const starA = day ? Math.round(Math.max(0, Math.min(1, day.stars)) * 10) / 10 : 1
-    const hourKey = `${sinkPx}:${sunA}:${starA}`
+    // The northern lights breathe, slowly, brighter in the dark: in tenths, so the sky is laid again only on a step.
+    const auroraA = Math.round((0.55 + 0.45 * starA) * (0.72 + 0.28 * Math.sin(time * 0.35)) * 10) / 10
+    const hourKey = `${sinkPx}:${sunA}:${starA}:${auroraA}`
     if (hourKey !== skyHour) { skyHour = hourKey; skyKey = '' }
     if (skyAt.length !== layers.length) skyAt = new Int32Array(layers.length).fill(-0x7fffffff)
     let moved = skyKey === ''
     for (let i = 0; i < layers.length; i++) {
       const L = layers[i]!
       // A layer that blinks (a mast's lamp) is shown for the first half of each cycle: hidden is no place at all.
-      const at = L.blink && (time % L.blink) >= L.blink / 2 ? 0x7fffffff : Math.round(camX * L.parallax + time * L.drift)
+      // A shooting star is there for a moment of its cycle, where it has got to (never under reduced motion).
+      const at = L.streak ? (time > 0 && streakOf(L.streak, time) <= L.streak.on ? Math.round(streakOf(L.streak, time) * 60) : 0x7fffffff)
+        : L.blink && (time % L.blink) >= L.blink / 2 ? 0x7fffffff : Math.round(camX * L.parallax + time * L.drift)
       if (at !== skyAt[i]) { skyAt[i] = at; moved = true }
     }
     if (!moved) return
@@ -467,7 +502,7 @@ export default function isoView(kit: Kit): View {
       const L = layers[i]!
       const at = skyAt[i]!
       if (at === 0x7fffffff) continue
-      const alpha = L.role === 'sun' ? sunA : L.role === 'stars' ? starA : 1
+      const alpha = L.role === 'sun' ? sunA : L.role === 'stars' ? starA : L.role === 'aurora' ? auroraA : 1
       if (alpha <= 0) continue
       let y = Math.round(L.top * h)
       sg.globalAlpha = alpha
@@ -480,7 +515,11 @@ export default function isoView(kit: Kit): View {
         sg.clip()
       }
       const cw = L.canvas.width
-      if (!L.repeatX) sg.drawImage(L.canvas, Math.round((w - cw) / 2) - at, y)
+      if (L.streak) {
+        const ph = at / 60
+        sg.globalAlpha = alpha * (ph < L.streak.on * 0.6 ? 1 : 0.5)
+        sg.drawImage(L.canvas, Math.round(L.streak.x * w + ph * L.streak.dx), y + Math.round(ph * L.streak.dy))
+      } else if (!L.repeatX) sg.drawImage(L.canvas, Math.round((w - cw) / 2) - at, y)
       else for (let x = -(((at % cw) + cw) % cw); x < w; x += cw) sg.drawImage(L.canvas, x, y)
       if (L.role === 'sun' && sinkPx > 0) sg.restore()
       sg.globalAlpha = 1
@@ -894,6 +933,10 @@ export default function isoView(kit: Kit): View {
 
     // --- the classic picture, in parts ---------------------------------------------
     const lights: Light[] = []
+    /** The time things move by (0 under reduced motion: everything holds still). */
+    const tm = reduced ? 0 : time
+    /** Beams that sweep (a landmark's `sweep` light): drawn over the lit scene as a dithered wedge. */
+    const beams: Array<{ x: number; y: number; z: number; ang: number; reach: number; color: string; a: number }> = []
     const og = fit(objs, bw, bh)
     og.setTransform(1, 0, 0, 1, 0, 0)
     og.clearRect(0, 0, objs.width, objs.height)
@@ -908,7 +951,8 @@ export default function isoView(kit: Kit): View {
     }
     part(gg, base.canvas, bx, by, bw, bh)
     part(og, objects.canvas, bx, by, bw, bh)
-    drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced)
+    const night = outdoors ? nightOf(kit.day('iso')) : 0
+    drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced, night)
     drawDecals(og, def.decals, bx, by, bw, bh, { t: time, reduced, maxW: decalMaxW }, lights)
     kit.setAim(a => Math.atan2(Math.cos(a) * P.ex.y + Math.sin(a) * P.ey.y, Math.cos(a) * P.ex.x + Math.sin(a) * P.ey.x))
     kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))
@@ -1235,7 +1279,10 @@ export default function isoView(kit: Kit): View {
           }
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
           const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
-          if (!(outdoors && sandy)) prop = hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
+          if (!(outdoors && sandy)) {
+            const pair = outdoors && mood ? mood.lamp : null
+            prop = pair ? LAMP_PROPS[pair[hash2(tx, ty, 11) < 0.5 ? 0 : 1]] ?? 'lampPink' : hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
+          }
           else if (drawn) {
             // The tiki torch drawn by hand, its flame leaning with the breeze as the classic one's (part 23).
             const id = `torch_${1 + (reduced ? 0 : Math.round(Math.sin(time * 5 + tx * 1.7)))}`
@@ -1248,7 +1295,8 @@ export default function isoView(kit: Kit): View {
         }
         if (prop) {
           stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' || prop.startsWith('pz') ? ty + 0.5 : ty + 0.62, px, rise, digLift(m, tx, ty))
-          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
+          const post = prop.startsWith('lamp')
+          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (post ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : post ? 0.14 : 0.24 })
           if (rise >= 1) { bare(sx, sy - up, T, T + up); continue }
           sunk = 1 - rise
         }
@@ -1438,6 +1486,29 @@ export default function isoView(kit: Kit): View {
       const z = (lm.z ?? digLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
       stand(key, lm.x, lm.y, px, rise, z)
       if (lm.shadow) cards.push({ x: lm.x, y: lm.y, ...lm.shadow })
+      // What it shines with (`types.ts` `LandmarkLight`): it comes up with the landmark over the turn's end.
+      for (const L of lm.lights ?? []) {
+        if (L.lit && !(lm.lit && has(s, lm.lit.flag))) continue
+        const lx = lm.x + (L.dx ?? 0)
+        const ly = lm.y + (L.dy ?? 0)
+        const lz = z + (L.z ?? 0.6)
+        const color = TONES[L.tone]
+        if (L.anim === 'sweep') {
+          // A beam that turns (a lighthouse's, with its lens) or swings to and fro (a stage spotlight).
+          const ang = motion ? tm * (Math.PI * 2 * motion.fps) / motion.frames + lx : -0.9 + 0.85 * Math.sin(tm * 0.45 + lx)
+          beams.push({ x: lx, y: ly, z: lz, ang, reach: L.r, color, a: L.a * rise })
+          lights.push({ x: lx, y: ly, z: lz, r: 1.6, color, a: L.a * rise })
+          for (let i = 1; i <= 5; i++) {
+            const d = (i / 5) * L.r
+            lights.push({ x: lx + Math.cos(ang) * d, y: ly + Math.sin(ang) * d, z: 0.25, r: 1 + 0.32 * i, color, a: L.a * rise * (1 - i * 0.11) })
+          }
+          continue
+        }
+        const f = L.anim === 'fire' ? 0.8 + 0.12 * Math.sin(tm * 13 + lx * 3) + 0.08 * Math.sin(tm * 7.3 + ly)
+          : L.anim === 'pulse' ? 0.8 + 0.2 * Math.sin(tm * 1.3 + lx * 2 + ly)
+          : L.anim === 'blink' ? (reduced || Math.floor(tm * 1.2 + lx) % 2 === 0 ? 1 : 0.1) : 1
+        lights.push({ x: lx, y: ly, z: lz, r: L.r, color, a: L.a * f * rise })
+      }
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
     if (drawn) for (const b of m.phys?.rolling ?? []) {
@@ -1492,7 +1563,55 @@ export default function isoView(kit: Kit): View {
     if (mood && outdoors && !ui.attract && k > 0.5) {
       const n = lights.length
       realmAir(xg, mood, vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights)
+      // Its fireflies, or wisps (as the Wildwood's, in its own colours; the classic view has them too).
+      if (mood.flies) fireflies(vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights, xg, mood.flies.still ? 1 : kit.day('iso')?.fireflies ?? 1, mood.flies.color, mood.flies.light, mood.flies.count)
       for (const L of lights.splice(n)) loose.push({ ...L, x: L.x * T - vx, y: L.y * T - vy })
+    }
+    // A realm's life: lanterns, glints, butterflies, birds, fish (in the world, where they are). The rest of the
+    // frontier has birds and fish.
+    const airLife = outdoors && !ui.attract && k > 0.5 ? mood ? mood.life : def.realm ? FRONTIER_LIFE : null : null
+    if (airLife) {
+      realmLife(xg, airLife, {
+        place: (x, y, z) => { const p = toScene(cam, x, y, z); return { x: Math.round(p.x) / zoom, y: Math.round(p.y) / zoom } },
+        tile: (x, y) => tileOf(x, y),
+        x0: R.x, y0: R.y, x1: R.x + R.w, y1: R.y + R.h, vw: Math.ceil(vw), vh: Math.ceil(vh), px: 1 / zoom,
+      }, reduced ? 0 : time, lights)
+    }
+    // A closed chest glints (the classic one draws its star with the tile).
+    if (solid && rise > 0.99 && !reduced && !ui.attract) {
+      for (const [i, ch] of info.chests) {
+        const tx = i % m.w
+        const ty = Math.floor(i / m.w)
+        if (m.tiles[i] !== '$' || has(s, `chest:${ch.id}`) || !inRoom(tx, ty) || tx < R.x || ty < R.y || tx >= R.x + R.w || ty >= R.y + R.h) continue
+        const p = toScene(cam, tx + 0.5 + (hash2(tx, ty, 31) - 0.5) * 0.3, ty + 0.5, ch.big ? 0.75 : 0.55)
+        chestStar(xg, Math.round(p.x) / zoom, Math.round(p.y) / zoom, time, tx * 31 + ty, ch.big ? 1.3 : 1)
+      }
+    }
+    // The beams that sweep, seen in the air: a dithered wedge from the lamp, thinning out as it goes.
+    for (const b of beams) {
+      const pat = beamPattern(xg, b.color, zoom)
+      if (!pat) break
+      const o = toScene(cam, b.x, b.y, b.z)
+      const at = (d: number, side: number) => {
+        const a = b.ang + side * 0.17
+        const q = toScene(cam, b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, b.z * (1 - d / (b.reach * 1.15)))
+        return [q.x / zoom, q.y / zoom] as const
+      }
+      xg.fillStyle = pat
+      for (let i = 0; i < 3; i++) {
+        const d0 = (i / 3) * b.reach * 1.1
+        const d1 = ((i + 1) / 3) * b.reach * 1.1
+        const p0 = i === 0 ? [o.x / zoom, o.y / zoom] as const : at(d0, -1)
+        const p3 = i === 0 ? p0 : at(d0, 1)
+        const p1 = at(d1, -1)
+        const p2 = at(d1, 1)
+        xg.globalAlpha = b.a * (0.55 - i * 0.15)
+        xg.beginPath()
+        xg.moveTo(p0[0], p0[1]); xg.lineTo(p1[0], p1[1]); xg.lineTo(p2[0], p2[1]); xg.lineTo(p3[0], p3[1])
+        xg.closePath()
+        xg.fill()
+      }
+      xg.globalAlpha = 1
     }
     kit.projectiles(xg, s, S1, (dx, dy) => ({ x: dx * P.ex.x + dy * P.ey.x, y: dx * P.ex.y + dy * P.ey.y }))
     kit.fx(xg, s, dt, S1, ui.paused, 1 - 0.5 * k)
@@ -1524,12 +1643,59 @@ export default function isoView(kit: Kit): View {
         xg.fillRect(Math.round(p.x) / zoom, Math.round(p.y) / zoom, size / zoom, size / zoom)
       }
       for (const p of motes) dot(p.x, p.y, Math.max(0, p.z), p.t < p.life * 0.5 ? 2 : 1, p.color, 0.7 * (1 - p.t / p.life))
+      // Prints in the spore moss glow a while; in the snow they are dark, and stay longer.
+      const printing = outdoors && (realm === 'spore' || realm === 'snow')
+      if (printMap !== m.id) { prints.length = 0; printMap = m.id }
+      if (printing && !ui.paused) {
+        for (let i = prints.length - 1; i >= 0; i--) { prints[i]!.t += dt; if (prints[i]!.t > (realm === 'snow' ? 5 : 2.2)) prints.splice(i, 1) }
+        if (h.act === 'walk' && !ui.attract && (h.vx || h.vy)) {
+          printT += dt
+          if (printT > 0.2) {
+            printT = 0
+            const n = Math.hypot(h.vx, h.vy) || 1
+            const side = prints.length % 2 ? 1 : -1
+            prints.push({ x: h.x - (h.vy / n) * 0.1 * side, y: h.y + 0.36 + (h.vx / n) * 0.1 * side, t: 0 })
+            if (prints.length > 16) prints.shift()
+          }
+        }
+      }
+      if (printing) for (const p of prints) {
+        if (realm === 'spore') {
+          const f = 1 - p.t / 2.2
+          dot(p.x, p.y, 0, 3, '#8ffce0', 0.85 * f)
+          lights.push({ x: p.x, y: p.y, z: 0.05, r: 0.75, color: '#6ff6ff', a: 0.55 * f })
+        } else {
+          const p0 = toScene(cam, p.x, p.y)
+          xg.globalAlpha = 0.6 * Math.min(1, (5 - p.t) / 1.5)
+          xg.fillStyle = '#3a3a8a'
+          xg.fillRect(Math.round(p0.x) / zoom, Math.round(p0.y) / zoom, 3 / zoom, 2 / zoom)
+        }
+      }
+      // A fire throws embers that wink out as they climb, and a little smoke that goes higher.
+      let fires = 0
+      for (const L of lights) {
+        if (L.color !== FIRE || L.r < 2.4 || L.a < 0.4 || fires >= 10) continue
+        fires++
+        const at = L.z !== undefined ? [L.x, L.y, L.z] : world3(L.x, L.y)
+        const base = L.z !== undefined ? L.z : at[2] * 0.5 + 0.2
+        for (let j = 0; j < 6; j++) {
+          const ph = hash2(fires, j, 37)
+          const life = (time * (0.75 + ph * 0.5) + ph * 5) % 1
+          const sway = Math.sin(time * 2.2 + ph * 12) * 0.2 * life + life * 0.25 * ((par.wind as number) || 0.3)
+          dot(at[0]! + (ph - 0.5) * 0.4 + sway, at[1]! + (hash2(fires, j, 38) - 0.5) * 0.3, base + life * 1.5, life < 0.4 ? 2 : 1, life < 0.3 ? '#fff1b0' : life < 0.65 ? '#ffd23f' : '#ff3b5c', (1 - life) * 0.95)
+        }
+        for (let j = 0; j < 3; j++) {
+          const ph = hash2(fires, j, 39)
+          const life = (time * 0.22 + ph * 3 + j / 3) % 1
+          dot(at[0]! + life * 0.6 * ((par.wind as number) || 0.3) + Math.sin(time * 0.8 + j) * 0.12, at[1]!, base + 0.5 + life * 2.4, life < 0.4 ? 2 : 3, '#4a3a5e', Math.sin(life * Math.PI) * 0.32)
+        }
+      }
       // A spark or two climbs in every lamp's light.
       let li = 0
       for (const L of lights) {
         li++
-        if (L.r < 3.6 || L.a < 0.5) continue
-        const at = world3(L.x, L.y)
+        if (L.r < 3.6 || L.a < 0.5 || L.color === FIRE) continue
+        const at = L.z !== undefined ? [L.x, L.y, L.z] : world3(L.x, L.y)
         for (let j = 0; j < 2; j++) {
           const ph = hash2(li, j, 31)
           const life = (time * (0.16 + ph * 0.1) + ph * 7) % 1
@@ -1577,14 +1743,17 @@ export default function isoView(kit: Kit): View {
     // What the sun does not reach is lit by the sky: cooler and dimmer than one light for everything.
     const skyFill: [number, number, number] = [1 - 0.5 * sunS, 1 - 0.4 * sunS, 1 - 0.16 * sunS]
     // And while the sun is up the lamps are only just lit: their pools are smaller things in a lit world.
-    const lampGain = outdoors ? 1 - 0.4 * Math.min(1, sunS) * (1 - moonK) : 1
+    let lampGain = outdoors ? 1 - 0.4 * Math.min(1, sunS) * (1 - moonK) : 1
+    // Out on the frontier a lamp, a campfire, a lit window reads at any hour; a realm's lamps shine as its art needs.
+    if (outdoors && def.realm) lampGain = Math.max(lampGain, 0.8)
+    if (outdoors && mood) lampGain *= mood.lamps
 
     // --- lamps -------------------------------------------------------------------------
     const amb = kit.ambient(s, ui, lights)
     const placed: Array<{ x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }> = []
     for (const L of lights) {
-      const p = world3(L.x, L.y)
-      if (p[2] === 0) {
+      const p: [number, number, number] = L.z !== undefined ? [L.x, L.y, L.z] : world3(L.x, L.y)
+      if (p[2] === 0 && L.z === undefined) {
         // The classic picture puts a carried light up the screen from its bearer's feet: a lantern in a hand,
         // a cabinet's screen, a fire's heart. Here that is height, over the feet it belongs to.
         let best = 2
@@ -1714,7 +1883,12 @@ export default function isoView(kit: Kit): View {
       scanlines: f0.scanlines + (f1.scanlines - f0.scanlines) * k,
       wind: reduced ? 0 : (par.wind as number),
     }
+    // On the frontier's dark grass a lamp's pool is lost in the multiplied light (it is capped); more of it hangs
+    // in the air there, where it reads on any ground: a campfire lights its clearing.
+    if (outdoors && def.realm) look.glow *= 1.6
     if (mood && outdoors) moodLook(look, mood, realm!, grade, s.hero.x, s.hero.y + 0.3)
+    // Under the northern lights the snow takes their green, breathing with them (`backdrop.ts` `paintAurora`).
+    const aurora = realm === 'snow' && outdoors && night > 0 ? 1 + night * (0.06 + (reduced ? 0 : 0.04 * Math.sin(time * 0.35))) : 0
     const heroAt = toScene(cam, s.hero.x, s.hero.y + 6 / T)
     let iris: [number, number, number] = [0, 0, -1]
     if (s.dying && k > 0.5) {
@@ -1726,7 +1900,7 @@ export default function isoView(kit: Kit): View {
       // Under reduced motion the water, the mist and the shafts stand still.
       cam, R, mapX: -M, mapY: -M, mapW: ew, mapH: eh, inner: { x: 0, y: 0, w: m.w, h: m.h }, far: M ? k : 0, rooms, time: reduced ? 0 : time, outdoors,
       // By day the light is more than the art's own (the art is painted for the dusk).
-      ambient: rgb(amb).map((q, i) => q * (1 + (day?.exposure ?? 0) * k) * (outdoors ? skyFill[i]! * (mood ? 1 + (mood.ambient[i]! - 1) * k : 1) : 1)) as [number, number, number],
+      ambient: rgb(amb).map((q, i) => q * (1 + (day?.exposure ?? 0) * k) * (outdoors ? skyFill[i]! * (mood ? 1 + (mood.ambient[i]! - 1) * k : 1) * (aurora ? (i === 1 ? aurora : i === 2 ? 1 + (aurora - 1) * 0.5 : 1) : 1) : 1)) as [number, number, number],
       voidColor: rgb(outdoors ? '#0e2a3c' : '#07040f'),
       hero: { x: s.hero.x, y: s.hero.y },
       verts, vertCount: nv,
@@ -1808,6 +1982,8 @@ function moodLook(look: Look, mood: (typeof MOOD)[RealmLook], realm: RealmLook, 
   look.mist = (look.mist / 0.3) * mood.mist
   look.mistColor = graded(mood.mistColor)
   look.rays = (look.rays / 0.4) * mood.rays
+  look.raysColor = rgb(mood.raysColor)
+  look.glow *= mood.glow
   look.shadowTint = tint(mood.shadowColor)
   look.skyTop = graded(mood.sky[0])
   look.skyHorizon = graded(mood.sky[1])
