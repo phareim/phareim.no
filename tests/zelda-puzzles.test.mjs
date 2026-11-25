@@ -210,6 +210,13 @@ describe('weights', () => {
     step(w, w.s, inp(), 2)
     assert.ok(w.s.map.plates.includes('scale'))
   })
+
+  it('an unmarked weighed plate is `w:<tile>`, and pressing it is an ordinary press', () => {
+    const w = room(['#####', '#.θ.#', '#.@.#', '#####'])
+    const ev = step(w, w.s, inp({ move: DIR.up }), 30)
+    assert.ok(w.s.map.plates.includes('w:7'))
+    assert.ok(ev.some(e => e.type === 'plate' && e.x === 2.5 && e.y === 1.5))
+  })
 })
 
 describe('rolling stones', () => {

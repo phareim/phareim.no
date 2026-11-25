@@ -10,7 +10,7 @@ import { breakShards, enemyActive } from './enemies'
 import { cutTile, throwLever, toggleCrystal } from './hero'
 import { circleBlocked, condMet, has, moveCircle, setFlag, solidTile, tileAt } from './map'
 import { nextId, rndRange } from './util'
-import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, stepPhysics } from './puzzles/index'
+import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, puzzleInfo, stepPhysics } from './puzzles/index'
 
 export function stepObjects(c: Ctx, dt: number) {
   const m = c.s.map
@@ -293,8 +293,9 @@ function stepPuzzles(c: Ctx) {
   pressed.push(...pressedWeights(c))
   for (const id of pressed) {
     if (!m.plates.includes(id)) {
-      const idx = [...c.info.plates.entries()].find(([, v]) => v === id)![0]
-      c.ev.push({ type: 'plate', x: (idx % m.w) + 0.5, y: Math.floor(idx / m.w) + 0.5 })
+      // (An unmarked weighed plate is not in the map's plates: its id is `w:<tile>`, from `puzzleInfo`.)
+      const at = [...c.info.plates, ...puzzleInfo(c.info).weights].find(([, v]) => v === id)
+      if (at) c.ev.push({ type: 'plate', x: (at[0] % m.w) + 0.5, y: Math.floor(at[0] / m.w) + 0.5 })
     }
   }
   m.plates = pressed
