@@ -64,7 +64,9 @@ else
 fi
 # vue-tsc outgrows V8's default heap (~1 GB under heavy's 2 GB cap); give it room below the cap.
 heavy_run env NODE_OPTIONS=--max-old-space-size=1792 npm run typecheck
-heavy_run npm run build
+# The frontier's sprite tables pass through Nitro's bundler. Leave room for its
+# heap above Node's cgroup default and for the rest of the build below heavy's cap.
+heavy_run env NODE_OPTIONS=--max-old-space-size=1536 npm run build
 if [ "$automatic" = 1 ]; then
   fetch_branch
   if [ "$(git -C "$repo" rev-parse "$remote_ref")" != "$revision" ]; then
