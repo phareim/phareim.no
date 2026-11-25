@@ -102,7 +102,7 @@ export function startBattle(c: Ctx, id: string, first: 'party' | 'foes' | null) 
   const cx = all.reduce((a, p) => a + p.x, 0) / all.length
   const cy = all.reduce((a, p) => a + p.y, 0) / all.length
   const b: BattleState = {
-    group: id, phase: 'intro', t: 0, first, fighters, queue: [], act: null, menu: null, pops: [], from,
+    group: id, guardian: !!def.noFlee, phase: 'intro', t: 0, first, fighters, queue: [], act: null, menu: null, pops: [], from,
     cam: { x: h.x, y: h.y }, camFrom: { x: h.x, y: h.y }, camTo: { x: cx, y: cy }, tries: 0, bits: 0, axis: { x: ax, y: ay },
   }
   s.battle = b
@@ -275,7 +275,7 @@ function itemsOf(inv: { tonics: number; bombs: number; bombBag: boolean }): Batt
 }
 
 function noFlee(b: BattleState): boolean {
-  return b.fighters.some(f => f.foe === 'knight' && !f.down)
+  return !!b.guardian || b.fighters.some(f => f.foe === 'knight' && !f.down)
 }
 
 function openMenu(c: Ctx, b: BattleState, f: Fighter) {
@@ -587,7 +587,8 @@ function foeMove(c: Ctx, b: BattleState, a: BattleAction, me: Fighter) {
   const mv = FOES[me.foe!].moves[a.move ?? 0]!
   const e = enemyOf(c, me)
   if (mv.kind === 'guard') {
-    me.guard = true
+    // (A broken guard stays down for as long as the break lasts: BREAK means its blows land, as it says.)
+    if (!me.status.break) me.guard = true
     pop(b, me.home.x, me.home.y, mv.name, 'info')
     c.ev.push({ type: 'clank', x: me.home.x, y: me.home.y })
     return
@@ -784,7 +785,6 @@ function endBattle(c: Ctx, b: BattleState, how: 'won' | 'fled') {
     const last = foes[foes.length - 1]
     if (last) rollDrop(c, last.home.x, last.home.y, 0.6)
     const def = c.info.def.battle?.groups.find(g => g.id === b.group)
-    if (def?.once) setFlag(s, `battle:${b.group}`)
     b.camTo = { x: h.x, y: h.y }
     c.ev.push({ type: 'battle', what: 'won', boss: !!def?.foes.includes('knight') })
   } else {
@@ -832,6 +832,9 @@ function outro(c: Ctx, b: BattleState, dt: number) {
   const won = b.phase === 'won'
   s.battle = null
   s.mode = 'play'
+  // A once-group is beaten for good here, with its prize, in the same step: a save made during the outro holds neither,
+  // and the group stands again, its prize still to win.
+  if (won && def?.once) setFlag(s, `battle:${def.id}`)
   if (won && def?.prize && !has(s, `battle:${def.id}:prize`)) {
     setFlag(s, `battle:${def.id}:prize`)
     acquire(c, def.prize)

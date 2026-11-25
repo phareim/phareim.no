@@ -33,7 +33,13 @@ export const AREAS = {
   miniworld: ['miniworld-*.test.mjs'],
   figur: ['figur-*.test.mjs'],
   deploy: ['site-*.test.mjs'],
+  // Tests that walk the whole site's source for a rule (no invite phrase in client code, the auth host in one place,
+  // no static import of a view's chunk): any code change anywhere runs them (`SCANNED`).
+  scans: ['miniworld-login-client.test.mjs', 'portal-account.test.mjs', 'zelda-views.test.mjs'],
 }
+
+/** Where the `scans` area's tests look: a change below any of these (but words) runs them too. */
+export const SCANNED = ['themes/', 'servers/', 'server/', 'plugins/', 'components/', 'composables/', 'pages/']
 
 export const PATHS = [
   // Words: no test reads them.
@@ -74,7 +80,8 @@ export const PATHS = [
   ['themes/zelda/', ['zelda', 'portal']],
   ['themes/portal/', ['portal', 'zelda']],
   ['themes/stage/', ['zelda']],
-  ['themes/figur/', ['figur', 'zelda']],
+  // (Figur's sign-in gate is checked with Mini World's, in miniworld-login-client.)
+  ['themes/figur/', ['figur', 'miniworld', 'zelda']],
   ['themes/miniworld/', ['miniworld', 'figur', 'zelda']],
   ['servers/mw-world/', ['miniworld']],
   ['themes/leaderboard/', ['leaderboard', 'invasive', 'zelda']],
@@ -103,13 +110,14 @@ export const PATHS = [
   ['public/zelda/', ['zelda']],
   ['public/outrun/', ['outrun']],
   ['public/voyagers2/', ['voyagers2']],
-  ['public/galaga/', ['galaga']],
+  // (Voyagers II's comms show Galaga's portraits.)
+  ['public/galaga/', ['galaga', 'voyagers2']],
   ['public/starfox/', ['starfox']],
   ['public/', []],
   ['scripts/make-pixel-font16*', ['zelda']],
   ['scripts/export-sprites.mjs', ['zelda']],
   ['scripts/zelda-lab/', ['zelda']],
-  ['scripts/galaga-lab/', ['galaga']],
+  ['scripts/galaga-lab/', ['galaga', 'voyagers2']],
   ['scripts/voyagers2-lab/', ['voyagers2']],
   ['scripts/outrun-lab/', ['outrun']],
   ['scripts/battery-lab/', ['battery']],
@@ -179,6 +187,7 @@ export function affected(paths, files) {
       continue
     }
     for (const a of rule.run) areas.add(a)
+    if (SCANNED.some(d => path.startsWith(d)) && !path.endsWith('.md')) areas.add('scans')
     why.push(`${path}: ${rule.run.length ? rule.run.join(', ') : 'no tests'}`)
   }
   if (all) {

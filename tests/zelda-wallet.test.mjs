@@ -222,4 +222,18 @@ describe('old saves', () => {
     assert.equal(W.migrateSaveBits(save(9), bad, w), 0)
     assert.deepEqual(w.ops, [])
   })
+
+  it('knows the one-time bits of the frontier (made on demand), its dig caches and battle prizes', () => {
+    const rewards = W.bitRewards(W.WORLD)
+    let found = null
+    for (let ry = 0; ry < 9 && !found; ry++) for (let rx = 0; rx < 12 && !found; rx++) {
+      const d = W.WORLD.generate(`fr:${rx},${ry}`)
+      const m = d && Object.values(d.marks).find(m => m.ent.t === 'chest' && /^bits/.test(m.ent.item))
+      if (m) found = m.ent
+    }
+    assert.ok(found, 'a frontier chest with bits')
+    assert.equal(rewards.get(`chest:${found.id}`), { bits5: 5, bits20: 20, bits50: 50 }[found.item])
+    assert.equal(rewards.get('chest:fr:99,99.c0'), undefined)
+    for (const g of W.WORLD.maps.arena.battle.groups) if (g.prize === 'bits50') assert.equal(rewards.get(`battle:${g.id}:prize`), 50)
+  })
 })

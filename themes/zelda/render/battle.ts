@@ -38,7 +38,11 @@ function heightOf(look: string): number {
  * Draw the fight's overlay. `top` and `bottom` keep it clear of the HUD's top row and the screen's bottom band.
  * Returns the touch boxes (HUD px).
  */
-export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: number, top: number, bottom: number, time: number, skin: HudSkin): BattleBox[] {
+/**
+ * `avoid`: screen corners the strip must keep clear of, in these logical px (on touch: the pads, bottom right, and the stick's corner,
+ * bottom left), so a tap on a line is never a press of a pad under it.
+ */
+export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: number, top: number, bottom: number, time: number, skin: HudSkin, avoid: ReadonlyArray<{ x: number; y: number; w: number; h: number }> = []): BattleBox[] {
   const b = s.battle
   if (!b || (s.mode !== 'battle' && b.phase !== 'lost')) return []
   // Points by a figure are measured from its feet.
@@ -146,6 +150,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
         // (Never over the member itself.)
         const self = { x: body.x - 8, y: head.y - 4, w: 16, h: P(at.x, at.y).y - head.y + 8 }
         cost += overlap(x, y, w, h, self) * 8
+        for (const r of avoid) cost += overlap(x, y, w, h, r) * 40
         if (cost < best.cost) best = { x, y, cost }
       }
     }

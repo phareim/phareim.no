@@ -1233,7 +1233,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (s.battle) {
         const scr = battleScreen ?? ((x: number, y: number, z = 0) => ({ x: ox + (x * T - cx) * scale, y: oy + ((y - z) * T - cy) * scale }))
         const place = (x: number, y: number, z?: number) => { const p = scr(x, y, z); return { x: (p.x - sp.ox) / sp.scale, y: (p.y - sp.oy) / sp.scale } }
-        const boxes = drawBattle(g, s, place, sp.vw, sp.vh, (hud ? 30 : 2) + top, bottom + (ui.touch ? 8 : 2), time, skin)
+        // On touch the pads (bottom right, 168 × 142 CSS px 14 in from the edges) and the stick's corner stay clear of the strip.
+        const css = dpr / sp.scale
+        const padW = (168 + 18) * css
+        const padH = (142 + 18) * css + bottom
+        const avoid = ui.touch ? [{ x: sp.vw - padW, y: sp.vh - padH, w: padW, h: padH }, { x: 0, y: sp.vh - padH, w: 150 * css, h: padH }] : []
+        const boxes = drawBattle(g, s, place, sp.vw, sp.vh, (hud ? 30 : 2) + top, bottom + (ui.touch ? 8 : 2), time, skin, avoid)
         if (alpha >= 0.5) battleBoxes = boxes.map(b => ({ ...b, x: sp.ox + b.x * sp.scale, y: sp.oy + b.y * sp.scale, w: b.w * sp.scale, h: b.h * sp.scale }))
       } else if (alpha >= 0.5) battleBoxes = []
       // The view strip has the banner's place while it is up.

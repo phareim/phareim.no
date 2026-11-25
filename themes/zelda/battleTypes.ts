@@ -108,6 +108,8 @@ export interface BattleMenu {
 
 export interface BattleState {
   group: string
+  /** The group may not be run from (its def's `noFlee`, or a knight standing in it). */
+  guardian?: boolean
   phase: 'intro' | 'fight' | 'won' | 'fled' | 'lost'
   /** Seconds in this phase. */
   t: number

@@ -321,4 +321,41 @@ describe('field battles', () => {
     assert.ok(back)
     assert.equal(Z.createGame(Z.WORLD, { save: back }).inv.tonics, 0)
   })
+
+  it('keeps a guardian group (noFlee) from being fled, knight or not', () => {
+    const g = group('arena.goo')
+    g.noFlee = true
+    try {
+      const s = glade('arena.goo')
+      engage(s)
+      assert.ok(untilMenu(s))
+      const flee = Z.menuView(s).lines.find(l => l.label === 'FLEE')
+      assert.equal(flee.ok, false)
+    } finally { delete g.noFlee }
+  })
+
+  it('lets no guard go up while BREAK is on', () => {
+    const s = glade('arena.knight', { hp: 40 })
+    engage(s)
+    const knight = foesOf(s, 'knight')[0]
+    knight.status.break = 5
+    knight.guard = false
+    for (let k = 0; k < 3000 && s.mode === 'battle' && knight.status.break > 0.5; k++) {
+      step(s, s.battle.menu ? inp({ aPress: true }) : inp())
+      assert.ok(!(knight.guard && knight.status.break > 0), 'a guard under BREAK')
+    }
+  })
+
+  it('beats a once-group for good only when its prize is given, in the same step', () => {
+    const s = glade('arena.knight', { hp: 40 })
+    engage(s)
+    for (const f of foesOf(s)) f.hp = 1
+    let sawWonWithoutPrize = false
+    for (let k = 0; k < 4000 && s.mode === 'battle'; k++) {
+      step(s, s.battle?.menu ? inp({ aPress: true }) : inp())
+      if (s.flags['battle:arena.knight'] && !s.flags['battle:arena.knight:prize'] && group('arena.knight').prize) sawWonWithoutPrize = true
+    }
+    assert.equal(sawWonWithoutPrize, false)
+    assert.equal(s.flags['battle:arena.knight'], true)
+  })
 })

@@ -126,7 +126,8 @@ describe('the view registry', () => {
   it('keeps every view\'s code out of the page that loads first', () => {
     // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
     // a static import, a side-effect import or a re-export, in either kind of quote.
-    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso', 'poly'])
+    // (A view's own directory may name it; the other view's directory may not, so both are walked.)
+    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist'])
     const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (skip.has(e.name) ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
     const files = ['themes', 'components', 'composables', 'pages', 'plugins', 'server'].flatMap(d => walk(resolve(site, d))).concat(resolve(site, 'app.vue'))
     const dynamic = { iso: 0, poly: 0 }
@@ -136,6 +137,7 @@ describe('the view registry', () => {
       for (const line of src.split('\n')) {
         const m = /(iso|poly)\/view['"]/.exec(line)
         if (!m || /^\s*(\/\/|\*)/.test(line)) continue
+        if (f.includes(`/render/${m[1]}/`)) continue
         assert.match(line, /import\(\s*['"][^'"]*(iso|poly)\/view['"]\s*\)/, `${f} brings the ${m[1]} view in statically: ${line.trim()}`)
         dynamic[m[1]]++
       }

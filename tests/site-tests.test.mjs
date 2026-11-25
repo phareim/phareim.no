@@ -34,7 +34,12 @@ test('what a change runs', () => {
   assert.equal(zelda.all, false)
   assert.ok(zelda.tests.includes('zelda-engine.test.mjs') && zelda.tests.includes('wildwood.test.mjs') && zelda.tests.includes('portal-world.test.mjs'))
   assert.ok(!zelda.tests.some(f => f.startsWith('galaga-') || f.startsWith('site-')))
-  assert.deepEqual(run(['themes/galaga/engine/index.ts']).tests, testsOf(['galaga', 'radio'], files))
+  assert.deepEqual(run(['themes/galaga/engine/index.ts']).tests, testsOf(['galaga', 'radio', 'scans'], files))
+  // Code anywhere runs the tests that scan the whole site's source; words and pictures do not.
+  assert.ok(run(['themes/desk/Landing.vue']).tests.includes('miniworld-login-client.test.mjs'), 'a code change runs the scans')
+  assert.ok(!run(['public/galaga/x.png']).tests.includes('portal-account.test.mjs'))
+  assert.ok(run(['themes/figur/Landing.vue']).tests.includes('miniworld-login-client.test.mjs'), "figur's gate is checked there")
+  assert.ok(run(['public/galaga/portrait-rex-worried.png']).tests.some(f => f.startsWith('voyagers2-')), "Voyagers II's comms use Galaga's portraits")
   for (const shared of ['themes/base/fonts.css', 'package.json', 'server/utils/account.ts', 'tests/zelda-load.mjs', 'scripts/deploy-site.sh', 'themes/index.ts']) {
     const r = run(['docs/site.md', shared])
     assert.equal(r.all, true, shared)
