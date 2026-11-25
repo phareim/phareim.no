@@ -197,4 +197,6 @@ export const LANDMARKS: Record<string, ReadonlyArray<{ id: string; frames: numbe
     { id: 'fountain', frames: 2, fps: 2, x: 21.3, y: 13.3 },
     { id: 'ferry', frames: 2, fps: 1, x: 21.75, y: 38.35, bob: true },
   ],
+  // The same boat at the end of Yule Fjord's harbour pier, where it sets the hero down.
+  yulefjord: [{ id: 'ferry', frames: 2, fps: 1, x: 27.75, y: 13.35, bob: true }],
 }
