@@ -633,14 +633,79 @@ classic picture. `/?view=<id>` asks for one.
     they are then (so a later edit of the classic sprite marks the art stale,
     as here); and `live.ts` handing the `folk` entry to `folk.ts` (a setter
     beside `setSpriteOverrides`, with the same checks of size and run).
-- **Where a swing is aimed** (`aimOf` in `engine/hero.ts`, every view). The
-  hero keeps the exact way the stick last pushed (`hero.aim`; on touch with
-  the stick at rest, the way to the foe the blade turned to). A swing
-  sweeps its 171° across that, so
-  walking on a diagonal (which is every single key in the turned view)
-  strikes along the diagonal. `dir`, the nearest of the four ways, is still
-  what everything else goes by; once something else turns the hero (a
-  door, a talk) the old aim no longer counts.
+- **Real-time combat** (`engine/hero.ts`, `engine/combat.ts`, the numbers in
+  `types.ts`; field battles are their own, see `neon-shrine-battle.md`).
+  - *Aim* (`aimOf`). The hero keeps the exact way the stick last pushed
+    (`hero.aim`; on touch with the stick at rest, the way to the foe the
+    blade turned to), so walking on a diagonal (every single key in the
+    turned view) strikes along the diagonal. `dir`, the nearest of the four
+    ways, is what everything else goes by; once something else turns the hero
+    (a door, a talk) the old aim no longer counts. The stick is read afresh
+    for every hit, and a stick that lands in a swing's first 0.05 s still
+    turns it.
+  - *The chain* (`COMBO`). Presses of A make three hits: two quick sweeps of
+    162° (0.17 s, the second back the other way, `swing.side`), then a
+    finisher of 207° (0.25 s, double damage, a hard shove, 0.2 s of rest
+    after it). Each chain hit draws the blade back over its first 15 %
+    (`WINDUP`, it cuts nothing there), then cuts fast and settles
+    (`swingAngle`), and steps forward (`LUNGE_TIME` 0.07 s: 0.22 tiles,
+    the finisher 0.5) unless a foe is already within half the reach ahead
+    or a pit or spikes are. A press within `COMBO_WINDOW` (0.32 s) of a
+    hit's end goes on with the chain; later, it starts over. A swing outside
+    the chain (a field battle's) has no `n` and is the plain 171° sweep of
+    `SWING_TIME`; `swingDur(swing)` is either length.
+  - *The buffer.* A press that cannot act yet (mid-swing, in a roll, while
+    shoved) waits `BUFFER_A` (0.18 s) and starts the next hit as soon as it
+    may: from 60 % into a chain hit (`CHAIN_CANCEL`, never cutting the
+    finisher short), or when the blade is free. Only a fresh press talks,
+    reads or opens; a waiting one only swings.
+  - *Foes hit* (`hitEnemy`'s `HitOpts`). A chain hit shoves a small foe
+    about half a tile, so the next one still reaches it, and its mercy is
+    0.1 s instead of 0.28; the finisher throws it about two tiles (into a
+    pit on a `MapDef.physics` map). A struck small foe reels (`stagger`:
+    0.22 s from a chain hit, 0.4 from the finisher, 0.12 from anything
+    else): it does nothing, and neither reeling nor being shoved does it
+    harm the hero. The finisher on a reeling foe is critical (+1, `crit`).
+    Bosses and the knight (`BIG`) neither reel nor stop harming.
+  - *Hitstop* (the shell's freeze, none under reduced motion): chain hit 35
+    ms, finisher 85, spin 55, any other hit 40, a boss hit 60, a kill 90,
+    a boss's second phase 120, the hero hurt 70. A struck foe is solid white
+    for its first 60 ms and shivers a pixel either way while the world is
+    held (`FrameUI.hitStop`).
+  - *The roll* (L or C, the roll pad; once the hero has the blade, so the
+    town stays quiet). 2.2 tiles in 0.3 s the way the stick points (else the
+    way the hero faces), slowing as it goes, a little steering; nothing
+    harms the hero for its first 0.2 s (`ROLL_IFRAMES`); 0.15 s of rest
+    after it. It may cut a swing from 35 % in, a press of it in the last
+    moments of a shove waits, a pit still takes the hero, and it never
+    starts on ice. A press of A in its last moments strikes as it ends.
+  - *Moving.* Up to speed in about 0.07 s from a stand (`HERO_ACCEL`);
+    turning keeps the pace and stopping is at once, so nothing slides past
+    a ledge. The walk steps at 8.5 a second.
+  - *What it looks like* (`render/renderer.ts`, so the classic view and
+    both turned views have it alike). The blade's smear is a crescent of
+    hard pixels over the arc just swept, on the circle the blade's sprite
+    goes round the hand (white at the head, then cyan, gold for the Arc
+    Blade, then a dithered tail); the finisher's is wider and stays 60 ms,
+    the spin's goes round. The hero squashes into a windup and stretches
+    into the blow, crouches into a roll and leaves three cyan shapes of
+    itself behind it; the backhand shows the swing frame mirrored. Foes
+    squash flat under a blow and spring back; a fallen foe bursts white and
+    flat along the blow before its poof. A blow throws sparks along it with
+    a four-ray star and a ring (a heavy one a gold ring and a cut across);
+    blows, kills, rolls, clanks, booms, chests and levers flash light on the
+    ground (`ambient`); the blade lights the ground where it is in the world
+    (not where the view turns its picture), with two lights trailing the
+    sweep; the camera leans 2 px along a blow (more for the finisher and a
+    kill; `Kit.nudge`, none under reduced motion); dust rises off a roll, a
+    lunge and a run turned round. The chain's hits sound a step higher each,
+    the finisher heavy (`sword`, `sword2`, `swordHeavy`; `hitHeavy`, `roll`).
+  - *Art to come.* Until the roll is drawn, `hero_*_roll_0..3` are the
+    standing frame tucked and turned (`heroFrames.ts`), and the isometric
+    art makes the same of its own standing body (`ART_EXTRA_POSES` in
+    `iso/hero.ts`: a pose the art does not draw yet falls back to a drawn
+    one, so it never turns the hero classic). The lab's `swing1`, `swing2`,
+    `swing3`, `roll`, `hit` and `kill` scenes show each moment.
 - **The land beyond the edge** (`render/beyond.ts`, `iso/lands.ts`,
   2026-11-12). A turned map is a diamond, and outdoors the world goes on
   round it for 24 tiles (`BEYOND`), so the land is never a board on a table.
@@ -899,8 +964,9 @@ Tab (`data-game-keys`). It steps away while the menu, a dialog, a panel or a way
 out has the screen.
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
-open, lift, throw, use an exit; hold after a swing, release to spin);
-K/X/Shift = B (item); Q, or Tab when there is an item, swaps; P or an
+open, lift, throw, use an exit; pressed again, the next hit of the chain;
+hold after a swing, release to spin); K/X/Shift = B (item); L or C rolls
+(once the hero has the blade); Q, or Tab when there is an item, swaps; P or an
 Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
 current quest), M on its MAP page (see "The map"); the key of the open page
 or Escape closes it, the other key turns the page. In the menu O turns the
@@ -908,10 +974,13 @@ sound on or off, T goes to town, C (on the MAP page) the corner map; V
 turns to the next view anywhere (see "Views"). Holding Escape saves and
 goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
-floating stick on the left 60 %; three round buttons with pictures and no
-letters: A always (a sword), B (the chosen item) and swap (two arrows) once
-there is an item, and the lines call them THE SWORD BUTTON, THE ITEM BUTTON
-and THE SWAP BUTTON (`keys.ts`); on a phone lying on its side they sit lower and more side by side; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the other page; on ITEMS SOUND ON/OFF and TO TOWN; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+floating stick on the left 60 %; round buttons with pictures and no
+letters: A always (a sword), the roll (the hero curled up, a small green
+ring over B, beside A while there is no item) once there is the blade, B
+(the chosen item) and swap (two arrows) once there is an item, and the
+lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
+SWAP BUTTON (`keys.ts`, `{ROLL}` in a line); on a phone lying on its side
+they sit lower and more side by side, the roll left of B; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the other page; on ITEMS SOUND ON/OFF and TO TOWN; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status

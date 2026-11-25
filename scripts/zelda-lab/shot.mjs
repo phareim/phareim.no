@@ -41,6 +41,7 @@ import { createGame, stepGame } from ${JSON.stringify(join(repo, 'themes/zelda/e
 import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
+import { spawnEnemy } from ${JSON.stringify(join(repo, 'themes/zelda/engine/spawn.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
@@ -89,7 +90,28 @@ if (q.get('views') === 'all') r.addView('iso', isoView)
 if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
-const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }
+/** What the steps said (the fight scenes keep a blow's events, to lay its effects on the last frames again). */
+const said = []
+const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) { const e = stepGame(world, s, 1 / 60, i); said.push(...e); r.onEvents(e) } }
+/** Run just before the last frames are drawn (the lab draws 40 frames without stepping: short effects are gone by then). */
+let late = null
+/** The game steps on through this many of the last frames, with this input (a roll's afterimages need it moving). */
+let lateSteps = 0
+let lateInput = null
+/**
+ * The fight lab (real-time combat, the chain, the roll): the hero on the square facing east with a blob in front,
+ * and the moment \`moment\` sets up; the blow's effects are laid on again for the last frames.
+ */
+function fight(moment) {
+  give(); go('overworld', 20.5, 17.5, 'right'); run(5)
+  const blob = spawnEnemy('lab-blob', 'blob', 21.75, 17.5, 'left', -1)
+  blob.hp = 99; blob.maxHp = 99; blob.ai.t = 99
+  s.map.enemies.push(blob)
+  const A = () => run(1, inp({ aPress: true, a: true }))
+  moment(A, blob)
+  const blows = said.filter(e => ['hit', 'kill', 'swing', 'roll'].includes(e.type)).slice(-4)
+  late = () => r.onEvents(blows)
+}
 const ev = []
 const give = () => { s.inv.sword = true; s.inv.bombBag = true; s.inv.bombs = 8; s.inv.disc = true; s.inv.selected = 'disc'; s.inv.bits = 123; s.inv.keys = 1; s.hero.maxHp = 10; s.hero.hp = 7 }
 const at = (map, x, y, dir = 'down') => { enterMap(WORLD, s, map, Object.keys({}).length ? '' : 'x', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir }
@@ -164,6 +186,13 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'look-suburb-2': give(); place('look-suburb:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
+  // Real-time combat: hit 1 of the chain mid-sweep, hit 2 (the backhand), hit 3 (the finisher), the roll, a blow landing.
+  case 'swing1': fight(A => { A(); run(5) }); break
+  case 'swing2': fight(A => { A(); run(11); A(); run(5) }); break
+  case 'swing3': fight(A => { A(); run(11); A(); run(11); A(); run(8) }); break
+  case 'roll': fight(() => { s.map.enemies.length = 0; run(1, inp({ rollPress: true, move: { x: 1, y: 0.25 } })); run(3, inp({ move: { x: 1, y: 0.25 } })) }); lateSteps = 6; lateInput = inp({ move: { x: 1, y: 0.25 } }); break
+  case 'hit': fight((A, blob) => { A(); for (let k = 0; k < 20 && !said.some(e => e.type === 'hit'); k++) run(1); blob.flash = 0.14 }); break
+  case 'kill': fight((A, blob) => { blob.hp = 1; A(); for (let k = 0; k < 20 && !said.some(e => e.type === 'kill'); k++) run(1); run(4) }); break
   case 'market': give(); place('overworld', 'shop', 4, 4); run(20); break
   case 'woods': give(); s.hero.x = 48; s.hero.y = 9; run(40); break
   case 'lake': give(); place('overworld', 'cave', -4, -6); run(30); break
@@ -399,7 +428,12 @@ function wild(luna = false) {
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
 ;(async () => {
-  for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
+  const frames = +(q.get('frames') || 40)
+  for (let k = 0; k < frames; k++) {
+    if (k === frames - 2 && late) late()
+    if (k >= frames - lateSteps) run(1, lateInput ?? inp({}))
+    r.draw(s, ui, 1 / 60)
+  }
   // For a lab page that wants to go on drawing (timing a view, filming a turn).
   window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp }
   document.title = 'ready'
@@ -416,6 +450,14 @@ const SHOTS = [
   ['start-1440', 'start', 1440, 900, 1, 0],
   ['start-390', 'start', 390, 844, 3, 0],
   ['swing-1440', 'swing', 1440, 900, 1, 0],
+  // Real-time combat (VIEW=iso is the one that matters).
+  ['swing1-1280', 'swing1', 1280, 800, 1, 0],
+  ['swing2-1280', 'swing2', 1280, 800, 1, 0],
+  ['swing3-1280', 'swing3', 1280, 800, 1, 0],
+  ['roll-1280', 'roll', 1280, 800, 1, 0],
+  ['hit-1280', 'hit', 1280, 800, 1, 0],
+  ['kill-1280', 'kill', 1280, 800, 1, 0],
+  ['hit-375', 'hit', 375, 667, 2, 0],
   ['intro-390', 'intro', 390, 844, 3, 0],
   ['market-1440', 'market', 1440, 900, 1, 0],
   ['woods-1440', 'woods', 1440, 900, 1, 0],
