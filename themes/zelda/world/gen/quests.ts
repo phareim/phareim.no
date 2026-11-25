@@ -143,7 +143,7 @@ export const QUEST_SITES: Site[] = [
     marks: {
       a: npc('q.gunn', 'keeper', [
         { when: { flags: [LAMP.got], not: [LAMP.done] }, lines: ["BROR'S LAMP. THE RAILS HOLD?", 'THEN HE STAYS DOWN BY CHOICE.', 'THE HILL GETS AN EIGHTH', 'LETTER FOR THAT.'], set: LAMP.done, give: 'heartPiece' },
-        { when: { flags: [BELL.ore], not: [BELL.chrome] }, lines: ['CHROME FOR A BELL?', "TAKE A SHIFT'S WORTH.", 'TELL HER: NO TREES.'], set: BELL.chrome, give: 'bombs5' },
+        { when: { flags: [BELL.ore], not: [BELL.chrome] }, lines: ['CHROME FOR A BELL?', "TAKE A SHIFT'S WORTH.", 'TELL HER: NO TREES.'], set: BELL.chrome, give: 'bits20' },
         { when: { flag: LAMP.done }, lines: ['EIGHT LETTERS NOW.', "DON'T TELL THE SIGN."] },
         { lines: ['SEVEN LOTS. SEVEN LETTERS.', 'DIG.', 'MY BROTHER WENT DOWN', 'THE DEEP DRIFT, WEST.', 'BRING ME WORD. ANY WORD.'], set: LAMP.ask },
       ]),

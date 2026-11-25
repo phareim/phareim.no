@@ -219,7 +219,13 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     const n = rng.int(poi.min, poi.max)
     for (let i = 0; i < n; i++) put(poi.stamp)
   }
-  if (ctx.heart) put('relic')
+  // The realm's heart piece must stand: where no random spot is left, the first spot that fits (scanned, unpadded last).
+  if (ctx.heart && !put('relic')) {
+    const st = STAMPS.relic!
+    let spot: { x: number; y: number } | undefined
+    for (const pad of [st.pad ?? 0, 0]) for (let y = 0; y < H && !spot; y++) for (let x = 0; x < W && !spot; x++) if (fits(x, y, st.rows[0]!.length, st.rows.length, pad)) spot = { x, y }
+    if (spot) put('relic', spot)
+  }
 
   // --- 4. roads -----------------------------------------------------------------
   const carve = (x: number, y: number) => {
@@ -389,14 +395,15 @@ export function generateRegion(ctx: RegionCtx): MapDef {
       default: break
     }
   }
-  // Foes on the open land the roads reach, away from the camp and the passes.
+  // Foes on the open land the roads reach, away from the passes and every entry (the camp, a cave's mouth, a site's
+  // way back up): the hero must not arrive within a group's sight. (10 tiles, manhattan: more than sight, cluster and mill.)
   const reach = reachable(rows, W, H, entries.camp ?? { x: nodes[0]?.x ?? W / 2, y: nodes[0]?.y ?? H / 2 })
   if (!ctx.landing) {
     let open = 0
     for (let i = 0; i < W * H; i++) if (reach[i]) open++
     // (A battle realm's foes stand in groups of one to four: fewer places for them.)
     const want = Math.round((open / 100) * realm.density * (1 + 0.2 * Math.min(ctx.depth, 6)) * (realm.special === 'battle' ? 0.4 : 1))
-    const keepOff = [...passTiles, ...(entries.camp ? [entries.camp] : [])]
+    const keepOff = [...passTiles, ...Object.values(entries)]
     for (let n = 0, tries = 0; n < want && tries < want * 30; tries++) {
       const x = rng.int(RIM + 1, W - RIM - 2)
       const y = rng.int(RIM + 1, H - RIM - 2)

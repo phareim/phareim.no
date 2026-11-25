@@ -42,6 +42,22 @@ const tileOf = (def, x, y) => {
   return m ? (m.tile ?? (m.ent.t === 'chest' ? '$' : m.ent.t === 'sign' ? 'S' : '.')) : ch
 }
 
+/** Walk up to `id` in region `map` (from its camp) and press A. */
+function talkTo(s, map, id) {
+  if (s.map.id !== map) Z.enterMap(Z.WORLD, s, map, 'camp', [])
+  for (let i = 0; i < 30; i++) P.step(s)
+  const n = s.map.npcs.find(x => x.id === id)
+  assert.ok(n, `${id} in ${map}`)
+  const nx = Math.floor(n.x)
+  const ny = Math.floor(n.y)
+  const spots = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
+  const spot = spots.find(([dx, dy]) => P.path(s, nx + dx, ny + dy))
+  assert.ok(spot, `a way to ${id}`)
+  P.walkTo(s, nx + spot[0], ny + spot[1])
+  P.face(s, spot[2])
+  P.pressA(s)
+}
+
 describe('the frontier', () => {
   it('makes every region of the macro map, the same each time', () => {
     const all = ids()
@@ -186,20 +202,7 @@ describe('the frontier', () => {
   it('talks the clean seed through, from the crossroads to the desert and back', () => {
     const s = Z.createGame(Z.WORLD, { seed: 5, at: { map: LANDING, entry: 'camp' } })
     s.inv.sword = true
-    const talk = (map, id) => {
-      if (s.map.id !== map) Z.enterMap(Z.WORLD, s, map, 'camp', [])
-      for (let i = 0; i < 30; i++) P.step(s)
-      const n = s.map.npcs.find(x => x.id === id)
-      assert.ok(n, `${id} in ${map}`)
-      const nx = Math.floor(n.x)
-      const ny = Math.floor(n.y)
-      const spots = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
-      const spot = spots.find(([dx, dy]) => P.path(s, nx + dx, ny + dy))
-      assert.ok(spot, `a way to ${id}`)
-      P.walkTo(s, nx + spot[0], ny + spot[1])
-      P.face(s, spot[2])
-      P.pressA(s)
-    }
+    const talk = (map, id) => talkTo(s, map, id)
     const F = 'q.seed.'
     talk('fr:10,3', 'q.seed.bed')
     assert.ok(!s.flags[F + 'planted'], 'no seed, nothing to plant')
@@ -214,6 +217,17 @@ describe('the frontier', () => {
     assert.ok(s.flags['got:q.seed.bed:heartPiece'], 'a heart piece for the planting')
     talk('fr:6,7', 'q.seed.tender')
     assert.ok(s.flags['got:q.seed.tender:bits50'], 'and the walk home')
+  })
+
+  it('pays Gunn’s chrome for the bell in something a hero without a bomb bag can keep', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 5, at: { map: LANDING, entry: 'camp' } })
+    s.inv.sword = true
+    s.flags['q.bell.ore'] = true
+    const before = s.inv.bits + s.inv.bombs
+    talkTo(s, 'fr:2,3', 'q.gunn')
+    assert.ok(s.flags['q.bell.chrome'], 'the chrome is given')
+    assert.equal(s.inv.bombBag, false)
+    assert.ok(s.inv.bits + s.inv.bombs > before, 'and the reward is not lost')
   })
 
   it('switches each realm’s system on: dig in the dig realms, battles in the battle realms, puzzles in the puzzle realms', () => {
@@ -266,6 +280,63 @@ describe('the frontier', () => {
     }
     assert.deepEqual(bad, [])
     assert.ok(sites >= 10, `${sites} puzzle sites`)
+  })
+
+  it('sets one heart piece down in every realm but the Landing’s', () => {
+    const hearts = {}
+    const realms = new Set()
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      realms.add(d.realm)
+      for (const m of Object.values(d.marks)) if (m.ent.t === 'chest' && m.ent.item === 'heartPiece' && m.ent.id.endsWith('.heart')) (hearts[d.realm] ??= []).push(m.ent.id)
+    }
+    // (The Underglow, under the map, keeps its pieces on its layers.)
+    assert.equal(realms.size, Object.keys(GEN.REALMS).length - 1)
+    for (const r of realms) {
+      if (r === 'landing') { assert.equal(hearts[r], undefined); continue }
+      assert.equal(hearts[r]?.length, 1, `${r}: ${hearts[r] ?? 'no heart piece'}`)
+    }
+  })
+
+  it('keeps every heart the world holds through a save and a reload', () => {
+    // Every map, the generated ones with their caves and the Underglow's layers; talk gives and prizes count too.
+    const maps = { ...Z.WORLD.maps }
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      maps[id] = d
+      for (const k of Object.keys(d.entries)) {
+        const m = /^cave(\d+)$/.exec(k)
+        if (m) maps[`${id}:cave${m[1]}`] = Z.WORLD.generate(`${id}:cave${m[1]}`)
+        if (k === 'deep') for (let n = 1; n <= 6; n++) maps[`${id}:deep${n}`] = Z.WORLD.generate(`${id}:deep${n}`)
+      }
+    }
+    const json = JSON.stringify(maps)
+    const pieces = json.match(/"heartPiece"/g).length
+    const containers = json.match(/"heartContainer"/g).length
+    const most = Z.START_HP + 2 * containers + 2 * Math.floor(pieces / 4)
+    assert.ok(most <= Z.MAX_HP, `${pieces} pieces and ${containers} containers make ${most} half-hearts, the save keeps ${Z.MAX_HP}`)
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: LANDING, entry: 'camp' } })
+    s.hero.maxHp = most
+    assert.equal(Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))).maxHp, most)
+  })
+
+  it('keeps every battle group out of sight of the entries the hero arrives at', () => {
+    // A group sees `sight` tiles; its foes stand up to ~1.2 off its spot and mill ~0.9 further.
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      if (!d.battle) continue
+      for (const g of d.battle.groups) for (const [k, e] of Object.entries(d.entries)) {
+        const dist = Math.hypot(g.x - e.x, g.y - e.y)
+        assert.ok(dist > (g.sight ?? 0) + 3, `${g.id} stands ${dist.toFixed(1)} from ${id}:${k}`)
+      }
+    }
+    // Up the stairs from the Battle Glade, out of a Sporelight cave: no fight before the hero moves.
+    for (const [map, entry] of [['fr:7,2', 'from-arena'], ['fr:8,2', 'cave0']]) {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map, entry } })
+      s.inv.sword = true
+      for (let k = 0; k < 180 && s.mode === 'play'; k++) step(s)
+      assert.equal(s.mode, 'play', `${map}:${entry} starts a fight`)
+    }
   })
 
   it('leads down into the three first maps and back up', () => {
