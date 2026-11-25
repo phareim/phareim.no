@@ -192,7 +192,7 @@ export function stepGame(world: World, s: GameState, dt: number, input: Input): 
   while (left > 1e-9) {
     const h = Math.min(STEP, left)
     left -= h
-    const inp = first ? input : { ...input, aPress: false, bPress: false, cycle: false }
+    const inp = first ? input : { ...input, aPress: false, bPress: false, cycle: false, pick: undefined }
     first = false
     substep(world, s, h, inp, ev)
   }

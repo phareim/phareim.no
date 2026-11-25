@@ -15,12 +15,13 @@
  * that glows by itself lands in `emit` and is left at full brightness by the
  * light map.
  */
-import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
+import type { BattlePick, Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
 import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapInfo, shardPos, swingAngle } from '../engine/index'
 import { dayLook, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
+import { drawBattle, pickAt, type BattleBox } from './battle'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -96,6 +97,8 @@ const HANDOFF = 0.1
 const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', dark: '#1d1433', caveDark: '#2a1e44' }
 
 export interface SafeInsets { top: number; right: number; bottom: number; left: number }
+/** A world point (tiles, z up) on the screen, device px: how a view places the battle overlay by its fighters (none: the classic camera). */
+export type ScreenOf = (x: number, y: number, z?: number) => Vec
 const NO_INSETS: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 }
 
 export interface Renderer {
@@ -144,6 +147,8 @@ export interface Renderer {
    * HTML keeps the classic dress too.
    */
   fineUnit(): number
+  /** Field battles: what the battle overlay drew under a point (CSS px on the canvas), as of the last frame. */
+  battlePick(x: number, y: number): BattlePick | null
 }
 
 /**
@@ -284,7 +289,7 @@ export interface Kit {
    * one in over the second, instead of one giving way to the other in a
    * single frame. Their letters are never on top of each other.
    */
-  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }): void
+  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }, screenOf?: ScreenOf): void
   /**
    * Where a skin's HUD lies on the screen: device px per HUD logical px, where
    * its logical origin lands (device px) and its logical size. The classic HUD
@@ -1139,7 +1144,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * keeps clear of it): both in scene px, whatever grid the skin's HUD is on.
    * `from`: see `Kit.hudLayer`.
    */
-  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
+  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }, screenOf?: ScreenOf) {
+    battleScreen = screenOf ?? null
     // The dialog box keeps the side it opened on: a turn of the view under it (the camera tipping, the hero's row moving
     // on the screen) never throws it from the bottom to the top in one frame.
     if (s.dialog) {
@@ -1165,6 +1171,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       screen.beginPath(); screen.arc(sx + ui.stick.dx * dpr, sy + ui.stick.dy * dpr, 16 * dpr, 0, Math.PI * 2); screen.fill()
     }
   }
+
+  /** Field battles: the view's own placing of world points this frame, and the overlay's touch boxes (device px). */
+  let battleScreen: ScreenOf | null = null
+  let battleBoxes: BattleBox[] = []
 
   /** The dialog the box's side was taken for, and the hero's row it was taken by. */
   let dialogRow: { of: unknown; y: number } = { of: null, y: 0 }
@@ -1198,6 +1208,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         g.restore()
       }
       drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
+      if (s.battle) {
+        const scr = battleScreen ?? ((x: number, y: number, z = 0) => ({ x: ox + (x * T - cx) * scale, y: oy + ((y - z) * T - cy) * scale }))
+        const place = (x: number, y: number, z?: number) => { const p = scr(x, y, z); return { x: (p.x - sp.ox) / sp.scale, y: (p.y - sp.oy) / sp.scale } }
+        const boxes = drawBattle(g, s, place, sp.vw, sp.vh, (hud ? 30 : 2) + top, bottom + (ui.touch ? 8 : 2), time, skin)
+        if (alpha >= 0.5) battleBoxes = boxes.map(b => ({ ...b, x: sp.ox + b.x * sp.scale, y: sp.oy + b.y * sp.scale, w: b.w * sp.scale, h: b.h * sp.scale }))
+      } else if (alpha >= 0.5) battleBoxes = []
       // The view strip has the banner's place while it is up.
       if (ui.banner && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
       if (s.dialog) {
@@ -1835,5 +1851,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       views.clear()
     },
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
+    battlePick: (x, y) => pickAt(battleBoxes, x * dpr, y * dpr),
   }
 }

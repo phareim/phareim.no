@@ -25,7 +25,7 @@
  */
 import type { GameState, MapKind, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
-import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
+import { aimOf, battleFocus, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -756,7 +756,8 @@ export default function isoView(kit: Kit): View {
     const cClassic = proj(cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      const focus = { x: s.hero.x, y: s.hero.y + 6 / T }
+      const f0 = battleFocus(s)
+      const focus = { x: f0.x, y: f0.y + 6 / T }
       let ci: Vec
       if (s.scroll) {
         const a = centreIn(P0, focus, s.scroll.from, vw, vh, RISE)
@@ -1596,7 +1597,9 @@ export default function isoView(kit: Kit): View {
     const at = hudOf(ref.x, ref.y)
     kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), hudOf(s.hero.x, s.hero.y).y,
       // The windows change dress in the middle of the turn: the classic ones fade out, these fade in.
-      par.windows === '16-bit' ? HIRES_WINDOW_SKIN : NEON_SKIN, k < 1 ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
+      par.windows === '16-bit' ? HIRES_WINDOW_SKIN : NEON_SKIN, k < 1 ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined,
+      // (A field battle's overlay sits by its fighters.)
+      s.battle ? (x, y, z) => { const p = toScene(cam, x, y, z); return { x: offX + p.x * hs, y: offY + p.y * hs } } : undefined)
   }
 
   return {
