@@ -19,6 +19,10 @@
  */
 import type { MapDef } from '../types'
 import { INTRO } from './intro'
+import { FRONTIER, regionId } from './gen/frontier'
+
+/** Where the ferry from the pier lands: the frontier's Landing. */
+const LANDING = regionId(FRONTIER.landing.rx, FRONTIER.landing.ry)
 
 /** The town is the first 40 columns; everything east of it is the old overworld, shifted by this much. */
 export const TOWN_W = 40
@@ -121,7 +125,7 @@ export const OVERWORLD: MapDef = {
   },
   marks: {
     // The ferry at the end of the pier: across the bay to the frontier (world/gen/, docs/worlds/).
-    'Ŧ': { ent: { t: 'warp', to: 'fr:4,6', entry: 'camp' }, tile: '=' },
+    'Ŧ': { ent: { t: 'warp', to: LANDING, entry: 'camp' }, tile: '=' },
     'Ƒ': { ent: { t: 'entry', id: 'ferry', dir: 'up' }, tile: '=' },
     'Ŋ': { ent: { t: 'sign', lines: ['THE FERRY: TO THE FRONTIER.', 'IT BRINGS YOU BACK ANY TIME.'] } },
     'Ƥ': { ent: { t: 'npc', id: 'ferryman', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['NO BLADE, NO BOAT.', 'THE FRONTIER BITES.', 'THE KEEPER EAST OF TOWN HAS ONE.'] }] }, tile: '=' },

@@ -1,13 +1,32 @@
 // The frontier (themes/zelda/world/gen/): every region is made, the same every
 // time; neighbours cut their passes at the same places; everything placed can
-// be walked to; the world's checks pass on the generated maps; and the hero
-// can take the ferry over and walk from one region into the next.
+// be walked to; the world's checks pass on the generated maps; the hero can
+// take the ferry over and walk from one region into the next; every realm is
+// on the macro map, every quest site in its region, every line fits the font;
+// and one questline (the clean seed) is talked through from start to end.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { load } from './zelda-load.mjs'
+import { walker } from './zelda-walk.mjs'
 
+const LANDING = 'fr:6,8'
 let Z
-before(async () => { Z = await load() })
+let P
+/** The generator's own data (sites, realms), bundled on its own. */
+let GEN
+before(async () => {
+  Z = await load()
+  P = walker(Z)
+  const esbuild = createRequire(import.meta.url)('esbuild')
+  const out = esbuild.buildSync({
+    stdin: { contents: `export { SITES, SITE_REALMS, DEEP_FOLK } from './quests'; export { REALMS } from './realms'`, resolveDir: join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda', 'world', 'gen'), loader: 'ts' },
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+  })
+  GEN = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+})
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
 const step = (s, i = inp(), dt = 1 / 60) => Z.stepGame(Z.WORLD, s, dt, i)
@@ -77,6 +96,8 @@ describe('the frontier', () => {
       for (const k of Object.keys(d.entries)) {
         const m = /^cave(\d+)$/.exec(k)
         if (m) { const c = Z.WORLD.generate(`${id}:cave${m[1]}`); assert.ok(c, `${id} cave ${m[1]}`); maps[c.id] = c }
+        // The Underglow's layers under the deep drift.
+        if (k === 'deep') for (let n = 1; n <= 6; n++) { const c = Z.WORLD.generate(`${id}:deep${n}`); assert.ok(c, `${id} deep ${n}`); maps[c.id] = c }
       }
     }
     const problems = Z.validateWorld({ ...Z.WORLD, maps })
@@ -93,28 +114,105 @@ describe('the frontier', () => {
     assert.ok(!t.map.npcs.some(n => n.id === 'ferryman'))
     for (let i = 0; i < 400 && t.map.id === 'overworld'; i++) step(t, inp({ move: { x: 0, y: 1 } }))
     for (let i = 0; i < 60; i++) step(t)
-    assert.equal(t.map.id, 'fr:4,6')
+    assert.equal(t.map.id, LANDING)
     assert.equal(t.mode, 'play')
     // A save made over there continues over there.
     const save = Z.toSave(t)
-    assert.equal(save.map, 'fr:4,6')
+    assert.equal(save.map, LANDING)
     const u = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(save))) })
-    assert.equal(u.map.id, 'fr:4,6')
+    assert.equal(u.map.id, LANDING)
   })
 
   it('walks off the edge through a pass into the next region', () => {
-    const L = Z.WORLD.generate('fr:4,6')
+    const L = Z.WORLD.generate(LANDING)
     const W = L.rows[0].length
     const x = [...Array(W).keys()].find(x => WALK.has(tileOf(L, x, 0)) && WALK.has(tileOf(L, x + 1, 0)) && WALK.has(tileOf(L, x + 2, 0)))
     assert.ok(x !== undefined, 'a pass north')
-    const s = Z.createGame(Z.WORLD, { seed: 4, at: { map: 'fr:4,6', entry: 'camp' } })
+    const s = Z.createGame(Z.WORLD, { seed: 4, at: { map: LANDING, entry: 'camp' } })
     s.hero.x = x + 1.5
     s.hero.y = 1.5
-    for (let i = 0; i < 200 && s.map.id === 'fr:4,6'; i++) step(s, inp({ move: { x: 0, y: -1 } }))
+    for (let i = 0; i < 200 && s.map.id === LANDING; i++) step(s, inp({ move: { x: 0, y: -1 } }))
     for (let i = 0; i < 60; i++) step(s)
     assert.equal(s.map.id, L.edges.n)
     assert.ok(Math.abs(s.hero.x - (x + 1.5)) < 0.01, 'same place along the edge')
     assert.ok(s.hero.y > L.rows.length - 2, 'at the far edge of the next region')
     assert.equal(s.mode, 'play')
+  })
+
+  it('has every realm on the macro map, the Underglow under the quarry', () => {
+    const seen = new Set(ids().map(id => Z.WORLD.generate(id).realm))
+    const want = Object.keys(GEN.REALMS).filter(r => r !== 'underglow')
+    assert.deepEqual([...seen].sort(), want.sort())
+    const drift = ids().find(id => Z.WORLD.generate(id).entries.deep)
+    assert.ok(drift, 'a region with the deep drift')
+    assert.equal(Z.WORLD.generate(drift).realm, 'lumenby')
+    // Down six layers and back up; the bottom's Geyser goes home.
+    for (let n = 1; n <= 6; n++) {
+      const d = Z.WORLD.generate(`${drift}:deep${n}`)
+      assert.equal(d.realm, 'underglow')
+      const warps = Object.values(d.marks).filter(m => m.ent.t === 'warp').map(m => `${m.ent.to}:${m.ent.entry}`)
+      assert.ok(warps.includes(n === 1 ? `${drift}:deep` : `${drift}:deep${n - 1}:down`), `layer ${n} leads up`)
+      assert.ok(warps.includes(n < 6 ? `${drift}:deep${n + 1}:up` : `${drift}:deep`), `layer ${n} leads on`)
+    }
+    assert.equal(Z.WORLD.generate(`${drift}:deep7`), null)
+  })
+
+  it('sets every quest site down in its region, in the realm it was written for', () => {
+    for (const site of GEN.SITES) {
+      const d = Z.WORLD.generate(site.region)
+      assert.ok(d, site.region)
+      assert.equal(d.realm, GEN.SITE_REALMS[site.id], `${site.id} in ${site.region}`)
+      const ents = Object.values(d.marks).map(m => m.ent)
+      for (const mk of Object.values(site.marks ?? {})) {
+        const e = mk.ent
+        const placed = e.t === 'entry' ? !!d.entries[e.id] : ents.some(x => JSON.stringify(x) === JSON.stringify(e))
+        assert.ok(placed, `${site.id}: its ${e.t} ${e.id ?? e.to ?? e.lines?.[0]} is placed`)
+      }
+    }
+  })
+
+  it('speaks in the pixel font: upper case, 30 letters a line at most', () => {
+    const lines = []
+    for (const r of Object.values(GEN.REALMS)) lines.push(...r.lore, ...r.folk.flatMap(f => f.says.flat()), r.name)
+    const talk = e => (e.t === 'npc' ? e.talk.flatMap(b => b.lines) : e.t === 'sign' ? e.lines : [])
+    for (const site of GEN.SITES) for (const mk of Object.values(site.marks ?? {})) lines.push(...talk(mk.ent))
+    for (const folk of Object.values(GEN.DEEP_FOLK)) for (const e of folk) lines.push(...talk(e))
+    for (const l of lines) {
+      assert.ok(l.length <= 30, `too long: ${l}`)
+      assert.match(l, /^[A-Z0-9 .,!?'":;\-()/#%&+=*]*$/, `not in the font: ${l}`)
+    }
+  })
+
+  it('talks the clean seed through, from the crossroads to the desert and back', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 5, at: { map: LANDING, entry: 'camp' } })
+    s.inv.sword = true
+    const talk = (map, id) => {
+      if (s.map.id !== map) Z.enterMap(Z.WORLD, s, map, 'camp', [])
+      for (let i = 0; i < 30; i++) P.step(s)
+      const n = s.map.npcs.find(x => x.id === id)
+      assert.ok(n, `${id} in ${map}`)
+      const nx = Math.floor(n.x)
+      const ny = Math.floor(n.y)
+      const spots = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
+      const spot = spots.find(([dx, dy]) => P.path(s, nx + dx, ny + dy))
+      assert.ok(spot, `a way to ${id}`)
+      P.walkTo(s, nx + spot[0], ny + spot[1])
+      P.face(s, spot[2])
+      P.pressA(s)
+    }
+    const F = 'q.seed.'
+    talk('fr:10,3', 'q.seed.bed')
+    assert.ok(!s.flags[F + 'planted'], 'no seed, nothing to plant')
+    talk('fr:6,7', 'q.seed.tender')
+    assert.ok(s.flags[F + 'heard'])
+    talk('fr:8,2', 'q.seed.keeper')
+    assert.ok(s.flags[F + 'well'])
+    talk('fr:9,1', 'q.seed.spirit')
+    assert.ok(s.flags[F + 'got'])
+    talk('fr:10,3', 'q.seed.bed')
+    assert.ok(s.flags[F + 'planted'])
+    assert.ok(s.flags['got:q.seed.bed:heartPiece'], 'a heart piece for the planting')
+    talk('fr:6,7', 'q.seed.tender')
+    assert.ok(s.flags['got:q.seed.tender:bits50'], 'and the walk home')
   })
 })

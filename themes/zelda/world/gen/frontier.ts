@@ -1,7 +1,9 @@
 /**
  * The frontier: the generated world across the bay from the town. A grid of
  * regions, one map each, made when first asked for and kept. A region's id
- * is `fr:<rx>,<ry>`; its caves are `fr:<rx>,<ry>:cave<n>`.
+ * is `fr:<rx>,<ry>`; its caves are `fr:<rx>,<ry>:cave<n>`, and the layers of
+ * the Underglow under the Lumenby region with the deep drift
+ * `fr:<rx>,<ry>:deep<n>` (`descent.ts`).
  *
  * The macro map below says which realm each region belongs to; inside a
  * region everything is made from the seed (`region.ts`). The ferry from the
@@ -11,6 +13,8 @@
 import type { MapDef } from '../../types'
 import { hash } from './rng'
 import { generateCave } from './cave'
+import { DEEP_LAYERS, generateLayer } from './descent'
+import { SITES } from './quests'
 import { generateRegion } from './region'
 import { REALMS } from './realms'
 import type { FrontierSpec, RealmSpec } from './types'
@@ -19,18 +23,27 @@ export const FRONTIER: FrontierSpec = {
   seed: 0x5eed1,
   w: 64,
   h: 44,
-  // L the Landing, G the Green Miles, Q Lumenby Quarry. ' ' is the sea.
+  // The macro map, north up; ' ' is the sea. The ferry lands at L in the
+  // south; the Green Miles (G) are the plain between the realms. The cold
+  // runs along the north (Yule Fjord's long fjord, west to east, over the
+  // pastures of Seter Fell); the quarry hills (Q, and the Underglow under
+  // them) in the west; the Sporelight's fungus wood in the north-east, the
+  // Stillsand desert east; Fogstage's lowland south-west, Rerun's lawns
+  // south-east, nearest the ferry.
   layout: [
-    ' QQQ GGG ',
-    'QQQGGGGGG',
-    'QQGGGGGGG',
-    ' GGGGGGG ',
-    ' GGGGGGG ',
-    '  GGGGG  ',
-    '    L    ',
+    '  YYYYYYYY  ',
+    ' QSSSSSSPPP ',
+    'QQQSSSGPPPPD',
+    'QQQGSGGGPPDD',
+    ' QGGGGGGGDDD',
+    'FFFGGGGGRDDD',
+    'FFFFGGGRRRDD',
+    ' FFFGGGRRRR ',
+    '   F  L     ',
   ],
-  realms: { L: 'landing', G: 'meadow', Q: 'lumenby' },
-  landing: { rx: 4, ry: 6 },
+  realms: { L: 'landing', G: 'meadow', Q: 'lumenby', S: 'seterfell', Y: 'yulefjord', D: 'stillsand', P: 'sporelight', F: 'fogstage', R: 'rerun' },
+  landing: { rx: 6, ry: 8 },
+  sites: SITES,
 }
 
 export const FRONTIER_PREFIX = 'fr:'
@@ -85,7 +98,7 @@ export function frontierMap(id: string, F: FrontierSpec = FRONTIER): MapDef | nu
 }
 
 function make(id: string, F: FrontierSpec): MapDef | null {
-  const m = /^fr:(\d+),(\d+)(?::cave(\d+))?$/.exec(id)
+  const m = /^fr:(\d+),(\d+)(?::(cave|deep)(\d+))?$/.exec(id)
   if (!m) return null
   const rx = Number(m[1])
   const ry = Number(m[2])
@@ -94,7 +107,11 @@ function make(id: string, F: FrontierSpec): MapDef | null {
   const depth = Math.abs(rx - F.landing.rx) + Math.abs(ry - F.landing.ry)
   if (m[3] !== undefined) {
     const region = frontierMap(regionId(rx, ry), F)
-    const n = Number(m[3])
+    const n = Number(m[4])
+    if (m[3] === 'deep') {
+      if (!region?.entries?.deep || n < 1 || n > DEEP_LAYERS || String(n) !== m[4]) return null
+      return generateLayer({ seed: hash(F.seed, rx, ry, 606), top: region.id, layer: n, realm: REALMS.underglow! })
+    }
     if (!region?.entries?.[`cave${n}`]) return null
     return generateCave({ seed: hash(F.seed, rx, ry, n), id, up: { map: region.id, entry: `cave${n}` }, realm, depth })
   }
