@@ -526,6 +526,17 @@ export function heroFrames(shape: HeroShape): Record<string, Rows> {
     return join(g)
   })()
 
+  /**
+   * The dodge roll, until it is drawn (`docs/art/codex-tasks.md`): the standing frame tucked small, then turned a
+   * quarter at a time, each sat on the floor.
+   */
+  const rolled = (src: Rows, quarters: number): Rows => {
+    let r = src
+    for (let i = 0; i < quarters; i++) r = rotCW(r)
+    return seated(shrink(r, 0.75, 16, 16, 8))
+  }
+  const rolls = (key: Dir3, src: Rows) => Object.fromEntries([0, 1, 2, 3].map(i => [`hero_${key}_roll_${i}`, rolled(src, i)]))
+
   return {
     hero_down_0: down0, hero_down_1: down1, hero_down_2: down2,
     hero_up_0: up0, hero_up_1: up1, hero_up_2: up2,
@@ -540,7 +551,17 @@ export function heroFrames(shape: HeroShape): Record<string, Rows> {
     hero_fall_1: shrink(down0, 0.5, 16, 16, 11),
     hero_fall_2: shrink(down0, 0.25, 16, 16, 12),
     hero_dead: dead,
+    ...rolls('down', down0), ...rolls('up', up0), ...rolls('side', side0),
   }
+}
+
+/** A frame's drawing moved down until it stands on the bottom row. */
+function seated(src: Rows): Rows {
+  let bottom = -1
+  src.forEach((row, y) => { if (row.replace(/\./g, '').length) bottom = Math.max(bottom, y) })
+  const off = src.length - 1 - bottom
+  if (bottom < 0 || off <= 0) return src
+  return [...Array.from({ length: off }, () => '.'.repeat(src[0]!.length)), ...src.slice(0, src.length - off)]
 }
 
 /** The frame names every shape has. */

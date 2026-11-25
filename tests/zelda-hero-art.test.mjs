@@ -49,8 +49,8 @@ describe('the hero in isometric pixel art', () => {
           const w = rows[0].length
           assert.ok(rows.every(r => r.length === w), `${tag}: ragged`)
           for (const r of rows) for (const ch of r) assert.ok(ch === '.' || pal[ch], `${tag}: no colour for ${ch}`)
-          // About twice the classic 16 px (lying down: on its side; falling: shrunk).
-          if (!/fall|dead/.test(name)) assert.ok(w >= 16 && w <= 44 && rows.length >= 26 && rows.length <= 46, `${tag}: ${w}x${rows.length}`)
+          // About twice the classic 16 px (lying down: on its side; falling and rolling: shrunk, rolling turned too).
+          if (!/fall|dead|roll/.test(name)) assert.ok(w >= 16 && w <= 44 && rows.length >= 26 && rows.length <= 46, `${tag}: ${w}x${rows.length}`)
           assert.ok(ax >= 0 && ax <= w + 4 && ay >= 1, `${tag}: foot point ${ax},${ay}`)
           // A head on a body: some hair, some skin, the shirt and the shoes in every standing frame.
           if (!/fall|dead/.test(name)) {

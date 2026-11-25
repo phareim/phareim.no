@@ -368,8 +368,12 @@ export default function isoView(kit: Kit): View {
       ox -= Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4))
       oy -= Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4))
     }
-    /** A ground point (tiles) on the scene. */
-    const S = (x: number, y: number): Vec => ({ x: ox + x * P.ex.x + y * P.ey.x, y: oy + x * P.ex.y + y * P.ey.y })
+    // A blow's kick (`Kit.nudge`): the picture leans along it.
+    const kn = kit.nudge()
+    ox += Math.round(kn.x * P.ex.x + kn.y * P.ey.x)
+    oy += Math.round(kn.x * P.ex.y + kn.y * P.ey.y)
+    /** A ground point (tiles; `z` up off it, standing cards' px) on the scene. */
+    const S = (x: number, y: number, z = 0): Vec => ({ x: ox + x * P.ex.x + y * P.ey.x, y: oy + x * P.ex.y + y * P.ey.y - z * T })
     // Ground transform, for pictures drawn 16 px to the tile.
     const ga = P.ex.x / T
     const gb = P.ex.y / T

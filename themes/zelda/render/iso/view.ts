@@ -24,8 +24,8 @@
  * (`legacy.ts`).
  */
 import type { GameState, MapKind, TileChar } from '../../types'
-import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
-import { aimOf, battleFocus, has, mapInfo, raised, swingAngle } from '../../engine/index'
+import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TILE } from '../../types'
+import { aimOf, battleFocus, has, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -597,7 +597,7 @@ export default function isoView(kit: Kit): View {
   function heroPose(s: GameState, time: number, dt: number): FigurePose {
     const h = s.hero
     const arc = s.inv.arc
-    const stride = ((h.walkT * 7) / 4) % 1
+    const stride = ((h.walkT * 8.5) / 4) % 1
     let act: FigureAct = 'idle'
     let t = time
     let moving = false
@@ -612,7 +612,7 @@ export default function isoView(kit: Kit): View {
     else {
       switch (h.act) {
         case 'walk': act = 'walk'; t = stride; break
-        case 'swing': act = 'swing'; t = h.swing ? Math.min(1, h.swing.t / SWING_TIME) : 1; break
+        case 'swing': act = 'swing'; t = h.swing ? Math.min(1, h.swing.t / swingDur(h.swing)) : 1; break
         case 'throw': case 'use': case 'hook': act = 'use'; t = Math.min(1, h.actT / 0.2); break
         case 'spin': act = 'spin'; t = h.spin ? Math.min(1, h.spin.t / SPIN_TIME) : 1; break
         case 'lift': act = 'lift'; t = Math.min(1, h.actT / 0.18); break
@@ -623,7 +623,7 @@ export default function isoView(kit: Kit): View {
       }
       const kind = arc ? 'arc' : 'sword'
       if (h.swing) {
-        const p = Math.min(1, h.swing.t / SWING_TIME)
+        const p = Math.min(1, h.swing.t / swingDur(h.swing))
         const trail: number[] = []
         for (let i = 1; i <= 6; i++) { const q = p - i * 0.07; if (q < 0) break; trail.push(swingAngle(h.swing, q)) }
         blade = { a: swingAngle(h.swing, p), reach: arc ? ARC_REACH : SWORD_REACH, trail, kind, charge: 0, flash: false }
@@ -838,10 +838,16 @@ export default function isoView(kit: Kit): View {
       jitter.x = -Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4)) * DENSITY
       jitter.y = -Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4)) * DENSITY
     }
+    // A blow's kick (`Kit.nudge`, none under reduced motion): the picture leans along it.
+    const kn = kit.nudge()
+    if (kn.x || kn.y) {
+      jitter.x += Math.round((kn.x * P0.ex.x + kn.y * P0.ey.x) * zoom)
+      jitter.y += Math.round((kn.x * P0.ex.y + kn.y * P0.ey.y) * zoom)
+    }
     const cam: Cam = makeCam(k, sw, sh, zoom0, c, jitter)
     const P = cam.P
     /** A ground point (tiles) on the scene, in classic px (what the kit's painters count in). */
-    const S1 = (x: number, y: number): Vec => { const p = toScene(cam, x, y); return { x: p.x / zoom, y: p.y / zoom } }
+    const S1 = (x: number, y: number, z = 0): Vec => { const p = toScene(cam, x, y, z); return { x: p.x / zoom, y: p.y / zoom } }
 
     // The tiles in play: the hero's room in a dungeon, everything in sight elsewhere.
     const R: Rect = groundRect(P, c, vw, vh, RISE, 2, m.w, m.h, M)
