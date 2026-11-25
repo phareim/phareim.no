@@ -17,7 +17,7 @@ Demo: `world/puzzlelab.ts`. Tests: `tests/zelda-puzzles.test.mjs`.
 | `ρ` | receiver | Mark `{ t: 'receiver', flag }` (unmarked: `beam:<map>:<tile>`). Lit once, the flag is set for good. |
 | `θ` `η` | light / heavy plate | Mark `{ t: 'plate', id }` (unmarked: `w:<tile>`). Held by weight ≥ 1 / ≥ 2: block or mirror 2, boulder 3, pot or rock tile 1, hero 1 (2 carrying a pot or rock), foe 1 (big 3), Luna 1. Read by `{ plates: [id] }` like the old plates. |
 | `σ` | scale pan | Pans sharing a plate id are one scale: down only while all carry equal weight > 0. |
-| `κ` | boulder | Mark `{ t: 'boulder', dir, flag? }`: rolls along `dir` once `flag` is set (a lever); a bomb beside any boulder kicks it away. Crushes foes (4), hits the hero (2, thrown aside), bursts cracked walls (`%`, `R`) and rolls on, fills a pit for good, rests at anything solid. |
+| `κ` | boulder | Mark `{ t: 'boulder', dir, flag? }`: rolls along `dir` once `flag` is set (a lever); a bomb beside a boulder kicks it away, unless its lever still holds it. Crushes foes (4), hits the hero (2, thrown aside), bursts cracked walls (`%`, `R`) and rolls on, fills a pit for good, rests at anything solid. |
 | `ω` `ψ` | sluice water / drained floor | Mark `{ t: 'sluice', flag, invert? }` on every tile of a basin: full while `flag` is unset (set, with `invert`). Flooding waits for the hero to step out and drowns walking foes. |
 | `ξ` | valve | Mark `{ t: 'valve', flag }`: a hit or A sets or clears the flag (two valves on one flag, two basins with opposite `invert`: one drains as the other fills). |
 
@@ -27,8 +27,10 @@ knocked into a pit or water is gone, onto spikes hurt.
 
 **State and saves.** Live state is `MapState.phys` (never saved). What lasts is flags: receivers' and valves' own,
 `boulder:<map>:<home>:<rest>` (rest -1: it filled a pit), `fill:<map>:<tile>`, and bombs' `bomb:` flags for walls a
-boulder broke; `loadPuzzleTiles` (called by `loadMap`) applies them. Entering a dungeon room brings the floors back
-under moved blocks and, unless a gate of the room is open, its mirrors home.
+boulder broke; `loadPuzzleTiles` (called by `loadMap`) applies them, reading each by its map's prefix
+(`puzzleFlag`: a frontier id `fr:<x>,<y>` holds colons itself). Entering a dungeon room brings the floors back
+under moved blocks and, unless a gate of the room is open, its mirrors and the boulders that came to rest home
+(their flag cleared: a thrown lever lets them roll again; one that filled a pit stays gone).
 
 **Hooks in shared files** (each a line or a branch): `hero.ts` (slide, push, blade hits, A on a mirror or valve,
 psi blocks over ice), `objects.ts` (step, plates, bombs, disc, pots), `enemies.ts` (knock-back), `game.ts`
@@ -49,7 +51,9 @@ boulder-wall, sluice, ice-mirror). `stampKit(def, kit, x, y, prefix)` writes one
 chars, flags and plate ids prefixed) and returns the Cond in the map's terms, for a gate's `open` or a chest's
 `appear`. `solveKit(kit)` / `solveGrid({ rows, marks }, start, goal)` is the validator: a breadth-first search over
 hero tile + grid + flags with the engine's rules at tile resolution (walk, slide, push, hit what is beside you,
-beams, weights; pots and foes left out). Past a kit's edge is wall.
+beams, weights; pots and foes left out). Past a kit's edge is wall. A frontier puzzle site (`puzzleSite` in
+`world/gen/region.ts`) keeps the kit's `.` floor (`Site.ground`), not the realm's ground: nothing is pushed or
+rolled over Stillsand's sand (`-`).
 
 **The Puzzle Lab** (`puzzlelab`, entry `start`, registered in `WORLD.maps`, not linked yet). Six rooms, 3×2:
 A weights (carry a pot onto the heavy plate) → B ice (slide the block onto the plate) → C beams (prism, two
