@@ -1,23 +1,25 @@
 /**
  * Flamingo stand-in (docs/art/life-catalog.json → pinkflock). In Rerun a cream wind-up chick with a pink beak and
- * a bright metal key hops out from behind a lawn flamingo to the lawn two tiles beside it and tries to hold the
- * same one-legged pose, key level and still, then hops back. Stand within 1.5 tiles and it wobbles on every other
- * 120 ms step. Frames drawn by Codex (scripts/life-lab/draw.sh), recoloured so it contrasts with the pink
- * flamingo. Placement: most `rerun_flamingo` landmarks whose west or east lawn tile two steps away (by hash) is
- * real lawn ('.' ',' ':' ';'). A 6.5 s loop: gone 3.4 s, Hop .24 (fading in), Copy 2.2, Hop .24, gone .42 (the
- * catalogue's Hide pose is dropped: it was a lone pixel). The sprite faces right. Reduced motion: a still Copy.
+ * a metal key hops out from behind a lawn flamingo to the lawn one tile beside it and holds the same one-legged
+ * pose, beak the same way, then hops back. Stand within 1.5 tiles and it wobbles on every other 120 ms step.
+ * Frames drawn by Codex (scripts/life-lab/draw.sh). Placement is computed from each `rerun_flamingo` landmark:
+ * the west or east lawn tile (by hash) one step away must be lawn ('.' ',' ':' ';'); every flamingo qualifies,
+ * the hash only offsets the clock. Classic has only a plain post where the flamingo stands (standIns.ts), so
+ * there the critter draws a Codex lawn flamingo (`pinkflock_Flamingo`) over it; the isometric view has its
+ * own modelled flamingo (the atlas canvas is 1024 square), so there it draws only the chick. A 6.5 s loop:
+ * gone 3.4 s, Hop .24 (fading in), Copy 2.2, Hop .24, gone .42. Reduced motion: a still Copy.
  */
 import type { Critter } from '../types'
 
 const LOOP = 6.5
 const LAWN = '.,:;'
-const REACH = 2
+const REACH = 1
 
 const chick: Critter = {
   id: 'pinkflock',
   realms: ['rerun'],
   when: 'always',
-  pal: {o: '#3b2d50', c: '#fff1b4', y: '#ffd86a', d: '#e0a93b', p: '#ff2fa0', s: '#e8f0f8', m: '#9db4c8', g: '#ffd23f'},
+  pal: {o: '#3b2d50', b: '#242035', r: '#ae4e81', f: '#ff2fa0', h: '#ff9ed0', c: '#fff1b4', y: '#ffda73', d: '#d9a34f', p: '#ee86b1', s: '#eef8ff', m: '#a5b7d4', g: '#647594'},
   frames: {
     pinkflock_Hop: [
       '..........',
@@ -32,51 +34,70 @@ const chick: Critter = {
       '.....oo.oo',
       '..........',
     ],
+    pinkflock_Flamingo: [
+      '.......ooo..',
+      '......ohhfo.',
+      '.....ohbffpb',
+      '.....ohfrobb',
+      '......ohfo..',
+      '.......oho..',
+      '.......ofo..',
+      '..ooooohfo..',
+      '.ohhfffhro..',
+      'orffhhffo...',
+      '.orffffro...',
+      '..oooooo....',
+      '......prp...',
+      '......r.p...',
+      '......p.....',
+      '......pp....',
+    ],
     pinkflock_Copy: [
       '......ooo.',
-      '.....ococp',
-      '.....ocyo.',
+      '.....ocbcp',
+      '.....ocyp.',
       '......oco.',
-      'sgm.occyo.',
-      's.mgocccyo',
-      'msm.ocpyyo',
-      '....ooyydo',
-      '.....oooo.',
-      '......o.oo',
-      '......oo..',
+      'sm....oyo.',
+      'smgocccyo.',
+      '..goccyyo.',
+      '...ooydo..',
+      '......rpp.',
+      '......r.p.',
+      '......pp..',
     ],
     pinkflock_Wobble: [
       '.....ooo..',
-      '....ococp.',
-      '....ocyo..',
-      '.....ocyo.',
-      'sgm.occyo.',
-      's.mgocccyo',
-      'msm.ocppyo',
-      '....oopydo',
-      '.....oooo.',
-      '......o.oo',
-      '......oo..',
+      '....ocbcp.',
+      '....ocyp..',
+      '.....oco..',
+      'sm....oyo.',
+      'smgocccyo.',
+      '..gopcyyo.',
+      '...opydo..',
+      '......rpp.',
+      '......r.p.',
+      '......pp..',
     ],
   },
   queue(ctx) {
     const { hx, hy, range, time } = ctx
     const hero = ctx.s.hero
+    const classic = !(ctx.g.canvas.width >= 1024 && ctx.g.canvas.height >= 1024)
     for (const l of ctx.landmarks) {
       if (!l.art.startsWith('rerun_flamingo')) continue
       const tx = Math.floor(l.x)
       const ty = Math.floor(l.y)
       if (Math.abs(tx - hx) > range + 1 || Math.abs(ty - hy) > range + 1) continue
       const seed = ctx.seed(tx, ty, 733)
-      if (seed > 0.75) continue
       const side = ctx.seed(tx, ty, 734) < 0.5 ? -1 : 1
-      if (!LAWN.includes(ctx.at(tx + side * REACH, ty)) || !LAWN.includes(ctx.at(tx + side, ty))) continue
-      const x0 = l.x + side * 0.3
+      if (!LAWN.includes(ctx.at(Math.floor(l.x + side * REACH), ty))) continue
+      const x0 = l.x + side * 0.15
       const x1 = l.x + side * REACH
       const y = l.y
       const t = ctx.reduced ? 4 : (time + seed * LOOP) % LOOP
-      const flip = side < 0
-      const keyDir = flip ? 1 : -1
+      // Both face right, like the flamingo, so the copy reads as a copy; only the hop's own direction changes.
+      const flip = false
+      const keyDir = -1
       let pose = ''
       let x = x1
       let lift = 0
@@ -86,9 +107,12 @@ const chick: Critter = {
       else if (t >= 3.64 && t < 5.84) pose = 'Copy'
       else if (t >= 5.84 && t < 6.08) { pose = 'Hop'; const k = (t - 5.84) / 0.24; x = x1 + (x0 - x1) * k; lift = Math.sin(k * Math.PI) * 3; alpha = Math.min(1, (1 - k) * 3); hopStart = t - 5.84 }
       if (!pose) continue
-      const hopFlip = pose === 'Hop' && t >= 5.84 ? !flip : flip
+      const hopFlip = pose === 'Hop' && (side < 0) !== (t >= 5.84)
       if (pose === 'Copy' && Math.hypot(hero.x - x1, hero.y - y) < 1.5 && Math.floor(t / 0.12) % 2 === 0) pose = 'Wobble'
-      ctx.add(chick, `pinkflock_${pose}`, x, y, lift, pose === 'Hop' ? hopFlip : flip, alpha)
+      // Classic stands a plain post where the flamingo is (standIns.ts): draw the lawn flamingo over it. The
+      // isometric view has its modelled flamingo (its atlas canvas is 1024 square), so there it stays out.
+      if (classic) ctx.add(chick, 'pinkflock_Flamingo', l.x, l.y + 0.02)
+      ctx.add(chick, `pinkflock_${pose}`, x, y + 0.04, lift, pose === 'Hop' ? hopFlip : flip, alpha)
       const posed = pose === 'Copy' || pose === 'Wobble'
       const keyTone = ctx.sun > 0.35 ? '#ffc2d8' : '#ffd23f'
       // The key's shine: a gold pool (rose at noon) that you can find, plus hot pink over the body at night.

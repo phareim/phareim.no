@@ -49,13 +49,18 @@ The designs are in `docs/art/life-catalog.json` (18 by Codex, 6 fairy and light 
 | `roottailor` | The Underglow | always | An upside-down imp darns a root with hot pink thread |
 | `sporeparasol` | The Sporelight | always | Two mushroom folk share one umbrella |
 | `paperunderstudy` | Fogstage, by the painted flats | always | A paper actor steps out of the scenery and bows in a spotlight ring |
+| `hayteacup` | The Green Miles, by every second haystack | always | A field mouse pours tea from a seedpod into a thimble, sips, and holds the cup up to the hero |
+| `quartzhare` | Stillsand, at the foot of every second quartz island | always | A sand hare tips its glassy ears into the light until a spectrum lands on the sand; it sits low when the hero comes |
 
-**Held** (`held/`; each needs what the critic said before it moves up and into `CRITTERS`):
-`wicktail` (the gecko's peek is too small, it stands beside the post in iso),
-`dragonfly` (faint, over grass rather than water), `mossmask` (a boxy rim light),
-`fenceparcel` (the squirrel is hidden in iso), `hayteacup` (the mouse reads as a pig),
-`quartzhare` (reads as a hedgehog), `orefiddler` (the quarry's grade swallows the beetle),
-`pinkflock` (the chick lands away from its flamingo).
+**Held** (`held/`; each needs what the critic said before it moves up and into `CRITTERS`;
+two rounds so far, the second fixed what the first critic said and a second critic judged it):
+`wicktail` (in iso the gecko still sits at the lamp's foot like a bulb; its pose cycles under reduced
+motion; `anchor()` moves queued items after the fact), `dragonfly` (gate `always` against the catalogue's
+day, glows by day; pale at 390 iso), `mossmask` (the rim box is gone, but the face does not read as a
+mask in the bark), `fenceparcel` (at 1280 iso the squirrel is an orange blob and the acorn a speck),
+`orefiddler` (findable now, but still a bluish blob rather than a beetle under the quarry's grade),
+`pinkflock` (the chick lands beside its flamingo now, but the classic flamingo is drawn only while the
+chick is out, so it flickers).
 
 ## Adding one
 

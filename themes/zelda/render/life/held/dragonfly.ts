@@ -14,73 +14,73 @@ const fly: Critter = {
   id: 'dragonfly',
   maps: ['overworld', 'wildwood'],
   when: 'always',
-  pal: {n: '#132443', e: '#fff6de', t: '#1fd6b0', s: '#169f98', b: '#2f9bff', d: '#336ec7', p: '#ff4fa8', q: '#c43589', w: '#d8fbff', v: '#a5eaf4', c: '#2ff3ff', g: '#ffffff'},
+  pal: {n: '#132443', e: '#fff6de', o: '#49688d', w: '#b9f4ff', g: '#ffffff', t: '#1fd6b0', d: '#0f8f8f', l: '#8bffe0', b: '#2f9bff', s: '#285dbe', u: '#8fd0ff', p: '#ff4fa8', m: '#ae347a', r: '#ff9bd0'},
   frames: {
     dragonfly_0: [
-      '.....cv..cg....',
-      '....vv..ww..cw.',
-      '...cv..ww.ww.vc',
-      '.nnntvwwvwwvv..',
-      'nettttttttttssn',
-      '.nnnn..........',
-      '...............',
-      '...............',
-      '...............',
+      '......oo.oo..',
+      '.....ogo.owo.',
+      '....oww.ogo..',
+      'nenttoowo....',
+      'ntttttdtdtdtl',
+      'nen.owowo....',
+      '....ogo.owo..',
+      '.....owo.ogo.',
+      '......oo.oo..',
     ],
     dragonfly_1: [
-      '...............',
-      '...............',
-      '...............',
-      '.nnnt..........',
-      'nettttttttttssn',
-      '.nnnnvwwvwwvv..',
-      '...cv..ww.ww.vc',
-      '....vv..ww..cw.',
-      '.....cv..cg....',
+      '..oo.oo......',
+      '..ogo.owo....',
+      '...owo.ogo...',
+      'nenttoowo....',
+      'ntttttdtdtdtl',
+      'nen.owowo....',
+      '...ogo.owo...',
+      '..owo.ogo....',
+      '..oo.oo......',
     ],
     dragonfly_c0: [
-      '.....cv..cg....',
-      '....vv..ww..cw.',
-      '...cv..ww.ww.vc',
-      '.nnnbvwwvwwvv..',
-      'nebbbbbbbbbbddn',
-      '.nnnn..........',
-      '...............',
-      '...............',
-      '...............',
+      '......oo.oo..',
+      '.....ogo.owo.',
+      '....oww.ogo..',
+      'nenbboowo....',
+      'nbbbbbsbsbsbu',
+      'nen.owowo....',
+      '....ogo.owo..',
+      '.....owo.ogo.',
+      '......oo.oo..',
     ],
     dragonfly_c1: [
-      '...............',
-      '...............',
-      '...............',
-      '.nnnb..........',
-      'nebbbbbbbbbbddn',
-      '.nnnnvwwvwwvv..',
-      '...cv..ww.ww.vc',
-      '....vv..ww..cw.',
-      '.....cv..cg....',
+      '..oo.oo......',
+      '..ogo.owo....',
+      '...owo.ogo...',
+      'nenbboowo....',
+      'nbbbbbsbsbsbu',
+      'nen.owowo....',
+      '...ogo.owo...',
+      '..owo.ogo....',
+      '..oo.oo......',
     ],
     dragonfly_p0: [
-      '.....cv..cg....',
-      '....vv..ww..cw.',
-      '...cv..ww.ww.vc',
-      '.nnnpvwwvwwvv..',
-      'neppppppppppqqn',
-      '.nnnn..........',
-      '...............',
-      '...............',
-      '...............',
+      '......oo.oo..',
+      '.....ogo.owo.',
+      '....oww.ogo..',
+      'nenppoowo....',
+      'npppppmpmpmpr',
+      'nen.owowo....',
+      '....ogo.owo..',
+      '.....owo.ogo.',
+      '......oo.oo..',
     ],
     dragonfly_p1: [
-      '...............',
-      '...............',
-      '...............',
-      '.nnnp..........',
-      'neppppppppppqqn',
-      '.nnnnvwwvwwvv..',
-      '...cv..ww.ww.vc',
-      '....vv..ww..cw.',
-      '.....cv..cg....',
+      '..oo.oo......',
+      '..ogo.owo....',
+      '...owo.ogo...',
+      'nenppoowo....',
+      'npppppmpmpmpr',
+      'nen.owowo....',
+      '...ogo.owo...',
+      '..owo.ogo....',
+      '..oo.oo......',
     ],
   },
   queue(ctx) {
@@ -108,13 +108,17 @@ const fly: Critter = {
           x + 0.5 + (ctx.seed(x + k, y, 735) - 0.5) * 1.2,
           y + 0.5 + (ctx.seed(x, y + k, 736) - 0.5) * 0.8,
         ]
-        const a = spot(n)
-        const b = spot(n + 1)
+        // Bias the hover toward the water side so the lifted sprite sits over the shallows, not the grass.
+        let wx = 0, wy = 0
+        for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (ctx.at(x + i, y + j) === '~') { wx += i; wy += j }
+        const bias = (p: [number, number]): [number, number] => [p[0] + Math.sign(wx) * 0.3, p[1] + Math.sign(wy) * 0.3 + 0.55]
+        const a = bias(spot(n))
+        const b = bias(spot(n + 1))
         const hover = 0.4 + ctx.seed(x, y, 737 + (n & 7)) * 0.8
         const t = ctx.reduced ? 0 : Math.max(0, Math.min(1, (local - (STEP - DART)) / DART))
         let fx = a[0] + (b[0] - a[0]) * t
         let fy = a[1] + (b[1] - a[1]) * t
-        let lift = 30 + (ctx.reduced ? 0 : Math.sin(clock * 3 + seed * 9) * 1.5)
+        let lift = 12 + (ctx.reduced ? 0 : Math.sin(clock * 3 + seed * 9) * 1.5)
         const dx = fx - hero.x
         const dy = fy - hero.y
         const d = Math.hypot(dx, dy)
@@ -129,7 +133,7 @@ const fly: Critter = {
         const heading = b[0] - a[0]
         const flip = heading < 0
         ctx.add(fly, `dragonfly_${body}${wing}`, fx, fy, lift, flip)
-        ctx.glow(fx, fy, 0.6, body === 'p' ? '#ff4fa8' : body === 'c' ? '#2f9bff' : '#1fd6b0', 0.32)
+        ctx.glow(fx, fy - 0.4, 0.7, body === 'p' ? '#ff4fa8' : body === 'c' ? '#2f9bff' : '#1fd6b0', 0.32)
         // A little pink-and-cyan dust behind it while it darts.
         if (!ctx.reduced && t > 0 && t < 1) {
           for (let i = 1; i <= 3; i++) {

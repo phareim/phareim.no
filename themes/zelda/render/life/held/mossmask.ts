@@ -74,12 +74,6 @@ const mask: Critter = {
           const left = px - (8 * S) / 2
           const top = py - 8 * S
           const pc = mask.pal
-          // Faint rim light behind the face.
-          if (name !== 'mossmask_Fold') {
-            g.fillStyle = name === 'mossmask_Ooh' ? 'rgba(255,210,63,0.22)' : 'rgba(141,97,191,0.42)'
-            g.fillRect(left - 1, top + 1, 8 * S + 2, 8 * S - 2)
-            g.fillRect(left + 1, top - 1, 8 * S - 2, 8 * S + 2)
-          }
           for (let r = 0; r < 8; r++) {
             const row = rows[r]!
             for (let c = 0; c < 8; c++) {
@@ -98,10 +92,10 @@ const mask: Critter = {
           }
         })
         if (name === 'mossmask_Glance') {
-          ctx.glow(fx, fy - 0.35, 0.7, '#8d61bf', 0.35)
+          ctx.glow(fx, fy - 0.35, 0.6, '#8d61bf', 0.3)
         } else if (name === 'mossmask_Ooh') {
           const a = ctx.reduced || Math.floor(time / 0.22) % 2 === 0 ? 0.3 : 0.2
-          ctx.glow(fx, fy - 0.35, 0.8, '#ffd23f', a)
+          ctx.glow(fx, fy - 0.35, 0.6, '#ffd23f', a)
         }
       }
     }

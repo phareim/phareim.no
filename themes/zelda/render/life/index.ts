@@ -11,12 +11,14 @@ import bellbloom from './bellbloom'
 import birchghost from './birchghost'
 import fairyring from './fairyring'
 import fjordcrown from './fjordcrown'
+import hayteacup from './hayteacup'
 import inkwisp from './inkwisp'
 import lacecrab from './lacecrab'
 import moonbloom from './moonbloom'
 import owlwatch from './owlwatch'
 import paperunderstudy from './paperunderstudy'
 import pitweaver from './pitweaver'
+import quartzhare from './quartzhare'
 import ribbonkit from './ribbonkit'
 import roottailor from './roottailor'
 import sporeparasol from './sporeparasol'
@@ -30,12 +32,14 @@ export const CRITTERS: readonly Critter[] = [
   birchghost,
   fairyring,
   fjordcrown,
+  hayteacup,
   inkwisp,
   lacecrab,
   moonbloom,
   owlwatch,
   paperunderstudy,
   pitweaver,
+  quartzhare,
   ribbonkit,
   roottailor,
   sporeparasol,

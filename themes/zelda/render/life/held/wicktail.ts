@@ -8,67 +8,82 @@ import type { Critter } from '../types'
 
 const LOOP = 4
 
+/**
+ * The isometric view stands an item's picture on the item's own spot, offset by where the picture was drawn
+ * from it. Items made here draw the classic way (hugging the post's left edge); moving the last `n` items'
+ * spot onto the lamp's foot (the post is at the tile's centre, 0.62 down) lands the same drawing against the
+ * post's stem in iso, and changes only the depth order in classic.
+ */
+function anchor(ctx: { items: { x: number; y: number }[] }, n: number, x: number, y: number) {
+  for (let i = 1; i <= n; i++) {
+    const it = ctx.items[ctx.items.length - i]
+    if (!it) continue
+    it.x = x + 0.5
+    it.y = y + 0.66
+  }
+}
+
 const gecko: Critter = {
   id: 'wicktail',
   maps: ['overworld'],
   when: 'dark',
-  pal: {n: '#101a30', t: '#177c7e', l: '#45bda4', r: '#d96291', m: '#883c69', p: '#ff2fa0', g: '#ffd23f', w: '#fff0ae', c: '#2ff3ff', h: '#b49a59'},
+  pal: {n: '#101a30', t: '#26a6a2', l: '#8ff5d6', r: '#d96291', m: '#883c69', p: '#ff2fa0', g: '#ffd23f', w: '#fff0ae', c: '#2ff3ff', s: '#0f5a66', h: '#b49a59'},
   frames: {
     wicktail_Cling: [
-      '..........',
-      '...nnn....',
-      '..ngltn...',
-      '.ntttn.l..',
-      '.lttltlt..',
-      '..nttln...',
-      '..ltntn...',
-      '....nttl..',
-      '....nrmn..',
-      '.rn.nrn...',
-      '.mrrpn....',
-      '..nnn.....',
+      '..............',
+      '...nnn........',
+      '..ngltn.......',
+      '.ntttn.l......',
+      '.lttltlt......',
+      '..nttln.......',
+      '..ltntn.......',
+      '....nttl......',
+      '....nrmn......',
+      '.rn.nrn.......',
+      '.mrrpn........',
+      '..nnn.........',
     ],
     wicktail_Polish: [
-      '..........',
-      '....nn....',
-      '...nltgn..',
-      '..ntttnl..',
-      '.lttltlt..',
-      '..nttln..p',
-      '..ltntn.rp',
-      '....nttlr.',
-      '....nrmr..',
-      '.....nn...',
-      '..........',
-      '..........',
+      '..............',
+      '....nn........',
+      '...nltgn......',
+      '..ntttnl......',
+      '.lttltlt......',
+      '..nttln..p....',
+      '..ltntn.rp....',
+      '....nttlr.....',
+      '....nrmr......',
+      '.....nn.......',
+      '..............',
+      '..............',
     ],
     wicktail_Wick: [
-      '..........',
-      '...nnn....',
-      '..ngltn...',
-      '.ntttn.l..',
-      '.lthltlt..',
-      '..nttln...',
-      '..ltntn..w',
-      '....nttlgg',
-      '....nrmnp.',
-      '.....mrrr.',
-      '......nn..',
-      '..........',
+      '..............',
+      '...nnn........',
+      '..ngltn.......',
+      '.ntttn.l......',
+      '.lthltlt......',
+      '..nttln.......',
+      '..ltntn..w....',
+      '....nttlgg....',
+      '....nrmnp.....',
+      '.....mrrr.....',
+      '......nn......',
+      '..............',
     ],
     wicktail_Peep: [
-      '..........',
-      '..........',
-      '.......n..',
-      '.......l..',
-      '......nc..',
-      '.......t..',
-      '..........',
-      '.......l..',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
+      '..............',
+      '..............',
+      '..........nnn.',
+      '.........nllsn',
+      '.........nsccn',
+      '.........nssn.',
+      '..........nn..',
+      '.........nln..',
+      '.........l....',
+      '..........rm..',
+      '..............',
+      '..............',
     ],
   },
   queue(ctx) {
@@ -79,14 +94,17 @@ const gecko: Critter = {
         if (ctx.at(x, y) !== 't' || ctx.at(x, y + 1) !== ',') continue
         const t = (time + ctx.seed(x, y, 812) * LOOP) % LOOP
         // The sprite hugs the post's left edge: its right-hand 2 columns are the post itself.
-        const gx = x + 0.25
-        const gy = y + 1.0
+        const gx = x + 0.44
+        const gy = y + 0.84
         const peep = Math.hypot(hero.x - (x + 0.5), hero.y - (y + 0.5)) < 1.3
         let pose = 'Cling'
         if (peep) pose = 'Peep'
         else if (t >= 2.4 && t < 2.6) pose = 'Polish'
         else if (t >= 2.6 && t < 3.2) pose = 'Wick'
         ctx.add(gecko, `wicktail_${pose}`, gx, gy, 0)
+        anchor(ctx, 1, x, y)
+        // The eye past the post gives off a little cyan, so it is found from across the plaza.
+        if (pose === 'Peep') ctx.glow(gx + 4.5 / 16, gy - 7.5 / 16, 0.35, '#2ff3ff', 0.3)
         if (pose !== 'Wick') continue
         // The lit tail tip: the sprite's right edge, 5 px up from its feet.
         const tx = gx + 4.5 / 16
@@ -101,6 +119,7 @@ const gecko: Critter = {
           g.fillStyle = '#ffd23f'
           g.fillRect(px - 2, py, 1, 2)
         })
+        anchor(ctx, 1, x, y)
         if (age >= 0.4) {
           const fall = (age - 0.4) / 0.2
           for (const drop of [1, 3]) {
@@ -108,6 +127,7 @@ const gecko: Critter = {
               g.fillStyle = '#ff2fa0'
               g.fillRect(px, py, 1, 1)
             })
+            anchor(ctx, 1, x, y)
           }
         }
       }

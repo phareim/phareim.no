@@ -5,7 +5,7 @@
  * Placement: every second `meadow_hay_*` landmark (the catalogue says 1 in 3; a meadow region has only one or two
  * stacks), the mouse on the ground tile just south of the stack.
  */
-import type { Critter } from '../types'
+import type { Critter } from './types'
 
 const LOOP = 6
 const OPEN = '.,:;'
@@ -14,78 +14,78 @@ const mouse: Critter = {
   id: 'hayteacup',
   realms: ['meadow'],
   when: 'always',
-  pal: {b: '#8a5e58', s: '#bc896d', t: '#e3b58a', f: '#f8d6ae', h: '#ffe8ce', p: '#f5b4c7', r: '#d6809f', e: '#644b59', n: '#b97077', d: '#367b9b', c: '#59b8ca', i: '#9de3df', w: '#fff3bc', g: '#ffd23f', a: '#c68a35', k: '#94644a', y: '#d5a256', v: '#a6cbc0'},
+  pal: {o: '#3a2c33', n: '#25212a', e: '#191823', f: '#7d6a5f', l: '#a08c7c', i: '#8e6d73', p: '#b29983', h: '#e5cfaa', r: '#367b9b', c: '#59b8ca', q: '#c4f5ed', b: '#c68a35', g: '#ffd23f', k: '#ffe788', w: '#fff3bc', s: '#e6cc85', d: '#ad8d60'},
   frames: {
     hayteacup_set: [
       '................',
       '................',
-      '...bbbb.........',
-      '..bppprb........',
-      '..bppprbb.......',
-      '..bprrbffb......',
-      '...bbfhfefb.....',
-      '...bthfffhn..w..',
-      '...btfffttb.v...',
-      '..bsffttbtb.....',
-      '..bstttsb.wggww.',
-      '.bbstssb..diccd.',
-      'bssbbttb...dcd..',
-      '.bb..bbb.kywyyyk',
-      '..........kyy.k.',
+      '................',
+      '................',
+      '....oo.oo.......',
+      '...oiooio.......',
+      '...offfoo.......',
+      '..offefon.......',
+      'o.oflllo........',
+      'o.ofllpo.rrrrr..',
+      '.oofllp..rqccr..',
+      '..oopopo..rcr...',
+      '.........wswwss.',
+      '........swdssdw.',
+      '................',
       '................',
     ],
     hayteacup_pour: [
       '................',
       '................',
-      '...bbbb.........',
-      '..bppprb........',
-      '..bppprbb.......',
-      '..bprrbffb..ag..',
-      '...bbfhfefbagya.',
-      '...bthfffhnagak.',
-      '...btffftthag...',
-      '..bsffttbtf.g...',
-      '..bstttsb.wggww.',
-      '.bbstssb..diccd.',
-      'bssbbttb...dcd..',
-      '.bb..bbb.kywyyyk',
-      '..........kyy.k.',
+      '................',
+      '................',
+      '....oo.oo.......',
+      '...oiooio.ooo...',
+      '...offfooobggbo.',
+      '..offefonpbbok..',
+      'o.oflllop.o.g...',
+      'o.ofllpo.rrrrr..',
+      '.oofllp..rqccr..',
+      '..oopopo..rcr...',
+      '.........wswwss.',
+      '........swdssdw.',
+      '................',
       '................',
     ],
     hayteacup_sip: [
       '................',
       '................',
-      '...bbbb.........',
-      '..bppprb........',
-      '..bppprbb.......',
-      '..bprrbfbb..v...',
-      '...bbfhfhbbw....',
-      '...bthfffwggww..',
-      '...btffftdiccdt.',
-      '..bsffttsfdcdt..',
-      '..bstttsb.......',
-      '.bbstssb........',
-      'bssbbttb........',
-      '.bb..bbb.kywyyyk',
-      '..........kyy.k.',
+      '................',
+      '................',
+      '....oo.oo.......',
+      '...oiooio.......',
+      '...offooo.......',
+      '..offhlon.......',
+      'o.oflllrrrrr....',
+      'o.ofllppqccr....',
+      '.oofllpprcr.....',
+      '..oopopo........',
+      '.........wswwss.',
+      '........swdssdw.',
+      '................',
       '................',
     ],
     hayteacup_offer: [
       '................',
       '................',
-      '...bbbb......v..',
-      '..bppprb.....w..',
-      '..bppprbb..wggww',
-      '..bprrbffbtdicct',
-      '...bbfhfett.dcd.',
-      '...bthfffhs.....',
-      '...btfffttb.....',
-      '...btfftsb......',
-      '...bsftsb.......',
-      '..bbstsb........',
-      '.bsbbtb.........',
-      'bsb.btb..kywyyyk',
-      '.b...b....kyy.k.',
+      '............w...',
+      '....oo.oo.rrrrr.',
+      '...oiooio.rqccr.',
+      '...offfoo.rcccr.',
+      '...offefonprrrp.',
+      '...oflllopooopo.',
+      'o..oflloo..oo...',
+      'o.oflloo........',
+      '.ooflfo.........',
+      '...opopo........',
+      '....p.p..wswwss.',
+      '........swdssdw.',
+      '................',
       '................',
     ],
   },
@@ -100,7 +100,7 @@ const mouse: Critter = {
       const seed = ctx.seed(tx, ty, 311)
       if (seed > 0.5 || !OPEN.includes(ctx.at(tx, ty))) continue
       const x = l.x + 0.3
-      const y = l.y + 0.6
+      const y = l.y + 0.95
       const near = Math.hypot(hero.x - x, hero.y - y) < 1.6
       const flip = near ? hero.x < x : false
       const t = ctx.reduced ? 0 : (time + seed * LOOP) % LOOP
@@ -112,8 +112,8 @@ const mouse: Critter = {
       // A sprite column (0..15) as a screen offset from the feet; mirrored when flipped.
       const col = (c: number) => (flip ? 15 - c : c) - 8
       // The cup sits at the right of the sprite, in `offer` held up high. A steady warm glow under it.
-      const cupC = pose === 'offer' ? 13 : 12
-      const cupR = pose === 'offer' ? 5 : 11
+      const cupC = pose === 'offer' ? 12 : pose === 'sip' ? 10 : 11
+      const cupR = pose === 'offer' ? 4 : pose === 'sip' ? 8 : 10
       ctx.glow(x + col(cupC) / 16, y - (15 - cupR) / 16, 0.5, '#ffd23f', ctx.reduced ? 0.25 : 0.3 + (pose === 'pour' ? 0.1 : 0))
       if (ctx.reduced) continue
       // Steam: two cream pixels drift up from the cup on a slow loop, one half a loop behind the other.

@@ -20,7 +20,7 @@ const beetle: Critter = {
   id: 'orefiddler',
   realms: ['lumenby'],
   when: 'always',
-  pal: {o: '#29263e', r: '#534872', j: '#a684b8', q: '#b9a4dc', h: '#e3d6f7', p: '#f5edff', k: '#187b9d', c: '#2ff3ff', C: '#b3ffff', s: '#ffffff'},
+  pal: {o: '#6a5aa0', r: '#8d7bc4', j: '#d2b0e8', q: '#d8c8f4', h: '#e3d6f7', p: '#f5edff', k: '#187b9d', c: '#2ff3ff', C: '#b3ffff', s: '#ffffff'},
   frames: {
     orefiddler_Rest: [
       '...j...j...',
@@ -66,10 +66,23 @@ const beetle: Critter = {
         const t = (time + ctx.seed(x, y, 802) * LOOP) % LOOP
         const bx = x + 0.5
         const by = y + 1.5
+        // Self-lit: the quarry's red grade darkens the pale art, so the beetle carries its own additive bloom.
+        const plucking = !ctx.reduced && (poseAt(t) !== 'Rest')
+        ctx.draw(bx, by - 0.02, 5, (g, px, py) => {
+          const r = plucking ? 10 : 8
+          const gr = g.createRadialGradient(px, py, 0, px, py, r)
+          gr.addColorStop(0, '#9ffcff')
+          gr.addColorStop(0.35, '#2ff3ff')
+          gr.addColorStop(1, 'rgba(0,0,0,0)')
+          g.globalCompositeOperation = 'lighter'
+          g.globalAlpha = plucking ? 0.5 : 0.4
+          g.fillStyle = gr
+          g.fillRect(px - r, py - r, r * 2, r * 2)
+        })
         ctx.add(beetle, `orefiddler_${poseAt(t)}`, bx, by)
         // Always a little light: a cyan glimmer at the beetle and a slow pulse on the ore face between plucks.
         const pulse = ctx.reduced ? 0.5 : 0.5 + 0.5 * Math.sin(time * 2.2 + x * 1.7)
-        ctx.glow(bx, by - 0.3, 0.45, '#2ff3ff', 0.16)
+        ctx.glow(bx, by - 0.3, 0.6, '#2ff3ff', 0.3)
         ctx.glow(bx, y + 0.8, 0.5, '#2ff3ff', a0 * (0.35 + 0.35 * pulse))
         if (ctx.reduced) continue
         for (const p0 of PLUCKS) {
