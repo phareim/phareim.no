@@ -85,6 +85,7 @@ export function familyOf(name: string, art: Record<string, FolkFamily> = ART): s
 export function facingOf(name: string, fam: string, flip: boolean, idle = false): { key: string; flip: boolean } | null {
   if (name === fam) return { key: 'front_0', flip }
   const rest = name.slice(fam.length + 1)
+  if (rest === 'up_hurt') return { key: 'back_hurt', flip: true }
   const four = /^(down|up|side)_(\d+)$/.exec(rest)
   if (four) {
     const f = four[2]

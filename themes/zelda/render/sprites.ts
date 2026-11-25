@@ -16,6 +16,10 @@ import { PAL as BASE_PAL } from '../../base/pixel/palette'
 import { WILD_RAW } from './spritesWild'
 import { BEACH_RAW } from './spritesBeach'
 import { DIG_RAW } from './spritesDig'
+import { intermediateBlades } from './bladeAngles'
+import { COMBAT_MARK_RAW } from './combatMarks'
+import { FOE_HURT_RAW } from './foeHurtSprites'
+import { WILDLIFE_RAW } from './wildlifeSprites'
 import { FRONTIER_RAW } from './frontierSprites'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
@@ -1549,6 +1553,7 @@ const RAW: Record<string, Rows> = {
 
   sword_v: swordV, sword_h: swordH, sword_d: swordD,
   sword2_v: sword2V, sword2_h: sword2H, sword2_d: sword2D,
+  ...intermediateBlades(1),
 
   item_sword: itemSword, item_bombbag: itemBombbag, item_disc: itemDisc, item_key: itemKey,
   item_bigkey: itemBigkey, item_heartpiece: itemHeartpiece, item_container: itemContainer,
@@ -1589,6 +1594,9 @@ const RAW: Record<string, Rows> = {
   barmaid_0: barmaid0, barmaid_1: barmaid1,
 
   poof_0: poof[0]!, poof_1: poof[1]!, poof_2: poof[2]!, poof_3: poof[3]!,
+  ...COMBAT_MARK_RAW,
+  ...FOE_HURT_RAW,
+  ...WILDLIFE_RAW,
   spark_0: spark0, spark_1: spark1,
   boom_0: boom[0]!, boom_1: boom[1]!, boom_2: boom[2]!, boom_3: boom[3]!,
   splash_0: splash0, splash_1: splash1,

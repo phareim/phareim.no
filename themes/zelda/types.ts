@@ -489,6 +489,10 @@ export interface IsoLandmark {
   motion?: { frames: number; fps: number; bob?: boolean }
   /** A different sprite once a quest flag has been set. */
   lit?: { flag: string; art: string }
+  /** Sprite variant when the sun is below the horizon, including the frontier's initial dusk. */
+  night?: string
+  /** A local light alongside the emissive pixels of the sprite. */
+  light?: { r: number; color: string; a: number }
   shadow?: { tall: number; wide: number; deep?: number }
 }
 

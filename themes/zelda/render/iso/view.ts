@@ -764,6 +764,8 @@ export default function isoView(kit: Kit): View {
     }
     const kind = def.kind
     const time = kit.time()
+    const day = kit.day('iso')
+    const afterDusk = !day || day.sun <= 0.12
     const reduced = ui.reducedMotion
     const outdoors = kind === 'overworld'
 
@@ -1430,7 +1432,7 @@ export default function isoView(kit: Kit): View {
       const tx = Math.floor(lm.x)
       const ty = Math.floor(lm.y)
       if (!inRoom(tx, ty)) continue
-      const art = lm.lit && has(s, lm.lit.flag) ? lm.lit.art : lm.art
+      const art = lm.lit && has(s, lm.lit.flag) ? lm.lit.art : lm.night && afterDusk ? lm.night : lm.art
       const motion = lm.motion
       const frame = motion && !reduced ? Math.floor(time * motion.fps) % motion.frames : 0
       const key = thingKey(motion && !motion.bob ? `${art}_${frame}` : art)
@@ -1438,6 +1440,7 @@ export default function isoView(kit: Kit): View {
       const z = (lm.z ?? digLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
       stand(key, lm.x, lm.y, px, rise, z)
       if (lm.shadow) cards.push({ x: lm.x, y: lm.y, ...lm.shadow })
+      if (lm.light && (!lm.night || afterDusk)) lights.push({ x: lm.x, y: lm.y, ...lm.light })
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
     if (drawn) for (const b of m.phys?.rolling ?? []) {
@@ -1561,7 +1564,6 @@ export default function isoView(kit: Kit): View {
 
     // --- the sun ------------------------------------------------------------------------
     const own = kit.params('iso', true)
-    const day = kit.day('iso')
     // The sun's own light. By day it whitens as the sun climbs; at night it is the moon's, faint and blue;
     // in the blue hours, when nothing throws a shadow, there is none.
     const ownShadow = own.shadow as number

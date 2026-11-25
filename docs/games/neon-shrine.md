@@ -52,6 +52,12 @@ deck, audio, saves, pause menu, exits, navigation lock), mounted by
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
 
+**Combat art.** Both views quantise the sword sweep to sixteen angles
+(`render/bladeAngles.ts`). The small foes have dedicated hurt frames in both
+atlases, with a separate back frame for the knight. Cyan and gold impact
+stars and fading slash marks are registered for the combat effects. Small
+animals appear around nearby water, flowers, trees and lights.
+
 **Views** (2026-10-07; engines and values 2026-11-11). The game can
 be shown in more than one way, and the player can change it in the middle of
 a room. The state, the engine and the world are the same; a view is only how

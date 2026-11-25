@@ -17,7 +17,11 @@ solids bake into the isometric renderer's 32 px/tile grid, with hard alpha,
 surface normals and depth. The generated tables are packed losslessly for
 the build. The view adds only the current realm's kit to its prop atlas.
 `frontierScenery.ts` anchors scenery to generated stamps and quest
-sites. The Underglow places its landmarks by layer in `descent.ts`.
+sites. The Underglow places its landmarks by layer in `descent.ts`. The Green
+Miles have windmills, waystones, haystacks and bus stops. The Landing has a
+pier and breakwater, and the camp kit adds the fire, kettle and neon board.
+Road lamps use the region hash to sit on open verges beside the finished
+road. The lamp switches to its emissive frame at dusk.
 
 The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
 Their isometric frames use the same sprite names and live-sprite hash checks

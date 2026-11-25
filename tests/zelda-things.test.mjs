@@ -116,11 +116,18 @@ describe('things drawn by hand', () => {
     for (const id of ids) {
       const def = M.WORLD.generate(id)
       for (const lm of def?.isoLandmarks ?? []) {
-        const names = lm.motion && !lm.motion.bob
-          ? Array.from({ length: lm.motion.frames }, (_, i) => `${lm.art}_${i}`)
-          : [lm.art]
-        if (lm.lit) names.push(lm.lit.art)
-        for (const name of names) assert.ok(M.REALM_THING_ART[def.realm]?.[name], `${id}: ${name}`)
+        const variants = [lm.art, lm.night, lm.lit?.art].filter(Boolean)
+        for (const variant of variants) {
+          const names = lm.motion && !lm.motion.bob
+            ? Array.from({ length: lm.motion.frames }, (_, i) => `${variant}_${i}`)
+            : [variant]
+          for (const name of names) assert.ok(M.THING_ART[name] || M.REALM_THING_ART[def.realm]?.[name], `${id}: ${name}`)
+        }
+        if (lm.art.startsWith('road_lantern_')) {
+          const x = Math.floor(lm.x), y = Math.floor(lm.y)
+          assert.match(def.rows[y][x], /^[.:;-]$/, `${id}: lantern on the verge`)
+          assert.ok([[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].some(([nx, ny]) => def.rows[ny][nx] === ','), id)
+        }
       }
     }
     assert.equal(M.withThings(props), base)

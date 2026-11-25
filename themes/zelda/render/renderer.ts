@@ -39,6 +39,8 @@ import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
 import { PAL } from './sprites'
+import { bladeHeading } from './bladeAngles'
+import { queueWildlife } from './wildlife'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
@@ -604,18 +606,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   function bladeSprite1(a: number): { name: string; fh: boolean; fv: boolean } {
-    // Quantise to 8 directions.
-    const o = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8
-    switch (o) {
-      case 0: return { name: 'sword_h', fh: false, fv: false }
-      case 1: return { name: 'sword_d', fh: false, fv: true }
-      case 2: return { name: 'sword_v', fh: false, fv: true }
-      case 3: return { name: 'sword_d', fh: true, fv: true }
-      case 4: return { name: 'sword_h', fh: true, fv: false }
-      case 5: return { name: 'sword_d', fh: true, fv: false }
-      case 6: return { name: 'sword_v', fh: false, fv: false }
-      default: return { name: 'sword_d', fh: false, fv: false }
-    }
+    return bladeHeading(a)
   }
 
   function blit(g: G, name: string, fh: boolean, fv: boolean, x: number, y: number) {
@@ -872,7 +863,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * lies on the ground and is drawn at once.
    */
   function queue(g: G, s: GameState, ui: FrameUI, cx: number, cy: number, qw: number, qh: number, lights: Light[], flat: G = g): SceneItem[] {
-    const kind = mapInfo(world, s.map.id).def.kind
+    const def = mapInfo(world, s.map.id).def
+    const { kind } = def
     camX = cx
     camY = cy
     const items: SceneItem[] = []
@@ -881,6 +873,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     twinList = m.enemies
     queueProps(g, world, s, cx, cy, qw, qh, time, ui.reducedMotion, items, lights, flat)
     for (const it of items) it.big = true
+    if (!ui.attract && kind === 'overworld') {
+      queueWildlife(g, s, cx, cy, time, ui.reducedMotion, (dayOf(drawing)?.sun ?? 0.12) <= 0.12, items, def.isoLandmarks)
+    }
     if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
     queuePuzzles(g, s, cx, cy, items)
     for (const b of m.moving) {

@@ -7,6 +7,8 @@ import { FJORD_ART } from './fjordData'
 import { QUARRY_ART } from './quarryData'
 import { SETER_ART } from './seterData'
 import { UNDERGLOW_ART } from './underglowData'
+import { MEADOW_ART } from './meadowData'
+import { LANDING_ART } from './landingData'
 
 /** The isometric renderer only puts the current realm's scenery on the GPU. */
 export const REALM_THING_ART: Record<string, Record<string, ThingArt>> = {
@@ -18,4 +20,6 @@ export const REALM_THING_ART: Record<string, Record<string, ThingArt>> = {
   underglow: UNDERGLOW_ART,
   seterfell: SETER_ART,
   yulefjord: FJORD_ART,
+  meadow: MEADOW_ART,
+  landing: LANDING_ART,
 }

@@ -1520,8 +1520,11 @@ export const HERO_ARMS: Record<string, HeroPart> = {
   ] },
 }
 /** The blades at the art's density (part 21): the classic `sword_*` (and the Arc Blade's `sword2_*`) redrawn twice the size, fixed colours. */
+import { intermediateBlades } from '../bladeAngles'
+
 export const BLADE_PAL: Record<string, string> = {'k': '#0b0616', 'w': '#fff4ff', 'c': '#2ff3ff', 'L': '#b8fbff', 'C': '#1a9fc4', 'D': '#0e5a7a', 'y': '#ffd23f', 'Q': '#fff0a8', 'Y': '#c4861c', 'O': '#7a4a10', 'n': '#6a4432', 'N': '#3e2418', 'v': '#9a4ff0', 'V': '#5a2496'}
 export const BLADE_ART: Record<string, readonly string[]> = {
+  ...intermediateBlades(2),
   sword_v: [
     '......ww......',
     '......ww......',

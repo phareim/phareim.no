@@ -20,7 +20,7 @@
 import type { Dir, EnemyKind, EntDef, ItemId, Mark, MapDef, Prop, Rect, Spot, TileChar } from '../../types'
 import { Rng, fbm, hash } from './rng'
 import { STAMPS, type Stamp } from './stamps'
-import { sceneryAt } from './frontierScenery'
+import { roadsideLights, sceneryAt } from './frontierScenery'
 import type { FrontierSpec, RealmSpec, Site } from './types'
 import type { BattleFoeId, BattleGroupDef } from '../../battleTypes'
 import { puzzleKits, stampKit } from '../../engine/puzzles/kits'
@@ -438,6 +438,7 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   if (realm.views) def.views = realm.views
   if (props.length) def.props = props
   const isoLandmarks = placed.flatMap(p => sceneryAt(realm.id, p.name, p.x, p.y))
+  isoLandmarks.push(...roadsideLights(rows, claimed, hash(F.seed, rx, ry, 18)))
   if (isoLandmarks.length) def.isoLandmarks = isoLandmarks
   return def
 }

@@ -134,6 +134,14 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
   case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
+  case 'f-roadlight': {
+    give()
+    const map = 'fr:6,7'
+    const lamp = WORLD.generate(map).isoLandmarks.find(lm => lm.art.startsWith('road_lantern_'))
+    nearArt(map, lamp.art, 0.25, 1.75)
+    run(30)
+    break
+  }
   case 'f-quarry': give(); near('fr:2,3', 'q.gunn'); run(30); break
   case 'f-lumenby': {
     give()
@@ -584,6 +592,8 @@ const SHOTS = [
   ['f-ferry-landing', 'f-ferry-landing', 1280, 800, 1, 0],
   ['f-ferry-landing-390', 'f-ferry-landing', 390, 844, 2, 0],
   ['f-meadow', 'f-meadow', 1280, 800, 1, 0],
+  ['f-meadow-390', 'f-meadow', 390, 844, 2, 0],
+  ['f-roadlight', 'f-roadlight', 1280, 800, 1, 0],
   ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
   ['f-cave', 'f-cave', 1280, 800, 1, 0],
   ['f-pause-390', 'f-pause', 390, 844, 2, 0],
