@@ -549,4 +549,46 @@ describe('Neon Shrine dig & build', () => {
     for (let i = 0; i < 120; i++) step(s)
     assert.ok(Math.hypot(e.x - 10.5, e.y - 15.5) > 2.2, `the blob stayed in the light: ${e.x}, ${e.y}`)
   })
+
+  it('never steps an arrival aside onto the door out, and lets a stack an older save left on the start be taken down', () => {
+    // A lamp on the start and a block beside it on the west: stepping aside must not land on the exit south of the start.
+    const old = Z.toSave(quarry())
+    const at = (x, y) => (y * 32 + x).toString(36)
+    old.dig = { quarry: [at(15, 20) + 't1', at(14, 20) + 'а2'].join(',') }
+    const u = Z.createGame(Z.WORLD, { save: Z.parseSave(old) })
+    for (let k = 0; k < 30; k++) step(u)
+    assert.equal(u.map.id, 'quarry', 'carried out of the quarry by the step aside')
+    // Two blocks on the start (an older save): the hammer takes them down one at a time.
+    const s = quarry(['hammer'])
+    const o2 = Z.toSave(s)
+    o2.dig = { quarry: at(15, 20) + 'а3' }
+    const t = Z.createGame(Z.WORLD, { save: Z.parseSave(o2) })
+    t.flags['item:hammer'] = true
+    stand(t, 15, 19, 'down')
+    use(t, 'build')
+    assert.equal(t.map.dig.h[20 * 32 + 15], 2, 'the top block came off')
+  })
+
+  it('heals what was only taken away on other maps when the land is full, never what was built', () => {
+    const s = quarry(['shovel'])
+    const all = {}
+    let n = 0
+    const regions = []
+    for (let ry = 0; ry < 9; ry++) for (let rx = 0; rx < 12; rx++) { const d = Z.WORLD.generate(`fr:${rx},${ry}`); if (d?.dig) regions.push(d.id) }
+    // Fill the land: felled ground on the first region, built stone on the second, the rest with holes.
+    for (const id of regions) {
+      const ed = {}
+      for (let i = 0; i < 400 && n < Z.DIG_TOTAL; i++, n++) ed[i] = id === regions[1] ? 'а2' : '.1'
+      all[id] = ed
+      if (n >= Z.DIG_TOTAL) break
+    }
+    s.digEdits = all
+    stand(s, 18, 12, 'up')
+    use(s, 'dig')
+    assert.equal(height(s, 18, 11), 0, 'the dig went through')
+    const built = Object.values(s.digEdits[regions[1]] ?? {}).filter(v => v === 'а2').length
+    assert.equal(built, 400, 'built blocks never heal')
+    const total = Object.values(s.digEdits).reduce((a, ed) => a + Object.keys(ed).length, 0)
+    assert.ok(total <= Z.DIG_TOTAL, `${total} edits`)
+  })
 })

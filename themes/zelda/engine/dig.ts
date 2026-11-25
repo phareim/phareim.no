@@ -102,8 +102,33 @@ function roomFor(s: GameState, mapId: string, i: number): 'map' | 'all' | null {
   const ed = all[mapId]
   if (ed && i in ed) return null
   if (ed && Object.keys(ed).length >= DIG_CAP) return 'map'
-  if (!ed && Object.keys(all).length >= DIG_MAPS) return 'all'
-  return digCount(all) < DIG_TOTAL ? null : 'all'
+  if (!ed && Object.keys(all).length >= DIG_MAPS && !heal(s, mapId, true)) return 'all'
+  return digCount(all) < DIG_TOTAL || heal(s, mapId) ? null : 'all'
+}
+
+/** What the land takes back by itself: a tree felled, a rock broken, a hole dug (an edit that leaves bare ground). Built things never heal. */
+const HEALS = new Set<TileChar>(['.', ',', ':', ';', '-', 'д', 'к'])
+
+/**
+ * The land heals to make room: on the other maps, the oldest-kept edits that only took something away (a felled tree,
+ * a broken rock, a hole) go back to the map as authored — the tree grows again — a handful at a time. `wholeMap`: free a
+ * whole map's slot (one whose edits all heal). True when room was made. Built blocks, ramps, planks and lamps stay.
+ */
+function heal(s: GameState, mapId: string, wholeMap = false): boolean {
+  const all = s.digEdits ?? {}
+  for (const [id, ed] of Object.entries(all)) {
+    if (id === mapId) continue
+    const healing = Object.entries(ed).filter(([, v]) => HEALS.has(v[0] as TileChar))
+    if (wholeMap) {
+      if (healing.length === Object.keys(ed).length) { delete all[id]; return true }
+      continue
+    }
+    if (!healing.length) continue
+    for (const [k] of healing.slice(0, 16)) delete ed[Number(k)]
+    if (!Object.keys(ed).length) delete all[id]
+    return true
+  }
+  return false
 }
 
 const digCount = (all: NonNullable<GameState['digEdits']>): number => Object.values(all).reduce((n, ed) => n + Object.keys(ed).length, 0)
@@ -241,7 +266,8 @@ export function digPlan(world: World, s: GameState, item: UseItem | null = s.inv
     // Nothing rises where someone stands, nor above the ground as the map has it where someone arrives (a lamp,
     // a block or water there would stand the next one to come in inside it).
     if (out.h !== undefined && (out.h > th || out.ch === 't') && occupied(s, tx, ty)) return { ...out, ok: false, why: 'busy' }
-    if (out.h !== undefined && (out.h > bh || out.ch === 't' || out.ch === '~') && arrival(info, tx, ty)) return { ...out, ok: false, why: 'busy' }
+    // (Taking down what an older save left there is always allowed: only what rises, or a lamp or water, is refused.)
+    if (out.h !== undefined && ((out.h > bh && out.h >= th) || out.ch === 't' || out.ch === '~') && arrival(info, tx, ty)) return { ...out, ok: false, why: 'busy' }
     return out
   }
   /** After a dig or a take: the tile as authored when the height is back, else bare earth (or a hole). */
