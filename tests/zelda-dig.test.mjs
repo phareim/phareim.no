@@ -111,12 +111,35 @@ describe('Neon Shrine dig & build', () => {
     assert.equal(tile(s, 18, 11), 'к')
     assert.equal(height(s, 18, 11), 0)
     assert.ok(s.digEdits.quarry)
-    // Step into the hole and out again: down is free; up only by digging the edge (or a ramp).
-    use(s, 'dig') // facing the hole: the shovel fills it
+    // Facing the hole: the shovel fills it.
+    use(s, 'dig')
     assert.equal(height(s, 18, 11), 1)
     assert.equal(tile(s, 18, 11), '.')
     assert.equal(s.digEdits.quarry, undefined)
     assert.equal(Z.matCount(s, 'dirt'), 0)
+  })
+
+  it('lets a hero with only the shovel step into a hole and out again, any way', () => {
+    for (const dir of ['up', 'down', 'left', 'right']) {
+      const s = quarry(['shovel'])
+      stand(s, 18, 12, 'up')
+      use(s, 'dig')
+      assert.equal(height(s, 18, 11), 0)
+      stand(s, 18, 11, dir)
+      assert.equal(s.map.dig.z, 0, 'in the hole')
+      const [x0, y0] = [s.hero.x, s.hero.y]
+      walk(s, dir, 50)
+      assert.ok(Math.hypot(s.hero.x - x0, s.hero.y - y0) > 1, `climbed out ${dir}: ${s.hero.x}, ${s.hero.y}`)
+      assert.equal(s.map.dig.z, 1)
+    }
+    // One up only: from a hole a block one above the ground still stops the hero.
+    const s = quarry(['shovel'])
+    stand(s, 16, 9, 'up')
+    use(s, 'dig') // (16, 8), at the foot of the plateau (h 2)
+    stand(s, 16, 8, 'up')
+    assert.equal(s.map.dig.z, 0)
+    walk(s, 'up', 60)
+    assert.ok(s.hero.y > 7.3, `climbed two: y ${s.hero.y}`)
   })
 
   it('builds blocks, planks and lamps, spends their materials, and takes them back whole', () => {

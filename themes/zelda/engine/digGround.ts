@@ -5,7 +5,8 @@
  *
  * Every tile has a height 0–4 (the ground's level `g`, default 1). A mover
  * stands at the highest level its circle touches; a tile higher than that
- * blocks it, a lower one it steps down onto. A ramp joins its height to the
+ * blocks it (in a hole: higher than the ground), a lower one it steps down
+ * onto. A ramp joins its height to the
  * one below: it counts one lower until the mover's centre is past its middle
  * on the way up. Heights rows: a digit per tile, anything else is `g`.
  */
@@ -75,11 +76,15 @@ export function digLevel(m: MapState, x: number, y: number, r: number): number {
   return z < 0 ? heightAt(m, Math.floor(x), Math.floor(y)) : z
 }
 
-/** Does tile (tx, ty) rise above a mover standing at level z? (A ramp can be walked onto from one below its top.) */
+/**
+ * Does tile (tx, ty) rise above a mover standing at level z? (A ramp can be walked onto from one below its top.)
+ * Below the ground (in a hole) a mover reaches one up, to the ground and no higher: a hole is no trap.
+ */
 export function digAbove(m: MapState, tx: number, ty: number, z: number): boolean {
   if (!m.dig || tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return false
   const h = m.dig.h[ty * m.w + tx]!
-  return isRamp(m.tiles[ty * m.w + tx]!) ? h - 1 > z : h > z
+  const reach = z < m.dig.g ? z + 1 : z
+  return isRamp(m.tiles[ty * m.w + tx]!) ? h - 1 > reach : h > reach
 }
 
 /**

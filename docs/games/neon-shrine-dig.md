@@ -13,7 +13,8 @@ the isometric view (heights). Design sketch for the realms: `docs/worlds/dig-not
 - `MapState.dig = { h, g, z }`: every tile's height, the ground's level, the hero's standing level.
 - A mover stands at the highest level its circle touches (`digLevel`). A tile higher than that blocks it
   (`circleBlocked` / `moveCircle` in `engine/map.ts`; foes too, from where they stand); a lower one it steps
-  down onto, freely. A ramp (`ж з и й`, rising north, south, east, west) counts one below its height until the
+  down onto, freely. Out of a hole (below the ground) it steps up one, onto the ground and no higher: a hole is
+  no trap, for the hero or a foe. A ramp (`ж з и й`, rising north, south, east, west) counts one below its height until the
   mover's centre is past its middle on the way up, so it joins two levels one apart. No z in the simulation
   beyond that: projectiles fly as before, the hook still reels the hero up onto whatever it bites.
 - What stands higher than the hero is out of A's reach (a chest on a ledge opens only from up there).
