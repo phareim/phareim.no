@@ -253,14 +253,15 @@ frame-time split) and `ctx`. A jump hushes the intercom.
 
 ## Tests
 
-`npm run test:starfox` runs five files (131 tests): `starfox-balance`
+`npm run test:starfox` runs every `starfox-*` file (159 tests): `starfox-balance`
 (hull, bestiary, speeds, squad profiles, rival, boss HP and time-to-kill),
 `starfox-story` (the script's voices, line widths against the intercom,
 the director, the squad rules), `starfox-arsenal`, `starfox-encounters`
 (every sector's script, density, set pieces, Cobra staying gone once
 down) and `starfox-bosses` (attack wheels and the safe-gap proofs).
-`npm run test:wingman` (36 tests) covers the wingman brain and
-`stepSquad`. Both run in CI.
+`starfox-wingman` (the wingman brain and `stepSquad`, 32 tests) runs
+alone as `npm run test:wingman`. The balance tests hold invariants, not
+the tuning numbers themselves.
 
 ## Frame time
 

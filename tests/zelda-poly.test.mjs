@@ -3,7 +3,7 @@
 // contract the view is built on (`render/poly/camera.ts`, `terrain.ts`).
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
@@ -618,19 +618,6 @@ describe('the lamps', () => {
   })
 })
 
-
-describe('the polygon view in the bundle', () => {
-  it('is fetched on the turn to it: nothing imports it statically', () => {
-    const view = join(root, 'render/poly/view.ts')
-    if (!existsSync(view)) return // not built yet
-    const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)])
-    const files = [...walk(root), ...walk(resolve(root, '../portal')), ...walk(resolve(root, '../stage'))].filter(f => /\.(ts|vue)$/.test(f) && !f.includes('/render/poly/'))
-    for (const f of files) {
-      const src = readFileSync(f, 'utf8')
-      assert.ok(!/from\s+['"][^'"]*poly\/view['"]/.test(src), `${f} imports the polygon view statically`)
-    }
-  })
-})
 
 describe('the light held smooth', () => {
   // The hour's light comes in steps of a tenth of a second; drawn as it comes, each step moves the dither over

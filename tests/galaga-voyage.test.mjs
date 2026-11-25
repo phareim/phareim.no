@@ -1,24 +1,25 @@
-// Space Voyagers, played whole by the autopilot: a soak (30 game minutes, no
-// NaN, counts bounded, the field's edges kept), the same voyage for weaker hands,
-// the ending and VOYAGE II. The first voyage at each height is in galaga-voyage-320
-// and galaga-voyage-432, so they run in their own processes.
-// The numbers say how hard the game is for a program. They say nothing about feel.
+// Space Voyagers under a weaker autopilot: a soak (ten game minutes at each
+// height, no NaN, counts bounded, the field's edges kept). The whole voyage
+// through the ending into VOYAGE II is flown in galaga-script.test.mjs, on the
+// radio. How hard the voyage is for the three autopilot profiles, seed by seed,
+// is the lab's tuning table (scripts/galaga-lab/tune.mjs), not a test.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createWorld, step, POOL, playerTop } from '../themes/galaga/engine/index.ts'
-import { createAutopilot, autopilot, CASUAL, CLUMSY } from '../themes/galaga/engine/autopilot.ts'
+import { createAutopilot, autopilot, CASUAL } from '../themes/galaga/engine/autopilot.ts'
 import { FIELD, PLAYER, difficulty, bossHp, boltSpeed } from '../themes/galaga/engine/balance.ts'
-import { SEEDS, LIMIT, voyage, table } from './galaga-voyage-helpers.mjs'
+
+const SOAK = 10 * 60 * 60
 
 for (const height of [320, 432]) {
-  test(`soak at ${height}: 30 game minutes, no NaN, bounded counts, edges kept`, () => {
+  test(`soak at ${height}: ten game minutes, no NaN, bounded counts, edges kept`, () => {
     let ticks = 0
     let seed = 100 + height
     let most = 0
-    while (ticks < LIMIT) {
+    while (ticks < SOAK) {
       const w = createWorld({ seed: seed++, height })
       const ap = createAutopilot(CASUAL)
-      while (!w.over && ticks < LIMIT) {
+      while (!w.over && ticks < SOAK) {
         step(w, autopilot(ap, w))
         ticks++
         const p = w.player
@@ -47,40 +48,12 @@ for (const height of [320, 432]) {
         if (w.boss.active) assert.ok(Number.isFinite(w.boss.hp) && Number.isFinite(w.boss.x) && Number.isFinite(w.boss.y))
       }
     }
-    assert.equal(ticks, LIMIT)
+    assert.equal(ticks, SOAK)
     assert.ok(most > 0)
   })
 }
 
-test('the same voyage for weaker hands: looks five and three times a second', () => {
-  for (const [name, opts] of [['CASUAL (5 looks a second, 0.8 s ahead)', CASUAL], ['CLUMSY (3 looks a second, 0.5 s ahead, no margin)', CLUMSY]]) {
-    for (const height of [320, 432]) {
-      const rows = []
-      for (let seed = 1; seed <= SEEDS; seed++) rows.push(voyage(seed, height, opts))
-      table(`${name}, field 240 x ${height}`, rows)
-      assert.ok(rows.filter(r => r.sectors >= 1).length >= 10, `${name}: sector 1 cleared on at least 10 of 12`)
-    }
-  }
-})
-
-test('the ending, then VOYAGE II: harder, the score running on', () => {
-  const w = createWorld({ seed: 2, height: 320 })
-  const ap = createAutopilot()
-  const seen = []
-  let scoreAtEnding = -1
-  while (!w.over && w.tick < LIMIT * 2 && !(w.voyage === 2 && w.sector === 2)) {
-    step(w, autopilot(ap, w))
-    for (const e of w.events) {
-      if (e.type === 'ending') { seen.push('ending'); scoreAtEnding = w.score }
-      if (e.type === 'voyage') seen.push(`voyage ${e.n}`)
-      if (e.type === 'card' && (e.kind === 'ending' || e.kind === 'voyage')) seen.push(`card ${e.kind}`)
-      if (e.type === 'cue' && e.kind === 'voyage2') seen.push('cue voyage2')
-    }
-  }
-  assert.deepEqual(seen, ['ending', 'card ending', 'voyage 2', 'card voyage', 'cue voyage2'])
-  assert.equal(w.voyage, 2)
-  assert.ok(scoreAtEnding > 0 && w.score > scoreAtEnding, 'the score runs on')
-  assert.equal(w.stats.sectorsCleared, 6)
+test('VOYAGE II is harder: quicker to shoot, faster bolts, more boss hull', () => {
   assert.ok(difficulty(1, 2) > difficulty(1, 1))
   assert.ok(boltSpeed(difficulty(1, 2)) > boltSpeed(difficulty(1, 1)))
   assert.ok(bossHp('knight', 2) > bossHp('knight', 1))

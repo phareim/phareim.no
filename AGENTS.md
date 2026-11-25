@@ -12,7 +12,7 @@ external APIs, fonts, icons, state, source layout, themes, cost of `/`, auth):
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (`docs/site.md`)
-- `npm test` — every `tests/*.test.mjs` in one pass (what the deploy runs). Per area: `test:portal`, `test:zelda`, `test:eschold`, `test:tetris`, `test:leaderboard`, `test:starfox`, `test:wingman`, `test:anotherworld`, `test:galaga`, `test:voyagers2`, `test:outrun`, `test:breakout`, `test:invasive`, `test:battery`, `test:miniworld`, `test:figur`; what each covers: `docs/site.md` → "Test areas"
+- `npm test` — every `tests/*.test.mjs` in one pass. `npm run test:changed` — only what your change since `origin/master` (uncommitted work included) can break; the deploy runs the same against the last deployed revision. Per area: `npm run test:<area>` (`portal`, `zelda`, `miniworld`, `figur`, … ). The areas and what each path runs are one table, `tests/areas.mjs`; a new theme gets a row there. Details: `docs/site.md` → "Test areas"
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); the Sleeper deploy runs this before build
 - `npm run build` — production build (`cloudflare-pages` preset in `nuxt.config.ts`, output `dist/`)
 - `npm run preview` — preview built site
@@ -49,7 +49,7 @@ There is no menu and no page route but `/`. `servers/mw-world/` is not part of t
 
 ## Deployment
 
-- **Deploy**: push to `master` → signed `sleeper-deploy` webhook → `scripts/deploy.sh` on Sleeper, which builds committed `origin/master` (`scripts/deploy-site.sh --auto`: tests, typecheck, build, D1 migrations, publish to Pages). GitHub Actions is off; pull requests run no CI.
+- **Deploy**: push to `master` → signed `sleeper-deploy` webhook → `scripts/deploy.sh` on Sleeper, which builds committed `origin/master` (`scripts/deploy-site.sh --auto`: the tests the change since the last deploy touches, typecheck, build, D1 migrations, publish to Pages). GitHub Actions is off; pull requests run no CI.
 - **Branch previews**: `bash scripts/deploy-site.sh --branch <name>` publishes `<name>.phareim-no.pages.dev` without migrations. A preview shares production's D1, so saves and scores made there are real: never finish a game run in a preview.
 - Manual run, credentials, locks, logs and health: `docs/site.md` → "Deployment extras".
 

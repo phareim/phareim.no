@@ -61,6 +61,9 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
    A game also needs a way in from the portal: a cabinet in the town's
    arcade, `themes/zelda/world/town.ts` (there is no other way to reach it).
    `npm run test:portal` lists the cabinets it expects.
+   Give `themes/<id>/` a row in `PATHS` in `tests/areas.mjs` (and its tests,
+   `tests/<id>-*.test.mjs`, an area there and a `test:<id>` script), so a
+   change to it runs its own tests; `test:deploy` fails without the row.
 3. Preview with `npm run dev` and `http://localhost:<port>/?theme=<id>` (the port `npm run dev` prints; 3030 is taken on Sleeper).
    Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
    write the screenshot under `~/Pictures`, the snap cannot write to dotdirs

@@ -35,6 +35,8 @@ test('the window: labelled fields, a show/hide password, big targets, the texts 
   assert.match(w, /Har du ikke konto\?\s*<a class="fg-gate-link" :href="account\.signUpUrl\(\)">Spør en voksen<\/a>/)
   assert.equal(w.split('<form').length - 1, 1)
   assert.doesNotMatch(w.replace(/<!--[\s\S]*?-->/g, ''), /sign-up|invite/i)
+  // It is its own chunk (the gate itself, the game only behind `in`, is in miniworld-login-client.test.mjs).
+  assert.match(read('themes/figur/Landing.vue'), /import\('\.\/ui\/SignIn\.vue'\)/)
   // It draws in the studio's look, not another.
   assert.match(w, /class="fg-root fg-gate"/)
   assert.match(w, /px-box fg-box/)
@@ -53,11 +55,4 @@ test('Logg ut sits in the studio\'s settings, asks once more, and saves first', 
   assert.match(s, /LOGGE UT\?/)
   assert.match(s, /game\.flush\(\)\s*await savesSettled\(\)/)
   assert.match(s, /account\.logOut\(/)
-})
-
-test('the game is only rendered behind the gate, and the studio shows no sign-in chrome of its own', () => {
-  const landing = read('themes/figur/Landing.vue')
-  assert.match(landing, /<FigurGame v-if="account\.state\.value === 'in'" \/>/)
-  assert.match(landing, /<FgSignIn v-else :account="account" \/>/)
-  assert.match(landing, /import\('\.\/ui\/SignIn\.vue'\)/)
 })

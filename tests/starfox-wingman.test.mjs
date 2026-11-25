@@ -77,22 +77,11 @@ test('pickTarget prefers turret over core at equal positions', () => {
   assert.equal(result?.id, 1, 'turret (threat 2.5) should beat core (threat 1)')
 })
 
-test('canFire: true at (0.5, 1.0) offset', () => {
+test('canFire: only with the target inside fireTolX across and fireTolY up', () => {
   const buddy = { x: 0, y: 0 }
-  const target = { x: 0.5, y: 1.0 }
-  assert.equal(canFire(buddy, target), true)
-})
-
-test('canFire: false at (1.5, 0) offset', () => {
-  const buddy = { x: 0, y: 0 }
-  const target = { x: 1.5, y: 0 }
-  assert.equal(canFire(buddy, target), false, 'x distance 1.5 exceeds fireTolX')
-})
-
-test('canFire: false at (0, 2) offset', () => {
-  const buddy = { x: 0, y: 0 }
-  const target = { x: 0, y: 2 }
-  assert.equal(canFire(buddy, target), false, 'y distance 2 exceeds fireTolY')
+  assert.equal(canFire(buddy, { x: WING_AI.fireTolX * 0.5, y: WING_AI.fireTolY * 0.75 }), true)
+  assert.equal(canFire(buddy, { x: WING_AI.fireTolX * 1.5, y: 0 }), false, 'too far across')
+  assert.equal(canFire(buddy, { x: 0, y: WING_AI.fireTolY * 1.5 }), false, 'too far up')
 })
 
 test('stepWingman demo mode ignores targets', () => {
@@ -247,35 +236,6 @@ test('callout cycles deterministically', () => {
   }
 })
 
-test('WING_AI constants', () => {
-  assert.equal(WING_AI.retargetCooldown, 0.6)
-  assert.equal(WING_AI.minHuntTime, 1.0)
-  assert.equal(WING_AI.fireTolX, 0.9)
-  assert.equal(WING_AI.fireTolY, 1.3)
-  assert.deepEqual(WING_AI.huntZ, [-170, -10])
-  assert.equal(WING_AI.leadTime, 0.45)
-  assert.equal(WING_AI.coverHp, 30)
-  assert.equal(WING_AI.calloutTime, 2.2)
-  assert.equal(WING_AI.regroupRadius, 1.5)
-  assert.equal(WING_AI.turnRate.formation, 5)
-  assert.equal(WING_AI.turnRate.hunt, 7)
-  assert.equal(WING_AI.turnRate.regroup, 5)
-  assert.equal(WING_AI.turnRate.cover, 5)
-})
-
-test('THREAT table', () => {
-  assert.equal(THREAT.kamikaze, 3)
-  assert.equal(THREAT.mite, 3)
-  assert.equal(THREAT.dasher, 3)
-  assert.equal(THREAT.sniper, 2)
-  assert.equal(THREAT.weaver, 1.5)
-  assert.equal(THREAT.splitter, 1.5)
-  assert.equal(THREAT.drone, 1)
-  assert.equal(THREAT.bulwark, 0.5)
-  assert.equal(THREAT.turret, 2.5)
-  assert.equal(THREAT.core, 1)
-})
-
 test('pickTarget lets a much better target steal the lock', () => {
   const buddy = { x: 0, y: 0 }
   // current: a far-off drone; newcomer: a kamikaze right in the lane
@@ -293,8 +253,9 @@ test('pickTarget lets a much better target steal the lock', () => {
 test('THREAT ranks the new kinds: missile first, carrier low, parts like turrets', () => {
   assert.ok(THREAT.missile > THREAT.kamikaze)
   assert.ok(THREAT.carrier < THREAT.drone * 1.5 && THREAT.carrier > THREAT.bulwark)
-  assert.equal(THREAT.part, 2.5)
+  assert.equal(THREAT.part, THREAT.turret)
   assert.ok(THREAT.part > THREAT.core)
+  assert.ok(THREAT.kamikaze > THREAT.sniper && THREAT.sniper > THREAT.weaver && THREAT.weaver > THREAT.drone && THREAT.drone > THREAT.bulwark, 'the old kinds keep their order')
 })
 
 test('pickTarget shoots down a missile before a diving kamikaze', () => {

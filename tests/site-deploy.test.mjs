@@ -107,3 +107,53 @@ test('options after the commit are refused, never dropped', t => {
   assert.equal(f.run({}, [f.revision]).status, 0)
   assert.match(readFileSync(f.log, 'utf8'), /--branch=master/)
 })
+
+/** Commit a file in the fixture and return the new log lines of the next deploy. */
+function deployAfter(f, file, text, args) {
+  writeFileSync(join(f.repo, file), text)
+  f.git('add', file); f.git('commit', '-q', '-m', file)
+  const before = existsSync(f.log) ? readFileSync(f.log, 'utf8').length : 0
+  const result = f.run({}, args)
+  assert.equal(result.status, 0, result.stderr)
+  return readFileSync(f.log, 'utf8').slice(before)
+}
+
+test('the next deploy tests what changed since the last one; typecheck and build run whole', t => {
+  const f = fixture(t)
+  assert.equal(f.run().status, 0)
+  const log = deployAfter(f, 'change.txt', 'a change')
+  assert.match(log, new RegExp(`npm run test:changed -- --base ${f.revision}\\n`))
+  assert.doesNotMatch(log, /npm test/)
+  assert.ok(log.indexOf('test:changed') < log.indexOf('npm run typecheck'))
+  assert.ok(log.indexOf('npm run typecheck') < log.indexOf('npm run build'))
+  assert.ok(log.indexOf('npm run build') < log.indexOf('pages deploy'))
+  assert.equal(readFileSync(join(f.state, 'site'), 'utf8').trim(), f.git('rev-parse', 'HEAD'))
+})
+
+test('everything is tested when the last deploy is no ancestor, or its mark is not a revision', t => {
+  const f = fixture(t)
+  assert.equal(f.run().status, 0)
+  // A force-push: master rewritten so the deployed commit is no longer in its history.
+  f.git('checkout', '-q', '--orphan', 'rewritten'); f.git('commit', '-q', '-m', 'new history')
+  f.git('branch', '-f', 'master', 'rewritten'); f.git('checkout', '-q', 'master')
+  let log = deployAfter(f, 'next.txt', 'on the new history')
+  assert.match(log, /npm test\n/)
+  assert.doesNotMatch(log, /test:changed/)
+  // A mark that is not a commit name, or names a commit this repo does not have.
+  for (const mark of ['--all\n', 'not a revision\n', `${'0'.repeat(40)}\n`]) {
+    writeFileSync(join(f.state, 'site'), mark)
+    log = deployAfter(f, 'more.txt', mark)
+    assert.match(log, /npm test\n/, `mark ${JSON.stringify(mark)}`)
+    assert.doesNotMatch(log, /test:changed/)
+  }
+})
+
+test('a preview compares with its own last deploy, never with production\'s', t => {
+  const f = fixture(t)
+  assert.equal(f.run().status, 0)
+  f.git('checkout', '-q', '-b', 'beta')
+  const args = ['--auto', '--branch', 'beta']
+  assert.match(deployAfter(f, 'beta.txt', 'beta', args), /npm test\n/, 'a first preview tests everything')
+  const first = f.git('rev-parse', 'HEAD')
+  assert.match(deployAfter(f, 'beta.txt', 'beta 2', args), new RegExp(`test:changed -- --base ${first}\\n`))
+})
