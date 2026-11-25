@@ -65,7 +65,15 @@ export interface Look {
   vignette: number
   scanlines: number
   wind: number
+  /** A realm look's (`../looks.ts`): how bright its classic ground paints material slots 1–7 (0: the coast's), its open water, and its ground fog (the hero x, y, how far round them it parts, how much more ground it covers). */
+  refs?: Float32Array
+  waterTint?: [number, number, number]
+  fog?: [number, number, number, number]
 }
+
+/** The coast's open water. */
+const WATER: [number, number, number] = [0.058, 0.17, 0.41]
+const NO_REFS = new Float32Array(8)
 
 export interface FrameIn {
   cam: Cam
@@ -329,6 +337,9 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(ground.u('uTime'), f.time)
     g.uniform1f(ground.u('uWind'), look.wind)
     g.uniform1f(ground.u('uFray'), look.fray ? 1 : 0)
+    g.uniform1fv(ground.u('uRefs'), look.refs ?? NO_REFS)
+    const wt = look.waterTint ?? WATER
+    g.uniform3f(ground.u('uWaterTint'), wt[0], wt[1], wt[2])
     bindTex(g, 0, flatT, ground.u('uFlat'))
     bindTex(g, 1, tilesT, ground.u('uTiles'))
     bindTex(g, 2, matT, ground.u('uMats'))
@@ -497,6 +508,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(compP.u('uWet'), look.wet)
     g.uniform1f(compP.u('uMist'), look.mist)
     g.uniform3f(compP.u('uMistColor'), look.mistColor[0], look.mistColor[1], look.mistColor[2])
+    const fog = look.fog ?? [0, 0, 0, 0]
+    g.uniform4f(compP.u('uFog'), fog[0], fog[1], fog[2], fog[3])
     g.uniform1f(compP.u('uRays'), look.rays)
     fullscreen()
 

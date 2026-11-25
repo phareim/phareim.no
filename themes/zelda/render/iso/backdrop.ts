@@ -19,6 +19,7 @@
  * stands right of the middle, where the map's far corner does not hide it.
  */
 import { hash2 } from '../../../base/pixel/scenery'
+import { REALM_LOOKS, realmLook, type RealmLook } from '../looks'
 
 export interface BackdropLayer {
   canvas: HTMLCanvasElement
@@ -42,7 +43,7 @@ export interface Backdrop {
   horizon: number
   layers: BackdropLayer[]
 }
-export type BackdropLook = 'coast' | 'wild' | 'void'
+export type BackdropLook = 'coast' | 'wild' | 'void' | RealmLook
 
 // --- colour ------------------------------------------------------------------------
 
@@ -1066,7 +1067,8 @@ function leaves(p: Pix, sc: Scene, crowns: [number, number, number][], base: num
  * is drawn tree by tree; its last rows are one colour, `floor`, which the
  * ground under this layer carries on down the screen.
  */
-function paintForest(sc: Scene, sky: RGB, floor: RGB): { p: Pix; top: number } {
+function paintForest(sc: Scene, sky: RGB, floor: RGB, t?: { start: RGB; crest: RGB; rim: string; leaf: RGB; firs: number }): { p: Pix; top: number } {
+  const tint = t
   const W = sc.wide
   const u = sc.u
   const over = Math.round(34 * u)
@@ -1084,17 +1086,17 @@ function paintForest(sc: Scene, sky: RGB, floor: RGB): { p: Pix; top: number } {
     const swell = Math.round(10 * u * (1 - t * 0.4))
     for (let x = 0; x < W; x++) ht[x] = 1 + Math.round((wave(x, W, 5 + k * 2, 140 + k * 7) * 0.7 + wave(x, W, 17 + k * 5, 141 + k * 7) * 0.3) * swell)
     const ground = Int16Array.from(ht)
-    const crowns = thicket(sc, ht, ground, crown, t < 0.4 ? 0.26 : 0.12, 150 + k * 13)
+    const crowns = thicket(sc, ht, ground, crown, tint ? tint.firs : t < 0.4 ? 0.26 : 0.12, 150 + k * 13)
     // The far rows take the sky's colour through the haze; the nearest is the floor's own.
-    const body = k === rows - 1 ? floor : mix(mix([18, 58, 72], floor, Math.pow(t, 0.8)), sky, 0.26 * (1 - t) ** 1.5)
+    const body = k === rows - 1 ? floor : mix(mix(tint ? tint.start : [18, 58, 72], floor, Math.pow(t, 0.8)), sky, 0.26 * (1 - t) ** 1.5)
     const foot = feet[k]!
     paintLand(p, sc, ht, foot, k === rows - 1 ? p.h : Math.min(p.h, feet[k + 1]!), {
-      crest: pack(mix(body, [52, 140, 130], 0.3 * (1 - t * 0.6))), body: pack(body), crestRows: Math.max(3, Math.round(crown * u * 0.45)),
+      crest: pack(mix(body, tint ? tint.crest : [52, 140, 130], (tint ? 0.5 : 0.3) * (1 - t * 0.6))), body: pack(body), crestRows: Math.max(3, Math.round(crown * u * 0.45)),
       // Only the first rows stand against the sky and take the sun's pink, and only on the side that faces it.
-      rim: t < 0.4 ? pack(mix(hex('#c04a8a'), body, 0.3 + t)) : 0, shadeRim: 0, slopesOnly: true,
+      rim: t < 0.4 ? pack(mix(hex(tint ? tint.rim : '#c04a8a'), body, 0.3 + t)) : 0, shadeRim: 0, slopesOnly: true,
       haze: 0, hazeRows: 0,
     })
-    leaves(p, sc, crowns, foot, pack(mix(body, [95, 214, 184], 0.3 * (1 - t * 0.7))))
+    leaves(p, sc, crowns, foot, pack(mix(body, tint ? tint.leaf : [95, 214, 184], (tint ? 0.5 : 0.3) * (1 - t * 0.7))))
   }
   // The last rows are the floor's colour and nothing else, so the ground below joins on without an edge.
   box(p, 0, p.h - Math.max(2, Math.round(3 * u)), W, Math.max(2, Math.round(3 * u)), pack(floor))
@@ -1220,6 +1222,7 @@ export function buildBackdrop(look: BackdropLook, w: number, h: number, colors?:
   const top = colors?.top ?? '#1a0f4a'
   const horizon = colors?.horizon ?? '#ff5f9e'
   const key = look === 'void' ? `void:${w}:${h}` : `${look}:${w}:${h}:${top}:${horizon}`
+  const realm = realmLook(look)
   const had = built.get(key)
   if (had) {
     // Seen again: move it to the fresh end.
@@ -1227,8 +1230,211 @@ export function buildBackdrop(look: BackdropLook, w: number, h: number, colors?:
     built.set(key, had)
     return had
   }
-  const made = look === 'void' ? buildVoid(w, h) : look === 'wild' ? buildWild(w, h, hex(top), hex(horizon)) : buildCoast(w, h, hex(top), hex(horizon))
+  const made = realm ? buildRealm(realm, w, h, hex(top), hex(horizon)) : look === 'void' ? buildVoid(w, h) : look === 'wild' ? buildWild(w, h, hex(top), hex(horizon)) : buildCoast(w, h, hex(top), hex(horizon))
   built.set(key, made)
   if (built.size > 6) built.delete(built.keys().next().value!)
   return made
+}
+
+// --- the frontier's realms ---------------------------------------------------------
+
+/** A realm's sky from zenith to horizon: its top, a turn toward its horizon, the horizon, and a thin line of its own glow. */
+function realmRamp(top: RGB, horizon: RGB, glow: RGB): Ramp {
+  return rampOf([
+    [0, scale(top, 0.45)],
+    [0.32, top],
+    [0.62, hueMix(top, horizon, 0.5)],
+    [0.9, horizon],
+    [1, glow],
+  ])
+}
+
+/** One depth of a realm's hills: its shape (as `paintHills`) and its colours. */
+interface RealmHill {
+  salt: number; tall: number; lift: number; under: number; cells: number; trees: number; crown: number; firs: number; dip: number; peaks: number
+  body: string
+  /** its crest (snow on the peaks, the lit tops of the dunes), and how many rows of it */
+  crest: string; crestRows: number
+  rim: string
+}
+interface RealmSky {
+  glow: string
+  /** how many bands the sun warms the sky next to it; its colours; how veiled it is */
+  pull: number
+  sun: string[]
+  veil: number
+  stars: number
+  hills: RealmHill[]
+  /** the near edge: a wood (as the Wildwood's, in the realm's colours) or bare land; the colour it runs down into */
+  near: 'wood' | 'land'
+  floor: string
+  wood?: { start: string; crest: string; rim: string; leaf: string; firs: number }
+  /** banks of mist between the depths: their colour, their upper half, and how many layers */
+  mist?: [string, string, number]
+  /** the snow's northern lights; the spore wood's lights among its caps */
+  aurora?: boolean
+  spots?: string[]
+}
+
+const REALM_SKY: Record<RealmLook, RealmSky> = {
+  snow: {
+    glow: '#c8d8ff', pull: 1.2, sun: ['#fff4e0', '#ffe0c0', '#ffc8b0', '#f0a8b8', '#d890c8', '#b080d8'], veil: 0.3, stars: 1,
+    hills: [
+      { salt: 610, tall: 92, lift: 26, under: 2, cells: 3, trees: 0, crown: 0, firs: 0, dip: 0.6, peaks: 0.95, body: '#3a3a8a', crest: '#e8eeff', crestRows: 9, rim: '#ffffff' },
+      { salt: 620, tall: 56, lift: 16, under: 2, cells: 5, trees: 0, crown: 0, firs: 0, dip: 0.5, peaks: 0.8, body: '#2a2a6a', crest: '#b4c0f0', crestRows: 6, rim: '#e8d0ff' },
+      { salt: 630, tall: 30, lift: 10, under: 12, cells: 7, trees: 60, crown: 3.4, firs: 0.95, dip: 0.3, peaks: 0.2, body: '#1c2050', crest: '#6a78c0', crestRows: 3, rim: '#c8d0ff' },
+    ],
+    near: 'wood', floor: '#141a40', wood: { start: '#1e2a5a', crest: '#c8d4f4', rim: '#a8b4ff', leaf: '#e8f0ff', firs: 0.9 },
+    mist: ['#4a4a9a', '#5a5aaa', 1], aurora: true,
+  },
+  dune: {
+    glow: '#fff0c0', pull: 3, sun: ['#fff8e0', '#fff0c0', '#ffe0a0', '#ffc890', '#ffb08a', '#ff9a90'], veil: 0, stars: 0.4,
+    hills: [
+      { salt: 710, tall: 70, lift: 8, under: 2, cells: 6, trees: 0, crown: 0, firs: 0, dip: 0.7, peaks: 0.55, body: '#a86a8a', crest: '#c88a9a', crestRows: 3, rim: '#ffd0b0' },
+      { salt: 720, tall: 34, lift: 12, under: 2, cells: 4, trees: 0, crown: 0, firs: 0, dip: 0.4, peaks: 0, body: '#d08a88', crest: '#f0b8a0', crestRows: 4, rim: '#fff0c8' },
+      { salt: 730, tall: 24, lift: 8, under: 40, cells: 6, trees: 0, crown: 0, firs: 0, dip: 0.2, peaks: 0, body: '#c07880', crest: '#e8a898', crestRows: 5, rim: '#ffe0b8' },
+    ],
+    near: 'land', floor: '#8a5068',
+  },
+  spore: {
+    glow: '#6ff6e0', pull: 1, sun: ['#c8fff4', '#8ff4e8', '#6ad8e0', '#5ab0e0', '#6a88e0', '#8a6ae0'], veil: 0.5, stars: 0.7,
+    hills: [
+      { salt: 810, tall: 58, lift: 18, under: 2, cells: 4, trees: 14, crown: 9, firs: 0, dip: 0.6, peaks: 0.3, body: '#2a1a5a', crest: '#3a2a7a', crestRows: 2, rim: '#8a6ae0' },
+      { salt: 820, tall: 40, lift: 14, under: 2, cells: 5, trees: 22, crown: 7, firs: 0, dip: 0.5, peaks: 0.1, body: '#1a1648', crest: '#1e5a7a', crestRows: 4, rim: '#3ad0d8' },
+      { salt: 830, tall: 28, lift: 10, under: 12, cells: 6, trees: 40, crown: 5, firs: 0, dip: 0.3, peaks: 0, body: '#120e36', crest: '#2a2a6a', crestRows: 3, rim: '#ff8ae0' },
+    ],
+    near: 'wood', floor: '#0a1428', wood: { start: '#12204a', crest: '#2a5a8a', rim: '#6ff6ff', leaf: '#8ff4f0', firs: 0 },
+    mist: ['#2a2a6a', '#3a3a8a', 1], spots: ['#6ff6ff', '#ff8ae0', '#8ffce0', '#c8a0ff'],
+  },
+  fog: {
+    glow: '#ffd0e8', pull: 2, sun: ['#fff0f8', '#ffd0e8', '#ffb0d8', '#ff90c8', '#f070b8', '#d050a8'], veil: 0.55, stars: 0.5,
+    hills: [
+      { salt: 910, tall: 66, lift: 24, under: 2, cells: 4, trees: 10, crown: 3, firs: 0.2, dip: 0.6, peaks: 0.4, body: '#6a3a8a', crest: '#7a4a9a', crestRows: 2, rim: '#ffb0e0' },
+      { salt: 920, tall: 44, lift: 16, under: 2, cells: 5, trees: 18, crown: 3.2, firs: 0.1, dip: 0.5, peaks: 0.2, body: '#4a2a6e', crest: '#2a5a5a', crestRows: 4, rim: '#ff8ac0' },
+      { salt: 930, tall: 30, lift: 10, under: 12, cells: 6, trees: 30, crown: 3.6, firs: 0, dip: 0.3, peaks: 0.1, body: '#2e1a4a', crest: '#1e4a48', crestRows: 4, rim: '#ff6fb0' },
+    ],
+    near: 'wood', floor: '#2a1838', wood: { start: '#1a2e3a', crest: '#2e6a5a', rim: '#ff6fb0', leaf: '#7ac0a0', firs: 0.1 },
+    mist: ['#d06aa8', '#ec8ac0', 3],
+  },
+  quarry: {
+    glow: '#ffd070', pull: 3.2, sun: ['#fff1b0', '#ffd23f', '#ffb13f', '#ff8a3d', '#ff6a4a', '#e04a6a'], veil: 0.1, stars: 0.6,
+    hills: [
+      { salt: 1010, tall: 78, lift: 24, under: 2, cells: 3, trees: 0, crown: 0, firs: 0, dip: 0.8, peaks: 0.6, body: '#5a2a6a', crest: '#7a3a6a', crestRows: 2, rim: '#ffa070' },
+      { salt: 1020, tall: 46, lift: 20, under: 2, cells: 4, trees: 0, crown: 0, firs: 0, dip: 0.5, peaks: 0.15, body: '#6a2e4a', crest: '#b0583a', crestRows: 5, rim: '#ffc070' },
+      { salt: 1030, tall: 30, lift: 12, under: 12, cells: 6, trees: 40, crown: 3.2, firs: 0.85, dip: 0.3, peaks: 0.1, body: '#3a1a3a', crest: '#5a2a4a', crestRows: 3, rim: '#ff8a4a' },
+    ],
+    near: 'wood', floor: '#22122a', wood: { start: '#2a1838', crest: '#4a2a5a', rim: '#ff8a4a', leaf: '#9a6ac0', firs: 0.85 },
+  },
+  suburb: {
+    glow: '#ffe0a0', pull: 2.6, sun: ['#fffbe0', '#fff0b0', '#ffe090', '#ffc880', '#ffa888', '#ff8aa0'], veil: 0, stars: 0.3,
+    hills: [
+      { salt: 1110, tall: 46, lift: 18, under: 2, cells: 3, trees: 0, crown: 0, firs: 0, dip: 0.6, peaks: 0.1, body: '#6a6ac0', crest: '#8a8ad0', crestRows: 2, rim: '#ffd0e0' },
+      { salt: 1120, tall: 36, lift: 14, under: 2, cells: 4, trees: 30, crown: 4, firs: 0, dip: 0.4, peaks: 0, body: '#3a6a7a', crest: '#4a8a7a', crestRows: 3, rim: '#ffe0a0' },
+      { salt: 1130, tall: 26, lift: 10, under: 12, cells: 6, trees: 46, crown: 4.4, firs: 0, dip: 0.3, peaks: 0, body: '#22504a', crest: '#3a7a52', crestRows: 3, rim: '#ffd08a' },
+    ],
+    near: 'wood', floor: '#123a30', wood: { start: '#1a4a3a', crest: '#4aa060', rim: '#ffd08a', leaf: '#b4e484', firs: 0 },
+  },
+}
+
+/** Northern lights: curtains hanging from high up, green at their foot and violet above, every other pixel lit. */
+function paintAurora(sc: Scene): Pix {
+  const W = sc.wide
+  const H = Math.round(sc.line * 0.62)
+  const p = pix(W, H, true)
+  const green: RGB = [80, 255, 170]
+  const cyan: RGB = [90, 220, 255]
+  const violet: RGB = [190, 110, 255]
+  for (let x = 0; x < W; x++) {
+    // Two ribbons that wander up and down, bright where they fold.
+    for (let k = 0; k < 2; k++) {
+      const foot = Math.round(H * (0.45 + 0.35 * wave(x, W, 5 + k * 3, 1200 + k)))
+      const fold = wave(x, W, 23 + k * 11, 1210 + k)
+      const tall = Math.round(H * (0.25 + 0.45 * fold))
+      const bright = 0.35 + 0.65 * Math.pow(wave(x, W, 61, 1220 + k), 2)
+      for (let j = 0; j < tall; j++) {
+        const y = foot - j
+        if (y < 0) break
+        const t = j / tall
+        // Thinner going up: fewer pixels lit in the dither.
+        const on = (1 - t) * bright * 4
+        if (B2[(y & 1) * 2 + (x & 1)]! >= on) continue
+        const c = t < 0.2 ? mix(green, cyan, t / 0.2) : mix(cyan, violet, Math.min(1, (t - 0.2) / 0.6))
+        put(p, x, y, pack(scale(c, 0.55 + 0.45 * bright)))
+      }
+    }
+  }
+  return p
+}
+
+/** Small lights scattered low over the far wood (the spore wood's glowing caps), on a layer of their own. */
+function paintSpots(sc: Scene, colors: string[], h: number, salt: number): Pix {
+  const p = pix(sc.wide, h, true)
+  const cols = colors.map(ink)
+  const n = Math.round(sc.wide / (9 * sc.u))
+  for (let i = 0; i < n; i++) {
+    const x = Math.floor(hash2(i, 1, salt) * p.w)
+    const y = Math.floor(Math.pow(hash2(i, 2, salt), 0.6) * (h - 2))
+    const c = cols[Math.floor(hash2(i, 3, salt) * cols.length)]!
+    put(p, x, y, c)
+    if (hash2(i, 4, salt) < 0.35) { put(p, x + 1, y, c); put(p, x, y + 1, c); put(p, x + 1, y + 1, c) }
+  }
+  return p
+}
+
+function buildRealm(look: RealmLook, w: number, h: number, top: RGB, horizon: RGB): Backdrop {
+  const S = REALM_SKY[look]
+  const sc = sceneOf(w, h, realmRamp(top, horizon, hex(S.glow)), 0.3)
+  const layers: BackdropLayer[] = []
+  const r = sc.ramp
+  const u = sc.u
+  const floor = hex(S.floor)
+  // The near edge first: the ground under the sky runs on from its foot.
+  let near: { p: Pix; top: number }
+  if (S.near === 'wood') {
+    const t = S.wood!
+    near = paintForest(sc, r(0.9), floor, { start: hex(t.start), crest: hex(t.crest), rim: t.rim, leaf: hex(t.leaf), firs: t.firs })
+  } else {
+    const last = S.hills[S.hills.length - 1]!
+    const land = paintHills(sc, { ...last, salt: last.salt + 5, tall: last.tall * 0.8, lift: last.lift, under: Math.round(sc.h * 0.12 / u + 12), cells: last.cells + 2, paint: hillPaint(sc, last, floor) })
+    near = { p: land.p, top: land.top + Math.round(10 * u) }
+  }
+  const sky = pix(w, h)
+  paintSky(sky, sc, S.pull)
+  paintGround(sky, sc, floor, near.top + near.p.h)
+  layers.push(layerOf(sc, sky, 0, 0))
+  if (S.stars > 0) {
+    const stars = paintStars(sc, S.stars, 0.55)
+    layers.push({ ...layerOf(sc, stars.still, 0, 0, true), role: 'stars' })
+    layers.push({ ...layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3), role: 'stars' })
+    layers.push({ ...layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7), role: 'stars' })
+  }
+  if (S.aurora) layers.push(layerOf(sc, paintAurora(sc), Math.round(sc.line * 0.04), 0.02, true, 1.5))
+  const sun = paintSun(sc, { tones: S.sun, veil: S.veil, sea: false, glow: 0.5, slit: mix(r(0.7), [48, 20, 78], 0.6), slitFrom: 0.4 })
+  layers.push({ ...layerOf(sc, sun.p, sun.top, 0, true), role: 'sun' })
+  const bars = paintBars(sc, 1300 + REALM_LOOKS.indexOf(look), 4, 4, [mix(r(0.4), [40, 26, 76], 0.5), mix(r(0.62), [84, 44, 110], 0.5), mix(r(0.86), hex(S.glow), 0.35)])
+  layers.push(layerOf(sc, bars, Math.round(sc.line * 0.5) - bars.h, 0.05, false, 0.8))
+  const para = [0.03, 0.05, 0.08]
+  S.hills.forEach((hill, i) => {
+    const made = paintHills(sc, { ...hill, paint: hillPaint(sc, hill, r(0.9)) })
+    layers.push(layerOf(sc, made.p, made.top + (i === 2 ? Math.round(2 * u) : 0), para[i]!))
+    if (S.spots && i === 1) layers.push(layerOf(sc, paintSpots(sc, S.spots, Math.round(26 * u), 1400 + i), sc.line - Math.round(26 * u), para[i]!, true))
+    if (S.mist && i < S.mist[2]) {
+      const m = paintMist(sc, hex(S.mist[0]), hex(S.mist[1]), 1500 + i)
+      layers.push(layerOf(sc, m, sc.line - Math.round(m.h * (0.9 - i * 0.25)), para[i]! + 0.02, false, 1.2))
+    }
+  })
+  if (S.mist && !S.mist[2]) { /* none */ }
+  if (S.spots) layers.push(layerOf(sc, paintSpots(sc, S.spots, Math.round(18 * u), 1450), near.top + Math.round(20 * u), 0.15, true))
+  layers.push(layerOf(sc, near.p, near.top, 0.15))
+  return { horizon: sc.line / h, layers }
+}
+
+/** How one of a realm's hills is painted: its body, its crest, the rim the sun puts on it, the haze at its foot. */
+function hillPaint(sc: Scene, hill: RealmHill, low: RGB): LandPaint {
+  const body = hex(hill.body)
+  return {
+    crest: ink(hill.crest), body: pack(body), crestRows: Math.max(1, Math.round(hill.crestRows * sc.u)),
+    rim: ink(hill.rim), shadeRim: 0, flank: hill.peaks > 0.5 ? pack(scale(body, 0.78)) : undefined,
+    haze: pack(mix(body, low, 0.45)), hazeRows: Math.round(8 * sc.u), slopesOnly: hill.trees > 0,
+  }
 }

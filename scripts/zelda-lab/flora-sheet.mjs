@@ -269,7 +269,7 @@ await esbuild.build({ entryPoints: [entryFile], bundle: true, format: 'iife', ou
 writeFileSync(html, `<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000"><pre id="out"></pre><script src="${bundle}"></script></body>`)
 
 // The page leaves its pictures as data URLs in the DOM; --dump-dom hands them over.
-const dom = execFileSync('chromium-browser', [
+const dom = execFileSync(process.env.CHROME_BIN || 'chromium-browser', [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files',
   '--virtual-time-budget=20000', '--dump-dom', `file://${html}`,
 ], { maxBuffer: 1 << 28, timeout: 120000, stdio: ['ignore', 'pipe', 'ignore'] }).toString()

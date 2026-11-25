@@ -16,6 +16,7 @@ import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
 import { beyondTile } from './beyond'
+import { CLASSIC, realmLook } from './looks'
 
 /** The Wildwood's deeper night: darker grass, more moonlit violet crowns. Set per paint. */
 let wild = false
@@ -49,7 +50,7 @@ export function noise(x: number, y: number, c: number, salt = 0): number {
 // Palettes
 // ---------------------------------------------------------------------------
 
-const OW = {
+const OW_BASE = {
   g0: '#245573', g1: '#2d6682', g2: '#1b4560', g3: '#163a52', blade: '#3f8fa8', tip: '#6fd2d6',
   path: '#7d4d7c', pathL: '#9b6593', pathD: '#5e3862', pebble: '#b784ad',
   canopyD: '#0f3445', canopyM: '#1b5763', canopyL: '#2a8579', canopyH: '#5fd6b8', rim: '#d0509e', trunk: '#3a2240', trunkD: '#24142c',
@@ -60,6 +61,20 @@ const OW = {
   stone: '#6f6aa0', stoneL: '#9690c4', stoneD: '#443f72',
   bush: '#237a6c', bushL: '#46b595', bushD: '#12483f',
   sand: '#a8846a', sandL: '#c29c7c', sandD: '#866651', sandW: '#5e4a56',
+  moonD: '#1a1f4c', moonM: '#27366e', moonL: '#3f58a4', moonH: '#86a2ff',
+  bushO: '#0b2c2a', berry: '#ff5fd0', bloom: '#ff8ae0', tallD: '#15505a', tallM: '#23828a', tallL: '#56c9b8',
+}
+type Palette = typeof OW_BASE
+/** The overworld palette being painted with: the coast's, or a realm's over it (`looks.ts`). Set per paint, as `wild`. */
+let OW: Palette = OW_BASE
+const palettes = new Map<string, Palette>()
+function setLook(look: string | undefined) {
+  wild = look === 'wild'
+  const realm = realmLook(look)
+  if (!realm) { OW = OW_BASE; return }
+  let p = palettes.get(realm)
+  if (!p) palettes.set(realm, p = { ...OW_BASE, ...CLASSIC[realm] })
+  OW = p
 }
 
 const DG = {
@@ -127,7 +142,7 @@ function grass(g: G, px: number, py: number, tx: number, ty: number, at: At) {
     r(g, OW.blade, bx + 2, by + 1, 1, 2)
     r(g, OW.tip, bx + 1, by, 1, 2)
   }
-  if (hash2(tx, ty, 77) > 0.93) { r(g, '#ff8ae0', px + 7, py + 7, 1, 1); r(g, OW.g3, px + 7, py + 8, 1, 1) }
+  if (hash2(tx, ty, 77) > 0.93) { r(g, OW.bloom, px + 7, py + 7, 1, 1); r(g, OW.g3, px + 7, py + 8, 1, 1) }
   // Shadows cast by tall things above.
   const up = at(0, -1)
   if (isTree(up) || isWall(up) || isBuilding(up) || up === 'G' || up === 'I') { r(g, OW.g3, px, py, T, 3); r(g, OW.g2, px, py + 3, T, 1) }
@@ -328,7 +343,7 @@ function tree(g: G, px: number, py: number, tx: number, ty: number, at: At) {
   const cy = py + 7
   // Two canopy moods across the map: teal, and a moonlit violet.
   const P = noise(tx * T, ty * T, 96, 7) > (wild ? 0.4 : 0.56)
-    ? { d: '#1a1f4c', m: '#27366e', l: '#3f58a4', h: '#86a2ff' }
+    ? { d: OW.moonD, m: OW.moonM, l: OW.moonL, h: OW.moonH }
     : { d: OW.canopyD, m: OW.canopyM, l: OW.canopyL, h: OW.canopyH }
   if (!down) {
     r(g, OW.g3, px + 1, py + 13, 14, 3)
@@ -366,22 +381,22 @@ function tree(g: G, px: number, py: number, tx: number, ty: number, at: At) {
 
 function bush(g: G, px: number, py: number, tx: number, ty: number) {
   r(g, OW.g3, px + 2, py + 12, 12, 3)
-  disc(g, '#0b2c2a', px + 8, py + 8, 7)
+  disc(g, OW.bushO, px + 8, py + 8, 7)
   disc(g, OW.bushD, px + 8, py + 8, 6)
   disc(g, OW.bush, px + 7, py + 7, 5)
   disc(g, OW.bushL, px + 6, py + 5, 2)
-  r(g, '#ff5fd0', px + 10 + Math.floor(hash2(tx, ty) * 2), py + 9, 1, 1)
-  r(g, '#ff5fd0', px + 4, py + 10, 1, 1)
+  r(g, OW.berry, px + 10 + Math.floor(hash2(tx, ty) * 2), py + 9, 1, 1)
+  r(g, OW.berry, px + 4, py + 10, 1, 1)
 }
 
 function tallGrass(g: G, px: number, py: number, tx: number, ty: number) {
   for (let i = 0; i < 6; i++) {
     const bx = px + (i * 5 + Math.floor(hash2(tx, ty, i) * 3)) % 14
     const by = py + 5 + (i % 3) * 3
-    r(g, '#15505a', bx, by + 1, 3, 4)
-    r(g, '#23828a', bx, by, 1, 3)
-    r(g, '#23828a', bx + 2, by, 1, 3)
-    r(g, '#56c9b8', bx + 1, by - 1, 1, 3)
+    r(g, OW.tallD, bx, by + 1, 3, 4)
+    r(g, OW.tallM, bx, by, 1, 3)
+    r(g, OW.tallM, bx + 2, by, 1, 3)
+    r(g, OW.tallL, bx + 1, by - 1, 1, 3)
   }
 }
 
@@ -825,7 +840,7 @@ function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
  * objects one tile further out too, so what overhangs reaches in.
  */
 export function paintField(kind: MapKind, look: string | undefined, g: G, tile: (x: number, y: number) => TileChar, want: (x: number, y: number) => boolean, x0: number, y0: number, x1: number, y1: number, ox: number, oy: number, pass: LayerPass) {
-  wild = look === 'wild'
+  setLook(look)
   const at = (tx: number, ty: number): At => (dx, dy) => tile(tx + dx, ty + dy)
   if (pass !== 'objects') for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
     if (want(tx, ty)) paintBase(kind, g, tile(tx, ty), (tx - ox) * T, (ty - oy) * T, tx, ty, at(tx, ty))
@@ -838,7 +853,7 @@ export function paintField(kind: MapKind, look: string | undefined, g: G, tile: 
 function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1: number, y1: number, pass: LayerPass = 'all') {
   const kind = mapInfo(world, m.id).def.kind
   const look = mapInfo(world, m.id).def.look
-  wild = look === 'wild'
+  setLook(look)
   // Exits that bring their own sprite (cabinets, board, kiosk, terminals) stand on bare ground.
   const own = exitTiles(world, m.id)
   // Only the arcade's signs are high-score marquees; other rooms get a plain plaque.

@@ -382,8 +382,8 @@ export interface MapDef {
    * flag `bigkey:<ring>`.
    */
   keyring?: string
-  /** The painter's palette: Project Horizon's labs, the deep Wildwood. */
-  look?: 'lab' | 'wild'
+  /** The painter's palette: Project Horizon's labs, the deep Wildwood; the frontier's realms (`render/looks.ts`). */
+  look?: 'lab' | 'wild' | 'snow' | 'dune' | 'spore' | 'fog' | 'quarry' | 'suburb'
   /** Crystal switches of every map in this group share one state (a flag), across rooms and floors. */
   crystal?: string
   /** Pits drop to this map (same size) at the same spot instead of hurting. */
