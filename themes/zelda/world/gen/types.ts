@@ -77,6 +77,8 @@ export interface RealmSpec {
   props?: Array<Prop['kind']>
   /** What this realm is about beyond the sword (docs: realm sketch → Mechanic hook). */
   special?: 'dig' | 'battle' | 'puzzles'
+  /** What its caves are called and who lives in them (default `<NAME>: CAVE`, bats and skulls). */
+  cave?: { name: string; foes: Array<[EnemyKind, number]> }
 }
 
 /**

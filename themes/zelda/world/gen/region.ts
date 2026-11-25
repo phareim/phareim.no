@@ -177,7 +177,8 @@ export function generateRegion(ctx: RegionCtx): MapDef {
         claimed[y * W + x] = 1
         const mk = site?.marks?.[ch]
         if (mk) { own.set(y * W + x, mk); g[y * W + x] = '.'; continue }
-        g[y * W + x] = ch as TileChar // slots are resolved below
+        // A place's plain ground is the realm's own (sand in the quarry and the desert). Slots are resolved below.
+        g[y * W + x] = ch === '.' ? T.ground : ch as TileChar
       }
     }
     rects.push({ x: pos.x, y: pos.y, w: sw, h: sh })

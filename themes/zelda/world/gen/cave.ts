@@ -26,40 +26,8 @@ export function generateCave(ctx: CaveCtx): MapDef {
   const rng = new Rng(hash(ctx.seed, 991))
   const cols = rng.int(2, 3)
   const rowsN = 2
-  const W = cols * RW
-  const H = rowsN * RH
-  const g: string[][] = []
-  for (let y = 0; y < H; y++) g.push(new Array(W).fill('#'))
-  // Room floors.
-  for (let cy = 0; cy < rowsN; cy++) for (let cx = 0; cx < cols; cx++) {
-    for (let y = 1; y < RH - 1; y++) for (let x = 1; x < RW - 1; x++) g[cy * RH + y]![cx * RW + x] = '.'
-  }
-  // Doorways along a spanning tree (random DFS), two tiles wide.
+  const { g, dist } = carveRooms(rng, cols, rowsN)
   const n = cols * rowsN
-  const seen = new Set<number>([0])
-  const stack = [0]
-  const dist = new Map<number, number>([[0, 0]])
-  while (stack.length) {
-    const r = stack[stack.length - 1]!
-    const cx = r % cols
-    const cy = Math.floor(r / cols)
-    const next = rng.shuffle([[1, 0], [-1, 0], [0, 1], [0, -1]] as Array<[number, number]>)
-      .map(([dx, dy]) => [cx + dx, cy + dy] as const)
-      .filter(([x, y]) => x >= 0 && y >= 0 && x < cols && y < rowsN && !seen.has(y * cols + x))
-    if (!next.length) { stack.pop(); continue }
-    const [nx, ny] = next[0]!
-    const k = ny * cols + nx
-    seen.add(k)
-    dist.set(k, dist.get(r)! + 1)
-    stack.push(k)
-    if (nx !== cx) {
-      const wx = Math.max(cx, nx) * RW
-      for (const y of [RH / 2 - 1, RH / 2]) { g[cy * RH + y]![wx - 1] = '.'; g[cy * RH + y]![wx] = '.' }
-    } else {
-      const wy = Math.max(cy, ny) * RH
-      for (const x of [RW / 2 - 1, RW / 2]) { g[wy - 1]![cx * RW + x] = '.'; g[wy]![cx * RW + x] = '.' }
-    }
-  }
   const marks: Record<string, Mark> = {}
   let next = 0xe000
   const mark = (ent: EntDef, tile?: Mark['tile']) => { const ch = String.fromCharCode(next++); marks[ch] = tile ? { ent, tile } : { ent }; return ch }
@@ -87,7 +55,7 @@ export function generateCave(ctx: CaveCtx): MapDef {
     for (let i = 0; i < foes; i++) {
       const x = rng.int(3, RW - 4)
       const y = rng.int(3, RH - 4)
-      if (free(x, y)) g[cy + y]![cx + x] = foe(rng.weighted(CAVE_FOES))
+      if (free(x, y)) g[cy + y]![cx + x] = foe(rng.weighted(ctx.realm.cave?.foes ?? CAVE_FOES))
     }
   }
   const loot: ItemId = rng.weighted<ItemId>([['bits50', 3], ['bombs5', 2], ['heart', 1], ['bits20', 2]])
@@ -95,10 +63,11 @@ export function generateCave(ctx: CaveCtx): MapDef {
   const fy = Math.floor(far / cols) * RH + RH / 2
   g[fy - 2]![fx] = mark({ t: 'chest', id: `${ctx.id}.c0`, item: loot })
   const cells: Record<string, CellDef> = {}
-  for (let r = 0; r < n; r++) cells[`${r % cols},${Math.floor(r / cols)}`] = { name: `${ctx.realm.name}: CAVE` }
+  const name = ctx.realm.cave?.name ?? `${ctx.realm.name}: CAVE`
+  for (let r = 0; r < n; r++) cells[`${r % cols},${Math.floor(r / cols)}`] = { name }
   return {
     id: ctx.id,
-    name: `${ctx.realm.name}: CAVE`,
+    name,
     kind: 'dungeon',
     track: 'dungeon',
     rows: g.map(r => r.join('')),
@@ -110,4 +79,46 @@ export function generateCave(ctx: CaveCtx): MapDef {
     realm: ctx.realm.id,
     ...(ctx.realm.views ? { views: ctx.realm.views } : {}),
   }
+}
+
+/**
+ * Camera rooms of 16×12 in a cols × rowsN grid, walled, joined by two-wide
+ * doorways along a random spanning tree (DFS). `dist` is each room's step
+ * count from room 0 along the tree.
+ */
+export function carveRooms(rng: Rng, cols: number, rowsN: number): { g: string[][]; dist: Map<number, number> } {
+  const W = cols * RW
+  const H = rowsN * RH
+  const g: string[][] = []
+  for (let y = 0; y < H; y++) g.push(new Array(W).fill('#'))
+  // Room floors.
+  for (let cy = 0; cy < rowsN; cy++) for (let cx = 0; cx < cols; cx++) {
+    for (let y = 1; y < RH - 1; y++) for (let x = 1; x < RW - 1; x++) g[cy * RH + y]![cx * RW + x] = '.'
+  }
+  // Doorways along a spanning tree (random DFS), two tiles wide.
+  const seen = new Set<number>([0])
+  const stack = [0]
+  const dist = new Map<number, number>([[0, 0]])
+  while (stack.length) {
+    const r = stack[stack.length - 1]!
+    const cx = r % cols
+    const cy = Math.floor(r / cols)
+    const next = rng.shuffle([[1, 0], [-1, 0], [0, 1], [0, -1]] as Array<[number, number]>)
+      .map(([dx, dy]) => [cx + dx, cy + dy] as const)
+      .filter(([x, y]) => x >= 0 && y >= 0 && x < cols && y < rowsN && !seen.has(y * cols + x))
+    if (!next.length) { stack.pop(); continue }
+    const [nx, ny] = next[0]!
+    const k = ny * cols + nx
+    seen.add(k)
+    dist.set(k, dist.get(r)! + 1)
+    stack.push(k)
+    if (nx !== cx) {
+      const wx = Math.max(cx, nx) * RW
+      for (const y of [RH / 2 - 1, RH / 2]) { g[cy * RH + y]![wx - 1] = '.'; g[cy * RH + y]![wx] = '.' }
+    } else {
+      const wy = Math.max(cy, ny) * RH
+      for (const x of [RW / 2 - 1, RW / 2]) { g[wy - 1]![cx * RW + x] = '.'; g[wy]![cx * RW + x] = '.' }
+    }
+  }
+  return { g, dist }
 }
