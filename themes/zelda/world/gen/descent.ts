@@ -98,9 +98,7 @@ export function generateLayer(ctx: DescentCtx): MapDef {
     g[gy]![gx] = mark({ t: 'warp', to: ctx.top, entry: 'deep' }, '>')
     entries.down = { x: gx + 0.5, y: gy + 1.5, dir: 'down' }
     isoLandmarks.push({ art: 'underglow_sun', x: gx + 0.5, y: gy - 1.3, motion: { frames: 2, fps: 1 }, lights: [{ tone: 'gold', r: 6, a: 0.8, z: 1.5, anim: 'pulse' }] })
-    g[gy - 3]![gx - 4] = mark({ t: 'sign', lines: ['THE GEYSER
-GOES UP. ALL THE WAY UP.
-HOLD ON TO YOUR HAT.'] })
+    g[gy - 3]![gx - 4] = mark({ t: 'sign', lines: ['THE GEYSER\nGOES UP. ALL THE WAY UP.\nHOLD ON TO YOUR HAT.'] })
   }
 
   const folk = [...(DEEP_FOLK[ctx.layer] ?? [])]
