@@ -397,6 +397,29 @@ describe('Neon Shrine dig & build', () => {
     assert.equal(Object.values(back).reduce((k, ed) => k + Object.keys(ed).length, 0), Z.DIG_TOTAL)
   })
 
+  it('puts DIG and BUILD away off a dig map, and hands DIG back on one', () => {
+    const s = quarry(['shovel', 'hammer'])
+    s.inv.hook = true
+    s.inv.selected = 'build'
+    assert.deepEqual(Z.useItems(s, Z.WORLD), ['hook', 'dig', 'build'])
+    Z.enterMap(Z.WORLD, s, 'overworld', 'hut', [])
+    assert.equal(s.inv.selected, 'hook', 'the hook, not a dead hammer')
+    assert.deepEqual(Z.useItems(s, Z.WORLD), ['hook'])
+    // With nothing else to hold, nothing; back on a dig map, DIG again.
+    s.inv.hook = false
+    s.inv.selected = 'dig'
+    Z.enterMap(Z.WORLD, s, 'overworld', 'hut', [])
+    assert.equal(s.inv.selected, null)
+    assert.deepEqual(Z.useItems(s, Z.WORLD), [])
+    Z.enterMap(Z.WORLD, s, 'quarry', 'start', [])
+    assert.equal(s.inv.selected, 'dig')
+    // A save made with DIG out loads with it put away where the map has no ground to dig.
+    s.inv.hook = true
+    s.inv.selected = 'dig'
+    const save = { ...Z.toSave(s), map: 'overworld', entry: 'hut' }
+    assert.equal(Z.createGame(Z.WORLD, { save: Z.parseSave(save) }).inv.selected, 'hook')
+  })
+
   it('reads old saves, and saves with the tools out', () => {
     const s = quarry(['shovel'])
     const save = Z.toSave(s)

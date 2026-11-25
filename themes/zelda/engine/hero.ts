@@ -3,7 +3,7 @@
  * exit / lift / throw / sword), the charged spin, B items, block pushing,
  * doors, walking out of a door, and the tiles underfoot.
  */
-import type { Dir, ExitSpot, Input, TileChar, UseItem } from '../types'
+import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '../types'
 import {
   ARC_REACH, BEAM_SPEED, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED,
@@ -691,15 +691,33 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
 // B items
 // ---------------------------------------------------------------------------
 
-export function cycleItem(c: Ctx) {
-  const inv = c.s.inv
-  // With the hammer out, the cycle steps through what it builds first (`dig.ts`).
-  if (digCycle(c)) return
+/** The B items the hero can use here, in the cycle's order: the hook, the disc, bombs, and on a dig map DIG and BUILD. */
+export function useItems(s: GameState, world: World): UseItem[] {
+  const inv = s.inv
   const owned: UseItem[] = []
   if (inv.hook) owned.push('hook')
   if (inv.disc) owned.push('disc')
   if (inv.bombBag) owned.push('bombs')
-  owned.push(...digItems(c.s, c.w))
+  owned.push(...digItems(s, world))
+  return owned
+}
+
+/**
+ * A map just entered: DIG or BUILD out where it has no use gives way to another B item the hero has here (none:
+ * nothing out), and a dig map with nothing out hands DIG back.
+ */
+export function settleItem(s: GameState, world: World) {
+  const inv = s.inv
+  const here = useItems(s, world)
+  if (isDigItem(inv.selected) && !here.includes(inv.selected)) inv.selected = here.find(isDigItem) ?? here[0] ?? null
+  else if (inv.selected === null) inv.selected = here.find(isDigItem) ?? null
+}
+
+export function cycleItem(c: Ctx) {
+  const inv = c.s.inv
+  // With the hammer out, the cycle steps through what it builds first (`dig.ts`).
+  if (digCycle(c)) return
+  const owned = useItems(c.s, c.w)
   if (!owned.length) return
   const i = inv.selected ? owned.indexOf(inv.selected) : -1
   inv.selected = owned[(i + 1) % owned.length]!

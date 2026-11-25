@@ -10,7 +10,7 @@ import type { AreaIntro, Dialog, GameEvent, GameState, Input, Inventory, SaveDat
 import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
-import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
+import { beginExit, openDialog, settleItem, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapDef, mapInfo, moveCircle, tileAt } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
@@ -96,6 +96,7 @@ export function createGame(
 export function enterMap(world: World, s: GameState, mapId: string, entryId: string, ev: GameEvent[], at?: Vec) {
   const info = mapInfo(world, mapId)
   s.map = loadMap(world, s, mapId)
+  settleItem(s, world)
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   h.x = spot.x

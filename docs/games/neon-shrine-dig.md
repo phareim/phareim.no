@@ -36,6 +36,8 @@ dig map they add two B items to the cycle (`UseItem`):
   lamp (lumen 1 + wood 1). The cycle button with the hammer out steps through the kinds that can be built
   before it moves on (`Inventory.build`). The hammer takes back what was built (ramp, lamp, plank, a block
   standing above the hero), whole.
+- Off a dig map DIG and BUILD leave the cycle; one that is out gives way, on entering, to another B item the
+  hero has (or none), and a dig map entered with nothing out hands DIG back (`settleItem` in `engine/hero.ts`).
 - Materials: `Inventory.mats` (dirt, stone, wood, lumen; up to 99 each). The HUD shows them in the counter
   row only while DIG or BUILD is out (the hammer's kind lit); the B box shows the tool for the tile in front.
 - Lamps keep foes out of their light (2.6 tiles, `stepDig`).
