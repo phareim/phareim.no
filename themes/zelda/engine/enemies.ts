@@ -7,7 +7,7 @@ import { HERO_R } from '../types'
 import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral } from './bosses'
-import { type Ctx, hurtHero, hitEnemy } from './combat'
+import { BIG, type Ctx, hurtHero, hitEnemy } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
 import { angleDiff, chance, clamp, dirVec, nextId, opposite, pick, rnd, rndRange, toDir, DIRS } from './util'
@@ -37,6 +37,8 @@ export function stepEnemies(c: Ctx, dt: number) {
   const list = c.s.map.enemies
   for (let i = 0; i < list.length; i++) {
     const e = list[i]!
+    // The renderer's clock for a fallen foe's pop.
+    if (e.dead && e.deathT !== undefined && e.deathT < 1) e.deathT += dt
     if (!enemyActive(c, e) || e.group) continue
     stepEnemy(c, e, dt)
   }
@@ -87,13 +89,21 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
   const ai = e.ai
   if (e.flash > 0) e.flash -= dt
   if (e.invuln > 0) e.invuln -= dt
+  if (e.hitT !== undefined && e.hitT < 1) e.hitT += dt
+  // A small foe knocked back or reeling from a blow harms no one: following up is safe.
+  const reels = !BIG.has(e.kind)
   if (e.knock) {
     walk(c, e, e.knock.vx, e.knock.vy, dt)
     // Knocked into a pit, water or spikes (on a physical map).
     if (knockHazard(c, e)) return
     e.knock.t -= dt
     if (e.knock.t <= 0) e.knock = null
-    contact(c, e)
+    if (!reels) contact(c, e)
+    return
+  }
+  if (reels && (e.stagger ?? 0) > 0) {
+    e.stagger! -= dt
+    ai.tell = 0
     return
   }
   if (e.stun > 0) {

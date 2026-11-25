@@ -109,3 +109,22 @@ describe('a control beside the world that has the keyboard (the turn switch)', (
   })
 })
 
+
+describe('the roll', () => {
+  const key = (code, type = 'keydown') => { const e = { code, target: null, prevented: false, repeat: false, preventDefault() { e.prevented = true } }; on[type](e); return e }
+  it('L and C roll (once per press); C no longer cycles; the deck\'s pad rolls too', () => {
+    assert.equal(key('KeyL').prevented, true)
+    let i = input.read()
+    assert.equal(i.rollPress, true)
+    assert.equal(i.cycle, false)
+    assert.equal(input.read().rollPress, undefined, 'one press, one roll')
+    key('KeyC')
+    i = input.read()
+    assert.equal(i.rollPress, true)
+    assert.equal(i.cycle, false)
+    key('KeyQ')
+    assert.equal(input.read().cycle, true, 'Q still cycles')
+    input.pressRoll()
+    assert.equal(input.read().rollPress, true)
+  })
+})
