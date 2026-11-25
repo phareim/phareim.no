@@ -132,6 +132,20 @@ export type TileChar =
   // The VIP hall's door
   | 'q' // the bar's back shelf of bottles (solid, wall)
   | '¤' // velvet rope (solid, projectiles pass; gone while `GameState.session` is true)
+  // Physical puzzles (`engine/puzzles/`, docs/games/neon-shrine-puzzles.md)
+  | 'α' // ice (walkable; the hero, blocks, mirrors and thrown pots slide over it until something stops them)
+  | 'β' // beam emitter (solid; mark `emitter` gives its way and when it shines)
+  | 'μ' // mirror '/' (solid, pushable, slides on ice; a hit turns it to 'ν')
+  | 'ν' // mirror on the other diagonal, north-west to south-east (as 'μ')
+  | 'π' // prism (solid; splits a beam into the two ways across it)
+  | 'ρ' // beam receiver (solid; lit by a beam it sets its mark's flag for good)
+  | 'θ' // light plate (walkable; held by any weight: the hero, a block, a foe)
+  | 'η' // heavy plate (walkable; held by weight 2: a block, a boulder, the hero carrying a pot or rock)
+  | 'σ' // scale pan (walkable; the pans sharing a plate id are down only while they carry equal weight)
+  | 'κ' // boulder (solid; rolls when its mark's flag is set or a bomb kicks it: crushes foes, breaks cracked walls, fills pits)
+  | 'ω' // sluice water (water while its sluice group is full)
+  | 'ψ' // drained sluice floor (walkable while its sluice group is drained)
+  | 'ξ' // valve wheel (solid; a hit opens or shuts its mark's sluice flag)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -237,6 +251,12 @@ export type EntDef =
   | { t: 'gate'; open: Cond } // on one tile of an X run (tile 'X')
   | { t: 'glyph'; ch: string } // a letter stone (tile '{')
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
+  // Physical puzzles (`engine/puzzles/`): each also works unmarked with defaults, see world/puzzles.ts
+  | { t: 'emitter'; dir: Dir; when?: Cond } // a beam emitter (tile 'β'), shining along `dir` while `when` holds
+  | { t: 'receiver'; flag: string } // a beam receiver (tile 'ρ'): lit, it sets `flag` for good
+  | { t: 'boulder'; dir: Dir; flag?: string } // a boulder (tile 'κ') that rolls along `dir` once `flag` is set
+  | { t: 'sluice'; flag: string; invert?: boolean } // sluice tiles ('ω' / 'ψ'): full while `flag` is unset (set, with `invert`)
+  | { t: 'valve'; flag: string } // a valve wheel (tile 'ξ'): a hit sets or clears `flag`
   | ExitDef
 
 export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid' | 'tree'
@@ -391,6 +411,8 @@ export interface MapDef {
   /** Letter stones: walking over them in this order sets `flag`. */
   codes?: Array<{ word: string; flag: string }>
   props?: Prop[]
+  /** Physical combat (`engine/puzzles/`): foes knocked into pits, water or spikes fall, drown or are hurt. On by itself in a map with puzzle tiles. */
+  physics?: boolean
 }
 
 export interface AreaIntro {
@@ -505,7 +527,7 @@ export interface MovingBlock {
   id: number; fx: number; fy: number; tx: number; ty: number; t: number
   /** Slide time (default PUSH_TIME); psi blocks slide further and longer. */
   dur?: number
-  kind?: 'b' | 'B'
+  kind?: 'b' | 'B' | 'μ' | 'ν'
   /** Slid into a hole: gone when it arrives (it lands on the floor below). */
   falls?: boolean
 }
@@ -582,6 +604,28 @@ export interface MapState {
   onGlyph: number
   /** MapDef.keyring, resolved. */
   ring: string
+  /** The physical puzzles' live state (`engine/puzzles/`), made on first use; absent on maps without them. */
+  phys?: PhysState
+}
+
+/** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
+export interface PhysState {
+  /** The hero sliding over ice along (dx, dy); `at` where he was last step (a jump ends the slide). */
+  slide: null | { dx: number; dy: number; at: Vec }
+  /** The beams this step, from tile centre to tile centre (tiles); `end` 1: it stops at a solid's face. */
+  beams: Array<{ x0: number; y0: number; x1: number; y1: number }>
+  /** Receiver tiles a beam reaches now. */
+  lit: number[]
+  /** Boulders rolling (centre, way, the tile it set out from, its home tile for the save). */
+  rolling: Array<{ id: number; x: number; y: number; dx: number; dy: number; from: number; home: number; t: number }>
+  /** Weight on each plate / pan tile now. */
+  weight: Record<number, number>
+  /** Sluice groups' state as last applied (true: full). */
+  full: Record<string, boolean>
+  /** Sluice tiles that wait for the hero to step off before they flood. */
+  pending: number[]
+  /** Seconds before a mirror or valve answers another hit. */
+  cool: number
 }
 
 export type HeroAct =

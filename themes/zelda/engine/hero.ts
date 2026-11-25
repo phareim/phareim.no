@@ -13,6 +13,8 @@ import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './
 import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
+import { hitPuzzle, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
+import { isMirror } from '../world/puzzles'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 
 const CORNER_ASSIST = 0.34
@@ -106,7 +108,10 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (moving && !h.swing && !h.spin && !charging) { h.dir = faceFor(h.dir, mx, my); h.aim = Math.atan2(my, mx) }
 
   let blockedAhead = false
-  if (moving && speed > 0) {
+  // On ice the hero slides (`puzzles/`); null: ordinary ground.
+  const slid = slideHero(c, mx, my, moving, dt)
+  if (slid) blockedAhead = slid.blocked
+  else if (moving && speed > 0) {
     const dx = mx * speed * dt
     const dy = my * speed * dt
     const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, dx, dy)
@@ -137,7 +142,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
     const tx = Math.floor(h.x + v.x * (HERO_R + 0.2))
     const ty = Math.floor(h.y + v.y * (HERO_R + 0.2))
     const t = tileAt(s.map, tx, ty)
-    if (t === 'b') {
+    if (t === 'b' || isMirror(t)) {
       h.push += dt
       if (h.push >= PUSH_DELAY) { tryPush(c, tx, ty, h.dir); h.push = 0 }
     } else h.push = 0
@@ -603,7 +608,7 @@ function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' |
     } else if (t === '}') {
       hit.push(key)
       throwLever(c, tx, ty)
-    }
+    } else if (hitPuzzle(c, tx, ty, t)) hit.push(key)
   }
 }
 
@@ -658,6 +663,7 @@ function throwCarried(c: Ctx) {
 }
 
 function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
+  if (pushPuzzle(c, tx, ty, d)) return
   const s = c.s
   const m = s.map
   const v = dirVec(d)
@@ -750,7 +756,7 @@ export function psiPush(c: Ctx, tx: number, ty: number, d: Dir) {
   const m = s.map
   const v = dirVec(d)
   const cell = cellIndex(c.info, tx + 0.5, ty + 0.5)
-  const free = (t: TileChar) => t === '.' || t === ',' || t === '_' || t === ':' || t === '{' || t === 'i' || t === 'f'
+  const free = (t: TileChar) => t === '.' || t === ',' || t === '_' || t === ':' || t === '{' || t === 'i' || t === 'f' || t === 'α' || t === 'θ' || t === 'η' || t === 'σ' || t === 'ψ'
   let x = tx
   let y = ty
   let falls = false
@@ -771,7 +777,7 @@ export function psiPush(c: Ctx, tx: number, ty: number, d: Dir) {
   if (s.luna) { s.luna.psi = 0.7; s.luna.dir = toDir(tx + 0.5 - s.luna.x, ty + 0.5 - s.luna.y, s.luna.dir) }
   c.ev.push({ type: 'psi', x: tx + 0.5, y: ty + 0.5 })
   if (x === tx && y === ty) return
-  m.tiles[ty * m.w + tx] = '.'
+  m.tiles[ty * m.w + tx] = puzzleFloor(c, ty * m.w + tx)
   const dist = Math.abs(x - tx) + Math.abs(y - ty)
   const dur = Math.max(0.12, dist / PSI_SPEED)
   if (falls) {

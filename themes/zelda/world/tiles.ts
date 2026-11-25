@@ -76,6 +76,20 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '-': OPEN,
   q: S,
   '¤': LOW,
+  // Physical puzzles (world/puzzles.ts, engine/puzzles/)
+  'α': OPEN,
+  'β': S,
+  'μ': LOW,
+  'ν': LOW,
+  'π': LOW,
+  'ρ': LOW,
+  'θ': OPEN,
+  'η': OPEN,
+  'σ': OPEN,
+  'κ': S,
+  'ω': LOW,
+  'ψ': OPEN,
+  'ξ': LOW,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]

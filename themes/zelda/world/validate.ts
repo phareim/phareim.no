@@ -8,9 +8,10 @@
  */
 import type { Dir, EntDef, ExitTarget, MapDef, TileChar, World } from '../types'
 import { TILE_INFO, isTileChar } from './tiles'
+import { puzzleMarkTile } from './puzzles'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤'])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ'])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */
@@ -24,7 +25,7 @@ function markTile(e: EntDef): TileChar {
     case 'exit': return 'D'
     case 'glyph': return '{'
     case 'lever': return '}'
-    default: return '.'
+    default: return puzzleMarkTile(e) ?? '.'
   }
 }
 
@@ -193,6 +194,8 @@ function reachability(id: string, world: World): string[] {
       const m = def.marks[r[x]!]
       if (!m || m.ent.t === 'entry') continue
       if (m.ent.t === 'enemy' || m.ent.t === 'plate' || m.ent.t === 'gate') continue
+      // Puzzle parts work from afar (a beam, a lever's flag, a sluice); their kits are checked by `engine/puzzles/kits.ts`.
+      if (m.ent.t === 'emitter' || m.ent.t === 'receiver' || m.ent.t === 'boulder' || m.ent.t === 'sluice') continue
       if (m.ent.t === 'exit') {
         // Walk-on exits need their own tile reached; face-and-press ones the tile in front.
         const walk = !TILE_INFO[tile(x, y)].solid
