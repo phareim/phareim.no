@@ -3,7 +3,8 @@
 // caves (and their chests), the Underglow's layers and the buried dig caches.
 // A save's `chest:`/`took:` flags and continue points name these, so they must
 // never move. tests/zelda-frontier-fingerprint.json is this, taken before the
-// gates were cut; zelda-frontier.test.mjs compares the world against it.
+// gates were cut; tests/zelda-gates.test.mjs ('moves nothing a save points at')
+// compares the world against it.
 //
 // Regenerate (only when a change is MEANT to move saved things, and say so in
 // the docs): node tests/zelda-fingerprint.mjs > tests/zelda-frontier-fingerprint.json

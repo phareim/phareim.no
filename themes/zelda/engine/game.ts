@@ -408,7 +408,7 @@ function warp(c: Ctx, dt: number) {
       s.shake = Math.max(s.shake, 0.2)
       c.ev.push({ type: 'land' })
     } else if (w.at && mapInfo(c.w, w.to).def.edges && mapInfo(c.w, w.to).entries.camp) {
-      // Walked over an edge into the next region: its camp is the continue point now (death, a reload, a closed tab).
+      // Walked over an edge into the next region: its camp is the continue point now (death; a reload, `loadSpot`).
       s.entry = { map: w.to, entry: 'camp' }
     }
   }
@@ -554,9 +554,11 @@ export function toSave(s: GameState): SaveData | null {
 }
 
 /**
- * A save continues where it was made. Where that spot has gone (an entry renamed, a cave or a region that
- * changed), it continues at the map's camp; in the frontier, at its region's camp or else the ferry's pier; on a
- * map the world no longer has, at the start. The items, hearts and flags are never thrown away for it.
+ * A save continues where it was made, when the game starts there (no `at`: death in a session, a reload out in
+ * the frontier, `loadSpot`; otherwise the shell starts in town and the save gives the items and flags). Where
+ * that spot has gone (an entry renamed, a cave or a region that changed), it continues at the map's camp; in the
+ * frontier, at its region's camp or else the ferry's pier; on a map the world no longer has, at the start. The
+ * items, hearts and flags are never thrown away for it.
  */
 function rescueSave(world: World, v: SaveData): SaveData {
   if (hasEntry(world, v.map, v.entry)) return v
@@ -565,6 +567,16 @@ function rescueSave(world: World, v: SaveData): SaveData {
   if (region && hasEntry(world, region, 'camp')) return { ...v, map: region, entry: 'camp' }
   if (region && hasEntry(world, 'overworld', 'ferry')) return { ...v, map: 'overworld', entry: 'ferry' }
   return { ...v, map: world.start.map, entry: world.start.entry }
+}
+
+/**
+ * Where a page load starts. A tab that was out in the frontier (`out`: the shell keeps it per tab) reloads at the
+ * save's own continue point there: null, so `createGame` takes the save's (rescued when it has gone). Otherwise in
+ * front of the exit last used (`back`), or on the plaza: a new visit always starts in town, with the save's items.
+ */
+export function loadSpot(world: World, save: SaveData | null, back: World['start'] | null, out: boolean): World['start'] | null {
+  if (out && save && /^fr:/.test(save.map)) return null
+  return back ?? world.start
 }
 
 /** True when `map` is in the world and has an entry `entry` (placed, listed, or beside an exit). */

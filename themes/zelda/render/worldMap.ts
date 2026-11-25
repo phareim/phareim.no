@@ -13,6 +13,8 @@ import { mapDef, mapInfo } from '../engine/map'
 import { charted, chunkGrid, CHUNK, seenAny, seenTile } from '../engine/explore'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { FRONTIER, realmAt } from '../world/gen/frontier'
+/** The hand-made maps a way out of the frontier lands on: the gates' homes, and the ferry's pier. */
+const COAST = new Set<string>([...(FRONTIER.gates ?? []).map(g => g.home.map), 'overworld'])
 import { projection } from './iso/project'
 import { TILE } from '../types'
 import { drawMenuTabs, hudFont, type HudSkin } from './hud'
@@ -310,9 +312,10 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
       F.draw(g, label, lx, ly, skin.dim, skin.outline)
     }
     // The ways between the coast and the frontier seen on this map (the gates, the ferry): a lit square each.
+    // (Out there only those home: a region's stairs down to the quarry, the glade or the lab are no way to the coast.)
     const out = !!frontierXY(s)
     for (const wp of info.warps) {
-      if (wp.to.startsWith('fr:') === out || !seenTile(s, s.map.id, info.w, wp.x, wp.y)) continue
+      if (!(out ? COAST.has(wp.to) : wp.to.startsWith('fr:')) || !seenTile(s, s.map.id, info.w, wp.x, wp.y)) continue
       const p = at(wp.x + 0.5, wp.y + 0.5)
       g.fillStyle = skin.outline
       g.fillRect(Math.round(p.x) - 2, Math.round(p.y) - 2, 4, 4)

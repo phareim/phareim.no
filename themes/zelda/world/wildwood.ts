@@ -33,7 +33,7 @@ export const WILDWOOD: MapDef = {
   look: 'wild',
   rows: [
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTtƧtTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT....Ɓ.,,,.....TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT....Ɓ.,Ʒ,.....TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
     'TT.......;.T.T........T.T..TTTTT..A;...4....U.T..:......:...:TTTTTTTTTTTTTTTTTTTTTTT',
     'T...;;....;...T...T...T.;..OOOOO.....-...5....T:...HHHHH.....TTTTTTTTTTTTTTTTTTTTTTT',
     'TT..;TT..;T.T..T.T.....T.T.OOOOO...;..........T....HHHHH.:a..TTTTTTTTTTTTTTTTTTTTTTT',
@@ -41,8 +41,8 @@ export const WILDWOOD: MapDef = {
     'T....T...........T.....T.T.OOOOO........;...`.T....HHHHH.Z...TTTTTTTTTTTTTTTTTTTTTTT',
     'T...T.............T..T..T..OOOOO..;..9...7....T....HHgHH.Z...TTTTTTTTTTTTTTTTTTTTTTT',
     'T.....,,,,,,,,,;...........OOOOO.rrr...8......T.:....,....###TTTTTTTTTTTTTTTTTTTTTTT',
-    'T.;T.......TT.,;........T..OOOOO.r0r....a.....T.&....,....%2#TTTTTTTTTTTTTTTTTTTTTTT',
-    'T..T..TT...TT.,.T..;z......OOOOO.rrr..........T......,....###TTTTTTTTTTTTTTTTTTTTTTT',
+    'T.;T.......TT.,;........T..OOOOO.r0r..........T.&....,....%2#TTTTTTTTTTTTTTTTTTTTTTT',
+    'T..T..TT...TT.,.T..;z......OOOOO.rrr.....a....T......,....###TTTTTTTTTTTTTTTTTTTTTTT',
     'T.T........T.T,T..;...;....OOOOO.,,,,,,,,,,,,,,,,,,,,,,,,,,,,TTTTTTTTTTTTTTTTTTTTTTT',
     'T...T..THHHHHH,.T..........OOOOO.,,,,,,,,,,,,,,,,,,,,,,,,,,,,TTTTTTTTTTTTTTTTTTTTTTT',
     'T.......HHHHHH,.....T...T..OOOOO.TTTTTTT..,,.FFFFFFFFFFFFFFFFTTTTTTTTTTTTTTTTTTTTTTT',
@@ -52,7 +52,7 @@ export const WILDWOOD: MapDef = {
     'T....TT...,.].,T..;.T......OOOOO.T.T...T..,,.F.HHHHHHHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
     'T.........,,,,,,,,,,,,,,,|.OOOOO.T.a......,,.F.HHHHHHHHHHHz.FTTTTTTTTTTTTTTTTTTTTTTT',
     't.....T..;....,..T......;..OOOOO.,,,,,,,,,,,.F.HHHHHHHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
-    'Ɗ,,,,,,,,,,,,,,Ȣ.TTT..;..T.OOOOO.|........,,.F.HHHHHQHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
+    'ƊǶ,,,,,,,,,,,,,Ȣ.TTT..;..T.OOOOO.|........,,.F.HHHHHQHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
     'tT.........TT.,...;......T.OOOOO....T.T...,,.F......B.......FTTTTTTTTTTTTTTTTTTTTTTT',
     'T;TT...;..T;.T,.......T..;.OOOOO....T.....,,.F..............FTTTTTTTTTTTTTTTTTTTTTTT',
     'TT..................T..T.T.OOOOO.....TaT..,,.F...ZZZ....z...FTTTTTTTTTTTTTTTTTTTTTTT',
@@ -139,9 +139,12 @@ export const WILDWOOD: MapDef = {
     G: { tile: 'X', ent: { t: 'gate', open: { flag: 'mistral' } } },
     // The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>`.
     'Ƨ': gateWarp('quarry'),
-    'Ɓ': sign(['↑ THE GROVE GATE: LUMENBY QUARRY, IN THE HILLS.', 'THE QUARRY SIGN ON THE HILL HAS GONE DARK.']),
+    'Ɓ': sign(['↑ THE GROVE GATE: LUMENBY QUARRY, IN THE HILLS.', 'THE QUARRY SIGN ON THE HILL HAS GONE DARK.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.']),
     'Ɗ': gateWarp('fog'),
-    'Ȣ': sign(['← THE DEEP WOODS GATE: FOGSTAGE.', 'THE FOG OUT THERE COMES IN ON CUE.']),
+    'Ȣ': sign(['← THE DEEP WOODS GATE: FOGSTAGE.', 'THE FOG OUT THERE COMES IN ON CUE.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.']),
+    // Their wardens: bombs open the town's thicket before the blade, so the Wildwood's gates wait for it too.
+    'Ʒ': { tile: ',', ent: { t: 'npc', id: 'warden.grove', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: THE GROVE GATE. LUMENBY IS PAST IT.', 'THE HILLS OUT THERE BITE BACK. NO BLADE, NO GATE.', 'THE KEEPER, EAST PAST THE TOWN, HAS A BLADE.'] }] } },
+    'Ƕ': { tile: ',', ent: { t: 'npc', id: 'warden.deep', look: 'guard', dir: 'right', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: THE DEEP WOODS GATE. FOGSTAGE IS PAST IT.', 'THINGS MOVE IN THE FOG OUT THERE. NO BLADE, NO GATE.', 'THE KEEPER, EAST PAST THE TOWN, HAS A BLADE.'] }] } },
     // ---- Signs ----
     '!': sign(['THE WILDWOOD.   ↑ MOSSA\'S COTTAGE   ← THE CAMP   → PHAREIM.NO', 'KEEP TO THE TRAIL. THE WOODS ARE OLDER THAN THE TOWN.']),
     '?': sign(['CAMP OF THE PARTY. NO GROWN-UPS. (EXCEPT MOSSA. MOSSA IS OK.)']),

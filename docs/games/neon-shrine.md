@@ -18,10 +18,11 @@ Beyond the hand-made maps lies the frontier, the generated world
 (`docs/worlds/README.md`): the ferry at the end of the pier crosses to its
 Landing, and six gates lead on foot straight into its realms, four from the
 old coast's edges (north out of Whisper Woods past a boulder, north out of the
-Night Market and east along Mirror Lake past a warden who wants a blade, east
-out of the Hollow Graves through a cracked wall) and two from the Wildwood
-(north out of the Riddle Grove, west out of the Deep Woods). Each is a short
-road between two lamp posts with a sign at the junction.
+Night Market, east out of the Hollow Graves through a cracked wall, east along
+Mirror Lake) and two from the Wildwood (north out of the Riddle Grove, west
+out of the Deep Woods). Each is a short road between two lamp posts with a
+sign at the junction, and a warden who stands aside only for the blade: the
+bomb bag can be found first, and a bomb also cuts the town's thicket.
 
 **Dialogue** (2026-09-26): people, signs and the pause screen's QUEST line
 say where to go and what is wrong, never how to win. No boss tactics, no
@@ -874,8 +875,11 @@ area's `intro`, flag `intro`); the blade's chest is beside the hut door.
 Before the blade there is no HUD, no swing, no B buzz, and the play clock
 (`state.elapsed`) stands still; it starts with the blade. `createGame(world,
 { save, at })` puts the hero at `at` (the plaza, or in front of the exit
-last used) with the save's items; a save's own continue point only matters
-for death during a session.
+last used) with the save's items. A save's own continue point is for death
+during a session, and for a reload out in the frontier: while the continue
+point is out there the shell keeps a per-tab flag (`zelda.out` in
+sessionStorage), and a reload in that tab continues at it (`loadSpot`). A new
+visit starts in town.
 
 **The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25). Every
 map but the rooms indoors is cut into squares of 8 × 8 tiles, and a square

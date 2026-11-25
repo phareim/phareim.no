@@ -48,13 +48,26 @@ function armed(map, entry, warp) {
   return s
 }
 
+/** Where the folk who stand aside only for a blade stand (the wardens, the ferryman), as `map|tile`. */
+function bladeGuards() {
+  const out = new Set()
+  for (const [id, def] of Object.entries(Z.WORLD.maps)) {
+    def.rows.forEach((r, y) => [...r].forEach((ch, x) => {
+      const e = def.marks?.[ch]?.ent
+      if (e?.t === 'npc' && e.hide && 'item' in e.hide && e.hide.item === 'sword') out.add(`${id}|${y * [...def.rows[0]].length + x}`)
+    }))
+  }
+  return out
+}
+
 const warpTo = (map, to, entry) => Z.mapInfo(Z.WORLD, map).warps.find(w => w.to === to && w.entry === entry)
 
 /**
  * Shortest walks (tiles) from a map's entry over every map the feet reach: warps, region edges; locks open
- * (boulders, cracks, thickets), wardens away; the hook only with `hook`; only the hand-made maps with `hand`.
+ * (boulders, cracks, thickets), wardens away (unless `blocked` says a tile is stood on); the hook only with `hook`;
+ * only the hand-made maps with `hand`.
  */
-function walkDistances(map, entry, { hook = false, max = 260, hand = false } = {}) {
+function walkDistances(map, entry, { hook = false, max = 260, hand = false, blocked = null } = {}) {
   const realmDist = {}
   const tileDist = new Map()
   const key = (m, i) => `${m}|${i}`
@@ -63,6 +76,7 @@ function walkDistances(map, entry, { hook = false, max = 260, hand = false } = {
     if (hand && m.startsWith('fr:')) return
     const info = Z.mapInfo(Z.WORLD, m)
     const i = Math.floor(y) * info.w + Math.floor(x)
+    if (blocked?.(m, i)) return
     const k = key(m, i)
     if (tileDist.has(k) && tileDist.get(k) <= d) return
     tileDist.set(k, d)
@@ -167,6 +181,13 @@ describe('the gates', () => {
       const home = Z.mapInfo(Z.WORLD, g.home.map).entries[g.home.entry]
       assert.deepEqual([round(s.hero.x), round(s.hero.y)], [home.x, home.y])
       assert.equal(s.mode, 'play')
+      // Calm on this side too: no field foe set down within ten tiles of the way back in.
+      const def = Z.WORLD.maps[g.home.map]
+      const foes = []
+      def.rows.forEach((r, y) => [...r].forEach((ch, x) => {
+        if (def.marks[ch]?.ent.t === 'enemy' && Math.abs(x + 0.5 - home.x) + Math.abs(y + 0.5 - home.y) < 10) foes.push(`${def.marks[ch].ent.kind} ${x},${y}`)
+      }))
+      assert.deepEqual(foes, [], `no foe within ten tiles of ${g.home.entry}`)
     })
   }
 
@@ -180,6 +201,10 @@ describe('the gates', () => {
     const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'gate-spore' } })
     assert.ok(s.map.npcs.some(n => n.id === 'warden.market'), 'the market warden stands in the gate')
     assert.ok(s.map.npcs.some(n => n.id === 'warden.lake'), 'and the lake warden in hers')
+    assert.ok(s.map.npcs.some(n => n.id === 'warden.woods'), 'the woods gate has a warden by its boulder')
+    assert.ok(s.map.npcs.some(n => n.id === 'warden.graves'), 'and the graves gate by its crack')
+    const ww = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'wildwood', entry: 'gate-quarry' } })
+    assert.ok(ww.map.npcs.some(n => n.id === 'warden.grove') && ww.map.npcs.some(n => n.id === 'warden.deep'), 'the Wildwood\'s gates have theirs')
     const t = armed('overworld', 'gate-spore')
     assert.ok(!t.map.npcs.some(n => n.id.startsWith('warden.')), 'with a blade they stand aside')
     // A bomb takes the woods gate's boulder.
@@ -200,6 +225,18 @@ describe('the gates', () => {
         assert.ok(deep.tileDist.has(`wildwood|${w.y * Z.mapInfo(Z.WORLD, 'wildwood').w + w.x}`), 'past the ravine, with the hook')
       } else assert.ok(reached(g.home.map, w), `the ${g.id} gate is reached from the start`)
     }
+  })
+
+  it('lets nobody into the frontier without a blade: bombs, the hook and every lock open, the wardens stand', () => {
+    // (The bomb bag lies in Whisper Woods, reachable before the blade, and a bomb cuts the town's thicket too.)
+    const guards = bladeGuards()
+    const { tileDist } = walkDistances('overworld', 'start', { hook: true, max: 5000, blocked: (m, i) => guards.has(`${m}|${i}`) })
+    const out = [...tileDist.keys()].filter(k => k.startsWith('fr:'))
+    assert.deepEqual(out.slice(0, 3), [], 'no frontier tile is reached')
+    // And the woods are reached at all (the walk is not simply stuck).
+    assert.ok([...tileDist.keys()].some(k => k.startsWith('wildwood|')))
+    const fell = warpTo('overworld', 'fr:4,1', 'gate-fell')
+    assert.ok(tileDist.has(`overworld|${(fell.y + 3) * Z.mapInfo(Z.WORLD, 'overworld').w + fell.x}`), 'the road by the bomb bag, beside the woods gate, is')
   })
 
   it('brings every realm but Fogstage within about two hundred tiles of the start', () => {
@@ -249,7 +286,7 @@ describe('the gates', () => {
     }
   })
 
-  it('thins the foes: never a crowd, the Green Miles calm, smaller groups by a gate', () => {
+  it('thins the foes: never a crowd, never empty, the Green Miles calm, smaller groups by a gate', () => {
     for (let ry = 0; ry < 12; ry++) for (let rx = 0; rx < 12; rx++) {
       const d = Z.WORLD.generate(`fr:${rx},${ry}`)
       if (!d) continue
@@ -257,6 +294,8 @@ describe('the gates', () => {
       for (const r of d.rows) for (const c of r) if (d.marks[c]?.ent.t === 'enemy') foes++
       assert.ok(foes <= (d.realm === 'meadow' ? 8 : 18), `${d.id}: ${foes} field foes`)
       assert.ok((d.battle?.groups.length ?? 0) <= 8, `${d.id}: ${d.battle?.groups.length} battle groups`)
+      // And never emptied by its places: a region out there keeps a few foes to meet.
+      if (d.realm !== 'landing') assert.ok(foes >= 4 || (d.battle?.groups.length ?? 0) >= 2, `${d.id}: only ${foes} field foes, ${d.battle?.groups.length ?? 0} groups`)
       // Every foe mark is placed (a thinned-out kind leaves no mark behind).
       for (const [ch, m] of Object.entries(d.marks)) if (m.ent.t === 'enemy') assert.ok(d.rows.some(r => r.includes(ch)), `${d.id}: ${m.ent.kind} unplaced`)
     }
@@ -299,6 +338,27 @@ describe('out in the frontier', () => {
     north()
     assert.equal(s.map.id, next)
     assert.equal(s.mode, 'play')
+  })
+
+  it('reloads a tab that was out there at its camp, the way the shell starts a page; a new visit starts in town', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'fr:7,2', entry: 'camp' } })
+    s.inv.sword = true
+    const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+    const back = { map: 'overworld', entry: 'arcade' }
+    // What Zelda.vue does on mount: begin(local, loadSpot(WORLD, local, readReturn(), readOut())).
+    const load = (sv, b, out) => Z.createGame(Z.WORLD, { save: sv, at: Z.loadSpot(Z.WORLD, sv, b, out) })
+    for (const b of [null, back]) {
+      const t = load(save, b, true)
+      assert.deepEqual([t.map.id, t.entry.entry], ['fr:7,2', 'camp'], 'a reload out there stays out there')
+      const at = Z.mapInfo(Z.WORLD, 'fr:7,2').entries.camp
+      assert.deepEqual([round(t.hero.x), round(t.hero.y)], [at.x, at.y])
+    }
+    assert.deepEqual(load(save, null, false).entry, Z.WORLD.start, 'a new visit starts on the plaza')
+    assert.deepEqual(load(save, back, false).entry, back, 'or in front of the exit last used')
+    // A continue point that has gone is rescued on the way in, a save back on the coast ignores the flag.
+    assert.deepEqual(load({ ...save, entry: 'gate-gone' }, null, true).entry, { map: 'fr:7,2', entry: 'camp' })
+    assert.deepEqual(load({ ...save, map: 'overworld', entry: 'lake' }, null, true).entry, Z.WORLD.start)
+    assert.deepEqual(load(null, null, true).entry, Z.WORLD.start)
   })
 
   it('continues an old save whose spot has gone at the nearest camp, never as a new game', () => {

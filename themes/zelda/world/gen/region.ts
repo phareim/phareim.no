@@ -19,7 +19,8 @@
  * 6. Settling (no more draws from the seed, so nothing above moves): a gate
  *    from the hand-made world cut into the rim with a road to the network
  *    (`gates.ts`), then the foes thinned: none near a place, a pass, an
- *    entry or the gate, fewer near a way in, and never a crowd.
+ *    entry or the gate, fewer near a way in, never a crowd, and never so
+ *    few that the places empty a region (`FOE_FLOOR`).
  */
 import type { Dir, EnemyKind, EntDef, ItemId, Mark, MapDef, Prop, Rect, Spot, TileChar } from '../../types'
 import { Rng, fbm, hash } from './rng'
@@ -59,6 +60,13 @@ const GROUP_CAP = 8
 const CALM: Record<string, number> = { meadow: 8 }
 /** No foe this close (tiles) to a placed stamp or site: folk and chests are not a foe's den. */
 const PLACE_CLEAR = 5
+/**
+ * Where the places crowd a region, that clear ground would leave it empty: it keeps at least this many field foes
+ * (battle groups), taken back from the ones nearest a place, furthest from it first, never right at its edge.
+ */
+const FOE_FLOOR = 6
+const GROUP_FLOOR = 3
+const FLOOR_CLEAR = 2
 
 /** Where the passes of one edge lie: offsets along it, the same from either side. */
 export function passesOf(seed: number, key: [string, number, number], len: number): number[] {
@@ -588,8 +596,10 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   if (placedFoes.length) {
     const battle = realm.special === 'battle'
     const gateAt = ctx.gate ? entries[`gate-${ctx.gate.id}`] : undefined
-    const nearPlace = (x: number, y: number) =>
-      rects.some(r => x >= r.x - PLACE_CLEAR && x < r.x + r.w + PLACE_CLEAR && y >= r.y - PLACE_CLEAR && y < r.y + r.h + PLACE_CLEAR)
+    // Tiles (chebyshev) from the tile to the nearest placed stamp or site; 0 inside one.
+    const placeDist = (x: number, y: number) => rects.reduce((m, r) =>
+      Math.min(m, Math.max(r.x - x, x - (r.x + r.w - 1), r.y - y, y - (r.y + r.h - 1), 0)), Infinity)
+    const nearPlace = (x: number, y: number) => placeDist(x, y) <= PLACE_CLEAR
     const seesGate = (f: PlacedFoe) => !!gateAt && (f.group
       ? Math.hypot(f.group.x - gateAt.x, f.group.y - gateAt.y) <= (f.group.sight ?? 0) + 6
       : Math.abs(f.x + 0.5 - gateAt.x) + Math.abs(f.y + 0.5 - gateAt.y) < 10)
@@ -605,6 +615,15 @@ export function generateRegion(ctx: RegionCtx): MapDef {
         kept++
       }
       stays.add(f)
+    }
+    // Never emptied by its places: the foes they cleared come back, furthest from a place first (ties: as drawn).
+    const floor = Math.min(cap, battle ? GROUP_FLOOR : FOE_FLOOR)
+    if (kept < floor) {
+      const back = placedFoes
+        .filter(f => !f.slot && !stays.has(f) && !seesGate(f) && placeDist(f.x, f.y) > FLOOR_CLEAR)
+        .map((f, i) => ({ f, i, d: placeDist(f.x, f.y) }))
+        .sort((a, b) => b.d - a.d || a.i - b.i)
+      for (const { f } of back.slice(0, floor - kept)) stays.add(f)
     }
     for (const f of placedFoes) {
       if (f.group) { if (stays.has(f)) f.group.foes = f.group.foes.slice(0, f.keep); continue }

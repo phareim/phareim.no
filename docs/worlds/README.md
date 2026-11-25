@@ -16,21 +16,24 @@ straight into a realm.
   a region of a realm. Each sits at the end of a short road between two lamp
   posts, with a sign at the junction; the region side has a notch in its rim
   with lamp posts, a sign and a road to the region's network. Both ends name
-  the entry `gate-<id>`.
+  the entry `gate-<id>`. Every gate has a warden who stands aside only for the
+  blade, as the ferryman does: the bomb bag can be had before the blade, and a
+  bomb cuts the town's thicket as well as a boulder.
 
 | Gate | From (hand-made) | Lock | Into | Then |
 |---|---|---|---|---|
-| `fell` | Whisper Woods, north (overworld 45,0) | a boulder (bombs; the bomb bag is the chest beside it) | SETER FELL `fr:4,1` | Yule Fjord north of it |
-| `spore` | Night Market, north wall (81,0) | a warden, until the blade | THE SPORELIGHT `fr:7,2` | the Battle Glade's stairs |
-| `sand` | Hollow Graves, east wall (103,12) | a cracked wall (bombs) | STILLSAND `fr:9,4` | the Puzzle Lab's stairs, the pyramid next door |
-| `lawns` | Mirror Lake, east shore (103,37) | a warden, until the blade | RERUN ESTATES `fr:8,6` | |
-| `quarry` | the Wildwood's Riddle Grove, north (39,0) | the Wildwood's own boulders | LUMENBY QUARRY `fr:2,2` | the Old Quarry's stairs, the deep drift |
-| `fog` | the Wildwood's Deep Woods, west (0,20) | the ravine (the hook) | FOGSTAGE `fr:2,6` | |
+| `fell` | Whisper Woods, north (overworld 45,0) | the warden; a boulder (bombs; the bomb bag is the chest beside it) | SETER FELL `fr:4,1` | Yule Fjord north of it |
+| `spore` | Night Market, north wall (81,0) | the warden | THE SPORELIGHT `fr:7,2` | the Battle Glade's stairs |
+| `sand` | Hollow Graves, east wall (103,12) | the warden; a cracked wall (bombs) | STILLSAND `fr:9,4` | the Puzzle Lab's stairs, the pyramid next door |
+| `lawns` | Mirror Lake, east shore (103,37) | the warden | RERUN ESTATES `fr:8,6` | |
+| `quarry` | the Wildwood's Riddle Grove, north (39,0) | the warden; the Wildwood's own boulders | LUMENBY QUARRY `fr:2,2` | the Old Quarry's stairs, the deep drift |
+| `fog` | the Wildwood's Deep Woods, west (0,20) | the warden; the ravine (the hook) | FOGSTAGE `fr:2,6` | |
 
 So every realm but Fogstage is within about 200 tiles of the start on foot
 (Seter Fell about 80, Yule Fjord about 135); the Wildwood, the quarry, the
-fell and Whisper Woods make a loop. On the MAP page the gates and the ferry
-are lit squares on the coast's map, and the frontier's grid stands beside it
+fell and Whisper Woods make a loop. No field foe stands within 10 tiles of
+either end of a gate. On the MAP page the gates and the ferry are lit squares
+on the coast's map (and, out there, the ways home: not a region's stairs), and the frontier's grid stands beside it
 (once the blade is in hand) with a bar on each gate region's gate side. Until
 the hero has walked into the frontier, the pause screen's QUEST line points at
 the gates and the ferry when it has room (`progress.ts`).
@@ -78,11 +81,15 @@ there is open ground fades into the neighbour at the same place along the
 edge), `realm`, and `views` (the shell turns to an allowed view while the hero
 is there, the isometric one first, and back to the visitor's own after; V skips
 the others). Saves just name the map (`fr:6,8`), so a save made out there loads
-out there. The continue point (death, a reload, a closed tab) is the way you
-came into the region: its camp when you walked in over an edge or came by the
-ferry, the gate or the stairs when you came through one. A save whose entry has
-gone continues at that map's camp, its region's camp, or the ferry's pier, and
-never as a new game (`createGame`). A region is one area edge to edge, so its
+out there. The continue point is the way you came into the region: its camp
+when you walked in over an edge or came by the ferry, the gate or the stairs
+when you came through one. Death puts you back there, and so does a reload of
+the tab: while the continue point is out in the frontier the shell keeps a
+per-tab flag (`zelda.out`), and `loadSpot` then starts the page at the save's
+continue point instead of in town. A new visit (a new tab, the site opened
+again) starts in town, as always, with everything the save carries. A save
+whose entry has gone continues at that map's camp, its region's camp, or the
+ferry's pier, and never as a new game (`createGame`). A region is one area edge to edge, so its
 realm's first-visit intro (`realm:<id>`) opens when the arrival's fade is
 over, and the banner shows only when the area's name changes.
 
@@ -93,7 +100,10 @@ Landing distance, 1 + the distance to the nearest gate region): a battle group
 keeps the size it would have had at `near`, a region keeps as many as its
 density at `near` gives, at most 18 field foes and 8 battle groups (8 field
 foes in the Green Miles), none within 5 tiles of a placed stamp or site (a
-stamp's own foe slot stays), none within sight of a gate's arrival. The heart
+stamp's own foe slot stays), none within sight of a gate's arrival. Where the
+places crowd a region so that the clear ground would empty it, it keeps at
+least 6 field foes (3 battle groups) all the same: the cleared ones nearest
+the edge of that ground come back, never within 2 tiles of a place. The heart
 piece still stands in each realm's region furthest from the Landing.
 
 Same seed, same world: everything is a pure function of the seed and the
@@ -119,10 +129,12 @@ of every edge open at the same tiles; the world checks pass with every region
 and cave and layer of the deep in; the ferry; walking off an edge; every realm
 on the macro map; every site in its region and realm; every line in the pixel
 font; the clean seed talked through end to end) and `tests/zelda-gates.test.mjs`
-(every gate walked through both ways, saved at and reloaded, calm on arrival;
-each lock; every gate reached on foot from the start; every realm but Fogstage
-within 200 tiles; the fingerprint; the foe caps; the continue point, the realm
-intro, old saves and one spelling per map). Pictures:
+(every gate walked through both ways, saved at and reloaded, calm on arrival
+at both ends; each lock; no frontier tile reached without the blade, even with
+bombs and the hook; every gate reached on foot from the start; every realm but
+Fogstage within 200 tiles; the fingerprint; the foe caps and floor; the
+continue point and a reload the way the shell starts a page, the realm intro,
+old saves and one spelling per map). Pictures:
 `VIEW=iso node scripts/zelda-lab/shot.mjs <dir> f-landing,f-meadow,f-cave` and
 one per realm: `f-lumenby`, `f-underglow`, `f-seterfell`, `f-yulefjord`,
 `f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`; the gates: `g-fell`,
