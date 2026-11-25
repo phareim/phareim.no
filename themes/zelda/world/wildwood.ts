@@ -139,12 +139,12 @@ export const WILDWOOD: MapDef = {
     G: { tile: 'X', ent: { t: 'gate', open: { flag: 'mistral' } } },
     // The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>`.
     'Ƨ': gateWarp('quarry'),
-    'Ɓ': sign(['↑ THE GROVE GATE: LUMENBY QUARRY, IN THE HILLS.', 'THE QUARRY SIGN ON THE HILL HAS GONE DARK.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.']),
+    'Ɓ': sign(['↑ THE GROVE GATE: LUMENBY QUARRY, IN THE HILLS.', 'THE QUARRY SIGN ON THE HILL HAS GONE DARK.', 'GATE WARDEN ON DUTY.']),
     'Ɗ': gateWarp('fog'),
-    'Ȣ': sign(['← THE DEEP WOODS GATE: FOGSTAGE.', 'THE FOG OUT THERE COMES IN ON CUE.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.']),
+    'Ȣ': sign(['← THE DEEP WOODS GATE: FOGSTAGE.', 'THE FOG OUT THERE COMES IN ON CUE.', 'GATE WARDEN ON DUTY.']),
     // Their wardens: bombs open the town's thicket before the blade, so the Wildwood's gates wait for it too.
-    'Ʒ': { tile: ',', ent: { t: 'npc', id: 'warden.grove', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: THE GROVE GATE. LUMENBY IS PAST IT.', 'THE HILLS OUT THERE BITE BACK. NO BLADE, NO GATE.', 'THE KEEPER, EAST PAST THE TOWN, HAS A BLADE.'] }] } },
-    'Ƕ': { tile: ',', ent: { t: 'npc', id: 'warden.deep', look: 'guard', dir: 'right', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: THE DEEP WOODS GATE. FOGSTAGE IS PAST IT.', 'THINGS MOVE IN THE FOG OUT THERE. NO BLADE, NO GATE.', 'THE KEEPER, EAST PAST THE TOWN, HAS A BLADE.'] }] } },
+    'Ʒ': { tile: ',', ent: { t: 'npc', id: 'warden.grove', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: LUMENBY. A TOWN THAT DIGS ALL NIGHT. MIND THE HOLES.', 'NO BLADE, NO GATE. THE KEEPER, EAST PAST THE TOWN, HAS ONE.'] }] } },
+    'Ƕ': { tile: ',', ent: { t: 'npc', id: 'warden.deep', look: 'guard', dir: 'right', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: FOGSTAGE. THE FOG OUT THERE FOLLOWS A SCRIPT, AND I NEVER LEARNED MY LINES.', 'BRING A BLADE. THE KEEPER, EAST PAST THE TOWN, HAS ONE.'] }] } },
     // ---- Signs ----
     '!': sign(['THE WILDWOOD.   ↑ MOSSA\'S COTTAGE   ← THE CAMP   → PHAREIM.NO', 'KEEP TO THE TRAIL. THE WOODS ARE OLDER THAN THE TOWN.']),
     '?': sign(['CAMP OF THE PARTY. NO GROWN-UPS. (EXCEPT MOSSA. MOSSA IS OK.)']),

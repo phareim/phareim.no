@@ -150,22 +150,22 @@ export const OVERWORLD: MapDef = {
     'Ƥ': { ent: { t: 'npc', id: 'ferryman', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['NO BLADE, NO BOAT.', 'THE FRONTIER BITES.', 'THE KEEPER EAST OF TOWN HAS ONE.'] }] }, tile: '=' },
     // ---- The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>` ----
     'Ƨ': gateWarp('fell'),
-    'Ɓ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE WOODS GATE: SETER FELL, AND THE COLD PAST IT.', 'A BOULDER HAS ROLLED INTO THE GATE.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    'Ɓ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE WOODS GATE: SETER FELL, AND THE COLD PAST IT.', 'A BOULDER HAS ROLLED INTO THE GATE.', 'GATE WARDEN ON DUTY.'] } },
     // The bomb bag lies just south of here, and may be found before the blade: the warden keeps the gate till then.
     'Ʒ': {
       tile: ',',
       ent: {
         t: 'npc', id: 'warden.woods', look: 'guard', hide: { item: 'sword' },
-        talk: [{ lines: ['WARDEN: THE WOODS GATE. SETER FELL IS PAST IT.', 'IT GETS COLD UP THERE, AND THINGS BITE. NO BLADE, NO GATE.', 'THE KEEPER, SOUTH OF THE WOODS, HAS A BLADE.'] }],
+        talk: [{ lines: ['WARDEN: SETER FELL IS UP THIS ROAD. GOATS, TROLLS AND WEATHER.', 'NOBODY GOES UP WITHOUT A BLADE. THE KEEPER, SOUTH OF THE WOODS, HAS ONE.'] }],
       },
     },
     'Ɗ': gateWarp('spore'),
-    'Ȣ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE MARKET GATE: THE SPORELIGHT.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    'Ȣ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE MARKET GATE: THE SPORELIGHT.', 'GATE WARDEN ON DUTY.'] } },
     'Ǥ': {
       tile: ',',
       ent: {
         t: 'npc', id: 'warden.market', look: 'guard', hide: { item: 'sword' },
-        talk: [{ lines: ['WARDEN: THE MARKET GATE. THE SPORELIGHT IS PAST IT.', 'THE MUSHROOMS OUT THERE FIGHT BACK. NO BLADE, NO GATE.', 'THE KEEPER, SOUTH-WEST OF HERE, HAS A BLADE.'] }],
+        talk: [{ lines: ['WARDEN: THE SPORELIGHT. MUSHROOMS THE SIZE OF HOUSES, AND THEY HOLD GRUDGES.', 'COME BACK WITH A BLADE. THE KEEPER, SOUTH-WEST OF HERE, HAS ONE.'] }],
       },
     },
     'Ɋ': gateWarp('sand'),
@@ -173,16 +173,16 @@ export const OVERWORLD: MapDef = {
       tile: ',',
       ent: {
         t: 'npc', id: 'warden.graves', look: 'guard', dir: 'left', hide: { item: 'sword' },
-        talk: [{ lines: ['WARDEN: THE GRAVES GATE. STILLSAND IS PAST IT.', 'THE SAND OUT THERE HAS TEETH. NO BLADE, NO GATE.', 'THE KEEPER, FAR SOUTH-WEST OF HERE, HAS A BLADE.'] }],
+        talk: [{ lines: ['WARDEN: STILLSAND IS PAST THIS WALL. I HAVE NEVER LOOKED. I LIKE IT THAT WAY.', 'NOBODY GOES THROUGH WITHOUT A BLADE. THE KEEPER, FAR SOUTH-WEST, HAS ONE.'] }],
       },
     },
     'Ʉ': gateWarp('lawns'),
-    'Ȼ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE LAKE GATE: RERUN ESTATES.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    'Ȼ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE LAKE GATE: RERUN ESTATES.', 'GATE WARDEN ON DUTY.'] } },
     'Ʌ': {
       tile: ',',
       ent: {
         t: 'npc', id: 'warden.lake', look: 'guard', dir: 'left', hide: { item: 'sword' },
-        talk: [{ lines: ['WARDEN: THE LAKE GATE. RERUN ESTATES ARE PAST IT.', 'SAME STREET EVERY YEAR, AND IT BITES. NO BLADE, NO GATE.', 'THE KEEPER, WEST OF THE CROSSROADS, HAS A BLADE.'] }],
+        talk: [{ lines: ['WARDEN: RERUN ESTATES. NICE LAWNS. THE LAWNMOWERS MOW BACK.', 'NOT WITHOUT A BLADE, KID. THE KEEPER, WEST OF THE CROSSROADS, HAS ONE.'] }],
       },
     },
     // ---- The town ----
@@ -379,7 +379,7 @@ export const OVERWORLD: MapDef = {
         ],
       },
     },
-    '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE   → THE GRAVES GATE: STILLSAND', 'THE GATE WALL HAS CRACKED. GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE   → THE GRAVES GATE: STILLSAND', 'THE GATE WALL HAS CRACKED. GATE WARDEN ON DUTY.'] } },
     // ---- Crossroads ----
     '!': { tile: 'S', ent: { t: 'sign', lines: ['↑ NIGHT MARKET   → HOLLOW GRAVES   ↓ MIRROR LAKE   ← HOME GLADE, PHAREIM.NO'] } },
     // ---- Mirror Lake ----
