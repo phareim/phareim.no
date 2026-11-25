@@ -48,6 +48,8 @@ import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo,
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
+// LIFE_FILE=<render/life/<id>.ts>: show that one critter (its default export) in place of the registry.
+${process.env.LIFE_FILE ? `import __critter from ${JSON.stringify(resolve(process.env.LIFE_FILE))}\nimport { setLifeCritters } from ${JSON.stringify(join(repo, 'themes/zelda/render/life/index.ts'))}\nsetLifeCritters([__critter])` : ''}
 // LIVE=<pack.json> applies the studio's live sprites (render/live.ts) as the site does, before anything is drawn.
 ${process.env.LIVE ? `setSpriteOverrides(${JSON.stringify(JSON.parse(readFileSync(process.env.LIVE, 'utf8')).sprites)})` : ''}
 
@@ -139,6 +141,8 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     break
   }
   case 'f-landing': give(); place('fr:6,8', 'camp', 0, -1); run(30); break
+  // Ambient life (render/life/): LIFE=<map>,<x>,<y> puts the hero there with no foes about; LIFE_T=<s> moves the clock.
+  case 'life': { give(); const [mp, lx, ly] = (q.get('at') || 'overworld,30,20').split(','); go(mp, +lx, +ly, 'down'); s.map.enemies.length = 0; run(10); break }
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
   case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
@@ -426,6 +430,7 @@ function wild(luna = false) {
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
 ;(async () => {
+  if (q.get('t')) r.draw(s, ui, +q.get('t'))
   for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
   // For a lab page that wants to go on drawing (timing a view, filming a turn).
   window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp }
@@ -604,6 +609,8 @@ const SHOTS = [
   ['f-puzzle', 'f-puzzle', 1280, 800, 1, 0],
   ['f-battle', 'f-battle', 1280, 800, 1, 0],
   ['f-dig', 'f-dig', 1280, 800, 1, 0],
+  ['life', 'life', 1280, 800, 1, 0],
+  ['life-390', 'life', 390, 844, 2, 0],
   ['f-landing', 'f-landing', 1280, 800, 1, 0],
   ['f-landing-390', 'f-landing', 390, 844, 2, 0],
   ['f-ferry-town', 'f-ferry-town', 1280, 800, 1, 0],
@@ -646,7 +653,7 @@ const SHOTS = [
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
-const view = (process.env.DAY ? `&day=${process.env.DAY}` : '') + (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
+const view = (process.env.DAY ? `&day=${process.env.DAY}` : '') + (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '') + (process.env.LIFE ? `&at=${process.env.LIFE}` : '') + (process.env.LIFE_T ? `&t=${process.env.LIFE_T}` : '')
 const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.DAY ? `-${process.env.DAY}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '') + (process.env.TAG ? `-${process.env.TAG}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue

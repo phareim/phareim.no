@@ -41,6 +41,7 @@ import { createShade } from './shade'
 import { PAL } from './sprites'
 import { bladeHeading } from './bladeAngles'
 import { queueWildlife } from './wildlife'
+import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
@@ -876,6 +877,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (!ui.attract && kind === 'overworld') {
       queueWildlife(g, s, cx, cy, time, ui.reducedMotion, (dayOf(drawing)?.sun ?? 0.12) <= 0.12, items, def.isoLandmarks)
     }
+    if (!ui.attract) queueLife({ g, s, cx, cy, time, reduced: ui.reducedMotion, sun: kind === 'overworld' ? dayOf(drawing)?.sun ?? 0.12 : -1, kind, realm: def.realm, look: def.look, items, lights, landmarks: def.isoLandmarks ?? [] })
     if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
     queuePuzzles(g, s, cx, cy, items)
     for (const b of m.moving) {

@@ -1,0 +1,794 @@
+[
+ {
+  "id": "wicktail",
+  "name": "Wicktail Gecko",
+  "world": "coast",
+  "where": "On overworld, use 1 in 8 lamp posts 't' with a path ',' directly below. Anchor the gecko to the lower third of the post. Use a separate hash of its tile coordinates to stagger the loop.",
+  "when": "night",
+  "story": "A tiny gecko polishes the lamp post with its tail. At the end of each stroke, it checks its work by lighting the tip.",
+  "motion": "Repeat a 4 s loop. Hold Cling for 2.4 s, sweep with Polish for 200 ms, hold Wick for 600 ms, then return to Cling for 800 ms. Keep the front toes pinned through all three poses.",
+  "hero": "Within 1.3 tiles of the post, pick Peep instead of the clock pose. Show the loop at its current phase on leaving.",
+  "light": "During Wick, put a #ffd23f glow at the tail tip with radius 0.55 tiles and alpha 0.24. Drop two one-pixel #ff2fa0 embers straight down by 1 and 3 px during the last 200 ms of Wick. In Peep, leave one cyan eye pixel visible.",
+  "frames": [
+   {
+    "name": "Cling",
+    "size": "8x10",
+    "description": "A teal body hugs the left edge of the post silhouette. Two widely spread toes and one gold eye are visible, with the blunt rose tail curled underneath."
+   },
+   {
+    "name": "Polish",
+    "size": "8x10",
+    "description": "Keep the front toes fixed and extend the tail in a pink diagonal across the post. Turn the head back so the gold eye watches the tail."
+   },
+   {
+    "name": "Wick",
+    "size": "8x10",
+    "description": "Hook the tail upward and cap it with two gold pixels and a cream tip. Add a warm highlight to the underside of the chin."
+   },
+   {
+    "name": "Peep",
+    "size": "8x10",
+    "description": "Tuck the body and tail behind the post edge. Leave two teal fingertips and one wide cyan eye peeking out."
+   }
+  ],
+  "palette": {
+   "#15243e": "post-side shadow",
+   "#177c7e": "skin",
+   "#45bda4": "toes and cheek",
+   "#d96291": "tail",
+   "#ff2fa0": "tail edge and ember",
+   "#ffd23f": "eye and lit tail",
+   "#fff0ae": "wick tip",
+   "#2ff3ff": "peeking eye"
+  }
+ },
+ {
+  "id": "lacecrab",
+  "name": "Lacework Crab",
+  "world": "coast",
+  "where": "Pick 1 in 12 overworld sand '-' tiles on the shore with another sand tile to either side. Face the nearest cardinal water '~' neighbour, breaking ties clockwise from north. Keep the crab inside its anchor tile.",
+  "when": "always",
+  "story": "A crab combs a scalloped pattern into wet sand. Whenever someone admires it up close, the crab presses a shell into the middle.",
+  "motion": "Hash-offset a 6 s loop. Show Rest for 3 s, Rake for 300 ms, Rest for 150 ms, then Rake for 300 ms. Draw a 5 px dotted scallop below the crab during both rakes and keep it visible through the remainder of the loop.",
+  "hero": "Inside 1.6 tiles use Stamp and draw the completed scallop with a single rose shell pixel in its centre. The clock keeps running underneath.",
+  "light": "By day, use pale peach pixels for the freshly raked marks. At dusk and dawn use rose. At night alternate pink and cyan on the scallop peaks every 300 ms and use a radius 0.45 tile, alpha 0.16 pink glow while stamping.",
+  "frames": [
+   {
+    "name": "Rest",
+    "size": "9x7",
+    "description": "A low squat rose carapace on four dark legs, with a cream shell balanced on one raised claw."
+   },
+   {
+    "name": "Rake",
+    "size": "9x7",
+    "description": "The free claw stretches toward the foreground with two prongs visible. Tilt both eye stalks toward the rake tip."
+   },
+   {
+    "name": "Stamp",
+    "size": "9x7",
+    "description": "Spread the legs and press the pale shell flat beneath one claw. Lift the other claw and show both eye stalks upright."
+   }
+  ],
+  "palette": {
+   "#262745": "leg shadows",
+   "#9c405e": "shell shading",
+   "#e07b98": "carapace and dusk scallop",
+   "#ffc2a5": "wet sand marks",
+   "#fff0ca": "shell",
+   "#ff2fa0": "night scallop and glow",
+   "#2ff3ff": "alternating night peaks"
+  }
+ },
+ {
+  "id": "bellbloom",
+  "name": "Bell Choir",
+  "world": "coast",
+  "where": "Use 1 in 9 overworld flower ':' tiles that have a flower neighbour in a cardinal direction. Three tiny bell heads share a stem within the chosen tile.",
+  "when": "dusk-dawn",
+  "story": "Three bellflowers practise a round at the edge of daylight. The smallest flower always comes in early.",
+  "motion": "Hold Closed for 2.8 s of a hash-offset 4 s loop. Show Small, Left and Right for 220 ms each, then return to Closed for the final 540 ms. Keep all stem tips fixed and swing each bell by changing its rim.",
+  "hero": "Within 2 tiles of the plant, use a 3.6 s loop with Small lasting 120 ms and both idle holds reduced by 150 ms. Read phase directly from the chosen period and the tile's hash.",
+  "light": "Give each currently open bell one falling pixel at age 80 ms and two offset pixels at age 150 ms, disappearing on the next pose. Add a radius 0.65 tile glow centred on the open bell with alpha 0.20. Use #ff2fa0 at dusk and #ffd23f at dawn.",
+  "frames": [
+   {
+    "name": "Closed",
+    "size": "11x9",
+    "description": "Three dark violet bells droop from a forked teal stem. The low middle bell is deliberately a pixel smaller than its neighbours."
+   },
+   {
+    "name": "Small",
+    "size": "11x9",
+    "description": "The middle bell flips its short rim up to show one bright throat pixel. Both side bells stay closed."
+   },
+   {
+    "name": "Left",
+    "size": "11x9",
+    "description": "The left bell tilts outward to reveal a three-pixel luminous rim. The middle bell droops again."
+   },
+   {
+    "name": "Right",
+    "size": "11x9",
+    "description": "The taller right bell swings with a broad bright underside. The two smaller bells hang quiet."
+   }
+  ],
+  "palette": {
+   "#203e42": "stem shadow",
+   "#4c9f83": "lit stem",
+   "#504078": "closed flowers",
+   "#aa74d7": "petal edges",
+   "#ff2fa0": "dusk throat and sparks",
+   "#ffd23f": "dawn throat and sparks",
+   "#fff2c1": "bell rim highlight"
+  }
+ },
+ {
+  "id": "awningslug",
+  "name": "Awning Slug",
+  "world": "coast",
+  "where": "Use 1 in 6 overworld buildings 'H' with a path ',' directly south. Anchor to the lower fa\u00e7ade and run a 10 px horizontal crawl centred on that tile.",
+  "when": "night",
+  "story": "A slug strings a pink garland under a shopfront. By the time it turns around, the lights at the other end have gone out.",
+  "motion": "Move the anchor left to right and back on a triangle wave with a 7 s period and tile-hash offset. Snap to whole pixels, mirror at each turn, and alternate Long and Hump every 250 ms. Use Blink during the first 160 ms after each turn.",
+  "hero": "none",
+  "light": "Recompute positions from the same wave at 180, 360 and 540 ms before the current phase. Put one #ff2fa0 pixel at each unique trailing position, using rose for the oldest. Add a head glow in #ff2fa0 with radius 0.42 tiles and alpha 0.18.",
+  "frames": [
+   {
+    "name": "Long",
+    "size": "8x5",
+    "description": "A translucent violet slug stretches into a low comma. Draw two tall antennae with pink points and a pale stripe along its foot."
+   },
+   {
+    "name": "Hump",
+    "size": "8x5",
+    "description": "Bunch the back into a round hump and lift the foot at the rear. The antenna points lean forward one pixel."
+   },
+   {
+    "name": "Blink",
+    "size": "8x5",
+    "description": "The slug rounds up at the turn, with both antennae bowed. The front point flashes cream and the rear point is rose."
+   }
+  ],
+  "palette": {
+   "#252648": "foot shadow",
+   "#69478a": "body",
+   "#b17bd5": "translucent back",
+   "#df79ab": "fading garland",
+   "#ff2fa0": "fresh garland and antenna",
+   "#ffe4bc": "turn flash and foot stripe"
+  }
+ },
+ {
+  "id": "ribbonkit",
+  "name": "Ribbon-Tail Kit",
+  "world": "coast",
+  "where": "Use 1 in 14 overworld tall grass ';' tiles that border a path ',' on at least one cardinal side. Place the fox kit at the grass edge nearest the path, using north, east, south, west order for ties.",
+  "when": "day",
+  "story": "A little fox practises catching its own ribbon-shaped tail. It sits up very straight whenever someone gets close enough to see.",
+  "motion": "On a hash-offset 5 s loop hold Stalk for 3.6 s, show Pounce for 140 ms and Caught for 460 ms, then return to Stalk for 800 ms. Move the pouncing pose 2 px into the grass and the caught pose 1 px back.",
+  "hero": "Within 1.8 tiles use Prim and centre it on the anchor. Mirror toward the hero according to the sign of their horizontal offset.",
+  "light": "At the top of Pounce, draw one #ffd23f pixel and one #fff0cd pixel above the ribbon tip for 100 ms. The tail has a pink satin edge in all four poses.",
+  "frames": [
+   {
+    "name": "Stalk",
+    "size": "11x8",
+    "description": "A copper fox with tall ears crouches low. Its broad rose tail curls over its nose, with a pink hem like a ribbon."
+   },
+   {
+    "name": "Pounce",
+    "size": "11x8",
+    "description": "Show the fox briefly airborne, with tucked front paws and its tail crossed diagonally in front. Keep cream cheek pixels clear of the tail."
+   },
+   {
+    "name": "Caught",
+    "size": "11x8",
+    "description": "The fox lies flat with its chin and both paws pinning the pink tail tip. One dark eye looks out over the tip."
+   },
+   {
+    "name": "Prim",
+    "size": "11x8",
+    "description": "Seat the fox upright like a tiny formal portrait, with a cream bib, tidy paws and its tail folded around both feet."
+   }
+  ],
+  "palette": {
+   "#233747": "outline and eye",
+   "#934c5c": "fur shadow",
+   "#de7957": "fur",
+   "#fff0cd": "bib and shine",
+   "#d0659d": "ribbon tail",
+   "#ff2fa0": "ribbon hem",
+   "#ffd23f": "pounce sparkle"
+  }
+ },
+ {
+  "id": "inkwisp",
+  "name": "Inkwell Wisp",
+  "world": "coast",
+  "where": "Use 1 in 18 overworld sand '-' tiles beside a path ',' and at least two tiles from water '~'. Place an ink bottle on the sand centre.",
+  "when": "always",
+  "story": "A drop of ink climbs out of its bottle, borrows a feather and scrawls a crooked star on the sand. Then it ducks back inside to consider its next work.",
+  "motion": "Use a hash-offset 7 s loop. Show Bottle for 4.6 s, Quill for 400 ms and Sign for 1 s, then Bottle for 1 s. Reveal the five pixels of the star clockwise at 80 ms intervals during Quill and show the full mark during Sign. Place the star 3 px to the right of the bottle.",
+  "hero": "Within 1.4 tiles, use Bottle and suppress the star pixels while the hero stays near.",
+  "light": "Draw the star in rose at noon and violet at dawn and dusk. At night draw it in #2ff3ff, fading linearly during Sign. Use a matching glow at the mark with radius 0.6 tiles and alpha fading from 0.2 to zero over the same second.",
+  "frames": [
+   {
+    "name": "Bottle",
+    "size": "9x8",
+    "description": "A tilted navy ink bottle stands on a flat sandy base, with a cork resting at its side and a single turquoise line along the shoulder."
+   },
+   {
+    "name": "Quill",
+    "size": "9x8",
+    "description": "A teardrop-shaped rose wisp curls out of the neck with one dark eye and a tiny golden feather in its bent tip."
+   },
+   {
+    "name": "Sign",
+    "size": "9x8",
+    "description": "The wisp stretches upright and raises the golden feather like a flag. Put a pale ink smudge beneath its dark eye."
+   }
+  ],
+  "palette": {
+   "#15223f": "bottle body",
+   "#43648e": "glass edge",
+   "#7c5949": "cork",
+   "#d989ac": "wisp and noon ink",
+   "#a978dc": "twilight ink",
+   "#2ff3ff": "glass streak and night ink",
+   "#ffd23f": "feather",
+   "#ffe6e7": "cheek smudge"
+  }
+ },
+ {
+  "id": "pitweaver",
+  "name": "Pit Weaver",
+  "world": "wildwood",
+  "where": "Use 1 in 13 pit 'O' tiles on the north rim with a tree 'T' immediately north. Hang the spider from that edge into the pit.",
+  "when": "night",
+  "story": "A spider stitches a tiny crescent across the mouth of a pit. It hangs from the middle of its stitch to admire the shape.",
+  "motion": "Use an 8 s hash-offset loop. Hang at the rim for 4.4 s, show Stitch while descending 4 px across 600 ms, show Admire for 1.8 s, then use Hang and rise 4 px across 1.2 s. During descent reveal up to seven fixed crescent pixels beside the thread, one every 80 ms. Fade them during ascent.",
+  "hero": "none",
+  "light": "Draw a one-pixel-wide violet thread from the rim to the spider as it moves. Keep the stitched crescent cyan and give it a radius 0.7 tile, alpha 0.20 cyan glow during Admire.",
+  "frames": [
+   {
+    "name": "Hang",
+    "size": "7x7",
+    "description": "A plum bead of a body hangs under two little hooks, with four visible zigzag legs and a gold dot on its belly."
+   },
+   {
+    "name": "Stitch",
+    "size": "7x7",
+    "description": "Keep the body centred and extend two legs sideways as if pulling thread across a loom. Use a pale pixel at each extended tip."
+   },
+   {
+    "name": "Admire",
+    "size": "7x7",
+    "description": "Curl all visible legs in around the belly and tilt the two cyan eyes upward toward the crescent."
+   }
+  ],
+  "palette": {
+   "#151930": "body shadow",
+   "#5e3a77": "abdomen",
+   "#ad79d8": "thread and joints",
+   "#ffd23f": "belly dot",
+   "#2ff3ff": "stitches and eyes",
+   "#defcff": "leg tip highlights"
+  }
+ },
+ {
+  "id": "mossmask",
+  "name": "Moss Mask",
+  "world": "wildwood",
+  "where": "Use 1 in 11 trees 'T' with standable forest floor directly south. Put the face just above the trunk base.",
+  "when": "always",
+  "story": "A little face in the moss spends the afternoon asleep. In the dark it watches the trail, trying the same surprised expression on every passerby.",
+  "motion": "Use Fold at noon and dawn. At dusk and night use Glance, with a 140 ms Fold blink in every hash-offset 5 s loop. Use a shared lower anchor for all poses.",
+  "hero": "Within 2.5 tiles at dusk or night, use Ooh and mirror its pupils toward the hero's horizontal position. At noon or dawn keep the clock pose.",
+  "light": "In Glance, use two low violet eye pixels. In Ooh, use #ffd23f mouth pixels with a radius 0.65 tile, alpha 0.22 gold glow centred on the mouth. Alternate the glow alpha between 0.16 and 0.22 every 220 ms.",
+  "frames": [
+   {
+    "name": "Fold",
+    "size": "8x8",
+    "description": "Two overlapping moss leaves suggest closed eyelids on a lopsided bark knot. The mouth is a one-pixel crease."
+   },
+   {
+    "name": "Glance",
+    "size": "8x8",
+    "description": "Leaf lids part around two dark violet eyes with small off-centre pupils. The lower leaves make a crooked smile."
+   },
+   {
+    "name": "Ooh",
+    "size": "8x8",
+    "description": "Raise the leaf lids one pixel and form a three-pixel gold mouth. Keep both pupils biased toward the same side for clean horizontal mirroring."
+   }
+  ],
+  "palette": {
+   "#292738": "knot shadow",
+   "#594552": "bark",
+   "#375f59": "moss base",
+   "#72a77b": "leaf tops",
+   "#8d61bf": "open eye",
+   "#ffd23f": "open mouth",
+   "#fff1af": "mouth centre"
+  }
+ },
+ {
+  "id": "fenceparcel",
+  "name": "Acorn Post",
+  "world": "wildwood",
+  "where": "Use 1 in 10 fence tiles with a fence neighbour on exactly one side. Anchor at the exposed end and mirror the art if needed so the sprite clears the rail.",
+  "when": "day",
+  "story": "A squirrel delivers an acorn to a fence post with a leaf tucked under the cap. The leaf is evidently the address.",
+  "motion": "On a hash-offset 9 s loop use Empty for 6.1 s, Arrive for 350 ms, Present for 550 ms and Parcel for 2 s. Shift Arrive up 2 px over its first 150 ms to suggest a hop. Keep the parcel at the same position in Present and Parcel.",
+  "hero": "none",
+  "light": "At the start of Parcel, draw two one-pixel gold glints near the cap for 120 ms. No light-map glow.",
+  "frames": [
+   {
+    "name": "Empty",
+    "size": "10x9",
+    "description": "Leave the top transparent. At the bottom, draw only a two-pixel moss-green saddle where the artwork meets the post."
+   },
+   {
+    "name": "Arrive",
+    "size": "10x9",
+    "description": "A russet squirrel with a tall comma tail lands on the saddle with an acorn tucked under its chin."
+   },
+   {
+    "name": "Present",
+    "size": "10x9",
+    "description": "The squirrel tips forward and puts the gold-capped acorn against the post top. A single green pixel sticks out like a folded leaf."
+   },
+   {
+    "name": "Parcel",
+    "size": "10x9",
+    "description": "Leave the moss saddle and a three-pixel acorn shape with its green address leaf. The empty space above makes the squirrel's departure legible."
+   }
+  ],
+  "palette": {
+   "#322936": "squirrel outline",
+   "#995554": "tail shadow",
+   "#d98761": "fur",
+   "#ffe3ba": "chin",
+   "#6d9c66": "moss saddle and leaf",
+   "#a77550": "acorn body",
+   "#ffd23f": "cap glints"
+  }
+ },
+ {
+  "id": "hayteacup",
+  "name": "Haystack Tea",
+  "world": "meadow",
+  "where": "Use 1 in 3 haystacks, hashing the landmark's anchor tile. Place a mouse on the ground tile immediately south of the stack when it is walkable meadow.",
+  "when": "day",
+  "story": "A field mouse sets a thimble on a flat bit of straw and pours tea from a seedpod. It holds the cup in both paws before the first sip.",
+  "motion": "In a hash-offset 6 s loop, hold Set for 2.8 s, Pour for 500 ms, Sip for 700 ms and Set for 2 s. The cup stays in place until Sip. Move its pouring stream by stepping a single gold pixel down on a 90 ms cycle.",
+  "hero": "Within 1.6 tiles, show Offer with the thimble held up on the hero-facing side. Mirror horizontally based on the hero's x coordinate.",
+  "light": "Use one gold glint pixel at the seedpod lip while pouring and one cream pixel above the cup for the first 100 ms of Offer's clock-derived 1 s cycle.",
+  "frames": [
+   {
+    "name": "Set",
+    "size": "11x8",
+    "description": "A brown mouse with a large round rose ear kneels beside a three-pixel blue thimble set on a straw shelf."
+   },
+   {
+    "name": "Pour",
+    "size": "11x8",
+    "description": "Both paws tip a curved, golden seedpod over the thimble. Keep the rose ear and nose visible above the pod."
+   },
+   {
+    "name": "Sip",
+    "size": "11x8",
+    "description": "Lift the blue thimble to the mouse's chin. A pale eye pixel is shaded by its low, contented eyelid."
+   },
+   {
+    "name": "Offer",
+    "size": "11x8",
+    "description": "Put the mouse on tiptoe with the tiny blue cup extended above its nose, held between two tan paw pixels."
+   }
+  ],
+  "palette": {
+   "#37303b": "eyes and outline",
+   "#9c6b51": "fur",
+   "#d5a578": "paws and nose",
+   "#d97c9f": "ear",
+   "#4ea9bc": "thimble",
+   "#ffd23f": "tea and seedpod",
+   "#fff3bc": "straw and porcelain glint"
+  }
+ },
+ {
+  "id": "orefiddler",
+  "name": "Ore Fiddler",
+  "world": "lumenby",
+  "where": "Use 1 in 5 exposed cyan lumen-ore anchors with quarry floor immediately south. Place the sprite at the lower edge of the ore.",
+  "when": "always",
+  "story": "A quartz beetle plucks the ore with its forelegs. The rock answers with two ripples of light.",
+  "motion": "Repeat a hash-offset 4.8 s loop with Rest for 3.8 s, Pluck for 200 ms, Recoil for 180 ms, Pluck for 160 ms, then Rest for 460 ms. Each Pluck generates a separate analytic ripple using its age within the loop, lasting 300 ms.",
+  "hero": "none",
+  "light": "For each pluck, use a #2ff3ff glow at the ore face. Over 300 ms grow its radius from 0.3 to 0.9 tiles while fading alpha to zero from 0.23 at night, 0.17 at dusk or dawn, and 0.09 at noon. Step two cyan pixels outward by 1 px every 100 ms.",
+  "frames": [
+   {
+    "name": "Rest",
+    "size": "8x7",
+    "description": "A dark violet beetle with a striped cyan shell braces low against the ore. Its front legs form two bent hooks."
+   },
+   {
+    "name": "Pluck",
+    "size": "8x7",
+    "description": "Raise one hooked foreleg by two pixels so it touches the ore edge. Draw a pale glint where claw and ore meet."
+   },
+   {
+    "name": "Recoil",
+    "size": "8x7",
+    "description": "The front hooks point inward and the shell rears a pixel. A second cyan stripe shows along its underside."
+   }
+  ],
+  "palette": {
+   "#29263e": "shell shadow",
+   "#534872": "shell plates",
+   "#a684b8": "joints",
+   "#187b9d": "shell stripe shadow",
+   "#2ff3ff": "ripples and stripes",
+   "#e6ffff": "claw glint"
+  }
+ },
+ {
+  "id": "roottailor",
+  "name": "Root Tailor",
+  "world": "underglow",
+  "where": "Use 1 in 6 underside tiles at the tips of hanging roots, requiring cave air immediately below. Put the sprite's top edge against the root tip.",
+  "when": "always",
+  "story": "An upside-down cave imp darns a split in a root. The fresh stitch is hot pink, which seems to be exactly what it wanted.",
+  "motion": "Repeat a hash-offset 5.2 s loop. Dangle for 3.4 s, show Needle for 240 ms, Pull for 360 ms, and Knot for 1.2 s. During Pull, draw three pixels from the fixed root tip to the hand and shorten the line by 1 px every 120 ms.",
+  "hero": "Within 2 tiles, flip the dangling face toward the hero's horizontal position. Select the same clock pose and mirror the thread endpoints with the sprite.",
+  "light": "Use #ff2fa0 on the drawn thread and knot, with a single #ffd23f knot centre for the last 200 ms of Knot. Place a radius 0.6 tile pink glow at the knot with alpha 0.24 at night and 0.13 otherwise.",
+  "frames": [
+   {
+    "name": "Dangle",
+    "size": "9x11",
+    "description": "A lavender imp hangs feet-first from the top centre. Its ears point downward and a tiny gold needle rests against its cheek."
+   },
+   {
+    "name": "Needle",
+    "size": "9x11",
+    "description": "The imp reaches up beside its own feet. Show the needle as two diagonal bright pixels touching the root."
+   },
+   {
+    "name": "Pull",
+    "size": "9x11",
+    "description": "The body straightens and one arm stretches sideways with an open gap between hand and root for the line pixels."
+   },
+   {
+    "name": "Knot",
+    "size": "9x11",
+    "description": "The imp curls its knees and looks up at a small pink cross set between its feet. Put one pleased smile pixel in the face."
+   }
+  ],
+  "palette": {
+   "#242039": "outline",
+   "#54447a": "imp shadow",
+   "#ad8bc8": "imp skin",
+   "#607a62": "root moss",
+   "#ff2fa0": "thread and knot",
+   "#ffd23f": "needle and knot centre",
+   "#ffe5ef": "eye and smile"
+  }
+ },
+ {
+  "id": "birchghost",
+  "name": "Birchback Lantern",
+  "world": "seterfell",
+  "where": "Use 1 in 2 sleeping-troll landmarks with a birch on their back, hashing the troll's anchor tile. Put the sprite by the lowest visible birch branch, directly above the troll.",
+  "when": "dusk-dawn",
+  "story": "A birch spirit cups a leaf lantern whenever the sleeping troll takes a deep breath. The lantern peeks through its fingers as the breath eases.",
+  "motion": "Use a hash-offset 5 s breathing loop for the spirit and lantern only. Show Cup for 2 s, Crack for 400 ms, Open for 1.1 s, then Cup for 1.5 s. During Crack and Open lift the artwork by 1 px.",
+  "hero": "none",
+  "light": "Keep a leaf-centred #ffd23f glow with radius 0.35 tiles and alpha 0.08 in Cup, 0.55 and 0.16 in Crack, and 0.85 and 0.27 in Open. In Open, put a rose pinprick on the branch one pixel above the lantern.",
+  "frames": [
+   {
+    "name": "Cup",
+    "size": "8x9",
+    "description": "A pale spirit shaped like a strip of birch bark closes two small mitts over a gold leaf. Its dark bark marks double as sleepy eyes."
+   },
+   {
+    "name": "Crack",
+    "size": "8x9",
+    "description": "Move the mitts apart by one pixel and expose the vein of the leaf. Tilt the point of the bark hood toward the lantern."
+   },
+   {
+    "name": "Open",
+    "size": "8x9",
+    "description": "The spirit holds a luminous diamond-shaped leaf on both palms. Draw a cream midrib, gold edges and one rose reflection on its chin."
+   }
+  ],
+  "palette": {
+   "#38394a": "bark marks",
+   "#8f889e": "birch shade",
+   "#ded8cb": "birch spirit",
+   "#b78242": "covered leaf",
+   "#ffd23f": "open leaf and glow",
+   "#fff2b6": "midrib",
+   "#ee89ac": "reflection"
+  }
+ },
+ {
+  "id": "fjordcrown",
+  "name": "Fjord Crown Jellies",
+  "world": "yulefjord",
+  "where": "Use 1 in 15 open-water '~' tiles cardinally adjacent to an ice floe. Anchor the jelly on the water side and keep its 2 px drift within that tile.",
+  "when": "night",
+  "story": "A tiny jellyfish presses its crown of lights to the underside of the ice. Its reflection wears the crown a beat later.",
+  "motion": "On a hash-offset 3.2 s loop show Bell for 1.6 s, Lift for 300 ms, Crown for 500 ms, then Bell for 800 ms. Move the sprite 2 px toward the adjacent floe in Lift and Crown. At 180 ms into Crown, place three reflection pixels along the adjoining ice edge for 260 ms.",
+  "hero": "none",
+  "light": "Use #2ff3ff and #c698ff glow colours alternating by tile hash. Centre the light on the bell, with radius 0.4 tiles and alpha 0.12 in Bell, rising to 0.9 tiles and alpha 0.30 in Crown. Use cyan and cream for the reflected pixels.",
+  "frames": [
+   {
+    "name": "Bell",
+    "size": "8x9",
+    "description": "A translucent violet dome floats above three short wavy tendrils. Draw a single dim cyan dot at its centre."
+   },
+   {
+    "name": "Lift",
+    "size": "8x9",
+    "description": "Flatten the dome gently and sweep all three tendrils away from the rim. The cyan core widens to two contiguous pixels."
+   },
+   {
+    "name": "Crown",
+    "size": "8x9",
+    "description": "Raise three little lavender prongs on the dome and tip the middle one with cream. Draw two nearly straight tendrils and a curled third."
+   }
+  ],
+  "palette": {
+   "#192946": "water-side shadow",
+   "#49437c": "translucent bell",
+   "#8775c9": "tentacles",
+   "#c698ff": "violet glow and prongs",
+   "#2ff3ff": "cyan core and glow",
+   "#eefcff": "crown tip and ice reflection"
+  }
+ },
+ {
+  "id": "quartzhare",
+  "name": "Prism Hare",
+  "world": "stillsand",
+  "where": "Use 1 in 7 exposed quartz landmarks with clear dune ground one tile south. Place the sprite in the quartz shade at the foot of that ground tile.",
+  "when": "day",
+  "story": "A sand hare tips its glassy ears into the sun. When both line up, a little rainbow lands on the dune beside it.",
+  "motion": "On a hash-offset 5.6 s loop hold Low for 3.2 s, Left for 400 ms, Both for 800 ms, Right for 400 ms and Low for 800 ms. While Both is active, move the spectrum 1 px sideways every 200 ms across four positions on clear sand.",
+  "hero": "Within 1.4 tiles, switch to Low and hide the spectrum. Resume the current phase on leaving.",
+  "light": "Draw a four-pixel spectrum in rose, gold, cyan and violet. While it moves, give its centre a radius 0.45 tile cream glow at alpha 0.13.",
+  "frames": [
+   {
+    "name": "Low",
+    "size": "10x11",
+    "description": "A sandy hare sits with both glass-edged ears folded around its mauve eye. Keep a dark shadow under its feet."
+   },
+   {
+    "name": "Left",
+    "size": "10x11",
+    "description": "Raise the left ear as a single narrow translucent wedge with a cyan edge. The right ear stays flat."
+   },
+   {
+    "name": "Both",
+    "size": "10x11",
+    "description": "Both ears stand clear of one another. Give one a rose edge and the other a cyan edge, with a single cream hinge pixel where they meet the head."
+   },
+   {
+    "name": "Right",
+    "size": "10x11",
+    "description": "Drop the left ear and twist the upright right ear so its violet inside edge catches the light."
+   }
+  ],
+  "palette": {
+   "#514360": "shadow and eye",
+   "#c29576": "sand fur",
+   "#f0cc98": "lit fur",
+   "#ed81b0": "rose refraction",
+   "#ffd23f": "gold refraction",
+   "#2ff3ff": "cyan refraction",
+   "#ac75e6": "violet refraction",
+   "#fff0c8": "hinge and spectrum glow"
+  }
+ },
+ {
+  "id": "sporeparasol",
+  "name": "Buttoncap Parasol",
+  "world": "sporelight",
+  "where": "Use 1 in 8 giant mushroom stem anchors with walkable ground to the south. Put the scene 4 px south of the stem's ground contact.",
+  "when": "always",
+  "story": "Two little mushroom folk share a single umbrella. The shorter one leans just far enough to bring the taller one underneath.",
+  "motion": "Run a hash-offset 5.4 s loop. Hold Folded for 3.2 s, show Raise for 200 ms, Share for 1.8 s, then Raise for 200 ms. During Share shift the umbrella reflection by 1 px every 600 ms via light pixels.",
+  "hero": "Inside 2 tiles, pick Peek during Share. Mirror the whole square based on the sign of the hero's current horizontal offset.",
+  "light": "Light the underside of the open cap with #2ff3ff at night and violet during dusk, dawn and noon. Use radius 0.65 tiles, alpha 0.25 at night and 0.11 otherwise. Draw two lit ground pixels that drift together by 1 px during Share or Peek.",
+  "frames": [
+   {
+    "name": "Folded",
+    "size": "12x11",
+    "description": "Two stubby mushroom people stand shoulder to shoulder. The smaller one holds a crumpled violet cap on a pale stalk."
+   },
+   {
+    "name": "Raise",
+    "size": "12x11",
+    "description": "The smaller figure stretches upward with its cap half-open and tilted. The taller figure ducks its rose head by one pixel."
+   },
+   {
+    "name": "Share",
+    "size": "12x11",
+    "description": "Spread the cap into a low umbrella, with two teal ribs under the rim. Keep the taller head tucked against the smaller head."
+   },
+   {
+    "name": "Peek",
+    "size": "12x11",
+    "description": "Both heads lean out together under the same edge. Show a tiny dark eye on each face and offset the umbrella tip by one pixel."
+   }
+  ],
+  "palette": {
+   "#203449": "body and cap shadows",
+   "#664f91": "cap top",
+   "#a681de": "violet underside and glow",
+   "#2ff3ff": "teal ribs and night glow",
+   "#e289ba": "tall figure",
+   "#a0cbc3": "small figure",
+   "#fff1ca": "stalk and cheeks"
+  }
+ },
+ {
+  "id": "paperunderstudy",
+  "name": "Paper Understudy",
+  "world": "fogstage",
+  "where": "Use 1 in 5 painted-flat anchors with stage floor directly south. Place the actor at the base of the flat and offset the spotlight 3 px downstage.",
+  "when": "always",
+  "story": "A folded paper actor steps out of the scenery and bows to an empty theatre. It folds itself flat again as soon as the light goes down.",
+  "motion": "Use a hash-offset 8 s loop. Show Flat for 5.3 s, Step for 300 ms, Bow for 800 ms, Step for 400 ms and Flat for 1.2 s. Put Bow 3 px downstage from Flat, and Step midway between them. While in Bow, lower the spotlight by 1 px over its first 200 ms.",
+  "hero": "Within 2.5 tiles, substitute Flourish for Bow and mirror toward the hero across the x axis. The phase and anchor stay the same.",
+  "light": "During Step and either bow pose, add a gold spotlight pool with radius 0.9 tiles and alpha 0.26 at night or 0.12 otherwise. Ramp alpha during Step according to the direction of travel. Draw a single rose glint at the hat tip for the first 140 ms of Flourish.",
+  "frames": [
+   {
+    "name": "Flat",
+    "size": "10x12",
+    "description": "A narrow vertical violet crease with one torn cream corner sits almost flush against the painted wood."
+   },
+   {
+    "name": "Step",
+    "size": "10x12",
+    "description": "Unfold one angular cream leg and a triangular blue coat. Put a square rose hat on the head at a jaunty angle."
+   },
+   {
+    "name": "Bow",
+    "size": "10x12",
+    "description": "Fold the torso down into a hard diagonal. Keep the hat on its head and show one dark joint under the paper elbow."
+   },
+   {
+    "name": "Flourish",
+    "size": "10x12",
+    "description": "Keep the origami bow and put the rose hat in an extended hand. Leave triangular negative space between the paper arm and its body."
+   }
+  ],
+  "palette": {
+   "#34334d": "fold and joint shadows",
+   "#705781": "flat crease",
+   "#769cc0": "coat",
+   "#f2d9bb": "paper",
+   "#ed6aa5": "hat",
+   "#ff2fa0": "hat glint",
+   "#ffd23f": "spotlight"
+  }
+ },
+ {
+  "id": "pinkflock",
+  "name": "Flamingo Stand-In",
+  "world": "rerun",
+  "where": "Use 1 in 4 lawn flamingo landmarks with open lawn on either side. Choose the west or east neighbouring lawn tile by hash as the prop's landing spot.",
+  "when": "always",
+  "story": "A pink wind-up chick hops out from behind a lawn flamingo and tries to hold the same one-legged pose. Even its little key goes still while it concentrates.",
+  "motion": "In a hash-offset 6.5 s loop use Hide for 4 s, Hop for 240 ms, Copy for 1.4 s, Hop for 240 ms, then Hide for 620 ms. During each Hop, tween horizontally between the flamingo and the lawn centre with a 3 px sine arc. Flip Hop on return.",
+  "hero": "Within 1.5 tiles of the lawn centre, show Wobble during Copy on alternating 120 ms clock steps. Copy stays on the other steps.",
+  "light": "Use a rose key shine at noon, warm gold at dusk or dawn, and a #ff2fa0 radius 0.5 tile glow at alpha 0.18 during night Copy and Wobble. Draw one gold pixel off the key during the first 80 ms of each Hop.",
+  "frames": [
+   {
+    "name": "Hide",
+    "size": "8x9",
+    "description": "Show a single rose eye and a two-pixel brass key low in the otherwise transparent square, as if peeking past a lawn ornament."
+   },
+   {
+    "name": "Hop",
+    "size": "8x9",
+    "description": "A toy-pink chick tucks both wire feet under its round body. Its brass key points back at an angle."
+   },
+   {
+    "name": "Copy",
+    "size": "8x9",
+    "description": "Stretch the short rose neck and stand on one wire leg. The other leg makes a tiny raised triangle. Set the key dead level."
+   },
+   {
+    "name": "Wobble",
+    "size": "8x9",
+    "description": "Tilt the neck and fan a little pink wing. Keep the planted foot on the same pixel so the chick's balance reads at a glance."
+   }
+  ],
+  "palette": {
+   "#3b2d50": "feet and eye",
+   "#ae4e81": "toy shadow",
+   "#ee86b1": "painted body and noon shine",
+   "#ff2fa0": "night shine and glow",
+   "#ffd23f": "brass key and sparks",
+   "#fff1b4": "key highlight"
+  }
+ },
+ {
+  "id": "glimmerfae",
+  "name": "Glimmer fairies",
+  "world": "coast",
+  "where": "Over glowing-flower tiles ':' on the Neon Coast, about one patch in four; 2-3 fairies per patch",
+  "when": "dusk-dawn and night",
+  "story": "Tiny fairies dance figure-eights over the glowing flowers, leaving glitter trails. When the hero comes close they scatter in a burst of sparkles and peek back from a safe distance.",
+  "motion": "4 wing frames at 12 fps; lissajous loops 0.6 tiles wide; scatter outward smoothly with distance < 2 tiles",
+  "hero": "within 2 tiles: fly out to ~2.5 tiles and hover, facing the hero",
+  "light": "each fairy a 1.2-tile glow in its own colour (pink #ff2fa0, cyan #2ff3ff, gold #ffd23f); a trail of 4-6 fading 1-px glitter pixels behind",
+  "frames": "glimmerfae_0..3, 7x7: a tiny glowing body with a bright white core, gauzy translucent-looking wings up, mid, down, mid",
+  "palette": "body tones per colour, white core, pale wing tints"
+ },
+ {
+  "id": "wisps",
+  "name": "Will-o-wisps",
+  "world": "wildwood",
+  "where": "Over water '~' tiles in the Wildwood, deep-water tiles away from shore, rare",
+  "when": "night",
+  "story": "A little procession of three wisps bobs across the water like lanterns on a string. If the hero follows, they drift just ahead, as if leading the way somewhere.",
+  "motion": "bobbing sine, 3 wisps in a line with phase offsets, flame flicker 3 frames",
+  "hero": "keep about 3 tiles away from the hero along their path",
+  "light": "pale cyan-green 1.8-tile glows, flickering; faint reflection pixels on the water below",
+  "frames": "wisps_0..2, 6x9: a teardrop flame with a face-like pair of dark eye dots, flickering tip",
+  "palette": "cyan-green flame, white core, deep teal"
+ },
+ {
+  "id": "fairyring",
+  "name": "Fairy ring",
+  "world": "wildwood",
+  "where": "On plain ground '.' in the Wildwood next to trees, very rare (about one ring in view at a time)",
+  "when": "dusk-dawn and night",
+  "story": "A ring of eight tiny mushrooms lights up one after another, round and round, while a fairy in the middle spins and claps. Each time the ring completes, a puff of pollen rises.",
+  "motion": "mushroom lit state chases round the ring at 6 per second; fairy spins in 4 frames; pollen puff every lap",
+  "hero": "when the hero steps into the ring (within 0.8 tiles) every mushroom lights at once and the fairy bows",
+  "light": "each lit mushroom a 0.8-tile violet/pink glow; pollen puff gold sparkle pixels",
+  "frames": "fairyring_shroom_off 5x5, fairyring_shroom_on 5x5, fairyring_fae_0..3 7x8 (spinning, arms up)",
+  "palette": "mushroom caps violet/pink lit and dull, stems cream, fairy gold and white"
+ },
+ {
+  "id": "owlwatch",
+  "name": "Night owls",
+  "world": "coast",
+  "where": "In tree crowns 'T' on the Neon Coast and in the Wildwood, a few per screen",
+  "when": "night",
+  "story": "Owls hidden in the dark crowns. Only their big gold eyes show; they blink, and they follow the hero as he walks past. Now and then one hoots and its eyes flash.",
+  "motion": "eyes shift left/centre/right by the hero's direction; blink every few seconds",
+  "hero": "eyes look toward the hero (left/centre/right frames); within 1.5 tiles the owl ruffles (wide-eyed frame)",
+  "light": "tiny gold glows (0.6 tiles) on the eyes",
+  "frames": "owlwatch_l, owlwatch_c, owlwatch_r, owlwatch_blink, owlwatch_wide; 9x6: dark owl head shape with two round gold eyes and pupils",
+  "palette": "dark plum feathers, gold eyes, black pupils, white catchlight"
+ },
+ {
+  "id": "moonbloom",
+  "name": "Moonblooms",
+  "world": "meadow",
+  "where": "Grass and flower tiles in THE GREEN MILES and on the Neon Coast's grass edges, rare clumps",
+  "when": "night (closed by day)",
+  "story": "Pale flowers that slowly open as the night deepens and breathe out drifting motes of glowing pollen that float upward and fade.",
+  "motion": "open amount follows the sun height (closed, half, open, wide); pollen motes rise in a slow wavy line",
+  "hero": "when the hero is close the flower leans toward him",
+  "light": "soft white-violet 1-tile glow from open flowers; rising pollen pixels in pale gold",
+  "frames": "moonbloom_0..3 7x9: closed bud, half-open, open, wide open with glowing heart",
+  "palette": "pale lilac petals, white glow, green stem, gold pollen"
+ },
+ {
+  "id": "dragonfly",
+  "name": "Neon dragonflies",
+  "world": "coast",
+  "where": "Over shallow shore water and near reeds on the Neon Coast and in the Wildwood",
+  "when": "day",
+  "story": "Iridescent dragonflies dart, hover, dart again, their wings flashing pink and cyan in the sun. One sometimes lands on the hero's lamp post.",
+  "motion": "hover 0.4-1.2 s then dart 1-2 tiles in a straight line; wing frames 16 fps",
+  "hero": "dart away when the hero gets within 1.5 tiles",
+  "light": "no glow by day; wing glints of 1 white pixel at hover",
+  "frames": "dragonfly_0..1 9x5 (wings up/down), side view of a long slim body",
+  "palette": "teal body, pink/cyan iridescent wings, white glint"
+ }
+]
