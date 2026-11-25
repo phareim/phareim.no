@@ -47,9 +47,11 @@ dig map they add two B items to the cycle (`UseItem`):
 - Every change is an edit against the map as authored: `GameState.digEdits[mapId][tileIndex] = tile + height`.
   An edit back to the authored tile and height is dropped. `loadMap` lays them over the tiles, so they survive
   leaving and coming back; a generated map (same seed, same tiles) takes them the same way.
-- Caps: `DIG_CAP` 400 edits a map, `DIG_MAPS` 8 maps. At the cap a change of a new tile is refused with a line
-  (an edited tile can still change).
-- `SaveData.dig`: per map, `<index base 36><tile><height>` joined by commas (a few KB at most). `parseSave`
+- Caps: `DIG_CAP` 400 edits a map, `DIG_TOTAL` 800 in all, on up to `DIG_MAPS` 24 maps (room for every dig map
+  of the world: the quarry and the 18 generated dig regions now; a test counts them). At a cap a change of a new
+  tile is refused with a line that says which (this map's, or the land's: fill a hole or take something back,
+  here or elsewhere); an edited tile can still change. A save keeps at most about 5 KB of edits (16 KB in all).
+- `SaveData.dig`: per map, `<index base 36><tile><height>` joined by commas (about 5 KB at most). Older saves past the total are cut at it. `parseSave`
   cleans it and the materials; saves without them load as before. A `dig` event saves at once.
 
 ## Drawing

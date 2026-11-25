@@ -8,7 +8,7 @@
  * chosen kind, a ramp up a step, a plank over water, a lamp; it takes back
  * what was built). Every change is an edit against the map as authored,
  * kept per map in `GameState.digEdits` and the save, at most `DIG_CAP` per
- * map and `DIG_MAPS` maps.
+ * map and `DIG_TOTAL` in all, on up to `DIG_MAPS` maps.
  */
 import type { DigKind, DigMat, DigState, Dir, GameState, ItemId, MapDef, TileChar, UseItem, World } from '../types'
 import { HERO_R } from '../types'
@@ -20,9 +20,14 @@ import { openDialog } from './hero'
 import { baseHeights, digLevel, groundOf, isRamp, MAX_HEIGHT, RAMPS } from './digGround'
 import { dirVec } from './util'
 
-/** Edits one map may hold, and maps that may hold any: the save stays small (a few KB at most). */
+/**
+ * Edits one map may hold, edits in all, and maps that may hold any. Every dig map of the world (the quarry and
+ * the generated dig realms' regions, 19 now) has room; the total keeps the save small: at most about 5 KB of
+ * edits (an edit is 6 chars at most), well under the save's 16 KB.
+ */
 export const DIG_CAP = 400
-export const DIG_MAPS = 8
+export const DIG_TOTAL = 800
+export const DIG_MAPS = 24
 /** Materials stack this high. */
 export const MAT_MAX = 99
 
@@ -91,13 +96,17 @@ function baseOf(world: World, s: GameState, i: number): [TileChar, number] {
   return [info.base[i]!, baseHeights(info.def)[i]!]
 }
 
-/** Would an edit of tile i on this map fit under the caps? */
-function roomFor(s: GameState, mapId: string, i: number): boolean {
+/** Would an edit of tile i on this map fit under the caps? Null when it does, else the cap it meets: this map's or the world's. */
+function roomFor(s: GameState, mapId: string, i: number): 'map' | 'all' | null {
   const all = s.digEdits ?? {}
   const ed = all[mapId]
-  if (!ed) return Object.keys(all).length < DIG_MAPS
-  return i in ed || Object.keys(ed).length < DIG_CAP
+  if (ed && i in ed) return null
+  if (ed && Object.keys(ed).length >= DIG_CAP) return 'map'
+  if (!ed && Object.keys(all).length >= DIG_MAPS) return 'all'
+  return digCount(all) < DIG_TOTAL ? null : 'all'
 }
+
+const digCount = (all: NonNullable<GameState['digEdits']>): number => Object.values(all).reduce((n, ed) => n + Object.keys(ed).length, 0)
 
 function record(world: World, s: GameState, i: number, ch: TileChar, h: number) {
   const id = s.map.id
@@ -140,20 +149,21 @@ export function encodeDig(e: GameState['digEdits']): Record<string, string> | un
 export function decodeDig(raw: unknown): GameState['digEdits'] {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
   const out: NonNullable<GameState['digEdits']> = {}
+  let total = 0
   for (const [id, str] of Object.entries(raw as Record<string, unknown>)) {
-    if (Object.keys(out).length >= DIG_MAPS) break
+    if (Object.keys(out).length >= DIG_MAPS || total >= DIG_TOTAL) break
     if (typeof str !== 'string' || id.length > 64) continue
     const ed: Record<number, string> = {}
     let n = 0
     for (const part of str.split(',')) {
       const m = /^([0-9a-z]{1,4})(.)([0-4])$/u.exec(part)
-      if (!m || n >= DIG_CAP) continue
+      if (!m || n >= DIG_CAP || total + n >= DIG_TOTAL) continue
       const ch = m[2]!
       if (!isTileChar(ch) || !EDIT_CHARS.has(ch)) continue
       ed[parseInt(m[1]!, 36)] = ch + m[3]
       n++
     }
-    if (n) out[id] = ed
+    if (n) { out[id] = ed; total += n }
   }
   return Object.keys(out).length ? out : undefined
 }
@@ -327,9 +337,12 @@ export function useDigTool(c: Ctx) {
     return
   }
   const i = p.ty * s.map.w + p.tx
-  if (!s.demo && !roomFor(s, s.map.id, i)) {
+  const full = s.demo ? null : roomFor(s, s.map.id, i)
+  if (full) {
     c.ev.push({ type: 'error' })
-    openDialog(c, ['THE GROUND HERE WILL TAKE NO MORE CHANGES. TAKE SOMETHING BACK FIRST.'], null)
+    openDialog(c, [full === 'map'
+      ? 'THE GROUND HERE WILL TAKE NO MORE CHANGES. TAKE SOMETHING BACK FIRST.'
+      : 'THE LAND WILL TAKE NO MORE CHANGES. FILL A HOLE OR TAKE BACK SOMETHING YOU BUILT, HERE OR IN ANOTHER PLACE.'], null)
     return
   }
   const m = s.map

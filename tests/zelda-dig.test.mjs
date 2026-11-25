@@ -297,6 +297,49 @@ describe('Neon Shrine dig & build', () => {
     assert.equal(Z.decodeDig('nope'), undefined)
   })
 
+  it('has room for edits on every dig map of the world, in a save that stays small', () => {
+    const digMaps = Object.entries(Z.WORLD.maps).filter(([, d]) => d.dig).map(([id]) => id)
+    for (let ry = 0; ry < 16; ry++) for (let rx = 0; rx < 16; rx++) if (Z.WORLD.generate(`fr:${rx},${ry}`)?.dig) digMaps.push(`fr:${rx},${ry}`)
+    assert.ok(digMaps.length > 8, `${digMaps.length} dig maps`)
+    assert.ok(digMaps.length <= Z.DIG_MAPS, `${digMaps.length} dig maps, room on ${Z.DIG_MAPS}`)
+    // An edit (a felled tree) on every other dig map: the quarry still takes one.
+    const s = quarry(['shovel'])
+    s.digEdits = Object.fromEntries(digMaps.filter(id => id !== 'quarry').map(id => [id, { 100: '.1' }]))
+    stand(s, 18, 12, 'up')
+    s.inv.selected = 'dig'
+    step(s, inp({ bPress: true }))
+    assert.equal(s.mode, 'play', 'refused')
+    assert.equal(tile(s, 18, 11), 'к')
+    // In all, the land holds DIG_TOTAL; past it a change is refused, with a line that does not ask for the map's own.
+    settle(s)
+    /** `total` edits spread over `maps` maps, with the longest ids and indices a 64×44 region has. */
+    const spread = (maps, total) => {
+      const out = {}
+      for (let k = 0; k < maps; k++) {
+        const ed = (out[`fr:${10 + (k % 6)},${10 + Math.floor(k / 6)}`] = {})
+        for (let i = 0; i < Math.floor(total / maps) + (k < total % maps ? 1 : 0); i++) ed[2815 - i] = 'а4'
+      }
+      return out
+    }
+    s.digEdits = spread(20, Z.DIG_TOTAL)
+    stand(s, 17, 12, 'up')
+    s.inv.selected = 'dig'
+    step(s, inp({ bPress: true }))
+    assert.equal(s.mode, 'dialog')
+    assert.match(s.dialog.lines.join(' '), /ANOTHER PLACE/)
+    assert.equal(tile(s, 17, 11), '.')
+    settle(s)
+    // The worst case in a save: about 6 chars an edit.
+    const enc = Z.encodeDig(spread(Z.DIG_MAPS, Z.DIG_TOTAL))
+    const bytes = JSON.stringify(enc).length
+    assert.ok(bytes <= 6 * Z.DIG_TOTAL + 16 * Z.DIG_MAPS, `${bytes} chars of edits`)
+    assert.ok(bytes < 6000, `${bytes} chars of edits`)
+    // A save past the total is cut at it.
+    const over = { ...enc, quarry: Array.from({ length: 50 }, (_, i) => i.toString(36) + 'д1').join(',') }
+    const back = Z.decodeDig(over)
+    assert.equal(Object.values(back).reduce((k, ed) => k + Object.keys(ed).length, 0), Z.DIG_TOTAL)
+  })
+
   it('reads old saves, and saves with the tools out', () => {
     const s = quarry(['shovel'])
     const save = Z.toSave(s)
