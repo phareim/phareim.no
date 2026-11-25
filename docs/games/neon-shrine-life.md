@@ -73,7 +73,7 @@ chick is out, so it flickers).
 4. Look at it in place: `heavy -x chrome -- env LIFE_FILE=themes/zelda/render/life/<id>.ts
    LIFE=<map>,<x>,<y> LIFE_T=<s> [DAY=noon|night] [VIEW=iso] node scripts/zelda-lab/shot.mjs <dir> life`
    (scene `life`: the hero at x, y with no foes; `LIFE_T` moves the clock; map ids
-   like `fr:0,5` may hold commas). It must be findable without being told where,
+   are plain names like `seterfell`). It must be findable without being told where,
    and read as what it is at 1280 and 390 px, in both views.
 5. `tests/zelda-life.test.mjs` (in `test:zelda`) checks every file in the folder is
    registered once and its frames are rectangular, ≤ 16×16 and in its palette.

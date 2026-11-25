@@ -1,271 +1,76 @@
-# The frontier — Neon Shrine's generated world
+# The lands: Neon Shrine's world beyond the coast
 
-Across the bay from the town lies the **frontier**: a world made from a seed
-instead of drawn by hand, many times the size of the hand-made maps. The town,
-the coast, the Shrine and the Wildwood stay as they are.
+Around the town, the coast and the Wildwood lie seven lands, each a map drawn by hand: Seter Fell, Yule Fjord, the
+Sporelight, Stillsand, Rerun Estates, Lumenby Quarry and Fogstage, with the Underglow under Lumenby. Where they lie,
+what is in them and which stories run through them: [`atlas.md`](atlas.md). This file is how they are built.
 
-**Getting there.** Two ways: by boat to the Landing, or on foot through a gate
-straight into a realm.
+They replaced a generated frontier (89 regions made from a seed, 2026-11-25) that was reached both north of the
+coast by gates and south across the bay by ferry, so no place had a where. The realm sketches (`realm-*.md`), the
+concept pictures (`img/`) and the battle and dig notes are still the design behind the lands.
 
-- The ferry at the end of the town's pier (overworld 20,38) goes to THE
-  LANDING (`fr:6,8`); the dock there brings you back (entry `ferry`). The
-  ferryman stands on the pier until the hero has a blade. In the isometric view
-  the neon ferry bobs alongside each pier (`render/iso/ferryArt.ts`, lab scenes
-  `f-ferry-town` and `f-ferry-landing`).
-- Six **gates** (`gen/gates.ts`) lead from the edges of the hand-made maps into
-  a region of a realm. Each sits at the end of a short road between two lamp
-  posts, with a sign at the junction; the region side has a notch in its rim
-  with lamp posts, a sign and a road to the region's network. Both ends name
-  the entry `gate-<id>`. Every gate has a warden who stands aside only for the
-  blade, as the ferryman does: the bomb bag can be had before the blade, and a
-  bomb cuts the town's thicket as well as a boulder.
+## One grid
 
-| Gate | From (hand-made) | Lock | Into | Then |
-|---|---|---|---|---|
-| `fell` | Whisper Woods, north (overworld 45,0) | the warden; a boulder (bombs; the bomb bag is the chest beside it) | SETER FELL `fr:4,1` | Yule Fjord north of it |
-| `spore` | Night Market, north wall (81,0) | the warden | THE SPORELIGHT `fr:7,2` | the Battle Glade's stairs |
-| `sand` | Hollow Graves, east wall (103,12) | the warden; a cracked wall (bombs) | STILLSAND `fr:9,4` | the Puzzle Lab's stairs, the pyramid next door |
-| `lawns` | Mirror Lake, east shore (103,37) | the warden | RERUN ESTATES `fr:8,6` | |
-| `quarry` | the Wildwood's Riddle Grove, north (39,0) | the warden; the Wildwood's own boulders | LUMENBY QUARRY `fr:2,2` | the Old Quarry's stairs, the deep drift |
-| `fog` | the Wildwood's Deep Woods, west (0,20) | the warden; the ravine (the hook) | FOGSTAGE `fr:2,6` | |
+Every outdoor map has a place on one grid of tiles (`themes/zelda/world/atlas.ts`, `World.atlas`): x east, y south,
+the overworld's top-left at (0, 0), the Wildwood at (−84, −12). A land's place is its top-left tile.
 
-So every realm but Fogstage is within about 200 tiles of the start on foot
-(Seter Fell about 80, Yule Fjord about 135); the Wildwood, the quarry, the
-fell and Whisper Woods make a loop. No field foe stands within 10 tiles of
-either end of a gate. On the MAP page the gates and the ferry are lit squares
-on the coast's map (and, out there, the ways home: not a region's stairs), and the frontier's grid stands beside it
-(once the blade is in hand) with a bar on each gate region's gate side. Until
-the hero has walked into the frontier, the pause screen's QUEST line points at
-the gates and the ferry when it has room (`progress.ts`).
+- **Seams.** Walking off a land's edge where the ground is open carries the hero into the map that holds the next
+  tile of the grid, at the same place along the edge (`edgeOut` in `engine/game.ts`, `atlasAt`). Two lands share a
+  pass of three tiles, open on both sides; elsewhere the rims are cliff, sea or wood. The validator checks the grid:
+  no two maps overlap, and an open rim tile always meets open ground beyond it (`world/validate.ts`, `atlasProblems`).
+- **Past the edge.** The isometric view, the classic painters and the shadows draw past an outdoor map's edge
+  whatever map of the grid lies there (`render/beyond.ts`, `atlasBeyond`): from Seter Fell's rim the view looks
+  down into Whisper Woods. Where no map lies, the old guess goes on (sea stays sea, rock stays rock, else woods).
+- **Gates.** The six ways from the hand-made coast and Wildwood into the lands are warps, not seams
+  (`world/gates.ts`): each is a short road between two lamp posts with a warden who stands aside only for the blade,
+  and its two ends lie side by side on the grid. Both ends name the entry `gate-<id>`; ids never change.
+- **The ferry.** The pier's warp sails to Yule Fjord's harbour (entry `ferry`) and back (overworld `ferry`).
+- **Stairs** lead from three lands to the systems' teaching maps (`world/demos.ts`): Lumenby's pit to THE OLD
+  QUARRY, a root stair in the Sporelight to THE BATTLE GLADE, Stillsand's gold pyramid to THE PUZZLE LAB.
+- **The MAP page** draws the whole world's chart beside the map of where the hero is (`render/worldMap.ts`): each
+  map of the grid where it lies, the coast and the Wildwood always, a land once walked into (flag `seen:<id>`).
 
-## Frontier art
+## A land
 
-Each realm has a kit in `themes/zelda/render/iso/frontierArt/`. The authored
-solids bake into the isometric renderer's 32 px/tile grid, with hard alpha,
-surface normals and depth. The generated tables are packed losslessly for
-the build. Each realm's kit is a chunk of its own (`frontierArt/index.ts`):
-the view fetches it when the hero enters the realm or a region next to it,
-adds only that kit to its prop atlas, and leaves the realm's landmarks out
-until it is here. A visit to the town downloads none of them
-(`tests/zelda-size.test.mjs`).
-`frontierScenery.ts` anchors scenery to generated stamps and quest
-sites, with the lights each piece carries (named by tone; how they shine:
-`docs/games/neon-shrine-looks.md`, "Light and life"). A thing with a body (a cart, a crate, a churn, a big mushroom,
-sandbags, a wagon, a mailbox, a flamingo, an island, the headframe's legs)
-names the tiles it stands on (`solid`), and they are solid to walkers in
-every view (`MapInfo.scenery`, `engine/map.ts`). A tile stays open on the run
-of a road, at the rim, under anyone or anything placed, beside an entry,
-warp, door or exit (a thing built over one, like the headframe over its
-shaft, keeps only the way in itself open), and where a battle group's foes
-stand; a tile that would cut off ground the entries reach (a path's dead end)
-is let go. Where the realm's own art is not drawn (the classic view, the
-view without WebGL2, the isometric view while the realm's chunk is on its
-way or if it failed) a plain stand-in (a crate, a post, a mushroom, a stone;
-`render/standIns.ts`) stands on each solid tile, so nothing is in the way
-that cannot be seen (`tests/zelda-scenery.test.mjs`). The Underglow places
-its landmarks by layer in `descent.ts`.
-The Green
-Miles have windmills, waystones, haystacks and bus stops. The Landing has a
-pier and breakwater, and the camp kit adds the fire, kettle and neon board.
-Road lamps use the region hash to sit on open verges beside the finished
-road. The lamps, Seter huts, fjord cottages, Rerun houses and Sporelight
-bathhouse switch to emissive frames at dusk. The arches stand over the gates `cutGate` cuts (`region.ts`), and the coast's waymarks and barriers by the gates' hand-made ends (`overworld.ts`, `wildwood.ts`). The fjord lighthouse has four
-lens directions and the Fogstage spotlights have eight head directions.
+A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports its maps (the land and its caves) as
+`MAPS`; `world/lands.ts` gathers them. Seter Fell (`seterfell.ts`) is the worked example.
 
-The six realm arches have day and night sprites for both road axes.
-`sceneryAt` centres a north–south road arch on a three-tile `gate` stamp and
-uses `gate:ew` for an east–west road. The coast atlas holds the two-frame
-destination signs and the raised and lowered BORDER arms for the gate routes.
+- `away: true`: a land past the coast. A reload of the tab out there continues there (the per-tab flag `zelda.out`,
+  `awayMap`, `loadSpot`); arriving by a gate, the ferry or a seam opens the arrival area's first-visit words.
+- `realm`: the land's identity: its art kit (`render/iso/frontierArt/`, fetched as a chunk of its own when the hero
+  is there), its light and air (`render/looks.ts`, `MOOD`), its people's and foes' looks, the critters that live
+  there (`render/life/`). `kits` names more kits the map draws from (Seter Fell's hay and mill are the `meadow` kit's);
+  the view merges them (`kitsFor`).
+- `look` (one per map): snow, dune, spore, fog, quarry, suburb, wild. A climate is its own map.
+- Areas: five to eight named ones, each with a continue point and `intro` (the realm's first-visit words, flag
+  `realm:<realm>`, so they open once in whichever area the hero arrives). `camp` is the land's heart: a save out
+  there that lost its spot continues there.
+- The realm's system lives in a place built for it: dig & build in Lumenby (`MapDef.dig`), field battles in the
+  Sporelight, Rerun Estates and Fogstage (`MapDef.battle` groups instead of field foes), physical puzzles in Yule
+  Fjord and Stillsand (puzzle tiles in the rows, chests that appear once a puzzle is solved).
+- Scenery: `world/scenery.ts` has the helpers (`prop`, `light`, `at`, `cycle`, `lantern`) and the presets the
+  realms' places were drawn with (`sceneryAt(realm, place, x, y)`); the classic tiles under a building are an `H`
+  block its landmark covers, a body on open ground gets a `solid` footprint and a classic stand-in
+  (`render/standIns.ts`).
+- The questlines' people keep their old ids (`q.…`, `l.…`), so their flags and saves still work; each story's first
+  step stands on the hand-made coast or in the Wildwood (atlas.md, "The stories start in the old world").
 
-The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
-Their isometric frames use the same sprite names and live-sprite hash checks
-as the rest of Neon Shrine. The eight boss families are registered for their
-planned encounters. Era, sign, troll and other quest art includes the variants
-for those systems. See the [art checklist](../art/codex-tasks.md).
+## Old saves
 
-- Bake and preview one prop kit with `node scripts/zelda-lab/frontier-art.mjs <kit> <out.html>`.
-- Bake the actor families with `node scripts/zelda-lab/frontier-people.mjs`.
-  Pass a JSON path to also write GROK's four Blender guide poses, then render
-  them with `scripts/zelda-lab/grok-guide.py`.
-- The `f-<realm>` and `f-<realm>-390` scenes in `scripts/zelda-lab/shot.mjs`
-  show the generated landmarks in place at desktop and phone widths.
+Saves name a map and an entry. A save made in the generated frontier (`fr:<x>,<y>…`) continues in the land that took
+its region's place, at the same gate when it was made at one, else at the land's `camp`; the Green Miles' at the
+Crossroads, the Landing's at the pier, the Underglow's at Lumenby's deep drift (`rescueFrontier` in
+`world/atlas.ts`, called by `rescueSave` through `World.rescue`). Items, hearts and flags are kept; dig edits and
+explored tiles of maps that no longer exist are dropped, so they do not count against the caps.
 
-## How it is made (`themes/zelda/world/gen/`)
+## Checks and tools
 
-| File | What |
-|---|---|
-| `frontier.ts` | `FRONTIER`: seed, region size (64×44), the macro map (one char per region → a realm), the Landing, hand-written `sites`, the `gates`. `frontierMap(id)` makes a map on first ask and keeps it. Ids, one spelling each (`fr:06,8` and `cave00` are no map): `fr:<rx>,<ry>`, caves `fr:<rx>,<ry>:cave<n>`, the Underglow's layers `fr:<rx>,<ry>:deep<n>` |
-| `gates.ts` | The gates from the hand-made world (data only): id, region, the rim side and a preferred place along it, the hand-made map and entry it leads back to, the region-side sign. `gateWarp(id)` is the hand-made side's warp tile |
-| `realms.ts` | The realms as data (`RealmSpec`, `types.ts`): terrain mix, foes by weight, density, places, folk and what they say, the first visit's words (`intro`), what each place's signs say (`signs`, by stamp; `lore` where a place has none), loot, allowed views, `special` (dig / battle / puzzles) |
-| `region.ts` | One region: noise in world coordinates → land; a rim with passes where a neighbour is (the pass offsets are a hash of the edge, so both sides cut the same gap); places (`stamps.ts`, sites); roads (cheapest paths joining passes and places); folk, chests, signs and foes on what the roads reach. Folk are drawn without putting back (nobody twice in a region before everyone has stood, nobody saying the same twice); a camp's sign adds the roads out to other realms ("NORTH: SETER FELL"), from the macro map; then, with no more draws from the seed, a gate cut into the rim (`cutGate`) and the foes thinned |
-| `stamps.ts` | The places: camp, house, hamlet, shrine, relic (a realm's heart piece), graves, cave, pond, market, ruin, grove, stones, the Landing's dock; per realm: lots, truck, whistle (Lumenby); seter, trollhump, mound, cairns (Seter Fell); stilts, boathouse, racks, lighthouse (Yule Fjord); island, ribs, oasis, warden, caravan (Stillsand); well (stairs to THE UNDER), clickers, shellyard, windmill (Sporelight); hilltown, ghostlight, flats, reeds (Fogstage); culdesac, lot, booth, hedgemaze, garagesale (Rerun) |
-| `cave.ts` | A cave: 2–3 × 2 rooms of 16×12 joined by a random spanning tree (`carveRooms`), the stairs up in the first, a chest in the furthest; a realm may name its caves and their foes (`RealmSpec.cave`) |
-| `descent.ts` | THE UNDERGLOW under Lumenby: six layers of 3×2 rooms (Echo Ledges, the Upside Grove, the Glass Sea, Broadcast, the Fossil Arcade, the Core), stairs up and down, a person of the deep on each, heart pieces on 2 and 4; the Core's Geyser goes home. Reached by the deep drift at `fr:0,3` |
-| `quests.ts` | The questlines' sites (`QUEST_SITES`), the realms' landmarks (`LANDMARK_SITES`: the pyramid, the Steamhouse, the deep drift, the drive-in), the folk of the deep. Stories: `quests.md` |
-| `rng.ts` | Hashes, a seeded generator, value noise |
-
-The engine sees ordinary `MapDef`s: `World.generate` (in `world/index.ts`) makes
-any id `maps` does not have, and `mapDef(world, id)` (engine/map.ts) is the one
-lookup. Three MapDef fields came with it: `edges` (walking off an edge where
-there is open ground fades into the neighbour at the same place along the
-edge), `realm`, and `views` (the shell turns to an allowed view while the hero
-is there, the isometric one first, and back to the visitor's own after; V skips
-the others). Saves just name the map (`fr:6,8`), so a save made out there loads
-out there. The continue point is the way you came into the region: its camp
-when you walked in over an edge or came by the ferry, the gate or the stairs
-when you came through one. Death puts you back there, and so does a reload of
-the tab: while the continue point is out in the frontier the shell keeps a
-per-tab flag (`zelda.out`), and `loadSpot` then starts the page at the save's
-continue point instead of in town. A new visit (a new tab, the site opened
-again) starts in town, as always, with everything the save carries. A save
-whose entry has gone continues at that map's camp, its region's camp, or the
-ferry's pier, and never as a new game (`createGame`). A region is one area edge to edge, so its
-realm's first-visit intro (`realm:<id>`) opens when the arrival's fade is
-over, and the banner shows only when the area's name changes.
-
-**How hard a region is.** What the seed draws counts from the Landing
-(`RegionCtx.depth`: battle group sizes, how many foes are tried, cave foes and
-loot). How many foes *stay* counts from the nearest way in, `near` = min(the
-Landing distance, 1 + the distance to the nearest gate region): a battle group
-keeps the size it would have had at `near`, a region keeps as many as its
-density at `near` gives, at most 18 field foes and 8 battle groups (8 field
-foes in the Green Miles), none within 5 tiles of a placed stamp or site (a
-stamp's own foe slot stays), none within sight of a gate's arrival. Where the
-places crowd a region so that the clear ground would empty it, it keeps at
-least 6 field foes (3 battle groups) all the same: the cleared ones nearest
-the edge of that ground come back, never within 2 tiles of a place. The heart
-piece still stands in each realm's region furthest from the Landing.
-
-Same seed, same world: everything is a pure function of the seed and the
-region's place, on every device. Things saved against the world (chest flags
-`chest:fr:<rx>,<ry>.c<n>`, dig caches `took:…cache<n>`, a realm's first-visit
-flag `realm:<id>`, dig edits) point into it — **changing the seed, the region
-size or a realm's recipe moves everything already saved**. Add realms and
-regions at the macro map's edges instead, or bump the frontier's seed only with
-a save migration.
-
-**The save-safe way to change a region** is after the seed's last draw, as the
-gates do: `cutGate` and the foe thinning run once everything the seed places
-is placed, use no random numbers, and route round chests, folk and buried
-caches. A new gate is one more row in `gates.ts` (its id is never renamed or
-removed afterwards: saves continue at `gate-<id>`). The fingerprint fixture
-`tests/zelda-frontier-fingerprint.json` (`tests/zelda-fingerprint.mjs`, taken
-before the gates) holds every map's chest ids, places and contents, folk,
-entries, caves and caches; `tests/zelda-gates.test.mjs` fails if any of them
-moves. Regenerate it only for a change that is meant to move saved things.
-
-Checks: `tests/zelda-frontier.test.mjs` (every region made and kept; both sides
-of every edge open at the same tiles; the world checks pass with every region
-and cave and layer of the deep in; the ferry; walking off an edge; every realm
-on the macro map; every site in its region and realm; every line in the pixel
-font, a page at most three rows of the narrowest box with the touch deck's key
-names; everyone who talks opens with a name, none of them a hand-made
-character's; every camp's roads true to the macro map; the clean seed talked
-through end to end) and `tests/zelda-gates.test.mjs`
-(every gate walked through both ways, saved at and reloaded, calm on arrival
-at both ends; each lock; no frontier tile reached without the blade, even with
-bombs and the hook; every gate reached on foot from the start; every realm but
-Fogstage within 200 tiles; the fingerprint; the foe caps and floor; the
-continue point and a reload the way the shell starts a page, the realm intro,
-old saves and one spelling per map). Pictures:
-`VIEW=iso node scripts/zelda-lab/shot.mjs <dir> f-landing,f-meadow,f-cave` and
-one per realm: `f-lumenby`, `f-underglow`, `f-seterfell`, `f-yulefjord`,
-`f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`; the gates: `g-fell`,
-`g-spore`, `g-sand`, `g-lawns`, `g-quarry`, `g-fog` (the hand-made side),
-`g-in-fell`, `g-in-sand` (the region side), `g-map` and `g-map-390` (the MAP
-page on the coast); the words in the phone's box: `f-say-gunn-390`,
-`f-say-folk-390`, `f-say-roads-390` (a camp sign's roads out), `f-say-cross-390`, `f-say-intro-390`.
-
-## The macro map
-
-12 × 9 regions, 89 of them (north up; ' ' is the sea):
-
-```
-     x 0123456789AB
-y 0      YYYYYYYY       Y YULE FJORD        S SETER FELL      Q LUMENBY QUARRY
-  1     QSSSSSSPPP      P THE SPORELIGHT    D STILLSAND       F FOGSTAGE
-  2    QQQSSSGPPPPD     R RERUN ESTATES     G THE GREEN MILES L THE LANDING
-  3    QQQGSGGGPPDD
-  4     QGGGGGGGDDD     The Underglow is not on it: it is under Q, down the
-  5    FFFGGGGGRDDD     deep drift at fr:0,3 (descent.ts).
-  6    FFFFGGGRRRDD
-  7     FFFGGGRRRR
-  8       F  L
-```
-
-The ferry lands in the south; the Green Miles are the plain between; the cold
-runs along the north (the fjord west to east over the fell's pastures), the
-quarry hills west, the fungus wood north-east, the desert east, the fog
-lowland south-west, the lawns south-east. Each realm's heart piece stands in
-its region furthest from the Landing.
-
-## The realms (designs in this directory)
-
-| Realm | Sketch | Special | look | views |
-|---|---|---|---|---|
-| LUMENBY QUARRY | `realm-lumenby.md` | dig & build | quarry | iso |
-| THE UNDERGLOW | `realm-underglow.md` | the descent under the quarry | quarry | iso |
-| SETER FELL | `realm-seterfell.md` | dig & build with folk manners | wild (summer: heather and birch) | iso, classic |
-| YULE FJORD | `realm-yulefjord.md` | physical puzzles (tide, ice, beam) | snow | iso |
-| STILLSAND | `realm-stillsand.md` | physical puzzles (weights, light) | dune | iso |
-| SPORELIGHT | `realm-sporelight.md` | field battles (calm, not kill) | spore | iso, classic |
-| FOGSTAGE | `realm-fogstage.md` | field battles | fog | iso |
-| RERUN ESTATES | `realm-rerun.md` | field battles, one street in three eras | suburb | iso, classic |
-
-`img/concept-<realm>.jpg` are mood targets per realm: gpt-image-2.5 (WaveSpeed
-`flare/edit`, ~$0.04 each) redrawing a real iso screenshot (`f-meadow`) as the
-realm, so camera and density match; prompts in `img/concept-prompts.json`. The
-art still to draw is in `docs/art/codex-tasks.md` (for Codex, on the Mac).
-
-**How each realm's system is switched on** (`region.ts`, by `RealmSpec.special`):
-battle realms place their foes as `MapDef.battle` groups (one to four foes,
-some that spot you) instead of field foes; dig realms get `MapDef.dig` (their
-inner cliffs as stone columns two or three high, some rocks as lumen ore, two
-buried caches, and a cliff rim so nothing can be dug or built off the map);
-puzzle realms get one or two walled puzzle kits (`engine/puzzles/kits.ts`) per
-region, with a chest beside the way in that appears once the kit is solved.
-The systems' first maps are reached by stairs from the frontier
-(`gen/demos.ts`): THE OLD QUARRY under `fr:2,2` (Lumenby; the four tools are
-there), THE BATTLE GLADE under `fr:7,2` (Sporelight) and THE PUZZLE LAB under
-`fr:9,4` (Stillsand), each with a way back up. An edge leads on only where the
-neighbour's tile is open ground.
-
-`battle-notes.md` and `dig-notes.md` are the designs for the two new systems;
-`SOURCES.md` lists the research; `quests.md` the five questlines across the
-realms. Every realm is in `realms.ts`: its land, folk, foes (today's kinds
-standing in for the sketches' new ones), places and what is said there. The
-words follow the Dialogue rule of `docs/games/neon-shrine.md`: whole-sentence
-pages, a name before what anyone says (roles for the realm's folk, names for
-the questlines' people), bearings true to the macro map, one name per place,
-and nothing about the systems below until they exist. What the sketches ask
-of systems that do not exist yet:
-
-## TODO: what the realms still need
-
-- **Rerun Estates, three eras**: phone booths that save and jump 1958 / 1986 /
-  2086 on the same corner; a per-tile era transform of one region (lots to sand
-  and saplings in 1958, lawns to tall grass and houses to rubble in 2086); the
-  small carry-forward map (an acorn planted in 1958 is a tree bridge in 2086).
-  Needs an era field the region generator reads (an `era` in the map id or the
-  state) and a flag set per lot; the booths are stamped already.
-- **Fogstage, the fog line**: fog below a height band switches the realm to
-  field battles; on hilltops and in a ghost light's pool no fight starts. Needs
-  a per-tile "fogged" test (the hill towns and ghost lights are stamped) and the
-  battle system's trigger reading it; star traps between hill towns; the
-  RAINCHECK moving mast to mast.
-- **The Underglow**: the Pull (a greyed heart per layer climbed, rest clears
-  it), glowstick ranks and turnstiles, Rut's lifts, the Upside Grove's floating
-  drops, the raft on the Glass Sea, the boss PHI at the Core.
-- **Seter Fell**: the five-day clock and Moving Day, the call button, troll
-  humps that wake at dusk, tusser under mounds (dig manners), MIXTRAL.
-- **Yule Fjord**: the tide (strand tiles flood on a cycle), ice tiles, the
-  Ride event (lie flat or stand in a chalked door; it also carries the hero to
-  another realm), draugs and the nøkk, ORCA.
-- **Stillsand**: islands that rise and sink with weight, the low sun's beams
-  through quartz lenses, the wind turn, slatebird fast travel, FALCON.
-- **Sporelight**: the haze and its mask, grazers whose eyes say calm or rage,
-  the Under as a full second layer (today a well's cave), BLOOM.
-- **Lumenby**: chalk lots that resolve into houses and light the sign, night
-  foes and lamps, GROK.
-- New foe kinds named in the sketches (gnawer, ore mimic, floater, hump troll,
-  draug, burrower, grazer, sandbag, mower, …) replace today's stand-ins.
+- `tests/zelda-world.test.mjs`: every land on the grid, none over another; every seam walked both ways; every gate
+  walked through and back, calm at both ends and locked the way it says; nobody out there without a blade; every
+  land and every map a land leads into reached from the start; a reload out there stays there; old frontier saves
+  continue in the right land; foes kept off the ways in; chest ids the world's own; every line in the pixel font
+  and three rows of the narrowest box, each speaker named first; every landmark's art in its map's kits; the world's
+  data small on `/`.
+- `node scripts/world-lab/map-png.mjs <out.png> <map>|atlas`: a whole map, or the whole grid, as a picture
+  (`scripts/world-lab/README.md`).
+- `heavy -x chrome -- env LIFE=<map>,<x>,<y> VIEW=iso node scripts/zelda-lab/shot.mjs <dir> life`: the game's own
+  picture of any spot, desktop and phone.

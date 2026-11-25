@@ -3,7 +3,7 @@
 Chrono Trigger–style fights where they are switched on: a map with `MapDef.battle` fights its foe groups
 turn by turn, in place, with no screen change. Everywhere else the action combat is unchanged. Design
 notes behind it: `docs/worlds/battle-notes.md`. Demo: THE BATTLE GLADE (`world/arena.ts`, map `arena`,
-entry `start`; down the stairs at `fr:7,2` in the Sporelight, `gen/demos.ts`).
+entry `start`; down a root stair in the Sporelight, `world/demos.ts`).
 
 ## Turning it on
 

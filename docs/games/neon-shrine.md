@@ -14,15 +14,21 @@ sword, items, pause menu and saves work the same in the town and out on
 the coast. Design (story, maps, progression, enemies, look):
 `themes/zelda/DESIGN.md`.
 
-Beyond the hand-made maps lies the frontier, the generated world
-(`docs/worlds/README.md`): the ferry at the end of the pier crosses to its
-Landing, and six gates lead on foot straight into its realms, four from the
-old coast's edges (north out of Whisper Woods past a boulder, north out of the
-Night Market, east out of the Hollow Graves through a cracked wall, east along
-Mirror Lake) and two from the Wildwood (north out of the Riddle Grove, west
-out of the Deep Woods). Each is a short road between two lamp posts with a
-sign at the junction, and a warden who stands aside only for the blade: the
-bomb bag can be found first, and a bomb also cuts the town's thicket.
+Around the hand-made maps lie seven lands drawn by hand, all on one grid
+with the coast and the Wildwood (`docs/worlds/atlas.md`, how they are built:
+`docs/worlds/README.md`): Seter Fell above the town, Yule Fjord beyond it, the
+Sporelight north of the Night Market, Stillsand behind the Hollow Graves,
+Rerun Estates past Mirror Lake, Lumenby Quarry above the Wildwood with the
+Underglow under it, and Fogstage west of the Deep Woods. Six gates lead into
+them on foot, four from the old coast's edges (north out of Whisper Woods past
+a boulder, north out of the Night Market, east out of the Hollow Graves
+through a cracked wall, east along Mirror Lake) and two from the Wildwood
+(north out of the Riddle Grove, west out of the Deep Woods); the ferry at the
+end of the pier sails north to Yule Fjord. Each gate is a short road between
+two lamp posts with a sign at the junction, and a warden who stands aside
+only for the blade: the bomb bag can be found first, and a bomb also cuts the
+town's thicket. Neighbouring lands join at passes: walking off an edge leads
+into the map that lies there on the grid.
 
 **Dialogue** (2026-09-26): people, signs and the pause screen's QUEST line
 say where to go and what is wrong, never how to win. No boss tactics, no
@@ -31,8 +37,8 @@ line of character. Item pickups say what the item does, once. The rest is
 for the player to find out; the jokes stay. A page is one or more whole
 sentences, never a clause cut by the box; whoever talks opens with their name
 ("GUNN: …", the name plate); a place has one name everywhere, the one on its
-banner. In the frontier a page is at most three rows of the narrowest box
-(180 px, touch key names), which `tests/zelda-frontier.test.mjs` checks.
+banner. Out in the lands a page is at most three rows of the narrowest box
+(180 px, touch key names), which `tests/zelda-world.test.mjs` checks.
 
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
 wholesale on 2026-09-22; it is in git history up to `a110530`. The separate
@@ -61,11 +67,7 @@ in dialog lines. `audio.ts` —
 music, jingles, SFX. `Zelda.vue` — the world shell (loop, input, touch
 deck, audio, saves, pause menu, exits, navigation lock), mounted by
 `themes/portal/Landing.vue`. `LookBooth.vue` — the NEW LOOK stall's mirror.
-`profileSync.ts` — the profile pull. `prefetch.ts` — makes the frontier
-regions next to the hero's before they are crossed into, one at a time and
-only when the game stands still (paused, a panel or a dialog open) or the
-browser has an idle slice long enough for a whole region; never during a
-warp, a fight or a scroll, so what is not ready is made at the warp as before.
+`profileSync.ts` — the profile pull.
 `progress.ts` — quest steps and the save merge. `hiscore.ts` — a real top
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
@@ -1001,8 +1003,8 @@ Before the blade there is no HUD, no swing, no B buzz, and the play clock
 (`state.elapsed`) stands still; it starts with the blade. `createGame(world,
 { save, at })` puts the hero at `at` (the plaza, or in front of the exit
 last used) with the save's items. A save's own continue point is for death
-during a session, and for a reload out in the frontier: while the continue
-point is out there the shell keeps a per-tab flag (`zelda.out` in
+during a session, and for a reload out in a land past the coast: while the
+continue point is out there the shell keeps a per-tab flag (`zelda.out` in
 sessionStorage), and a reload in that tab continues at it (`loadSpot`). A new
 visit starts in town.
 
@@ -1011,7 +1013,7 @@ map but the rooms indoors is cut into squares of 8 × 8 tiles, and a square
 is seen once the hero has been within 10 tiles of it; a dungeon room is seen
 whole on walking in. What is seen is kept per map as a string of six-bit
 digits, one bit a square (`SaveData.explored`, at most 200 maps; the whole
-frontier with its caves is about 2 KB). The map shows only that, as a plan
+world seen is well under 6 KB). The map shows only that, as a plan
 in a few flat colours (floor, road, sand, water, ice, trees, walls, houses,
 pits; doors and stairs lit), and it turns with the world: north up in the
 classic view, a diamond lying as the ground does in the isometric one
@@ -1025,11 +1027,11 @@ classic view, a diamond lying as the ground does in the isometric one
   on touch) turns it off and on, kept in localStorage `zelda.cornerMap`.
 - **The MAP page** of the menu (M): the name of the place, what has been
   seen of the map fitted to the panel, the names of the areas seen, the ways
-  between the coast and the frontier seen (the gates, the ferry) as lit
-  squares, and the frontier's regions beside it (under it on an upright
-  phone) out there and, once the blade is in hand, on the maps the gates
-  leave from: walked into lit, the Landing in the prize colour, here in the
-  hot one, a gate's region with a bar on its gate side. The menu's two pages
+  between the coast and the lands seen (the gates, the ferry) as lit
+  squares, and once the blade is in hand THE WORLD beside it (under it on an
+  upright phone): every map of the grid where it lies, the coast and the
+  Wildwood always, a land once walked into, the map the hero is on in the
+  prize colour and the hero a hot dot. The menu's two pages
   stand as tabs over it: `P ITEMS` and `M MAP`.
 
 The corner is one cluster: the pause chip and the turn switch, and under

@@ -2,7 +2,7 @@
 
 A map's `look` (`MapDef.look`, `types.ts`) picks its painter's palette. Besides
 `lab` (Project Horizon) and `wild` (the deep Wildwood) there are six realm
-looks for the frontier (`docs/worlds/`): `snow` (Seter Fell, Yule Fjord),
+looks for the lands past the coast (`docs/worlds/`): `snow` (Yule Fjord),
 `dune` (Stillsand), `spore` (Sporelight), `fog` (Fogstage), `quarry`
 (Lumenby, the Underglow) and `suburb` (Rerun Estates). World data only names
 the look; every colour is on the render side. A map without one of these is
@@ -23,13 +23,13 @@ drawn exactly as before.
 
 ## Light and life
 
-The frontier is darker than the town, so its light is turned up where the
+The lands are darker than the town, so their light is turned up where the
 town's would be lost. A realm's lamps shine `MOOD.lamps` times the coast's
-(they never drop below 0.8 of full on a frontier map, so a campfire reads at
-dusk), more of their light hangs in the air (on the frontier up to 1.6
+(they never drop below 0.8 of full on a land's map, so a campfire reads at
+dusk), more of their light hangs in the air (in the lands up to 1.6
 times, by day and at dusk but not at night, when it would burn the snow out
 to a floodlight; then `MOOD.glow`), and the hero carries more of a lantern in
-the dark realms and, a little, everywhere on the frontier at night
+the dark realms and, a little, everywhere in the lands at night
 (`renderer.ts` `ambient`, both views). The windows burn a little brighter at
 night, and in the suburb one in four is a television (`drawLiveTiles`'s
 `night`, from `daylight.ts` `nightOf`). Under the spore wood a cap lights the
@@ -37,7 +37,7 @@ moss here and there at the wood's edge, where the pool can be seen (a score
 at most in view).
 
 In the isometric view landmarks carry lights (`IsoLandmark.lights`, set in
-`world/gen/frontierScenery.ts` and `descent.ts` by tone, never by hex): a
+the lands' maps and `world/scenery.ts` by tone, never by hex): a
 lantern, a lit window, a giant cap's glow, a lit letter's spill (only while
 its flag holds), a red blink under the blimp. A `fire` flickers; one in the
 `fire` tone (the seter hut's chimney) is a real fire and throws embers and

@@ -80,7 +80,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Star Fox (Operation Nightlight) | `docs/games/star-fox.md` | `themes/starfox/` (scene/, models/, pure tuning in `*.ts`), `public/starfox/pilots/` |
 | Nova & Rex' Drive to the Mountains (`outrun`) | `docs/games/outrun.md` | `themes/outrun/`, `public/outrun/` (its pictures), `scripts/outrun-lab/` (shots and how the pictures are made) |
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
-| The frontier (Neon Shrine's generated world: realms, regions, caves, the Underglow, questlines) | `docs/worlds/README.md` (+ realm sketches, `quests.md`) | `themes/zelda/world/gen/` |
+| The lands (Neon Shrine's world past the coast: seven hand-made lands on one grid, the Underglow, the questlines) | `docs/worlds/atlas.md`, `docs/worlds/README.md` (+ realm sketches) | `themes/zelda/world/atlas.ts`, `world/<land>.ts`, `scripts/world-lab/` |
 | Field battles (Neon Shrine: turn-based fights in place on maps with `MapDef.battle`) | `docs/games/neon-shrine-battle.md` | `themes/zelda/engine/battle/`, `render/battle.ts`, `world/arena.ts` |
 | Neon Shrine's ambient life (fairies, owls, wisps, critters around the hero) | `docs/games/neon-shrine-life.md` | `themes/zelda/render/life/`, `scripts/life-lab/` |
 | Neon Shrine's realm looks (snow, dune, spore, fog, quarry, suburb) | `docs/games/neon-shrine-looks.md` | `themes/zelda/render/looks.ts`, `render/iso/` |

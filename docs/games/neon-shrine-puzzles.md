@@ -28,7 +28,7 @@ knocked into a pit or water is gone, onto spikes hurt.
 **State and saves.** Live state is `MapState.phys` (never saved). What lasts is flags: receivers' and valves' own,
 `boulder:<map>:<home>:<rest>` (rest -1: it filled a pit), `fill:<map>:<tile>`, and bombs' `bomb:` flags for walls a
 boulder broke; `loadPuzzleTiles` (called by `loadMap`) applies them, reading each by its map's prefix
-(`puzzleFlag`: a frontier id `fr:<x>,<y>` holds colons itself). Entering a dungeon room brings the floors back
+(`puzzleFlag`: a map id may hold colons itself). Entering a dungeon room brings the floors back
 under moved blocks and, unless a gate of the room is open, its mirrors and the boulders that came to rest home
 (their flag cleared: a thrown lever lets them roll again; one that filled a pit stays gone).
 
@@ -51,11 +51,10 @@ boulder-wall, sluice, ice-mirror). `stampKit(def, kit, x, y, prefix)` writes one
 chars, flags and plate ids prefixed) and returns the Cond in the map's terms, for a gate's `open` or a chest's
 `appear`. `solveKit(kit)` / `solveGrid({ rows, marks }, start, goal)` is the validator: a breadth-first search over
 hero tile + grid + flags with the engine's rules at tile resolution (walk, slide, push, hit what is beside you,
-beams, weights; pots and foes left out). Past a kit's edge is wall. A frontier puzzle site (`puzzleSite` in
-`world/gen/region.ts`) keeps the kit's `.` floor (`Site.ground`), not the realm's ground: nothing is pushed or
-rolled over Stillsand's sand (`-`).
+beams, weights; pots and foes left out). Past a kit's edge is wall. A kit set into a land keeps the kit's `.` floor, not the land's ground: nothing is
+pushed or rolled over Stillsand's sand (`-`).
 
-**THE PUZZLE LAB** (`puzzlelab`, entry `start`, down the stairs at `fr:9,4` in Stillsand, `gen/demos.ts`). Six rooms, 3×2 (their banners: THE WEIGH HOUSE, THE COLD ROOM, THE MIRROR ROOM, THE STONE RUN, THE SLUICE HALL, THE LAST ROOM; each sign says what is wrong in it, never how):
+**THE PUZZLE LAB** (`puzzlelab`, entry `start`, inside Stillsand's gold pyramid, `world/demos.ts`). Six rooms, 3×2 (their banners: THE WEIGH HOUSE, THE COLD ROOM, THE MIRROR ROOM, THE STONE RUN, THE SLUICE HALL, THE LAST ROOM; each sign says what is wrong in it, never how):
 A weights (carry a pot onto the heavy plate) → B ice (slide the block onto the plate) → C beams (prism, two
 mirrors, two receivers) → D rolling stone (lever, cracked wall, pit filled) → E sluices (two valves, two basins)
 → F all together (the stone clears the beam's road, the mirror slides up the ice into it and is turned, the
