@@ -649,8 +649,9 @@ export const LOOK_SHEETS: Record<RealmLook, Partial<Record<Material, () => Sheet
     siding: () => boards(151, ramp('#3a1020', '#6a1a2c', '#7e2234', '#922a3e', '#b04454'), true),
   },
   dune: {
-    // The hardpan between the dunes: rose clay cracked into big plates.
-    cobbles: () => paving({ ramp: ramp('#8a5a6e', '#b08494', '#bc90a0', '#c89cac', '#dcb4c0'), across: 4, moss: null, seed: 157 }),
+    // The low ground between the dunes: rose sand the wind has combed, a shade deeper than the dunes' own.
+    // (The plateaus' tops are the dunes' sand: `GROUND`. Paving here read as a town square.)
+    cobbles: () => dunes(157, ramp('#a07484', '#c0909a', '#cc9ea4', '#e8c0b4')),
     sand: () => dunes(163),
     lane: () => paving({ ramp: ramp('#5a4a7a', '#8a7aa8', '#9a8ab8', '#ac9cc8', '#c8bce0'), across: 8, moss: ramp('#c88a7c', '#e4a890'), seed: 167 }),
     rockface: () => paving({ ramp: ramp('#3a2e5a', '#5e5088', '#6e6098', '#8070aa', '#a092c8'), across: 8, moss: null, light: { x: -0.45, y: 0.89 }, seed: 173 }),

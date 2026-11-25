@@ -117,7 +117,7 @@ export const CLASSIC: Record<RealmLook, Record<string, string>> = {
  */
 export const GROUND: Record<RealmLook, { grass: Material; path: Material; sand: Material; top: Material }> = {
   snow: { grass: 'grass', path: 'cobbles', sand: 'sand', top: 'grass' },
-  dune: { grass: 'cobbles', path: 'lane', sand: 'sand', top: 'rockface' },
+  dune: { grass: 'cobbles', path: 'lane', sand: 'sand', top: 'sand' },
   spore: { grass: 'moss', path: 'lane', sand: 'sand', top: 'moss' },
   fog: { grass: 'cobbles', path: 'lane', sand: 'sand', top: 'grass' },
   quarry: { grass: 'cobbles', path: 'lane', sand: 'sand', top: 'sand' },
