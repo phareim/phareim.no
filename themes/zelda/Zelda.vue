@@ -191,7 +191,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { createGame, HOURS, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
+import { createGame, HOURS, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -233,6 +233,8 @@ const emit = defineEmits<{
 }>()
 
 const RETURN_KEY = 'portal.return'
+/** Set while this tab's continue point is out in the frontier: a reload continues there (`loadSpot`), a new visit does not. */
+const OUT_KEY = 'zelda.out'
 /** A theme exit that has not navigated after this long (bad id) comes back to the world. */
 const STUCK_S = 2.5
 /** A URL exit waits longer (the next site may be slow), but not forever: Esc or Stop can cancel the navigation. */
@@ -303,6 +305,8 @@ let pendingPull: { save: SaveData | null } | null = null
 /** Seconds spent in mode 'exit' without leaving. */
 let stuckT = 0
 let leavingUrl = false
+/** The area whose name the banner last showed: walking from region to region of one realm shows it once. */
+let bannerArea = ''
 let wonAt = 0
 const walletApi: WalletApi = { read: readWallet, add: addToWallet }
 // A chest pays into the wallet once per browser, not once per run.
@@ -869,16 +873,30 @@ function writeReturn(map: string, entry: string) {
   try { sessionStorage.setItem(RETURN_KEY, JSON.stringify({ map, entry })) } catch { /* private mode: start at the plaza next time */ }
 }
 
+/** Whether this tab was out in the frontier when it last saved (or began). */
+function readOut(): boolean {
+  try { return sessionStorage.getItem(OUT_KEY) === '1' } catch { return false }
+}
+
+/** Keeps OUT_KEY in step with the continue point. */
+function writeOut(s: GameState) {
+  try {
+    if (s.entry.map.startsWith('fr:')) sessionStorage.setItem(OUT_KEY, '1')
+    else sessionStorage.removeItem(OUT_KEY)
+  } catch { /* private mode: a reload starts on the plaza */ }
+}
+
 /** Back on the plaza on purpose (to town, start over, a new quest): a reload stays there too. */
 function clearReturn() {
   try { sessionStorage.removeItem(RETURN_KEY) } catch { /* ignore */ }
 }
 
-/** A new state at `at` from `save` (items, hearts, flags, play time); the bits are the wallet's. */
-function begin(save: SaveData | null, at: Spot, banner = false) {
+/** A new state at `at` (null: the save's own continue point) from `save` (items, hearts, flags, play time); the bits are the wallet's. */
+function begin(save: SaveData | null, at: Spot | null, banner = false) {
   loadedSave = save
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
+  writeOut(state)
   // Before the prism only in development: out there it would empty the woods at noon for anyone.
   if (askedHour !== null && (import.meta.dev || state.inv.prism)) setDaytime(WORLD, state, askedHour)
   purse.adopt(state.inv, state.flags)
@@ -891,6 +909,7 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   stuckT = 0
   leavingUrl = false
   ui.banner = banner ? { text: state.area, t: 0 } : null
+  bannerArea = state.area
   if (unlocked) audio?.pause(false)
   syncDeck()
   playTrack(trackFor(state))
@@ -934,6 +953,7 @@ function setPhase(p: Phase) {
 
 /** Saves here and on the player's profile (the first save creates the player) — once the hero has the blade. */
 function persist() {
+  writeOut(state)
   if (!state.inv.sword) return
   const save = toSave(state)
   if (!save) return
@@ -1225,11 +1245,13 @@ function handleEvents(events: GameEvent[]) {
       case 'unlock': case 'gate': save = true; break
       case 'enter':
         save = true
-        ui.banner = { text: e.area, t: 0 }
+        if (e.area !== bannerArea) ui.banner = { text: e.area, t: 0 }
+        bannerArea = e.area
         playTrack(e.track)
         break
       case 'area':
-        ui.banner = { text: e.name, t: 0 }
+        if (e.name !== bannerArea) ui.banner = { text: e.name, t: 0 }
+        bannerArea = e.name
         playTrack(e.track)
         break
       case 'scroll': break
@@ -1503,8 +1525,9 @@ onMounted(() => {
   // Bits carried by a save from before the wallet move into it, once per browser.
   const local = readLocalSave()
   try { migrateSaveBits(local, localStorage, walletApi) } catch { /* no storage: nothing to move */ }
-  // Start at once on this browser's save; the profile's copy may replace it in a moment.
-  begin(local, readReturn() ?? WORLD.start)
+  // Start at once on this browser's save; the profile's copy may replace it in a moment. A reload out in the
+  // frontier continues at the save's continue point there; anything else starts in front of the exit last used, or in town.
+  begin(local, loadSpot(WORLD, local, readReturn(), readOut()))
   walletStop = onWalletChange(b => purse.external(state.inv, b))
   // The session first (a signed-in visitor plays under the account's profile), then the profile's save.
   void checkSession().then(() => syncProfile())

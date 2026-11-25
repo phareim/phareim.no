@@ -8,7 +8,14 @@
  * The macro map below says which realm each region belongs to; inside a
  * region everything is made from the seed (`region.ts`). The ferry from the
  * town's pier lands at `landing`, and walking off a region's edge through a
- * pass leads into the next one (MapDef.edges).
+ * pass leads into the next one (MapDef.edges). The gates (`gates.ts`) are the
+ * ways in on foot from the hand-made world: each is cut into its region's rim
+ * after the rest is made, so it moves nothing a save points at.
+ *
+ * How hard a region is (`RegionCtx.near`) counts from the nearest way in: the
+ * Landing, or one past a gate. What the seed places (chests, folk, caches,
+ * caves) still counts from the Landing (`depth`), so adding a gate moves none
+ * of it.
  */
 import type { MapDef } from '../../types'
 import { hash } from './rng'
@@ -16,6 +23,7 @@ import { generateCave } from './cave'
 import { DEEP_LAYERS, generateLayer } from './descent'
 import { SITES } from './quests'
 import { DEMO_SITES } from './demos'
+import { GATES } from './gates'
 import { generateRegion } from './region'
 import { REALMS } from './realms'
 import type { FrontierSpec, RealmSpec } from './types'
@@ -45,6 +53,7 @@ export const FRONTIER: FrontierSpec = {
   realms: { L: 'landing', G: 'meadow', Q: 'lumenby', S: 'seterfell', Y: 'yulefjord', D: 'stillsand', P: 'sporelight', F: 'fogstage', R: 'rerun' },
   landing: { rx: 6, ry: 8 },
   sites: [...SITES, ...DEMO_SITES],
+  gates: GATES,
 }
 
 export const FRONTIER_PREFIX = 'fr:'
@@ -103,6 +112,8 @@ function make(id: string, F: FrontierSpec): MapDef | null {
   if (!m) return null
   const rx = Number(m[1])
   const ry = Number(m[2])
+  // One spelling per map (`fr:6,8`, never `fr:06,8` or `…:cave00`): a second spelling would be a second map, its chests opened twice.
+  if (id !== regionId(rx, ry) + (m[3] !== undefined ? `:${m[3]}${Number(m[4])}` : '')) return null
   const realm = realmAt(rx, ry, F)
   if (!realm) return null
   const depth = Math.abs(rx - F.landing.rx) + Math.abs(ry - F.landing.ry)
@@ -110,7 +121,7 @@ function make(id: string, F: FrontierSpec): MapDef | null {
     const region = frontierMap(regionId(rx, ry), F)
     const n = Number(m[4])
     if (m[3] === 'deep') {
-      if (!region?.entries?.deep || n < 1 || n > DEEP_LAYERS || String(n) !== m[4]) return null
+      if (!region?.entries?.deep || n < 1 || n > DEEP_LAYERS) return null
       return generateLayer({ seed: hash(F.seed, rx, ry, 606), top: region.id, layer: n, realm: REALMS.underglow! })
     }
     if (!region?.entries?.[`cave${n}`]) return null
@@ -123,8 +134,19 @@ function make(id: string, F: FrontierSpec): MapDef | null {
   const e = nb(1, 0); if (e) edges.e = e
   const w = nb(-1, 0); if (w) edges.w = w
   return generateRegion({
-    F, realm, rx, ry, id: regionId(rx, ry), edges, depth,
+    F, realm, rx, ry, id: regionId(rx, ry), edges, depth, near: nearOf(rx, ry, depth, F),
     landing: rx === F.landing.rx && ry === F.landing.ry,
     heart: heartRegion(realm, F) === regionId(rx, ry),
+    gate: F.gates?.find(g => g.region === regionId(rx, ry)),
   })
+}
+
+/** Regions (manhattan) from the nearest way in: the Landing, or one past a gate's region. */
+export function nearOf(rx: number, ry: number, depth: number, F: FrontierSpec = FRONTIER): number {
+  let near = depth
+  for (const g of F.gates ?? []) {
+    const m = /^fr:(\d+),(\d+)$/.exec(g.region)
+    if (m) near = Math.min(near, 1 + Math.abs(rx - Number(m[1])) + Math.abs(ry - Number(m[2])))
+  }
+  return near
 }

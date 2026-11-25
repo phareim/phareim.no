@@ -77,9 +77,17 @@ export function questNext(inv: Inventory, flags: readonly string[], mapId: strin
 
 /** The hint for a `questNext` index. */
 export function questHint(next: number): string {
-  if (next >= QUEST_STEPS) return 'THE SUN HAS SET. WANDER WHERE YOU LIKE, OR START OVER AT THE RED MACHINE IN PETTER\'S HOUSE.'
+  if (next >= QUEST_STEPS) return "THE SUN HAS SET. THE FRONTIER WAITS PAST THE COAST'S GATES AND THE FERRY. OR START OVER AT THE RED MACHINE IN PETTER'S HOUSE."
   return STEPS[next]!.hint
 }
+
+/**
+ * Where the frontier is, for a hero with a blade who has not been out there yet: the roads out of the coast (the
+ * gates, `world/gen/gates.ts`) and the ferry. Where, never how.
+ */
+export const FRONTIER_HINT = 'FRONTIER: GATES NORTH AND EAST OF THE COAST. THE FERRY ON THE PIER.'
+/** About what the pause screen's QUEST box holds (four lines of the pixel font). */
+export const QUEST_ROOM = 140
 
 export interface QuestSummary {
   step: number
@@ -163,7 +171,14 @@ export function reconcile(
   return { kind: 'none' }
 }
 
-/** The pause screen's QUEST line for a live game: the hint for the next step. */
+/**
+ * The pause screen's QUEST line for a live game: the hint for the next step, and (blade in hand, the frontier
+ * not yet walked into) where the frontier lies, when both fit the box.
+ */
 export function objective(s: GameState): string {
-  return questHint(questNext(s.inv, Object.keys(s.flags), s.map.id))
+  const flags = Object.keys(s.flags)
+  const next = questNext(s.inv, flags, s.map.id)
+  const hint = questHint(next)
+  const away = s.inv.sword && next < QUEST_STEPS && !flags.some(f => f.startsWith('seen:fr:'))
+  return away && hint.length + 1 + FRONTIER_HINT.length <= QUEST_ROOM ? `${hint} ${FRONTIER_HINT}` : hint
 }

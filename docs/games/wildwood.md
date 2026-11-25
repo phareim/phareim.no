@@ -21,6 +21,14 @@ ends in a thicket: cut the bushes with the blade and walk off the edge (a
 warp). A little way in, two cracked boulders on the trail need a bomb
 (Petter's wish: sword first, then bombs, the classic Zelda gate).
 
+**Going on.** Two gates lead out of the Wildwood into the frontier
+(`world/gen/gates.ts`, `docs/worlds/README.md`), each at the end of a short
+road between two lamp posts: north out of the Riddle Grove (39,0) into
+Lumenby, by the Old Quarry's stairs, and west out of the Deep Woods (0,20),
+past the ravine, into Fogstage. A warden stands in each until the hero has the
+blade (a bomb cuts the town's thicket too, so the woods can be reached
+without one).
+
 ### Maps (`themes/zelda/world/`)
 
 | File | What |

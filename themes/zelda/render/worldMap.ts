@@ -13,6 +13,8 @@ import { mapDef, mapInfo } from '../engine/map'
 import { charted, chunkGrid, CHUNK, seenAny, seenTile } from '../engine/explore'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { FRONTIER, realmAt } from '../world/gen/frontier'
+/** The hand-made maps a way out of the frontier lands on: the gates' homes, and the ferry's pier. */
+const COAST = new Set<string>([...(FRONTIER.gates ?? []).map(g => g.home.map), 'overworld'])
 import { projection } from './iso/project'
 import { TILE } from '../types'
 import { drawMenuTabs, hudFont, type HudSkin } from './hud'
@@ -192,7 +194,8 @@ function frontierXY(s: GameState): [number, number] | null {
 
 /**
  * The frontier's regions as a grid of small squares: the ones walked into lit (`seen:<id>`), the Landing in the
- * prize colour, the hero's own in the hot one. Its size for a cell size, and the drawing.
+ * prize colour, the hero's own in the hot one, and a gate's region (`gates.ts`) with a bar on the side its gate
+ * is cut into, the way in from the coast. Its size for a cell size, and the drawing.
  */
 export function frontierGrid(cell: number): { w: number; h: number } {
   const cols = Math.max(...FRONTIER.layout.map(r => r.length))
@@ -209,8 +212,24 @@ function drawFrontierGrid(g: G, s: GameState, x: number, y: number, cell: number
       const landing = FRONTIER.landing.rx === rx && FRONTIER.landing.ry === ry
       g.fillStyle = isHere ? skin.hot : landing ? skin.prize : s.flags[`seen:${id}`] ? skin.cool : skin.slot
       g.fillRect(x + rx * cell, y + ry * cell, cell - 1, cell - 1)
+      const gate = FRONTIER.gates?.find(gt => gt.region === id)
+      if (gate) {
+        const cx = x + rx * cell
+        const cy = y + ry * cell
+        const k = cell - 1
+        g.fillStyle = skin.ok
+        if (gate.side === 's') g.fillRect(cx, cy + k - 1, k, 1)
+        else if (gate.side === 'n') g.fillRect(cx, cy, k, 1)
+        else if (gate.side === 'w') g.fillRect(cx, cy, 1, k)
+        else g.fillRect(cx + k - 1, cy, 1, k)
+      }
     }
   })
+}
+
+/** The frontier's grid beside this map: out there, and (once the blade is in hand) on a map a gate leads from. */
+function showsFrontier(s: GameState): boolean {
+  return !!frontierXY(s) || (s.inv.sword && !!FRONTIER.gates?.some(gt => gt.home.map === s.map.id))
 }
 
 export interface MapPageOpts {
@@ -239,15 +258,18 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
   skin.panel(g, x, y, w, ph, 'cool')
   const name = placeName(s, def)
   F.draw(g, name, x + 8, y + 7, skin.prize)
-  // Out in the frontier its regions stand at the right.
-  const fr = frontierXY(s)
+  // Out in the frontier (and where its gates are) its regions stand at the right.
+  const fr = showsFrontier(s)
   const cell = fr ? Math.max(3, Math.min(6, Math.floor((ph - 30) / FRONTIER.layout.length))) : 0
   const grid = fr ? frontierGrid(cell) : null
-  const area = { x: x + 8, y: y + 20, w: w - 16 - (grid ? grid.w + 10 : 0), h: ph - 28 }
+  // (Beside the map on a wide screen, under it on an upright phone, where the width is what the map is short of.)
+  const tall = ph > w
+  const area = { x: x + 8, y: y + 20, w: w - 16 - (grid && !tall ? grid.w + 10 : 0), h: ph - 28 - (grid && tall ? grid.h + 18 : 0) }
   if (grid) {
-    const gx = x + w - 8 - grid.w
-    drawFrontierGrid(g, s, gx, area.y, cell, skin)
-    F.draw(g, 'FRONTIER', gx, area.y + grid.h + 4, skin.dim)
+    const gx = tall ? x + Math.round((w - grid.w) / 2) : x + w - 8 - grid.w
+    const gy = tall ? area.y + area.h + 4 : area.y
+    drawFrontierGrid(g, s, gx, gy, cell, skin)
+    F.draw(g, 'FRONTIER', tall ? Math.round(x + (w - F.width('FRONTIER')) / 2) : gx, gy + grid.h + 4, skin.dim)
   }
   if (!charted(def) || !seenAny(s, s.map.id)) {
     const say = charted(def) ? 'NOTHING SEEN YET' : 'NO MAP INDOORS'
@@ -288,6 +310,17 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
       if (placed.some(q => Math.abs(q.y - ly) < 10 && lx < q.x + q.w + 4 && q.x < lx + lw + 4)) continue
       placed.push({ x: lx, y: ly, w: lw })
       F.draw(g, label, lx, ly, skin.dim, skin.outline)
+    }
+    // The ways between the coast and the frontier seen on this map (the gates, the ferry): a lit square each.
+    // (Out there only those home: a region's stairs down to the quarry, the glade or the lab are no way to the coast.)
+    const out = !!frontierXY(s)
+    for (const wp of info.warps) {
+      if (!(out ? COAST.has(wp.to) : wp.to.startsWith('fr:')) || !seenTile(s, s.map.id, info.w, wp.x, wp.y)) continue
+      const p = at(wp.x + 0.5, wp.y + 0.5)
+      g.fillStyle = skin.outline
+      g.fillRect(Math.round(p.x) - 2, Math.round(p.y) - 2, 4, 4)
+      g.fillStyle = skin.ok
+      g.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, 2, 2)
     }
     const h = at(s.hero.x, s.hero.y)
     heroMark(g, h.x, h.y, s, o.e, skin, true, z >= 4)

@@ -10,11 +10,15 @@
  * and the Deep Lab's bunker. Residents ask for help and give some:
  * Mossa (a waffle; three glowshrooms), Toby (his walkie-talkie), Max
  * (bombs, hints), Dusty (a vacuum tube), the troll (his hat), the owl.
+ * Two gates lead on into the frontier (`gen/gates.ts`), each between two lamp
+ * posts: north out of the Riddle Grove (Lumenby and its quarry) and west out
+ * of the Deep Woods (Fogstage).
  *
  * Generated once from a layout script, then edited by hand; marker chars
  * are listed in `marks`. Row 0 is the north edge; the sea is the south.
  */
 import type { MapDef, Mark, TalkBranch } from '../types'
+import { gateWarp } from './gen/gates'
 
 const npc = (id: string, look: import('../types').NpcLook, talk: TalkBranch[], extra: Partial<{ wander: boolean; dir: import('../types').Dir }> = {}): Mark =>
   ({ ent: { t: 'npc', id, look, talk, ...extra } })
@@ -28,8 +32,8 @@ export const WILDWOOD: MapDef = {
   track: 'forest',
   look: 'wild',
   rows: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT..............TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTtƧtTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT....Ɓ.,Ʒ,.....TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
     'TT.......;.T.T........T.T..TTTTT..A;...4....U.T..:......:...:TTTTTTTTTTTTTTTTTTTTTTT',
     'T...;;....;...T...T...T.;..OOOOO.....-...5....T:...HHHHH.....TTTTTTTTTTTTTTTTTTTTTTT',
     'TT..;TT..;T.T..T.T.....T.T.OOOOO...;..........T....HHHHH.:a..TTTTTTTTTTTTTTTTTTTTTTT',
@@ -37,8 +41,8 @@ export const WILDWOOD: MapDef = {
     'T....T...........T.....T.T.OOOOO........;...`.T....HHHHH.Z...TTTTTTTTTTTTTTTTTTTTTTT',
     'T...T.............T..T..T..OOOOO..;..9...7....T....HHgHH.Z...TTTTTTTTTTTTTTTTTTTTTTT',
     'T.....,,,,,,,,,;...........OOOOO.rrr...8......T.:....,....###TTTTTTTTTTTTTTTTTTTTTTT',
-    'T.;T.......TT.,;........T..OOOOO.r0r....a.....T.&....,....%2#TTTTTTTTTTTTTTTTTTTTTTT',
-    'T..T..TT...TT.,.T..;z......OOOOO.rrr..........T......,....###TTTTTTTTTTTTTTTTTTTTTTT',
+    'T.;T.......TT.,;........T..OOOOO.r0r..........T.&....,....%2#TTTTTTTTTTTTTTTTTTTTTTT',
+    'T..T..TT...TT.,.T..;z......OOOOO.rrr.....a....T......,....###TTTTTTTTTTTTTTTTTTTTTTT',
     'T.T........T.T,T..;...;....OOOOO.,,,,,,,,,,,,,,,,,,,,,,,,,,,,TTTTTTTTTTTTTTTTTTTTTTT',
     'T...T..THHHHHH,.T..........OOOOO.,,,,,,,,,,,,,,,,,,,,,,,,,,,,TTTTTTTTTTTTTTTTTTTTTTT',
     'T.......HHHHHH,.....T...T..OOOOO.TTTTTTT..,,.FFFFFFFFFFFFFFFFTTTTTTTTTTTTTTTTTTTTTTT',
@@ -47,12 +51,12 @@ export const WILDWOOD: MapDef = {
     'T..TTT....G...,.TT....T....OOOOO...T.TT.T.,,.F.HHHHHHHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
     'T....TT...,.].,T..;.T......OOOOO.T.T...T..,,.F.HHHHHHHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
     'T.........,,,,,,,,,,,,,,,|.OOOOO.T.a......,,.F.HHHHHHHHHHHz.FTTTTTTTTTTTTTTTTTTTTTTT',
-    'T.....T..;.......T......;..OOOOO.,,,,,,,,,,,.F.HHHHHHHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
-    'T............;...TTT..;..T.OOOOO.|........,,.F.HHHHHQHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
-    'TT.........TT.,...;......T.OOOOO....T.T...,,.F......B.......FTTTTTTTTTTTTTTTTTTTTTTT',
-    'T;TT..z;..T;.T,.......T..;.OOOOO....T.....,,.F..............FTTTTTTTTTTTTTTTTTTTTTTT',
+    't.....T..;....,..T......;..OOOOO.,,,,,,,,,,,.F.HHHHHHHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
+    'ƊǶ,,,,,,,,,,,,,Ȣ.TTT..;..T.OOOOO.|........,,.F.HHHHHQHHHHH..FTTTTTTTTTTTTTTTTTTTTTTT',
+    'tT.........TT.,...;......T.OOOOO....T.T...,,.F......B.......FTTTTTTTTTTTTTTTTTTTTTTT',
+    'T;TT...;..T;.T,.......T..;.OOOOO....T.....,,.F..............FTTTTTTTTTTTTTTTTTTTTTTT',
     'TT..................T..T.T.OOOOO.....TaT..,,.F...ZZZ....z...FTTTTTTTTTTTTTTTTTTTTTTT',
-    'T.T........;...T........T..OOOOO.....TTT..,,.F.........s....FTTTTTTTTTTTTTTTTTTTTTTT',
+    'T.T......z.;...T........T..OOOOO.....TTT..,,.F.........s....FTTTTTTTTTTTTTTTTTTTTTTT',
     'TT......T...z...T.T....;...OOOOO..T..TT.T.,,.F.k............FTTTTTTTTTTTTTTTTTTTTTTT',
     'T...1...T......TT..T....TT.OOOOO.*********,,.F..............FTTTTT........:......TTT',
     'T..............T.;.T.....T.OOOOO.*.......*,,.FFFFFF,,FFFFFFFFTTT..T..T.........T..TT',
@@ -103,8 +107,13 @@ export const WILDWOOD: MapDef = {
     brambles: { x: 42.5, y: 20.5, dir: 'up' },
     bridge: { x: 36.5, y: 38.5, dir: 'left' },
     deep: { x: 26.5, y: 38.5, dir: 'left' },
+    // Back from the frontier through a gate: just inside it.
+    'gate-quarry': { x: 39.5, y: 1.5, dir: 'down' },
+    'gate-fog': { x: 1.5, y: 20.5, dir: 'right' },
   },
   props: [
+    { kind: 'glow', x: 39.5, y: 0.5, w: 3.5, tone: 'gold' },
+    { kind: 'glow', x: 0.5, y: 20.5, w: 3.5, tone: 'violet' },
     { kind: 'tent', x: 47, y: 34 },
     { kind: 'tent', x: 54, y: 34, tone: 'cyan' },
     { kind: 'campfire', x: 50.5, y: 36 },
@@ -128,6 +137,14 @@ export const WILDWOOD: MapDef = {
     K: { tile: 'D', ent: { t: 'warp', to: 'deep1', entry: 'start' } },
     // The Deep Lab's bunker opens once Mistral's wind has died.
     G: { tile: 'X', ent: { t: 'gate', open: { flag: 'mistral' } } },
+    // The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>`.
+    'Ƨ': gateWarp('quarry'),
+    'Ɓ': sign(['↑ THE GROVE GATE: LUMENBY QUARRY, IN THE HILLS.', 'THE QUARRY SIGN ON THE HILL HAS GONE DARK.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.']),
+    'Ɗ': gateWarp('fog'),
+    'Ȣ': sign(['← THE DEEP WOODS GATE: FOGSTAGE.', 'THE FOG OUT THERE COMES IN ON CUE.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.']),
+    // Their wardens: bombs open the town's thicket before the blade, so the Wildwood's gates wait for it too.
+    'Ʒ': { tile: ',', ent: { t: 'npc', id: 'warden.grove', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: THE GROVE GATE. LUMENBY IS PAST IT.', 'THE HILLS OUT THERE BITE BACK. NO BLADE, NO GATE.', 'THE KEEPER, EAST PAST THE TOWN, HAS A BLADE.'] }] } },
+    'Ƕ': { tile: ',', ent: { t: 'npc', id: 'warden.deep', look: 'guard', dir: 'right', hide: { item: 'sword' }, talk: [{ lines: ['WARDEN: THE DEEP WOODS GATE. FOGSTAGE IS PAST IT.', 'THINGS MOVE IN THE FOG OUT THERE. NO BLADE, NO GATE.', 'THE KEEPER, EAST PAST THE TOWN, HAS A BLADE.'] }] } },
     // ---- Signs ----
     '!': sign(['THE WILDWOOD.   ↑ MOSSA\'S COTTAGE   ← THE CAMP   → PHAREIM.NO', 'KEEP TO THE TRAIL. THE WOODS ARE OLDER THAN THE TOWN.']),
     '?': sign(['CAMP OF THE PARTY. NO GROWN-UPS. (EXCEPT MOSSA. MOSSA IS OK.)']),

@@ -12,6 +12,12 @@
  * Hollow Graves (NE, the Shrine's door), Home Glade (SW), the Crossroads and
  * Mirror Lake (SE).
  *
+ * Four gates lead from the coast into the frontier on foot (`gen/gates.ts`), each
+ * at the end of a short road between two lamp posts: north out of Whisper
+ * Woods past a boulder (Seter Fell), north out of the Night Market past its
+ * warden (the Sporelight), east out of the Hollow Graves through a cracked
+ * wall (Stillsand), east along Mirror Lake's shore past its warden (Rerun).
+ *
  * The start stands just below Petter's door, so the name and two buildings
  * are in view on a phone (≈15×28 tiles) and on a desktop (≈18×11).
  * tests/portal-world.test.mjs checks both. The town has no enemies.
@@ -20,6 +26,7 @@
 import type { MapDef } from '../types'
 import { INTRO } from './intro'
 import { FRONTIER, regionId } from './gen/frontier'
+import { gateWarp } from './gen/gates'
 
 /** Where the ferry from the pier lands: the frontier's Landing. */
 const LANDING = regionId(FRONTIER.landing.rx, FRONTIER.landing.ry)
@@ -33,27 +40,27 @@ export const OVERWORLD: MapDef = {
   kind: 'overworld',
   track: 'overworld',
   rows: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT####################################',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT#T:..................:T######II#####',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH.....:..:....#####IVVI####',
-    'TTHHHHHHHHHTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
-    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
-    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:ZZZ..TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:......:T#',
-    'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t.ZZķZZ..TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
-    'TTHHHHßHHHH..HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTƧTTTTTTTTTTTTTTTTTTTTTT#############Ɗ######################',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTtRtTTTTTTTTTTTTTTTTTTTTT#T:.........tǤt......:T######II#####',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:.Ʒ;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH...,.:..:....#####IVVI####',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..Ɓ,...TTTTTTTTTTTTTT.5.TT#..HHHHHHH...,.nn.nn...#####IW.I####',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t,.......t.######RR#####',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:ZZZ..TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH...,..:N.....##T:......:T#',
+    'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t.ZZķZZ..TTTTT:.....TTTTTTT;;..TTTT.TTT#.....E....:.,Ȣ........##.Gz.G..G..#',
+    'TTHHHHßHHHH..HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##..........#',
     'TTTT,¤¤¤Ð,,,,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
-    'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##..........#',
+    'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##z.........#',
     'TT..HHHHHHHHH:,,,,,,,,,,,,,:.T...:..T.TTTTT;..;..TTTTTTT..d.....;......,,,,,,~~~~,,,,y,,,..##.G..G..G..#',
-    'TT..HHHHHHHHH,,,,,t~~~~t,,,t..:...T...TTTTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:....z....#',
-    'TT..HHHHHHHHH,,,,,,~~~~,,Ω,,..ZZZ...:.TTTTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,..............#',
-    'TT.tHHHHHHHHHt,,8,,~~~~,,,,,.tZÞZt....TTTTTTT..;;;;TTTTTTTTT;;;;TTTT#..,:,,,,,,,,,,,,,,:,.......+......#',
+    'TT..HHHHHHHHH,,,,,t~~~~t,,,t..:...T...TTTTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:........t#',
+    'TT..HHHHHHHHH,,,,,,~~~~,,Ω,,..ZZZ...:.TTTTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,....,,,,,,,,Ƕ%Ɋ',
+    'TT.tHHHHHHHHHt,,8,,~~~~,,,,,.tZÞZt....TTTTTTTa.;;;;TTTTTTTTT;;;;TTTT#..,:,,,,,,,,,,,,,,:,.......+.....t#',
     'TT..HHHHUHHHH,,,,,t~~~~tu,,,,,,,.v:...TTTTTTT...d..;TTTTTT;;*;;TTTTT#.t,,,,,,,k,,,,,,,,,,t.##.G..G..G..#',
     'TT..,,,,,,,,,,,,,,,,,,,,,,,,.........TTTTTTTTT.....;;TTTT;;*;*;TTTTT#T..:....,,,,....:...T.##..........#',
     'TTT..........,,,,,,,,,,,9,,,.........TTTTTTTTTT..TTTT;;;;;;;*;TTTTTT#TT*....:,,,,:....*..TT##T.G..G..G.#',
-    'TTTT.........:,,,,,,,,,,,,,:........TTTTTTTTTT...TTTTTTTTTTTTTTTTTTT#TTT*...,,,,,,....*TTTT##T....z....#',
+    'TTTT.........:,,,,,,,,,,,,,:........TTTTTTTTTT...TTTTTTTTTTTTTTTTTTT#TTT*...,,,,,,....*TTTT##T.........#',
     'TT...........::,,,,,,,,,,,::..........TTTTTTTT...TTTTTTTTTTTTTTTTTTT#TTTT..&.,,,,,...TTTTTT##TT.......T#',
     'TT...:T....t.......,,,.......t...:T...TTTTTTTT..TTTTTTTTTTTTTTTTTTTT#TTTTTTTTTT,,TTTTTTTTTT##TT..*..*.T#',
-    'TT.............::..,,,0.::............TTTTTTTT..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTT#TTT.....TT#',
+    'TT.............::..,,,0.::............TTTTTTTT..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTT#TTT..z..TT#',
     'TTTTTTTTTTTTTTTTTT.,,,.TTTTTTTTTTTTTTTTTTTTTT....TTTTTTTTTT:.:TTTTTTTTTTTT:....,,.....:...TT#TT;;..;;TT#',
     'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
     'TT..T:......T.HHH::,,,:.:......T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
@@ -69,13 +76,13 @@ export const OVERWORLD: MapDef = {
     'TT~~~~~~~~~~~~~~~~~~Ƥ--é----æ-ø-------TTTTT..,.................;;......TT..,..~~~~~~~~~~~~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTTT.,..:.....*.............:..TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTT..,.....*..*..e.............TT..,.~~~~~~~~~...~~~~~~~~~~~~..T',
-    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,===========.6.~~~~~~~~~~~..T',
-    'TT~~~~~~~~~~~~~~~~~~Ƒ~~~~~~~~~~~~~~~~~TTTT:...;;;.......:.......;;.....,,,,,.~~~~~~~~~...~~~~~~~~~~~~..T',
-    'TT~~~~~~~~~~~~~~~~~~Ŧ~~~~~~~~~~~~~~~~~TTTT...;;;;;..rrr.....*..........TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
-    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT....;;;.rr.7.r....:.....e....TT../..~~~~~~~~~~~~~~~~~~~~~~~..T',
-    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT........rr...r........*......TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
-    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT.:.......rrrr..........;;;...TT...,,...~~~~~~~~~~~~~~~~~.....T',
-    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT..~~~.............:...;;;;...TT.....,,,,,,,,,,,,,,,,,,,,,,...T',
+    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,===========.6.~~~~~~~~~~~.tT',
+    'TT~~~~~~~~~~~~~~~~~~Ƒ~~~~~~~~~~~~~~~~~TTTT:...;;;.......:.......;;.....,,,,,.~~~~~~~~~...~~~~~~~~~~~~,ɅɄ',
+    'TT~~~~~~~~~~~~~~~~~~Ŧ~~~~~~~~~~~~~~~~~TTTT...;;;;;..rrr.....*..........TT..,.~~~~~~~~~~~~~~~~~~~~~~~~,tT',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT....;;;.rr.7.r....:.....e....TT../..~~~~~~~~~~~~~~~~~~~~~~~,.T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT........rr...r........*......TT..,,..~~~~~~~~~~~~~~~~~~~~~.,.T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT.:.......rrrr..........;;;...TT...,,...~~~~~~~~~~~~~~~~~..Ȼ,.T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT..~~~.............:...;;;;...TT.....,,,,,,,,,,,,,,,,,,,,,,,,.T',
     'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT.~~~~~.....*.............:..TTT.:...e.......;;;......e...:...T',
     'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT..~~~.....:.......*.......TTTTT....*..j.......;;;....tA......T',
     'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTT......TT.....TT......TTTTTTTTT#######################%#######',
@@ -122,13 +129,62 @@ export const OVERWORLD: MapDef = {
     vip: { x: 6.5, y: 9.5, dir: 'down' },
     // Back from the auth page: in front of the guard, who asked for the login.
     vipguard: { x: 8.5, y: 9.5, dir: 'up' },
+    // Back from the frontier through a gate: on the road just inside it (south of the fell's boulder, west of the graves' crack).
+    'gate-fell': { x: 45.5, y: 2.5, dir: 'down' },
+    'gate-spore': { x: 81.5, y: 2.5, dir: 'down' },
+    'gate-sand': { x: 101.5, y: 12.5, dir: 'left' },
+    'gate-lawns': { x: 101.5, y: 37.5, dir: 'left' },
   },
+  // The gates' lamps (their posts are lamp tiles; this is their glow on the ground).
+  props: [
+    { kind: 'glow', x: 45.5, y: 1, w: 3.5, tone: 'gold' },
+    { kind: 'glow', x: 81.5, y: 1, w: 3.5, tone: 'pink' },
+    { kind: 'glow', x: 102.5, y: 12.5, w: 3.5, tone: 'cyan' },
+    { kind: 'glow', x: 102.5, y: 37.5, w: 3.5, tone: 'violet' },
+  ],
   marks: {
     // The ferry at the end of the pier: across the bay to the frontier (world/gen/, docs/worlds/).
     'Ŧ': { ent: { t: 'warp', to: LANDING, entry: 'camp' }, tile: '=' },
     'Ƒ': { ent: { t: 'entry', id: 'ferry', dir: 'up' }, tile: '=' },
     'Ŋ': { ent: { t: 'sign', lines: ['THE FERRY: TO THE FRONTIER.', 'IT BRINGS YOU BACK ANY TIME.'] } },
     'Ƥ': { ent: { t: 'npc', id: 'ferryman', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['NO BLADE, NO BOAT.', 'THE FRONTIER BITES.', 'THE KEEPER EAST OF TOWN HAS ONE.'] }] }, tile: '=' },
+    // ---- The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>` ----
+    'Ƨ': gateWarp('fell'),
+    'Ɓ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE WOODS GATE: SETER FELL, AND THE COLD PAST IT.', 'A BOULDER HAS ROLLED INTO THE GATE.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    // The bomb bag lies just south of here, and may be found before the blade: the warden keeps the gate till then.
+    'Ʒ': {
+      tile: ',',
+      ent: {
+        t: 'npc', id: 'warden.woods', look: 'guard', hide: { item: 'sword' },
+        talk: [{ lines: ['WARDEN: THE WOODS GATE. SETER FELL IS PAST IT.', 'IT GETS COLD UP THERE, AND THINGS BITE. NO BLADE, NO GATE.', 'THE KEEPER, SOUTH OF THE WOODS, HAS A BLADE.'] }],
+      },
+    },
+    'Ɗ': gateWarp('spore'),
+    'Ȣ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE MARKET GATE: THE SPORELIGHT.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    'Ǥ': {
+      tile: ',',
+      ent: {
+        t: 'npc', id: 'warden.market', look: 'guard', hide: { item: 'sword' },
+        talk: [{ lines: ['WARDEN: THE MARKET GATE. THE SPORELIGHT IS PAST IT.', 'THE MUSHROOMS OUT THERE FIGHT BACK. NO BLADE, NO GATE.', 'THE KEEPER, SOUTH-WEST OF HERE, HAS A BLADE.'] }],
+      },
+    },
+    'Ɋ': gateWarp('sand'),
+    'Ƕ': {
+      tile: ',',
+      ent: {
+        t: 'npc', id: 'warden.graves', look: 'guard', dir: 'left', hide: { item: 'sword' },
+        talk: [{ lines: ['WARDEN: THE GRAVES GATE. STILLSAND IS PAST IT.', 'THE SAND OUT THERE HAS TEETH. NO BLADE, NO GATE.', 'THE KEEPER, FAR SOUTH-WEST OF HERE, HAS A BLADE.'] }],
+      },
+    },
+    'Ʉ': gateWarp('lawns'),
+    'Ȼ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE LAKE GATE: RERUN ESTATES.', 'GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
+    'Ʌ': {
+      tile: ',',
+      ent: {
+        t: 'npc', id: 'warden.lake', look: 'guard', dir: 'left', hide: { item: 'sword' },
+        talk: [{ lines: ['WARDEN: THE LAKE GATE. RERUN ESTATES ARE PAST IT.', 'SAME STREET EVERY YEAR, AND IT BITES. NO BLADE, NO GATE.', 'THE KEEPER, WEST OF THE CROSSROADS, HAS A BLADE.'] }],
+      },
+    },
     // ---- The town ----
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
     p: { tile: 'D', ent: { t: 'warp', to: 'home', entry: 'door' } },
@@ -323,7 +379,7 @@ export const OVERWORLD: MapDef = {
         ],
       },
     },
-    '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE'] } },
+    '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE   → THE GRAVES GATE: STILLSAND', 'THE GATE WALL HAS CRACKED. GATE WARDEN ON DUTY. NO BLADE, NO GATE.'] } },
     // ---- Crossroads ----
     '!': { tile: 'S', ent: { t: 'sign', lines: ['↑ NIGHT MARKET   → HOLLOW GRAVES   ↓ MIRROR LAKE   ← HOME GLADE, PHAREIM.NO'] } },
     // ---- Mirror Lake ----
