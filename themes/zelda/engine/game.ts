@@ -41,7 +41,7 @@ export function createGame(
   world: World,
   opts: { seed?: number; save?: SaveData | null; demo?: boolean; at?: { map: string; entry: string } | null; session?: boolean } = {},
 ): GameState {
-  const save = opts.save && validSave(world, opts.save) ? opts.save : null
+  const save = opts.save ? rescueSave(world, opts.save) : null
   const at = opts.at && hasEntry(world, opts.at.map, opts.at.entry) ? opts.at : null
   const map = at ? at.map : save ? save.map : world.start.map
   const entry = at ? at.entry : save ? save.entry : world.start.entry
@@ -313,11 +313,17 @@ function play(c: Ctx, dt: number, inp: Input) {
       s.area = a.name
       if (a.entry) s.entry = { map: s.map.id, entry: a.entry }
       c.ev.push({ type: 'area', name: a.name, track: a.track })
-      if (a.intro && !has(s, a.intro.flag) && condMet(s, c.w, a.intro.when, -1)) {
-        s.flags[a.intro.flag] = true
-        openDialog(c, a.intro.lines, a.intro.who ?? null)
-      }
+      areaIntro(c, a)
     }
+  }
+}
+
+/** An area's intro, the first time (`AreaIntro.flag`) and while its `when` holds. */
+function areaIntro(c: Ctx, a: { intro?: AreaIntro }) {
+  const s = c.s
+  if (a.intro && !has(s, a.intro.flag) && condMet(s, c.w, a.intro.when, -1)) {
+    s.flags[a.intro.flag] = true
+    openDialog(c, a.intro.lines, a.intro.who ?? null)
   }
 }
 
@@ -401,11 +407,16 @@ function warp(c: Ctx, dt: number) {
       s.hero.act = 'idle'
       s.shake = Math.max(s.shake, 0.2)
       c.ev.push({ type: 'land' })
+    } else if (w.at && mapInfo(c.w, w.to).def.edges && mapInfo(c.w, w.to).entries.camp) {
+      // Walked over an edge into the next region: its camp is the continue point now (death, a reload, a closed tab).
+      s.entry = { map: w.to, entry: 'camp' }
     }
   }
   if (w.t >= WARP_TIME * 2) {
     s.warp = null
     s.mode = 'play'
+    // A generated region is one area from edge to edge, so walking about never changes it: its intro opens on arrival.
+    if (mapInfo(c.w, s.map.id).def.edges) areaIntro(c, areaAt(c.w, s))
   }
 }
 
@@ -542,14 +553,23 @@ export function toSave(s: GameState): SaveData | null {
   }
 }
 
-function validSave(world: World, v: SaveData): boolean {
-  return hasEntry(world, v.map, v.entry)
+/**
+ * A save continues where it was made. Where that spot has gone (an entry renamed, a cave or a region that
+ * changed), it continues at the map's camp; in the frontier, at its region's camp or else the ferry's pier; on a
+ * map the world no longer has, at the start. The items, hearts and flags are never thrown away for it.
+ */
+function rescueSave(world: World, v: SaveData): SaveData {
+  if (hasEntry(world, v.map, v.entry)) return v
+  if (hasEntry(world, v.map, 'camp')) return { ...v, entry: 'camp' }
+  const region = /^fr:\d+,\d+/.exec(String(v.map))?.[0]
+  if (region && hasEntry(world, region, 'camp')) return { ...v, map: region, entry: 'camp' }
+  if (region && hasEntry(world, 'overworld', 'ferry')) return { ...v, map: 'overworld', entry: 'ferry' }
+  return { ...v, map: world.start.map, entry: world.start.entry }
 }
 
 /** True when `map` is in the world and has an entry `entry` (placed, listed, or beside an exit). */
 export function hasEntry(world: World, map: unknown, entry: unknown): boolean {
-  if (typeof map !== 'string' || typeof entry !== 'string') return false
-  if (typeof map !== 'string' || !mapDef(world, map)) return false
+  if (typeof map !== 'string' || typeof entry !== 'string' || !mapDef(world, map)) return false
   try { return Object.prototype.hasOwnProperty.call(mapInfo(world, map).entries, entry) } catch { return false }
 }
 

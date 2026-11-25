@@ -131,6 +131,10 @@ describe('the frontier', () => {
     for (let i = 0; i < 400 && t.map.id === 'overworld'; i++) step(t, inp({ move: { x: 0, y: 1 } }))
     for (let i = 0; i < 60; i++) step(t)
     assert.equal(t.map.id, LANDING)
+    // Off the boat, the realm introduces itself (once).
+    assert.equal(t.mode, 'dialog')
+    assert.ok(t.flags['realm:landing'])
+    P.settle(t)
     assert.equal(t.mode, 'play')
     // A save made over there continues over there.
     const save = Z.toSave(t)
@@ -152,6 +156,9 @@ describe('the frontier', () => {
     assert.equal(s.map.id, L.edges.n)
     assert.ok(Math.abs(s.hero.x - (x + 1.5)) < 0.01, 'same place along the edge')
     assert.ok(s.hero.y > L.rows.length - 2, 'at the far edge of the next region')
+    // The realm's intro on arrival (tests/zelda-gates.test.mjs follows the continue point and the intro further).
+    assert.equal(s.mode, 'dialog')
+    P.settle(s)
     assert.equal(s.mode, 'play')
   })
 

@@ -303,6 +303,8 @@ let pendingPull: { save: SaveData | null } | null = null
 /** Seconds spent in mode 'exit' without leaving. */
 let stuckT = 0
 let leavingUrl = false
+/** The area whose name the banner last showed: walking from region to region of one realm shows it once. */
+let bannerArea = ''
 let wonAt = 0
 const walletApi: WalletApi = { read: readWallet, add: addToWallet }
 // A chest pays into the wallet once per browser, not once per run.
@@ -891,6 +893,7 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   stuckT = 0
   leavingUrl = false
   ui.banner = banner ? { text: state.area, t: 0 } : null
+  bannerArea = state.area
   if (unlocked) audio?.pause(false)
   syncDeck()
   playTrack(trackFor(state))
@@ -1225,11 +1228,13 @@ function handleEvents(events: GameEvent[]) {
       case 'unlock': case 'gate': save = true; break
       case 'enter':
         save = true
-        ui.banner = { text: e.area, t: 0 }
+        if (e.area !== bannerArea) ui.banner = { text: e.area, t: 0 }
+        bannerArea = e.area
         playTrack(e.track)
         break
       case 'area':
-        ui.banner = { text: e.name, t: 0 }
+        if (e.name !== bannerArea) ui.banner = { text: e.name, t: 0 }
+        bannerArea = e.name
         playTrack(e.track)
         break
       case 'scroll': break
