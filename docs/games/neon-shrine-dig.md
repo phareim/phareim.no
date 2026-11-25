@@ -70,6 +70,9 @@ for the planned deep-quarry reward.
   a stepped slope with its sides; a chest or lamp on raised ground stands on a column capped like its
   neighbours; people, foes and props stand at their tile's height (the hero eases down off a ledge, sinks a
   little in a hole). Shadows of lifted things are not lifted.
+- On dig maps, edited stone and timber columns stack the 32-pixel building kit's blocks, and player-built
+  lamps use its cyan lantern. The kit also has the other materials, ramps, steps, bridge and door art.
+  Run `node scripts/zelda-lab/frontier-art.mjs building <sheet.html>` to bake the sprites and view the sheet.
 - Classic: the tiles' own pictures, with lit and dark edges where the height changes. Readable, but the heights
   are an isometric thing: once `MapDef.views` lands the quarry should say `views: ['iso']`.
 

@@ -41,10 +41,10 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
 - [x] **S1 · Tools as items (P1, `3e8ba94`).** The pickaxe, shovel, axe and hammer
   share their existing 16×16 art between the HUD and item get. The chrome-pick sprite
   joins them in `spritesDig.ts`, ready for the deep-quarry reward.
-- [ ] **S2 · Building blocks (P1).** Iso block faces for dirt, sand, stone, timber,
-  lumen (glowing cyan ore), chrome, sunstone; a ramp and stairs in stone and timber; a
-  plank bridge piece; a placed lamp; a door. One sheet, drawn as `THING_ART` cubes on the
-  2:1 diamond, top + two faces, so heights stack cleanly.
+- [x] **S2 · Building blocks (P1, `d6cfe5d`).** Fourteen `THING_ART` sprites from
+  `frontierArt/building.ts`, baked at 32 scene pixels per tile. Player-built stone
+  and timber stack one cube per level, and the placed lamp uses the kit's cyan lantern.
+  The sheet includes the other materials, two ramps, two stairs, a bridge and a door.
 - [x] **S3 · Battle marks (P2, `3e8ba94`).** `battleMarks.ts` supplies the 12×12
   command icons, 7×7 status glyphs and target diamond. The current battle strip uses
   strike, skill, duo for combo techs, item and step for flee. Fog, quick and lifted

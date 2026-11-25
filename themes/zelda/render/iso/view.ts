@@ -962,6 +962,16 @@ export default function isoView(kit: Kit): View {
     }
     /** Dig & build (`dig.ts`): a ramp, and the column under a thing that stands on raised ground. True: the tile is drawn. */
     const digTile = (tx: number, ty: number, t: TileChar, shp: Shape): boolean => {
+      if (drawn && k >= 1 && shp.k === 'top' && (t === 'а' || t === 'б')
+          && tx >= 0 && tx < m.w && ty >= 0 && ty < m.h && s.digEdits?.[m.id]?.[ty * m.w + tx]?.startsWith(t)) {
+        const height = digLift(m, tx, ty)
+        if (height > 0) {
+          const block = thingKey(t === 'а' ? 'building_stone' : 'building_timber')
+          bare((tx - R.x) * T, (ty - R.y) * T, T, T)
+          for (let z = 0; z < height; z++) stand(block, tx + 0.5, ty + 0.5, px, 1, z)
+          return true
+        }
+      }
       const n = digPlinth(m, tx, ty, shp)
       const slope = rampSlope(m, tx, ty)
       if (!n && !slope) return false
@@ -1185,6 +1195,12 @@ export default function isoView(kit: Kit): View {
           prop = puzzlePropOf(t, { lit: !!m.phys?.lit.includes(i) || (t === 'ρ' && !!flag && has(s, flag)), open: !!flag && has(s, flag), dir: pz.emitters.find(e => e.idx === i)?.dir })
         }
         else if (t === 't' && kind !== 'dungeon') {
+          if (drawn && rise >= 0.5 && m.dig && s.digEdits?.[m.id]?.[ty * m.w + tx]?.startsWith('t')) {
+            stand(thingKey('building_lamp'), tx + 0.5, ty + 0.62, px, rise, digLift(m, tx, ty))
+            cards.push({ x: tx + 0.5, y: ty + 0.66, tall: rise, wide: 0.14 })
+            bare(sx, sy - up, T, T + up)
+            continue
+          }
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
           const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
           if (!(outdoors && sandy)) prop = hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'

@@ -385,7 +385,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true
     s.inv.mats = { dirt: 4, stone: 6, wood: 3, lumen: 2 }
     const W = 32, e = (x, y, v) => [y * W + x, v]
-    s.digEdits = { quarry: Object.fromEntries([e(16, 8, 'ж2'), e(19, 11, 'а2'), e(20, 11, 'а2'), e(20, 10, 'а3'), e(12, 9, 'к0'), e(13, 9, 'к0'), e(22, 4, '=1'), e(23, 4, '=1'), e(21, 6, 't1'), e(5, 13, 'д1'), e(13, 8, 'ж2')]) }
+    s.digEdits = { quarry: Object.fromEntries([e(16, 8, 'ж2'), e(19, 11, 'б2'), e(20, 11, 'а2'), e(20, 10, 'а3'), e(12, 9, 'к0'), e(13, 9, 'к0'), e(22, 4, '=1'), e(23, 4, '=1'), e(21, 6, 't1'), e(16, 10, 't1'), e(5, 13, 'д1'), e(13, 8, 'ж2')]) }
     if (scene === 'q-quarry') { s.inv.selected = 'build'; s.inv.build = 'stone'; go('quarry', 17.5, 10.5, 'up') }
     else if (scene === 'q-ledge') { s.inv.selected = 'dig'; go('quarry', 16.5, 5.6, 'left') }
     else { s.inv.selected = 'dig'; go('quarry', 12.5, 9.5, 'right') }
