@@ -197,7 +197,7 @@ import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { GLASS_SKIN, HIRES_WINDOW_SKIN, NEON_SKIN, ROUND_SKIN, type HudSkin } from './render/hud'
+import { HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin } from './render/hud'
 import { drawMiniMap, hasMiniMap, MINI_H, MINI_W } from './render/worldMap'
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
@@ -324,16 +324,6 @@ const ui: FrameUI = {
 function wears16(id: ViewId): boolean {
   const def = viewDef(id) ?? viewDef('classic')!
   return def.engine === 'iso' && resolveParams(def.engine, def.params).windows === '16-bit'
-}
-/** The view wears the polygon view's glass windows (on its stop of the turn switch; the HTML keeps its classic dress). */
-function wearsGlass(id: ViewId): boolean {
-  const def = viewDef(id)
-  return !!def && def.engine === 'poly' && resolveParams(def.engine, def.params).windows === '32-bit'
-}
-/** The view wears the 64-bit look's round windows (on its stop of the turn switch). */
-function wearsRound(id: ViewId): boolean {
-  const def = viewDef(id)
-  return !!def && def.engine === 'poly' && resolveParams(def.engine, def.params).windows === '64-bit'
 }
 /** The dress is on. The first paint guesses from the address alone (the server knows no more); mounting corrects it. */
 const dress16 = ref(wears16(startView(useRoute().query.view, null)))
@@ -537,7 +527,7 @@ let heldView: ViewId | null = null
 function allows(id: ViewId): boolean {
   const only = state ? mapInfo(WORLD, state.map.id).def.views : undefined
   const def = viewDef(id)
-  return !only || !def || only.includes(def.engine as 'classic' | 'iso' | 'poly')
+  return !only || !def || only.includes(def.engine)
 }
 
 /**
@@ -646,7 +636,7 @@ function turnRefuse() {
 
 /** The HUD skin a view wears on this screen (`fine`: the screen has a finer pixel than the HUD's). */
 function hudSkinOf(id: ViewId, fine: boolean): HudSkin {
-  return wearsRound(id) ? ROUND_SKIN : wearsGlass(id) ? GLASS_SKIN : !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+  return !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
 }
 
 /** The corner's unit: one fine px of the canvas HUD, a whole number of device px and never under one CSS px. */
@@ -681,7 +671,7 @@ function stepMiniMap(nowMs: number) {
   const s = state
   const key = touchUI.value ? null : 'M'
   const blink = reduced ? 0 : Math.floor(nowMs / 400) % 2
-  const sig = [uDev, skin === NEON_SKIN ? 0 : skin === ROUND_SKIN ? 1 : skin === GLASS_SKIN ? 2 : 3, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.round(s.hero.x * 8), Math.round(s.hero.y * 8), s.hero.dir, Math.round(e * 200), viewId.value, key, blink].join('|')
+  const sig = [uDev, skin === NEON_SKIN ? 0 : 3, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.round(s.hero.x * 8), Math.round(s.hero.y * 8), s.hero.dir, Math.round(e * 200), viewId.value, key, blink].join('|')
   if (sig === mini.sig) return
   mini.sig = sig
   if (cv.width !== MINI_W * 2 * uDev || cv.height !== MINI_H * 2 * uDev) { cv.width = MINI_W * 2 * uDev; cv.height = MINI_H * 2 * uDev }
@@ -1358,9 +1348,7 @@ function frame(nowMs: number) {
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   // What the screen shows, so the woods' foes come and go past its edge (the turned view shows a diamond of the ground).
   const vt = renderer.viewTiles()
-  // (The polygon view says what it sees itself: to its horizon in the north.)
-  const seen = renderer.viewState().sight
-  state.sight = seen ? { x: seen.across, y: seen.behind, ahead: seen.ahead, spread: seen.spread } : { x: vt.w, y: vt.h, turned: turn !== 0 }
+  state.sight = { x: vt.w, y: vt.h, turned: turn !== 0 }
   const events = stepGame(WORLD, state, dt, inp)
   purse.step(state.inv, state.flags)
   renderer.onEvents(events)

@@ -7,7 +7,7 @@
 import type { EnemyKind, ItemId, MapDef, Mark, NpcLook, Prop, TileChar, TrackId } from '../../types'
 
 /** The drawing engines a map may be shown in (`viewParams.ts` ENGINES). */
-export type ViewEngine = 'classic' | 'iso' | 'poly'
+export type ViewEngine = 'classic' | 'iso'
 
 export interface Terrain {
   /** Size of the land's main features, in tiles (noise scale). */

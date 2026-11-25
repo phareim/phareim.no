@@ -21,7 +21,7 @@ const out = resolve(outArg)
 mkdirSync(out, { recursive: true })
 
 const entry = `
-import { NEON_SKIN, WINDOW_SKIN, HIRES_WINDOW_SKIN, GLASS_SKIN, ROUND_SKIN } from ${JSON.stringify(join(repo, 'themes/zelda/render/hud.ts'))}
+import { NEON_SKIN, WINDOW_SKIN, HIRES_WINDOW_SKIN } from ${JSON.stringify(join(repo, 'themes/zelda/render/hud.ts'))}
 import { ease } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/project.ts'))}
 import { drawTurnSwitch, switchLayout, SW_W, SW_H, type SwitchState } from ${JSON.stringify(join(repo, 'themes/zelda/render/turnSwitch.ts'))}
 
@@ -30,8 +30,6 @@ const two = [{ label: '8', skin: NEON_SKIN }, { label: '16', skin: HIRES_WINDOW_
 const base: SwitchState = { stops: two, a: 0, b: 1, e: 1, key: 'V', waiting: false, hover: false, down: false, nudge: 0, flash: -1, caption: '', captionLit: 0, time: 0, reduced: false }
 const at = (k: number, more: Partial<SwitchState> = {}): SwitchState => ({ ...base, e: ease(k), ...more })
 const many = (n: number, i: number): SwitchState => ({ ...base, stops: Array.from({ length: n }, (_, j) => ({ label: '', skin: j ? HIRES_WINDOW_SKIN : NEON_SKIN })), a: 0, b: i, e: 1, caption: 'NOIR ' + (i + 1) + '/' + n, captionLit: 3 })
-/** The built-in round: classic, isometric, polygon, third person, each stop in its view's own dress. */
-const round3 = (i: number, caption: string): SwitchState => ({ ...base, stops: [{ label: '', skin: NEON_SKIN }, { label: '', skin: HIRES_WINDOW_SKIN }, { label: '', skin: GLASS_SKIN }, { label: '', skin: ROUND_SKIN }], a: 0, b: i, e: 1, caption, captionLit: caption ? 3 : 0 })
 const cells: Array<[string, SwitchState]> = [
   ['at rest, 16-bit, beside a keyboard', at(1)],
   ['a first visit: the tick, the name', at(1, { caption: 'ISOMETRIC', captionLit: 3, nudge: -3, flash: 0 })],
@@ -48,10 +46,6 @@ const cells: Array<[string, SwitchState]> = [
   ['a coarse screen, k = 1', at(1, { stops: [{ label: '8', skin: NEON_SKIN }, { label: '16', skin: WINDOW_SKIN }] })],
   ['reduced motion, waiting', at(0, { waiting: true, reduced: true })],
   ['3 views, at the second', many(3, 1)],
-  ['the round: classic', round3(0, 'CLASSIC 1/4')],
-  ['the round: polygon', round3(2, 'POLYGON 3/4')],
-  ['the round: third person', round3(3, 'THIRD PERSON 4/4')],
-  ['the round: third person, half way in', { ...round3(3, ''), a: 2, e: 0.5 }],
   ['8 views, at the fifth', many(8, 4)],
 ]
 document.body.style.cssText = 'margin:0;background:#0b0616'

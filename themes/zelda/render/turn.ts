@@ -4,19 +4,13 @@
  *
  * The classic view is the hub: every other view turns in from it and out to
  * it (k: 0 classic … 1 the view), so going from one added view to another
- * passes through the classic picture. A pair named direct (`direct`: the 16-bit
- * and the 32-bit look, part 14) turns straight from one to the other instead,
- * with no classic picture between them: `via` says how far (`j`, 0 the view it
- * comes from … 1 the view it goes to), and the renderer draws both.
+ * passes through the classic picture.
  *
  * A view may not be able to draw yet (its shaders are compiling, its
  * pictures are being painted). The turn waits for it at k = 0, on the
  * classic picture, and comes in when it can: turned in, or at once if that
  * was what was asked for. So nothing is ever cut to that was not ready.
  */
-/** A turn straight from one added view to another (`createTurn`'s `direct`): `j` 0 … 1, from `from` to `to`. */
-export interface Via { from: string; to: string; j: number }
-
 export interface Turn {
   /** Head for a view ('classic' or an added one; an unknown id means classic). `instant` skips the turn. */
   set(id: string, instant?: boolean): void
@@ -24,7 +18,7 @@ export interface Turn {
    * Advance by dt seconds. Returns the added view to draw and how far in it is; `shown` is '' when the classic view draws.
    * `ready`: can the view on its way in (or on screen) draw itself now? While it cannot, the classic view draws and k stays 0.
    */
-  step(dt: number, ready?: boolean): { shown: string; k: number; via?: Via }
+  step(dt: number, ready?: boolean): { shown: string; k: number }
   /** The view we are in or heading for. */
   readonly id: string
   /** The added view on screen or on its way in or out ('': none). */
@@ -34,15 +28,12 @@ export interface Turn {
   readonly turning: boolean
   /** The view asked for is not ready: the classic picture stands in for it. */
   readonly waiting: boolean
-  /** A direct turn under way (none: none). */
-  readonly via: Via | null
 }
 
-export function createTurn(has: (id: string) => boolean, seconds = 0.6, direct: (from: string, to: string) => boolean = () => false): Turn {
+export function createTurn(has: (id: string) => boolean, seconds = 0.6): Turn {
   let shown = ''
   let wanted = ''
   let k = 0
-  let via: Via | null = null
   /** The last call asked for no turn: a view that was waited for arrives at once too. */
   let snap = false
   let waiting = false
@@ -50,25 +41,10 @@ export function createTurn(has: (id: string) => boolean, seconds = 0.6, direct: 
     set(id, instant = false) {
       const next = has(id) ? id : ''
       snap = instant
-      if (!instant && next) {
-        // Back the way a direct turn came: it turns round where it is.
-        if (via && next === via.from) { via = { from: via.to, to: via.from, j: 1 - via.j }; wanted = next; return }
-        if (via && next === via.to) return
-        // From an added view that is fully in, to its pair: straight across, not through the classic picture.
-        if (!via && shown && k >= 1 && shown === wanted && next !== shown && direct(shown, next)) { via = { from: shown, to: next, j: 0 }; wanted = next; return }
-      }
-      // (Anything else ends a direct turn where it is: on the view it was going to, and turns on from there.)
-      if (via) { shown = via.to; k = 1; via = null }
       wanted = next
       if (instant) { shown = wanted; k = wanted ? 1 : 0 } else if (!shown) shown = wanted
     },
     step(dt, ready = true) {
-      if (via) {
-        // (The view it goes to cannot draw yet: the turn waits where it is, on the view it comes from.)
-        if (ready) via.j = Math.min(1, via.j + dt / seconds)
-        if (via.j >= 1) { shown = via.to; k = 1; via = null; return { shown, k } }
-        return { shown: via.to, k: 1, via: { ...via } }
-      }
       if (!ready && shown) {
         // The view cannot draw. Heading for it (or in it): wait on the classic picture. Leaving it: it is gone.
         k = 0
@@ -89,9 +65,8 @@ export function createTurn(has: (id: string) => boolean, seconds = 0.6, direct: 
     get id() { return wanted || 'classic' },
     get shown() { return shown },
     get k() { return k },
-    get turning() { return !!via || shown !== wanted || k !== (shown ? 1 : 0) },
+    get turning() { return shown !== wanted || k !== (shown ? 1 : 0) },
     get waiting() { return waiting },
-    get via() { return via ? { ...via } : null },
   }
 }
 

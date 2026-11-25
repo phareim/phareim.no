@@ -7,7 +7,7 @@
  * Pure apart from that one state, so tests/portal-tree.test.mjs can read it.
  *
  * The classic view draws the sprites here (16 × 32, its fruit 2 × 2 red
- * squares). The 16- and 32-bit looks draw a tree painted as their wood's
+ * squares). The 16-bit look draws a tree painted as its wood's
  * trees are (`iso/flora.ts` `floraWithVisitor`, part 17): a broad fruit
  * tree, bare branches at stage 0 and a full crown at 4, its fruit round and
  * lit, one per visitor up to `FRUIT_MAX` at every stage (`count`), shining a
@@ -114,7 +114,7 @@ export interface TreeLook {
   stage: number
   /** Top-left corners of the fruit, in sprite pixels (the classic sprite: as many as its crown holds). */
   fruit: Array<[number, number]>
-  /** How many fruit the painted tree of the 16- and 32-bit looks shows: one per visitor today, up to `FRUIT_MAX` (part 17). */
+  /** How many fruit the painted tree of the 16-bit look shows: one per visitor today, up to `FRUIT_MAX` (part 17). */
   count: number
 }
 

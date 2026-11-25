@@ -469,7 +469,7 @@ export interface MapDef {
    * every view. Elsewhere the shell shows the first allowed one for as long
    * as the hero is here, without changing the visitor's choice.
    */
-  views?: Array<'classic' | 'iso' | 'poly'>
+  views?: Array<'classic' | 'iso'>
   /** Field battles: foe groups here are fought in place, Chrono Trigger–style (`engine/battle/`). */
   battle?: MapBattleDef
   /** Dig & build is on here (`engine/dig.ts`). */
@@ -883,9 +883,6 @@ export interface GameState {
     x: number
     y: number
     turned?: boolean
-    /** The polygon view: it sees `ahead` tiles north of the hero, `y` south, `x` across at the hero's row and `spread` tiles wider each side for every tile north. */
-    ahead?: number
-    spread?: number
   }
   /** Dig & build edits per map id: tile index → tile char + height digit (`engine/dig.ts`). */
   digEdits?: Record<string, Record<number, string>>

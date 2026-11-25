@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // The steadiness meter: consecutive frames of a view, drawn at 1/60 s with the game's clock running, read back and
-// measured. The tool the polygon views' steadiness, transitions and light are judged by (docs/games/neon-shrine.md,
-// "The polygon view", "Steadiness").
+// measured (docs/games/neon-shrine.md, "Steadiness").
 //
-//   CHROME_BIN=<chrome> node scripts/zelda-lab/steady.mjs <outDir> <case,case…> [--views classic,iso,poly,third]
-//     [--day dusk|sun|night|noon|dawn] [--frames 90] [--freeze] [--params '{…}'] [--size 1280|390] [--tag name]
+//   CHROME_BIN=<chrome> node scripts/zelda-lab/steady.mjs <outDir> <case,case…> [--views classic,iso]
+//     [--day dusk|sun|night|noon|dawn] [--frames 90] [--params '{…}'] [--size 1280|390] [--tag name]
 //
 // Per pair of consecutive frames: `changed`, the share of pixels whose largest channel moved by more than 6 of 255
 // (one 15-bit step is 8.2). Per three frames: `shimmer`, the temporal second difference of each pixel's light,
@@ -13,7 +12,6 @@
 // camera's own steadiness), draw time (the view's draw and the read-back, ms).
 // --day: dusk is the eternal dusk of a save without the Sun Prism (no hour); sun is a solved save's real sun, the
 // hour running from just before noon; night, noon, dawn start the running hour there.
-// --freeze holds every lamp's strength (`freezeLamps` in poly/lamps.ts): the control for the lamps' own flicker.
 // Writes <outDir>/<tag>.json, and for each case and view the middle frame and the shimmer picture.
 import { execFileSync } from 'node:child_process'
 import { writeFileSync, mkdirSync } from 'node:fs'
@@ -24,21 +22,19 @@ import { launch } from './cdp.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
 const opt = (name, def) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : def }
-const flag = name => args.includes(`--${name}`)
-const pos = args.filter((a, i) => !a.startsWith('--') && !(args[i - 1] ?? '').startsWith('--') || (args[i - 1] === '--freeze'))
+const pos = args.filter((a, i) => !a.startsWith('--') && !(args[i - 1] ?? '').startsWith('--'))
 const [outArg, only] = pos
-if (!outArg || !only) { console.error('usage: steady.mjs <outDir> <cases> [--views …] [--day …] [--frames n] [--freeze] [--size 1280|390]'); process.exit(2) }
+if (!outArg || !only) { console.error('usage: steady.mjs <outDir> <cases> [--views …] [--day …] [--frames n] [--size 1280|390]'); process.exit(2) }
 const out = resolve(outArg)
 mkdirSync(out, { recursive: true })
-const VIEWS = opt('views', 'classic,iso,poly,third').split(',')
+const VIEWS = opt('views', 'classic,iso').split(',')
 const FRAMES = +opt('frames', '90')
 const DAY = opt('day', 'dusk')
-const FREEZE = flag('freeze')
 const PARAMS = opt('params', '')
 /** --tree <deploys>,<visitors>: the beach tree's counts (part 17). */
 const TREE = opt('tree', '')
 const SIZE = opt('size', '1280')
-const TAG = opt('tag', `${DAY}${FREEZE ? '-frozen' : ''}-${SIZE}`)
+const TAG = opt('tag', `${DAY}-${SIZE}`)
 
 // A case: the lab scene, page JS run once to set it up, and a program of [frames, move] steps.
 const UP = { x: 0, y: -1 }, RIGHT = { x: 1, y: 0 }, LEFT = { x: -1, y: 0 }, DOWN = { x: 0, y: 1 }, STILL = { x: 0, y: 0 }
@@ -46,11 +42,9 @@ const PLAZA = `__lab.s.hero.x = 15.5; __lab.s.hero.y = 16.5; __lab.s.hero.dir = 
 const CASES = {
   'plaza-stand': ['r-plaza', PLAZA, [[90, STILL]]],
   'plaza-walk': ['r-plaza', PLAZA, [[90, RIGHT]]],
-  // North, where no view's camera turns: the fair walk for shimmer (east, the 64-bit camera swings round as well).
+  // North: the fair walk for shimmer.
   'plaza-north': ['r-plaza', `__lab.s.hero.x = 15.5; __lab.s.hero.y = 17.5; __lab.s.hero.dir = "up"`, [[90, UP]]],
   'plaza-turn': ['r-plaza', PLAZA, [[40, RIGHT], [50, UP]]],
-  // The 64-bit camera swinging in behind the hero: a walk east, then standing while it drifts round.
-  'plaza-swing': ['r-plaza', PLAZA, [[30, RIGHT], [80, STILL]]],
   'camp-stand': ['w-camp', ``, [[90, STILL]]],
   // Standing by a lamp on the square (part 10): its pool must neither pop nor crawl.
   'lamp-stand': ['r-plaza', `__lab.s.hero.x = 18.5; __lab.s.hero.y = 12.6; __lab.s.hero.dir = 'up'`, [[90, STILL]]],
@@ -167,7 +161,7 @@ for (const name of only.split(',')) {
     for (let t = 0; t < 60 && (await b.eval('document.title')) !== 'ready'; t++) await b.sleep(250)
     const day = HOUR === null ? `__lab.s.daytime = null` : `__lab.s.inv.prism = true; __lab.s.daytime = ${HOUR}`
     // (Two seconds after the set-up, standing: the camera, the lamps and the land have settled.)
-    await b.eval(`${day}; ${setup}; if (window.__freezeLamps) __freezeLamps(${FREEZE}); for (let k = 0; k < 120; k++) { __lab.step(1); __lab.r.draw(__lab.s, __lab.ui, 1 / 60) } 0`)
+    await b.eval(`${day}; ${setup}; for (let k = 0; k < 120; k++) { __lab.step(1); __lab.r.draw(__lab.s, __lab.ui, 1 / 60) } 0`)
     await b.eval(MEASURE)
     const r = await b.eval(`__steady(${JSON.stringify(program)}, true)`)
     if (b.errors.length) console.error(`${name} ${view}: ${b.errors.slice(0, 3).join(' | ')}`)
@@ -178,7 +172,7 @@ for (const name of only.split(',')) {
     const shHi = stat(rows.slice(2).map(q => q.shimHi))
     const ms = stat(rows.map(q => q.ms))
     const row = {
-      name, view, day: DAY, frozen: FREEZE, size: SIZE,
+      name, view, day: DAY, size: SIZE,
       changedMed: +ch.med.toFixed(4), changedMax: +ch.max.toFixed(4),
       shimmerMean: +sh.mean.toFixed(3), shimHiMean: +shHi.mean.toFixed(4),
       lumaMin: Math.min(...rows.map(q => q.luma)), lumaMax: Math.max(...rows.map(q => q.luma)),

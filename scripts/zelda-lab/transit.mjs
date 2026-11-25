@@ -4,9 +4,8 @@
 //   CHROME_BIN=<chrome> node scripts/zelda-lab/transit.mjs <outDir> [round|pairs|hard] [--scene r-plaza] [--day dusk|sun]
 //     [--size 1280|390] [--reduced] [--setup 'page js'] [--keep a-b]
 //
-// The views are the four of the round: 8 (classic), 16 (iso), 32 (poly), 64 (third, the poly engine with
-// `THIRD_PERSON`). A change is made as the shell makes it (`Zelda.vue` `showView`): the engine's values first, then
-// `setView`; between 32 and 64 only the values change (no turn: the view eases its own look). Per frame: mean light,
+// The views are the two of the round: 8 (classic) and 16 (iso). A change is made as the shell makes it (`Zelda.vue`
+// `showView`): `setView`. Per frame: mean light,
 // the share of pixels changed since the last frame (> 6/255), the renderer's k, the hero's place on the screen (from
 // the HUD's own idea, `__lab.hero`), draw time. Writes <outDir>/<mode>.json and eight frames of each step as PNGs.
 //
@@ -34,26 +33,20 @@ const SETUP = opt('setup', '')
 const KEEP = (opt('keep', '') || '-1--1').split('-').map(Number)
 const TAG = opt('tag', `${mode}-${SCENE}-${DAY}-${SIZE}${REDUCED ? '-reduced' : ''}`)
 const [W, H, DPR] = SIZE === '390' ? [390, 844, 3] : [1280, 800, 1]
-// (A frame drew the classic picture when the renderer's turn stands at 0 and no direct turn is under way: `classic` per row.)
+// (A frame drew the classic picture when the renderer's turn stands at 0: `classic` per row.)
 
-const V = ['8', '16', '32', '64']
+const V = ['8', '16']
 /** A step: the view to go to, and how many frames to record it for. */
 const programs = {
-  // (Each step long enough for its turn, 2 × 0.7 s, or the 32-bit look's easing, 1 s, to end before the next.)
-  round: [['8', 20], ['16', 100], ['32', 100], ['64', 100], ['8', 100]],
+  // (Each step long enough for its turn, 2 × 0.7 s, to end before the next.)
+  round: [['8', 20], ['16', 100], ['8', 100]],
   pairs: V.flatMap(a => V.filter(b => b !== a).map(b => [[`=${a}`, 30], [b, 70]])).flat(),
   // V again in the middle of a turn, each way.
-  hard: [['=8', 20], ['32', 14], ['16', 60], ['=64', 30], ['8', 16], ['64', 60], ['=32', 30], ['64', 30], ['32', 60]],
-  // The 64-bit camera turned away from north (the hero faces east, --setup), then the turn home: the picture comes back
-  // to north as it goes down, and the controls with it (`turn` in each row: the renderer's `viewState().turn`).
-  yaw: [['=64', 120], ['8', 100], ['64', 120], ['16', 100], ['64', 120], ['32', 100]],
-  // Part 14: the 16-bit and the 32-bit look turn straight into each other (no classic picture between them), both ways,
-  // and V in the middle of it; and the classic ↔ 16-bit turn beside it as the control.
-  direct: [['=16', 20], ['32', 100], ['16', 100], ['32', 30], ['16', 100]],
+  hard: [['=8', 20], ['16', 14], ['8', 16], ['16', 60], ['=8', 30], ['16', 30], ['8', 60]],
   control: [['=8', 20], ['16', 100], ['8', 100]],
 }
 const program = programs[mode]
-if (!program) { console.error('modes: round, pairs, hard, yaw, direct, control'); process.exit(2) }
+if (!program) { console.error('modes: round, pairs, hard, control'); process.exit(2) }
 
 execFileSync('node', [join(here, 'shot.mjs'), out, '__none__'], { stdio: 'ignore' })
 const b = await launch({ width: W, height: H, dpr: DPR, mobile: SIZE === '390' })
@@ -67,10 +60,9 @@ const r = await b.eval(`(() => {
   const g = cv.getContext('2d', { willReadFrequently: true })
   const Wc = cv.width, Hc = cv.height, N = Wc * Hc
   const go = (v, instant) => {
-    // As the shell does: the engine's values first, then the turn (none between the two looks of one engine).
+    // As the shell does: the turn.
     if (v === '8') L.r.setView('classic', instant)
-    else if (v === '16') L.r.setView('iso', instant)
-    else { L.r.setParams('poly', v === '64' ? L.third : {}); L.r.setView('poly', instant) }
+    else L.r.setView('iso', instant)
   }
   const prog = ${JSON.stringify(program)}
   const rows = [], thumbs = [], kept = []

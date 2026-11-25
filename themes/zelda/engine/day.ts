@@ -90,11 +90,6 @@ export function dayHere(world: World, s: GameState): boolean {
 function onScreen(s: GameState, x: number, y: number, grow: number): boolean {
   const m = s.map
   const v = s.sight ?? SIGHT
-  if (v.ahead !== undefined) {
-    // The polygon view looks north to its horizon: a trapezoid, narrow at the hero, wide in the distance.
-    const north = s.hero.y - y
-    return north > -v.y - grow && north < v.ahead + grow && Math.abs(x - s.hero.x) < v.x / 2 + Math.max(0, north) * (v.spread ?? 0) + grow
-  }
   if (v.turned) {
     const dx = x - s.hero.x
     const dy = y - s.hero.y

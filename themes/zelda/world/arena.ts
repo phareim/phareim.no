@@ -12,8 +12,6 @@ export const ARENA: MapDef = {
   name: 'THE BATTLE GLADE',
   kind: 'overworld',
   track: 'forest',
-  // The polygon view draws no battle overlay yet (no screenOf, no battle camera).
-  views: ['classic', 'iso'],
   look: 'wild',
   rows: [
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',

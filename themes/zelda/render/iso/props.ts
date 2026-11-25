@@ -77,7 +77,7 @@ const rgb = (s: string): Rgb => { const v = parseInt(s.slice(1, 7), 16); return 
 interface Mat { ramp: Rgb[]; glow: number }
 const mat = (glow: number, ...c: string[]): Mat => ({ ramp: c.map(rgb), glow })
 
-/** The things' materials (shared with the polygon view, which builds the same things as meshes). */
+/** The things' materials. */
 export const MATS = {
   pole: mat(0, '#120a20', '#1e1434', '#34285a', '#4e4080', '#7466a8'),
   glassPink: mat(1, '#ff2fa0', '#ff2fa0', '#ff5fd0', '#ff5fd0', '#ffb0ec'),
@@ -477,7 +477,7 @@ function fence(b: Solids, sides: number) {
   b.post(0, 0, 17.5, 18.6, 2.6, 'wood')
 }
 
-/** How each thing is built (the polygon view builds the same things as meshes). */
+/** How each thing is built. */
 export const BUILD: Record<PropKind, (b: Solids) => void> = {
   lampPink: b => lamp(b, 'glassPink'),
   lampCyan: b => lamp(b, 'glassCyan'),

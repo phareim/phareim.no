@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-// The live page's frames, measured: the polygon view (or another) on a running site, the hero standing and then
-// walking on real key events, every frame the page draws read back from its canvas in a requestAnimationFrame
-// after the game's own. What the lab (walk-flicker.mjs) cannot show: the page's own path, with the quality left to
-// the governor, the geometry built a slice a frame, and the real clock.
+// The live page's frames, measured: a view (the isometric one, or another) on a running site, the hero standing and
+// then walking on real key events, every frame the page draws read back from its canvas in a requestAnimationFrame
+// after the game's own. What the lab (walk-flicker.mjs) cannot show: the page's own path and the real clock.
 //
 //   CHROME_BIN=<chrome> node scripts/zelda-lab/page-flicker.mjs <baseUrl> <outDir> [view] [w] [h] [dpr]
 //
@@ -11,20 +10,19 @@
 // canvas sizes seen, and the gaps between frames. Writes the worst pair and their difference to <outDir>.
 //
 // SAVE=<file>: a save (the game's `zeldaSave` JSON, e.g. one with the Sun Prism home and the hour in `day`) is
-// put into the page's storage before it loads. TAG=<name> goes into the file names. Where the view keeps a
-// per-frame trace (`window.__polyTrace`, an array the page is given empty), each frame's last entry is kept
-// beside its change in <outDir>/page-<view>-<w><tag>.json.
+// put into the page's storage before it loads. TAG=<name> goes into the file names. Each frame's change is kept in
+// <outDir>/page-<view>-<w><tag>.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launch } from './cdp.mjs'
 
-const [base, out, view = 'poly', W = '1280', H = '800', DPR = '1'] = process.argv.slice(2)
+const [base, out, view = 'iso', W = '1280', H = '800', DPR = '1'] = process.argv.slice(2)
 if (!base || !out) { console.error('usage: page-flicker.mjs <baseUrl> <outDir> [view] [w] [h] [dpr]'); process.exit(2) }
 mkdirSync(out, { recursive: true })
 const TAG = process.env.TAG ? `-${process.env.TAG}` : ''
 const b = await launch({ width: +W, height: +H, dpr: +DPR, mobile: +W < 600 })
 const save = process.env.SAVE ? readFileSync(process.env.SAVE, 'utf8').trim() : null
-await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__polyTrace = [];${save ? ` try { localStorage.setItem('zeldaSave', ${JSON.stringify(save)}) } catch {}` : ''}` })
+await b.send('Page.addScriptToEvaluateOnNewDocument', { source: save ? `try { localStorage.setItem('zeldaSave', ${JSON.stringify(save)}) } catch {}` : '' })
 await b.goto(`${base}/?view=${view}`)
 await b.sleep(6000)
 
@@ -52,9 +50,7 @@ window.__rec = (n) => new Promise(done => {
       ch /= W * H
       if (ch > worst.ch) worst = { ch, a: prev, b: d, W, H }
     }
-    const tr = window.__polyTrace
-    st.push({ ch, luma, gap: now - last, tr: tr && tr.length ? tr[tr.length - 1] : null })
-    if (tr && tr.length > 4) tr.splice(0, tr.length - 2)
+    st.push({ ch, luma, gap: now - last })
     last = now
     prev = d
     if (++i < n) requestAnimationFrame(tick)
@@ -104,6 +100,6 @@ for (const key of ['ArrowDown', 'ArrowLeft']) {
 // And standing again, after the walk (the governor has had its say by now).
 res.push(report('stand2', await rec(60)))
 await b.shot(join(out, `${view}-${W}${TAG}-page.png`))
-writeFileSync(join(out, `page-${view}-${W}${TAG}.json`), JSON.stringify(res.map(r => ({ ...r, perFrame: r.perFrame.map(q => [+q.ch.toFixed(4), +q.luma.toFixed(3), +q.gap.toFixed(1), q.tr]) }))))
+writeFileSync(join(out, `page-${view}-${W}${TAG}.json`), JSON.stringify(res.map(r => ({ ...r, perFrame: r.perFrame.map(q => [+q.ch.toFixed(4), +q.luma.toFixed(3), +q.gap.toFixed(1)]) }))))
 if (b.errors.length) console.error(b.errors.slice(0, 5).join('\n'))
 await b.close()

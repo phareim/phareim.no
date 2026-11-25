@@ -3,11 +3,11 @@
  * only how the frame is drawn, so the player can change it in the middle of
  * a room. Pure: the loaders are the only thing that touches the bundle.
  *
- * A view is a drawing engine (`viewParams.ts`: classic, iso, poly) with a
- * name and its own values. Three are built in, one per engine (a second look of the polygon engine, THIRD
- * PERSON, is kept but out of the round: `RETIRED_VIEWS`); a visitor who
- * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). A built-in view may be parked (`parked`: out of
- * the round until the studio brings it back); the polygon view is, for now. The studio
+ * A view is a drawing engine (`viewParams.ts`: classic, iso) with a
+ * name and its own values. Two are built in, one per engine; a visitor who
+ * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). (The
+ * polygon engine, parked since 2026-11-24, was archived on the branch
+ * `parked/polygon-engine` on 2026-11-25.) The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
  * views of its own; they arrive with the live file (`render/live.ts`) and
  * join the round on the V key, the view strip and `?view=<id>`.
@@ -39,52 +39,18 @@ export interface ViewDef {
 /** Kept for the registry's old shape: a built-in view and the module that draws it (none for the classic one). */
 export interface ViewInfo extends ViewDef {
   load?: () => Promise<{ default: unknown }>
-  /** Built in, but out of the round until the studio brings it back (`hidden: false`): a browser or an address that
-   * names it starts in the first view. */
-  parked?: boolean
 }
 
 /** The module that draws each engine; the classic one is always there. */
 export const ENGINE_LOADERS: Record<EngineId, (() => Promise<{ default: unknown }>) | undefined> = {
   classic: undefined,
   iso: () => import('./render/iso/view'),
-  poly: () => import('./render/poly/view'),
-}
-
-/**
- * The 64-bit look on the polygon engine: every trait of the 32-bit one turned the other way. The camera at the
- * hero's shoulder, textures filtered until they smear, steady corners, smooth shading, full colour stretched up
- * softly, thick fog in the hour's colour, soft halos and a lens flare, rounder windows, hillier land.
- */
-export const THIRD_PERSON: ParamValues = {
-  pose: 'shoulder', figure: 'model', plants: 'built', fineFigures: 'plain', density: 'screen', smoothEdges: true, filter: 1, smoothShade: 1, colors: 'full',
-  // (The land rolls less than it did (and the ground is read half a level soft, `groundSoft`'s default): walking over the camp's knolls the
-  // picture shimmered more than the 16-bit view's, part 6's meter.)
-  fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.05, windows: '64-bit',
-  bloom: 0.8, vignette: 0.35,
-  // (The 64-bit look's own fog does the distance's softening.)
-  dof: 0,
-  // (The POLYGON view's defaults moved toward the 16-bit look (its materials, calmer lamps); this look keeps its own.)
-  textures: 'painted', lampAir: 0.35,
-  // (Stronger lamps: their pools stand out on the cobbles from the shoulder, as the 32-bit crane sees them.)
-  lampGain: 2.3,
 }
 
 export const VIEWS: readonly ViewInfo[] = [
   { id: 'classic', name: 'CLASSIC', tag: '', engine: 'classic' },
   { id: 'iso', name: 'ISOMETRIC', tag: '', engine: 'iso', load: ENGINE_LOADERS.iso },
-  // Parked (2026-11-24): Petter took the polygon view out of the round while the isometric one is upgraded. Its code and
-  // values stay; the studio brings it back with `poly: { hidden: false }`, or delete `parked` here.
-  { id: 'poly', name: 'POLYGON', tag: '', engine: 'poly', load: ENGINE_LOADERS.poly, parked: true },
-  // The 64-bit look (the same engine's second look: the camera at the hero's shoulder, everything soft) is out of the
-  // round for now (part 14): Petter chose to bring the 32-bit look toward the 16-bit one (its hero, its trees, its
-  // angle) first, and the shoulder camera's 20 000-polygon hero does not belong to that. `THIRD_PERSON`, the shoulder
-  // pose and the code that draws it stay; this line brings it back:
-  // { id: 'third', name: 'THIRD PERSON', tag: '', engine: 'poly', load: ENGINE_LOADERS.poly, params: THIRD_PERSON },
 ]
-
-/** Views that were in the round once, and the view a browser or an address naming them gets now. */
-export const RETIRED_VIEWS: Readonly<Record<string, ViewId>> = { third: 'poly' }
 
 export const VIEW_KEY = 'zelda.view'
 /** The most views the round holds: the strip must fit a phone, and V must come back round. */
@@ -101,9 +67,9 @@ export interface LiveView {
   name?: string
   tag?: string
   params?: ParamValues
-  /** Where it goes in the round (lowest first; built-in views are 0, 10 and 20). */
+  /** Where it goes in the round (lowest first; built-in views are 0 and 10). */
   order?: number
-  /** A built-in view taken out of the round (never the classic one), or (false) a parked one brought back into it. */
+  /** A built-in view taken out of the round (never the classic one). */
   hidden?: boolean
 }
 export type LiveViews = Record<string, LiveView>
@@ -126,7 +92,6 @@ export function parseViews(raw: unknown): LiveViews {
     if (typeof r.tag === 'string' && TAG.test(r.tag.trim())) view.tag = r.tag.trim()
     if (typeof r.order === 'number' && Number.isFinite(r.order)) view.order = r.order
     if (r.hidden === true && id !== 'classic') view.hidden = true
-    else if (r.hidden === false && builtin?.parked) view.hidden = false
     out[id] = view
   }
   return out
@@ -137,7 +102,7 @@ export function mergeViews(live: LiveViews | null | undefined): ViewDef[] {
   const rows: Array<{ def: ViewDef; order: number; i: number }> = []
   VIEWS.forEach((b, i) => {
     const l = live?.[b.id]
-    if (l?.hidden ?? b.parked) return
+    if (l?.hidden) return
     // (A built-in view's own values first, the studio's over them.)
     rows.push({ def: { id: b.id, name: l?.name ?? b.name, tag: l?.tag ?? b.tag, engine: b.engine, params: { ...b.params, ...l?.params } }, order: l?.order ?? i * 10, i })
   })
@@ -191,9 +156,6 @@ export const DEFAULT_VIEW: ViewId = 'iso'
  * classic one, should the studio have taken that view out of the round).
  */
 export function startView(query: unknown, stored: unknown): ViewId {
-  const now = (v: unknown) => typeof v === 'string' && Object.prototype.hasOwnProperty.call(RETIRED_VIEWS, v) && !isViewId(v) ? RETIRED_VIEWS[v] : v
-  query = now(query)
-  stored = now(stored)
   if (isViewId(query)) return query
   if (isViewId(stored)) return stored
   return isViewId(DEFAULT_VIEW) ? DEFAULT_VIEW : 'classic'

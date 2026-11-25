@@ -1277,18 +1277,6 @@ function finish(o: FigureSprite, pose: FigurePose) {
 
 /** Render one frame. Reuses `out`'s arrays when given (clear only what the last frame touched). No DOM, no canvas: plain typed arrays. Deterministic. */
 /**
- * The pose's joints as the figure is drawn from them (the polygon view drives its hero model by these): where the
- * legs face, the torso's turn, lean and roll, the head's, the body's rise (px), the feet (forward and up, px), the
- * hands in the torso's frame (forward, right, up from the hips, px), the figure lying over and its scale, and the
- * blade. Pure; a copy.
- */
-export type SolvedPose = Readonly<typeof P> & { scale: number; hip: number }
-export function solvePose(pose: FigurePose): SolvedPose {
-  solve(pose)
-  return { ...P, scale: SC, hip: HIP }
-}
-
-/**
  * (`lines`: the lab's override of the outline's and the part lines' widths, fine px.)
  * `density`: 1 the 16-bit look's px (the 16-bit view), 2 twice as fine each way at the same size (the 32-bit look, part
  * 15): every measure in fine px, the body snapped to whole fine px, the face drawn at the finer px (`FACE2`), the

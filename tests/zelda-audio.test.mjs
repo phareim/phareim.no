@@ -296,9 +296,8 @@ test('a view picks the flavour: the isometric engine is 16-bit unless it says ot
   assert.equal(A.flavorForView('iso', null), '16-bit')
   assert.equal(A.flavorForView('iso', { sound: '16-bit' }), '16-bit')
   assert.equal(A.flavorForView('iso', { sound: '8-bit' }), '8-bit')
-  // The polygon view has no sound of its own yet: the 16-bit one, unless its values ask for the chip.
-  assert.equal(A.flavorForView('poly'), '16-bit')
-  assert.equal(A.flavorForView('poly', { sound: '8-bit' }), '8-bit')
+  // An engine the game no longer has (the archived polygon one, from an old published view) is the classic chip.
+  assert.equal(A.flavorForView('poly'), '8-bit')
 })
 
 /** Run `fn(audio, ctx, play)` on the fake Web Audio; `play(seconds)` moves its clock in 25 ms ticks. */

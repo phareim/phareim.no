@@ -194,8 +194,8 @@ function drawRift(g: G, p: Prop, x0: number, y0: number, tm: number, lights: Lig
 // ---------------------------------------------------------------------------
 
 /**
- * The way a figure facing `d` in the world shows to a camera turned `yaw` from north (as the polygon view's
- * `Pose.yaw`): the nearest of the four. 0 leaves it as it is.
+ * The way a figure facing `d` in the world shows to a camera turned `yaw` from north (`Kit.setFacing`): the nearest
+ * of the four. 0 leaves it as it is.
  */
 export function facingDir(d: Dir, yaw: number): Dir {
   if (!yaw) return d
