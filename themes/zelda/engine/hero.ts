@@ -15,7 +15,7 @@ import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
 import { digCycle, digItems, digOutOfReach, isDigItem, useDigTool } from './dig'
-import { hitPuzzle, phys, pushPuzzle, puzzleFloor, puzzleInfo, slideHero } from './puzzles/index'
+import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 
@@ -610,16 +610,19 @@ function stepSwing(c: Ctx, inp: Input, dt: number) {
 
 /**
  * The step forward at the start of a hit of the chain (LUNGE_TIME), along the blow. It stops short of a foe
- * already within half the blade's reach ahead, and of the edge of a pit or spikes. True while it moves him.
+ * already within half the blade's reach ahead, of the edge of a pit or spikes, and of ice (on ice, or onto it,
+ * the swing stays where it is and the slide keeps him). True while it holds him.
  */
 function lunge(c: Ctx, dt: number): boolean {
   const s = c.s
   const h = s.hero
   const sw = h.swing
   if (!sw || sw.n === undefined || sw.t >= LUNGE_TIME) return false
+  if (iceUnder(c)) return false
   const a = sw.a ?? dirAngle(sw.dir)
   const ca = Math.cos(a)
   const sa = Math.sin(a)
+  if (iceUnder(c, h.x + ca * (HERO_R + 0.1), h.y + sa * (HERO_R + 0.1))) return false
   h.vx = 0
   h.vy = 0
   const reach = (s.inv.arc ? ARC_REACH : SWORD_REACH) * 0.55
@@ -650,8 +653,8 @@ function canRoll(c: Ctx): boolean {
   const h = s.hero
   if (!s.inv.sword || h.carry || h.spin || h.roll || (h.rollCool ?? 0) > 0) return false
   if (h.act === 'lift' || h.act === 'get' || h.act === 'fall' || h.act === 'dead' || h.act === 'hurt') return false
-  // Not on ice, where the hero slides.
-  if (puzzleInfo(c.info).ice && phys(c).slide) return false
+  // Not on ice, where the hero slides (standing still on it included: a roll would steer him off his lane).
+  if (iceUnder(c)) return false
   const sw = h.swing
   return !sw || sw.t / swingDur(sw) >= ROLL_CANCEL
 }
@@ -700,6 +703,8 @@ function stepRoll(c: Ctx, inp: Input, dt: number) {
   h.vx = r0.vx * k
   h.vy = r0.vy * k
   h.walkT += dt
+  // Onto ice the roll ends at its edge: the slide takes him from there, along its lanes.
+  if (iceUnder(c)) r0.t = ROLL_TIME
   underfoot(c)
   if (!h.roll) return
   collect(c)

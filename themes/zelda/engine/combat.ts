@@ -80,7 +80,8 @@ const blade = (src: HitSource) => src === 'sword' || src === 'spin'
 /**
  * How a blow lands, beyond its damage (the blade's chain, `COMBO`): `knock` x the ordinary shove, `stagger` s of
  * reeling (small foes), `stop` ms of hitstop, `chain` a quick hit of the chain (the foe's mercy is short, so the
- * next hit lands), `finisher` the chain's last (it bites a reeling foe harder). Left out: the plain values.
+ * next hit lands), `finisher` the chain's last (it bites harder on a foe stunned, or reeling from some other
+ * blow: a pot, a bomb, the spin; not on one reeling only from the chain's own hits). Left out: the plain values.
  */
 export interface HitOpts { knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean }
 
@@ -206,8 +207,9 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
 
 function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt?: HitOpts): boolean {
   const big = BIG.has(e.kind)
-  // The chain's finisher on a foe still reeling from the hit before: a critical blow.
-  const crit = !!opt?.finisher && !big && (e.stagger ?? 0) > 0
+  // The chain's finisher on a foe stunned (the disc, the hook) or reeling from another blow: a critical one.
+  // The chain's own hits leave the foe reeling too, but that is the chain's ordinary course, not a crit.
+  const crit = !!opt?.finisher && !big && (e.stun > 0 || ((e.stagger ?? 0) > 0 && !e.reelChain))
   e.hp -= dmg + (crit ? 1 : 0)
   e.flash = 0.14
   e.invuln = big ? 0.45 : opt?.chain ? 0.1 : 0.28
@@ -220,7 +222,7 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
     const k = (opt?.knock ?? 1) * (big ? 0.4 : 1)
     e.knock = { vx: dx * 9 * k, vy: dy * 9 * k, t: 0.14 }
   }
-  if (!big) e.stagger = Math.max(e.stagger ?? 0, opt?.stagger ?? 0.12)
+  if (!big) { e.stagger = Math.max(e.stagger ?? 0, opt?.stagger ?? 0.12); e.reelChain = !!opt?.chain }
   e.hitT = 0
   e.hitDx = dx
   e.hitDy = dy
@@ -316,7 +318,7 @@ export const bombMax = (s: GameState) => (s.inv.bombBag ? (s.inv.bigBag ? 20 : 1
 
 export function itemText(s: GameState, item: ItemId): string[] {
   switch (item) {
-    case 'sword': return ['YOU GOT THE NEON BLADE!', 'PRESS {A} TO SWING. HOLD {A}, THEN LET GO, FOR A SPIN ATTACK.']
+    case 'sword': return ['YOU GOT THE NEON BLADE!', 'PRESS {A} TO SWING, AND AGAIN FOR THE NEXT BLOW. HOLD {A}, THEN LET GO, FOR A SPIN ATTACK.', '{ROLL} ROLLS YOU OUT OF HARM\'S WAY.']
     case 'bombBag': return ['YOU GOT BOMBS!', 'PRESS {B} TO SET ONE. A BLAST BREAKS CRACKED ROCK AND WALLS.']
     case 'bombs5': return ['FIVE BOMBS. HANDLE WITH CARE.']
     case 'disc': return ['YOU GOT THE PRISM DISC!', 'PRESS {B} TO THROW IT. IT STUNS FOES, FETCHES LOOT AND FLIPS FAR SWITCHES.', '{CYCLE} SWAPS BETWEEN BOMBS AND THE DISC.']

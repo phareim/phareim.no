@@ -733,8 +733,31 @@ describe('real-time combat: the chain, the roll (2026-11-25)', () => {
     assert.ok(foe.x - f0 >= 1.5, `driven ${(foe.x - f0).toFixed(2)} tiles`)
     const fin = ev.filter(e => e.type === 'hit').at(-1)
     assert.equal(fin.heavy, true)
-    assert.ok(hp0 - foe.hp >= Z.COMBO[2].dmg)
+    assert.equal(hp0 - foe.hp, Z.COMBO[2].dmg, 'a plain chain\'s finisher is not critical')
+    assert.equal(fin.crit, false)
     assert.ok(ev.some(e => e.type === 'hitStop' && e.ms >= 80))
+  })
+
+  it('a chain at any pace deals 1 + 1 + 2: its own reeling makes no crit', () => {
+    for (const gap of [4, 11, 20]) {
+      const { ev, go, foe } = arena(1.2)
+      go(A); go(inp(), gap); go(A); go(inp(), gap); go(A); go(inp(), 40)
+      const hits = ev.filter(e => e.type === 'hit')
+      assert.equal(hits.length, 3, `gap ${gap}: ${hits.length} hits`)
+      assert.deepEqual(hits.map(e => !!e.crit), [false, false, false], `gap ${gap}`)
+      assert.equal(99 - foe.hp, Z.COMBO[0].dmg + Z.COMBO[1].dmg + Z.COMBO[2].dmg, `gap ${gap}`)
+    }
+  })
+
+  it('the finisher on a stunned foe is critical', () => {
+    const { ev, go, foe } = arena(1.2)
+    go(A); go(inp(), 11); go(A); go(inp(), 11)
+    foe.stun = 1
+    const hp0 = foe.hp
+    go(A); go(inp(), 30)
+    const fin = ev.filter(e => e.type === 'hit').at(-1)
+    assert.equal(fin.crit, true)
+    assert.equal(hp0 - foe.hp, Z.COMBO[2].dmg + 1)
   })
 
   it('a reeling foe harms no one', () => {

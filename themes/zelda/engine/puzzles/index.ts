@@ -70,7 +70,11 @@ export function stepPhysics(c: Ctx, dt: number) {
 // Ice: the hero
 // ---------------------------------------------------------------------------
 
-const onIce = (m: MapState, x: number, y: number) => tileAt(m, Math.floor(x), Math.floor(y)) === 'α'
+/** Is (x, y) on ice? (Only ice in a room with ice puzzles slides; see `iceUnder`.) */
+export const onIce = (m: MapState, x: number, y: number) => tileAt(m, Math.floor(x), Math.floor(y)) === 'α'
+
+/** Is the hero (or the point x, y) on ice that slides: the room has ice puzzles and the tile is ice. */
+export const iceUnder = (c: Ctx, x = c.s.hero.x, y = c.s.hero.y) => !!pz(c).ice && onIce(c.s.map, x, y)
 
 /**
  * The hero's movement while on ice: null when the ice has nothing to say (walk as usual). Standing on ice, a

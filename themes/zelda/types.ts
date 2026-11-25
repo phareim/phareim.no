@@ -577,6 +577,8 @@ export interface Enemy {
   group?: string
   /** Seconds left reeling from a blow: it does nothing and harms no one (small foes only). */
   stagger?: number
+  /** The reeling came from the blade's own chain (its quick hits): that does not make the finisher critical. */
+  reelChain?: boolean
   /** Seconds since the last blow landed, and the way it was driven (unit vector): the renderer's squash and pop. */
   hitT?: number
   hitDx?: number
