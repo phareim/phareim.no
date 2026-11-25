@@ -23,6 +23,7 @@ import { THING_ART, type ThingArt } from './thingArt'
 import type { PropAtlas, PropSprite } from './props'
 import { rowsHash } from './folk'
 import { spriteRevision, spriteRows } from '../sheet'
+import { FRONTIER, regionId } from '../../world/gen/frontier'
 
 /** The name a drawn thing stands under in the atlas. */
 export const thingKey = (id: string): `thing:${string}` => `thing:${id}`
@@ -180,10 +181,17 @@ export function furnitureAt(tileOf: (x: number, y: number) => string, tx: number
 }
 
 /**
- * Landmarks drawn by hand that stand on a map where the classic art has something flat (part 23): the fountain in
- * the middle of the square's pool, its water in two frames. (The pool itself is the classic water, square.)
+ * Landmarks that stand on a map where the classic art has something flat: the fountain in the square
+ * and the ferry alongside the two piers. A bobbing landmark moves a whole scene pixel between frames.
  */
-export const LANDMARKS: Record<string, ReadonlyArray<{ id: string; frames: number; fps: number; x: number; y: number }>> = {
+export const LANDMARKS: Record<string, ReadonlyArray<{ id: string; frames: number; fps: number; x: number; y: number; bob?: boolean }>> = {
   // (A little toward the viewer of the pool's middle, (21, 13): the water lies below the ground, and the basin stands in it.)
-  overworld: [{ id: 'fountain', frames: 2, fps: 2, x: 21.3, y: 13.3 }],
+  overworld: [
+    { id: 'fountain', frames: 2, fps: 2, x: 21.3, y: 13.3 },
+    { id: 'ferry', frames: 2, fps: 1, x: 21.75, y: 38.35, bob: true },
+  ],
+  // The Landing's pier runs down the middle to the south edge of its region.
+  [regionId(FRONTIER.landing.rx, FRONTIER.landing.ry)]: [
+    { id: 'ferry', frames: 2, fps: 1, x: FRONTIER.w / 2 + 1.25, y: FRONTIER.h - 2.45, bob: true },
+  ],
 }

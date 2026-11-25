@@ -61,13 +61,14 @@ bits). Types: `battleTypes.ts` (re-exported by `types.ts`).
 
 Drawn on the HUD layer by `hudPaint` (renderer.ts) in every view; the iso view hands it its own projection
 (`hudLayer`'s `screenOf`). A 12×2 gauge and tech dots under each party member (Luna's hit points as pips
-over hers), hit-point pips and status dots over each foe, numbers and words rising, and only while a member
-chooses: a marker over its head and a strip of at most four lines beside it, on the side away from the
-foes and off the other fighters. Picking a target: a bouncing arrow with the foe's name, and a diamond
+over hers), hit-point pips over each foe, status glyphs by each fighter, and numbers and words rising.
+While a member chooses, a marker hovers over its head and a strip of at most four commands sits beside it,
+on the side away from the foes and off the other fighters. A linked pair of rings marks combo techs.
+Picking a target: a bouncing arrow with the foe's name, and a diamond
 under everything the command would hit. Keyboard: arrows move, A picks, B backs out. Touch: tap a line,
 then a foe (a foe tapped straight away is STRIKE); a tap on nothing backs out (`Input.tap` → the
 renderer's `battlePick` → `Input.pick`). Sound: the existing SFX, `battle` events for the music and the
 win's jingle.
 
-Tests: `tests/zelda-battle.test.mjs`. Lab: `node scripts/zelda-lab/shot.mjs <out> b-field,b-menu,b-target,b-tech,b-hit,b-solo`
+Tests: `tests/zelda-battle.test.mjs`. Lab: `node scripts/zelda-lab/shot.mjs <out> b-field,b-menu,b-target,b-tech,b-hit,b-solo,b-marks`
 (with `VIEW=iso` for the isometric view).

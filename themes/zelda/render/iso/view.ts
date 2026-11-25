@@ -1372,10 +1372,11 @@ export default function isoView(kit: Kit): View {
     }
 
     atlasUsed = used
-    // Landmarks drawn by hand (part 23, `LANDMARKS`): the fountain in the square's pool.
+    // The fountain in the square's pool and the ferries alongside the piers.
     if (drawn) for (const lm of LANDMARKS[m.id] ?? []) {
-      const id = `${lm.id}_${Math.floor((reduced ? 0 : time) * lm.fps) % lm.frames}`
-      if (hasThing(id)) stand(thingKey(id), lm.x, lm.y, px, rise)
+      const frame = Math.floor((reduced ? 0 : time) * lm.fps) % lm.frames
+      const id = lm.bob ? lm.id : `${lm.id}_${frame}`
+      if (hasThing(id)) stand(thingKey(id), lm.x, lm.y, px, rise, lm.bob ? frame / (T * DENSITY) : 0)
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
     if (drawn) for (const b of m.phys?.rolling ?? []) {

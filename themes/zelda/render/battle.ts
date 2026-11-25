@@ -7,7 +7,7 @@
  *
  * - under each party member, a 12×2 gauge (cyan; white blinking when full) and its tech points as dots;
  *   Luna's hit points as pips over it (the hero's are the hearts in the corner);
- * - over each foe, its hit points as pips, and a dot for each status on it;
+ * - over each foe, its hit points as pips, and a glyph for each status on it;
  * - numbers and words rising from whoever was hit;
  * - while a member chooses: a marker over its head and a small strip of at most four commands beside it;
  *   choosing a target, a bouncing arrow over the target with its name, and a diamond under all it would hit.
@@ -18,14 +18,26 @@
 import type { BattlePick, BattleStatus, GameState } from '../types'
 import { FOES, fighterAt, menuView, TP_MAX } from '../engine/battle/index'
 import { hudFont, type HudSkin } from './hud'
+import { BATTLE_MARKS } from './battleMarks'
+import { put, silhouette } from '../../base/pixel/sprites'
 
 type G = CanvasRenderingContext2D
 export interface BattleBox { x: number; y: number; w: number; h: number; pick: BattlePick }
 /** A world point (tiles; z up) in the HUD's logical px. */
 export type HudPlace = (x: number, y: number, z?: number) => { x: number; y: number }
 
-const LINE = 9
+const LINE = 12
 const STATUS_TONE: Record<BattleStatus, 'prize' | 'ok' | 'cool' | 'hot'> = { stun: 'prize', static: 'ok', slow: 'cool', break: 'hot' }
+
+function marks(g: G, status: Partial<Record<BattleStatus, number>>, x: number, y: number, skin: HudSkin) {
+  const active = Object.keys(status) as BattleStatus[]
+  const left = x - (active.length * 8 - 1) / 2
+  active.forEach((key, i) => {
+    const glyph = BATTLE_MARKS[key]
+    put(g, silhouette(glyph, skin.outline), left + i * 8 + 1, y + 1)
+    put(g, silhouette(glyph, skin[STATUS_TONE[key]]), left + i * 8, y)
+  })
+}
 
 /** How far below a figure's position its feet are (tiles): every view stands its picture there. */
 const FEET = 0.45
@@ -71,8 +83,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     const y0 = Math.round(head.y - 4)
     rect(x0 - 1, y0 - 1, w + 2, 4, skin.outline)
     for (let i = 0; i < n; i++) rect(x0 + i * 3, y0, 2, 2, i < full ? (f.flash > 0 ? skin.text : skin.hot) : skin.off)
-    const sts = Object.keys(f.status) as BattleStatus[]
-    sts.forEach((k, i) => rect(x0 + w + 2 + i * 3, y0, 2, 2, skin[STATUS_TONE[k]]))
+    marks(g, f.status, head.x, y0 - 9, skin)
     if (f.guard) rect(x0 - 4, y0, 2, 2, skin.cool)
     if (covered.has(f.id)) { const d = P(at.x, at.y); diamond(g, d.x, d.y, skin.hot, time) }
   }
@@ -100,8 +111,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
       const full = Math.ceil(f.hp / 2)
       for (let i = 0; i < n; i++) rect(x0 + i * 3, y0 - 4, 2, 2, i < full ? skin.hot : skin.off)
     }
-    const sts = Object.keys(f.status) as BattleStatus[]
-    sts.forEach((k, i) => rect(x0 + 13 + i * 3, y0, 2, 2, skin[STATUS_TONE[k]]))
+    marks(g, f.status, feet.x, y0 + 5, skin)
   }
 
   // --- rising numbers and words -------------------------------------------------------
@@ -131,7 +141,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     const body = P(at.x, at.y, 1.15)
     const tw = Math.max(...view.lines.map(l => F.width(l.label)))
     const extra = view.lines.some(l => l.cost || l.count !== undefined) ? 12 : 0
-    const w = tw + 14 + extra
+    const w = tw + 27 + extra
     const h = view.lines.length * LINE + 5
     // Beside the member, away from the foes, never over another fighter: the first spot that covers nobody
     // (beside, then a little above or below, then the other side), else the one that covers least.
@@ -160,17 +170,19 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     g.globalAlpha = choosing ? 1 : 0.7
     skin.panel(g, x, y, w, h, 'cool')
     view.lines.forEach((l, i) => {
-      const ly = y + 3 + i * LINE
+      const row = y + 3 + i * LINE
+      const ly = row + 2
       const here = i === view.cursor
       const color = !l.ok ? skin.faint : here ? skin.text : skin.dim
-      F.draw(g, l.label, x + 9, ly, color, skin.shadow)
+      put(g, silhouette(BATTLE_MARKS[l.mark], color), x + 9, row)
+      F.draw(g, l.label, x + 22, ly, color, skin.shadow)
       if (l.cost) for (let k = 0; k < l.cost; k++) rect(x + w - 5 - k * 3, ly + 3, 2, 2, l.ok ? skin.prize : skin.faint)
       else if (l.count !== undefined) { const t = String(l.count); F.draw(g, t, x + w - 4 - F.width(t), ly, color, skin.shadow) }
       if (here) {
         if (skin.pointer) skin.pointer(g, x + 1, ly, time)
         else F.draw(g, '>', x + 3 + (choosing && Math.floor(time * 4) % 2 ? 1 : 0), ly, skin.prize, skin.shadow)
       }
-      boxes.push({ x, y: ly - 1, w, h: LINE, pick: { cmd: i } })
+      boxes.push({ x, y: row - 1, w, h: LINE, pick: { cmd: i } })
     })
     g.globalAlpha = 1
     // The target: a bouncing arrow over it and its name.
@@ -179,7 +191,8 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
       if (t) {
         const ta = fighterAt(s, t)
         const th = P(ta.x, ta.y, t.side === 'foe' ? heightOf(FOES[t.foe!].look) + 0.45 : 2.35)
-        const by = Math.round(th.y - 6 + Math.abs(Math.sin(time * 7)) * -2)
+        const statusOffset = t.side === 'foe' && Object.keys(t.status).length > 0 ? 8 : 0
+        const by = Math.round(th.y - 6 - statusOffset + Math.abs(Math.sin(time * 7)) * -2)
         rect(th.x - 3, by, 7, 1, skin.hot)
         rect(th.x - 2, by + 1, 5, 1, skin.hot)
         rect(th.x - 1, by + 2, 3, 1, skin.hot)
@@ -197,14 +210,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
 /** A flat diamond on the ground under a fighter (blinks slowly). */
 function diamond(g: G, x: number, y: number, color: string, time: number) {
   if (Math.floor(time * 3) % 3 === 2) return
-  g.fillStyle = color
-  const cx = Math.round(x)
-  const cy = Math.round(y)
-  for (let r = -2; r <= 2; r++) {
-    const half = 4 - Math.abs(r) * 2
-    g.fillRect(cx - half, cy + r, 1, 1)
-    g.fillRect(cx + half, cy + r, 1, 1)
-  }
+  put(g, silhouette(BATTLE_MARKS.target, color), x - 4, y - 2)
 }
 
 /** The box under a point (HUD px), the strip's lines first; null: none. */

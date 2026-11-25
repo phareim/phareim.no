@@ -48,6 +48,9 @@ dig map they add two B items to the cycle (`UseItem`):
 - The outline on the target tile: cyan to dig or take back, pink to build, rose when it cannot. The classic
   view draws it on the tile; the isometric view at the tile's height, over the lit scene.
 
+The 16×16 tool sprites also serve as held-up item art. `item_chromePick` is ready in the sprite registry
+for the planned deep-quarry reward.
+
 ## Edits and the save
 
 - Every change is an edit against the map as authored: `GameState.digEdits[mapId][tileIndex] = tile + height`.

@@ -6,7 +6,9 @@ the coast, the Shrine and the Wildwood stay as they are.
 
 **Getting there.** The ferry at the end of the town's pier (overworld 20,38)
 goes to THE LANDING (`fr:6,8`); the dock there brings you back (entry
-`ferry`). The ferryman stands on the pier until the hero has a blade.
+`ferry`). The ferryman stands on the pier until the hero has a blade. In the isometric view the
+neon ferry bobs alongside each pier (`render/iso/ferryArt.ts`, lab scenes `f-ferry-town` and
+`f-ferry-landing`).
 
 ## How it is made (`themes/zelda/world/gen/`)
 

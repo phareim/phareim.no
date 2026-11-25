@@ -11,6 +11,8 @@
  *   it was drawn from, as the game showed them with the studio's live pack applied.
  * Edit by redrawing and regenerating, never the hashes by hand.
  */
+import { FERRY_ART } from './ferryArt'
+
 export interface ThingArt {
   w: number
   h: number
@@ -28,6 +30,7 @@ export interface ThingArt {
 }
 
 export const THING_ART: Record<string, ThingArt> = {
+  ferry: FERRY_ART,
   "bed": {
     w: 114, h: 87, ax: 56, ay: 59,
     // drawn on sheet bed (bed, pitch 10.05)

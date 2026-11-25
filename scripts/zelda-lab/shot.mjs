@@ -144,6 +144,8 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     break
   }
   case 'f-landing': give(); place('fr:6,8', 'camp', 0, -1); run(30); break
+  case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
+  case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
   case 'f-quarry': case 'f-lumenby': give(); near('fr:2,3', 'q.gunn'); run(30); break
   case 'f-underglow': give(); place('fr:0,3:deep2', 'up'); run(30); break
@@ -357,7 +359,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   // the menu open (b-menu), a target being picked (b-target), the tech list (b-tech), a blow landing (b-hit),
   // the hero alone (b-solo).
   case 'b-field': wild(true); s.inv.tonics = 3; go('arena', 15.5, 18.5, 'up'); run(30); break
-  case 'b-menu': case 'b-target': case 'b-tech': case 'b-hit': case 'b-solo': {
+  case 'b-menu': case 'b-target': case 'b-tech': case 'b-hit': case 'b-solo': case 'b-marks': {
     wild(scene !== 'b-solo'); s.inv.tonics = 3
     const g = scene === 'b-hit' ? [18.5, 9.4] : scene === 'b-solo' ? [23.5, 14.6] : [8.5, 18.4]
     go('arena', g[0], g[1], 'up'); run(2)
@@ -367,6 +369,12 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     if (scene === 'b-target') run(1, inp({ aPress: true }))
     if (scene === 'b-tech') run(1, inp({ pick: { cmd: 1 } }))
     if (scene === 'b-hit') { run(1, inp({ aPress: true })); run(1, inp({ aPress: true })); run(21) }
+    if (scene === 'b-marks') {
+      const [first, second] = s.battle.fighters.filter(f => f.side === 'foe')
+      first.status = { stun: 2, static: 2 }
+      second.status = { slow: 2, break: 2 }
+      run(1, inp({ aPress: true }))
+    }
     break
   }
   // Dig & build (docs/games/neon-shrine-dig.md): Lumenby Quarry with every tool, a ramp up the plateau, a block, a
@@ -550,6 +558,8 @@ const SHOTS = [
   ['b-hit-375', 'b-hit', 375, 667, 2, 0],
   ['b-solo-375', 'b-solo', 375, 667, 2, 0],
   ['b-menu-1280', 'b-menu', 1280, 800, 1, 0],
+  ['b-marks-390', 'b-marks', 390, 844, 2, 0],
+  ['b-marks-1280', 'b-marks', 1280, 800, 1, 0],
   ['b-hit-1280', 'b-hit', 1280, 800, 1, 0],
   ['pz-weights-1280', 'pz-weights', 1280, 800, 1, 0],
   ['pz-ice-1280', 'pz-ice', 1280, 800, 1, 0],
@@ -577,6 +587,10 @@ const SHOTS = [
   ['f-dig', 'f-dig', 1280, 800, 1, 0],
   ['f-landing', 'f-landing', 1280, 800, 1, 0],
   ['f-landing-390', 'f-landing', 390, 844, 2, 0],
+  ['f-ferry-town', 'f-ferry-town', 1280, 800, 1, 0],
+  ['f-ferry-town-390', 'f-ferry-town', 390, 844, 2, 0],
+  ['f-ferry-landing', 'f-ferry-landing', 1280, 800, 1, 0],
+  ['f-ferry-landing-390', 'f-ferry-landing', 390, 844, 2, 0],
   ['f-meadow', 'f-meadow', 1280, 800, 1, 0],
   ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
   ['f-cave', 'f-cave', 1280, 800, 1, 0],

@@ -225,7 +225,13 @@ function tickStatus(c: Ctx, b: BattleState, f: Fighter, dt: number) {
 // The menu
 // ---------------------------------------------------------------------------
 
-export interface MenuLine { label: string; ok: boolean; cost?: number; count?: number }
+export interface MenuLine {
+  label: string
+  ok: boolean
+  mark: 'strike' | 'skill' | 'duo' | 'step' | 'item'
+  cost?: number
+  count?: number
+}
 
 /** What the open menu shows: the lines of its list, the cursor, and the fighters the target cursor covers. */
 export function menuView(s: { battle?: BattleState | null; inv: { tonics: number; bombs: number; bombBag: boolean } }): null | {
@@ -243,13 +249,13 @@ export function menuView(s: { battle?: BattleState | null; inv: { tonics: number
 
 function linesOf(b: BattleState, inv: { tonics: number; bombs: number; bombBag: boolean }, me: Fighter, level: 'top' | 'tech' | 'item'): MenuLine[] {
   const m = me.member!
-  if (level === 'tech') return techsOf(b, m).map(t => ({ label: TECHS[t].name, ok: techOk(b, me, t), cost: TECHS[t].tp }))
-  if (level === 'item') return itemsOf(inv).map(it => ({ label: it === 'tonic' ? 'TONIC' : 'BOMB', ok: true, count: it === 'tonic' ? inv.tonics : inv.bombs }))
+  if (level === 'tech') return techsOf(b, m).map(t => ({ label: TECHS[t].name, ok: techOk(b, me, t), mark: TECHS[t].who.length > 1 ? 'duo' : 'skill', cost: TECHS[t].tp }))
+  if (level === 'item') return itemsOf(inv).map(it => ({ label: it === 'tonic' ? 'TONIC' : 'BOMB', ok: true, mark: 'item', count: it === 'tonic' ? inv.tonics : inv.bombs }))
   return [
-    { label: PARTY[m].strike.name, ok: true },
-    { label: 'TECH', ok: techsOf(b, m).some(t => techOk(b, me, t)) },
-    { label: 'ITEM', ok: itemsOf(inv).length > 0 },
-    { label: 'FLEE', ok: !noFlee(b) },
+    { label: PARTY[m].strike.name, ok: true, mark: 'strike' },
+    { label: 'TECH', mark: 'skill', ok: techsOf(b, m).some(t => techOk(b, me, t)) },
+    { label: 'ITEM', mark: 'item', ok: itemsOf(inv).length > 0 },
+    { label: 'FLEE', mark: 'step', ok: !noFlee(b) },
   ]
 }
 
