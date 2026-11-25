@@ -9,8 +9,10 @@
  * the studio's live pack applied. Edit the rows here (or redraw and regenerate), never the hashes by hand.
  */
 import type { FolkFamily } from './folkArt'
+import { FRONTIER_BOSS_ART } from './frontierArt/peopleData'
 
 export const BOSS_ART: Record<string, FolkFamily> = {
+  ...FRONTIER_BOSS_ART,
   king: {
     pal: { 'a': '#bd136f', 'b': '#0b0711', 'c': '#a190d3', 'd': '#fc31a2', 'e': '#fcecfc', 'f': '#695696', 'g': '#3be6fb', 'h': '#fd77d1', 'i': '#d8a7fa', 'j': '#f3dcfc', 'k': '#fccd24', 'l': '#090110', 'm': '#a30f36', 'n': '#460530', 'o': '#473570', 'p': '#11031f', 'q': '#e4cffc', 'r': '#4f3d7a', 's': '#311f54', 't': '#6b0a40', 'u': '#07030a', 'v': '#d01981', 'w': '#7460a1', 'x': '#0e0719', 'y': '#8976b6', 'z': '#0e021a', 'A': '#231940', 'B': '#fc56c1', 'C': '#2d1c4f', 'D': '#604d8c', 'E': '#baa6ed', 'F': '#fc86dd', 'G': '#fc3fad', 'H': '#fcd331', 'I': '#7f6cad', 'J': '#594785', 'K': '#fdf0b9', 'L': '#fcb5f2', 'M': '#fb64cd', 'N': '#fc98e5', 'O': '#c7b3f6', 'P': '#39275f', 'Q': '#dbc4fc', 'R': '#0c0215', 'S': '#85094c', 'T': '#9988ca', 'U': '#d6bdfb', 'V': '#402c67', 'W': '#a40f64', 'X': '#b91174', 'Y': '#c41678', 'Z': '#cdbcfa', '0': '#e988f5', '1': '#6e215a', '2': '#261947', '3': '#ad9add', '4': '#dd1e8b', '5': '#feec8e', '6': '#fd2ca0', '7': '#071c16', '8': '#b0126c', '9': '#9c2d73', '!': '#200828', '#': '#927fc0', '$': '#c36fc1', '%': '#e668ba', '&': '#fde270', '(': '#cc89df', ')': '#f472e9', '*': '#ef2494', '+': '#8755ae', ',': '#f5b621', '-': '#f83497' },
     src: { king_0: '18500bb7', king_1: 'ba313b22', king_hurt: '6e15107a' },

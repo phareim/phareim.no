@@ -10,6 +10,27 @@ goes to THE LANDING (`fr:6,8`); the dock there brings you back (entry
 neon ferry bobs alongside each pier (`render/iso/ferryArt.ts`, lab scenes `f-ferry-town` and
 `f-ferry-landing`).
 
+## Frontier art
+
+Each realm has a kit in `themes/zelda/render/iso/frontierArt/`. The authored
+solids bake into the isometric renderer's 32 px/tile grid, with hard alpha,
+surface normals and depth. The view adds only the current realm's kit to its
+prop atlas. `frontierScenery.ts` anchors scenery to generated stamps and quest
+sites. The Underglow places its landmarks by layer in `descent.ts`.
+
+The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
+Their isometric frames use the same sprite names and live-sprite hash checks
+as the rest of Neon Shrine. The eight boss families are registered for their
+planned encounters. Era, sign, troll and other quest art includes the variants
+for those systems. See the [art checklist](../art/codex-tasks.md).
+
+- Bake and preview one prop kit with `node scripts/zelda-lab/frontier-art.mjs <kit> <out.html>`.
+- Bake the actor families with `node scripts/zelda-lab/frontier-people.mjs`.
+  Pass a JSON path to also write GROK's four Blender guide poses, then render
+  them with `scripts/zelda-lab/grok-guide.py`.
+- The `f-<realm>` and `f-<realm>-390` scenes in `scripts/zelda-lab/shot.mjs`
+  show the generated landmarks in place at desktop and phone widths.
+
 ## How it is made (`themes/zelda/world/gen/`)
 
 | File | What |

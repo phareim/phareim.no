@@ -141,13 +141,13 @@ export const QUEST_SITES: Site[] = [
       '...,g,...',
     ],
     marks: {
-      a: npc('q.gunn', 'keeper', [
+      a: npc('q.gunn', 'foreman', [
         { when: { flags: [LAMP.got], not: [LAMP.done] }, lines: ["BROR'S LAMP. THE RAILS HOLD?", 'THEN HE STAYS DOWN BY CHOICE.', 'THE HILL GETS AN EIGHTH', 'LETTER FOR THAT.'], set: LAMP.done, give: 'heartPiece' },
         { when: { flags: [BELL.ore], not: [BELL.chrome] }, lines: ['CHROME FOR A BELL?', "TAKE A SHIFT'S WORTH.", 'TELL HER: NO TREES.'], set: BELL.chrome, give: 'bits20' },
         { when: { flag: LAMP.done }, lines: ['EIGHT LETTERS NOW.', "DON'T TELL THE SIGN."] },
         { lines: ['SEVEN LOTS. SEVEN LETTERS.', 'DIG.', 'MY BROTHER WENT DOWN', 'THE DEEP DRIFT, WEST.', 'BRING ME WORD. ANY WORD.'], set: LAMP.ask },
       ]),
-      d: npc('q.lumenby.nils', 'twirler', [{ lines: ["THAT'S A LOVELY SERIF", 'OF A ROCK.'] }]),
+      d: npc('q.lumenby.nils', 'tubeblower', [{ lines: ["THAT'S A LOVELY SERIF", 'OF A ROCK.'] }]),
       g: sign('UNION HALL, LUMENBY', 'SHIFT BOARD: 7 LOTS, 0 BUILT.'),
     },
   }),
@@ -167,10 +167,10 @@ export const QUEST_SITES: Site[] = [
       '...........',
     ],
     marks: {
-      a: npc('q.bell.home', 'barmaid', [
+      a: npc('q.bell.home', 'dairymaid', [
         { lines: ['THE BELL RANG, AND HERE I WAS.', "THE COWS DIDN'T EVEN NOTICE."], give: 'bits50' },
       ], { hide: { notFlag: BELL.rung } }),
-      d: npc('q.bell.tail', 'twirler', [
+      d: npc('q.bell.tail', 'huldra', [
         { when: { flag: BELL.rung }, lines: ['A BELL THAT RINGS! NOW', 'I CAN BE WED UNDER IT.', '(A TAIL SWISHES.', 'NOBODY MENTIONS IT.)'] },
         { lines: ['LOVELY EVENING.', "DON'T LOOK DOWN.", 'I WANT TO BE WED UNDER A BELL', 'THAT RINGS. THERE IS NONE.'] },
       ]),
@@ -292,7 +292,7 @@ export const QUEST_SITES: Site[] = [
     ],
     props: [{ kind: 'mast', x: 3.5, y: 3 }],
     marks: {
-      a: npc('q.act.director', 'guard', [
+      a: npc('q.act.director', 'stagemanager', [
         { when: { flag: ACT.done }, lines: ['WE END EVERY NIGHT NOW.', 'THE AUDIENCE CRIES. GOOD.'] },
         { when: { flag: ACT.tape }, lines: ['THE LAST ACT, ON TAPE!', 'TONIGHT THE RAINCHECK ENDS', 'THE SHOW. TAKE A BOW.'], set: ACT.done, give: 'heartPiece' },
         { lines: ['THE RAINCHECK MOORS HERE.', 'TONIGHT: THE SAME MUSICAL.', 'IT STOPS BEFORE THE END.', 'SOMETHING STOLE ACT THREE.'] },
@@ -349,7 +349,7 @@ export const QUEST_SITES: Site[] = [
       '---,---',
     ],
     marks: {
-      a: npc('q.seed.bed', 'robot', [
+      a: npc('q.seed.bed', 'gardenbot', [
         { when: { flag: SEED.planted }, lines: ['GROWING. YOU ARE STILL', 'NOT A FLOWER.'] },
         { when: { flag: SEED.got }, lines: ['A CLEAN SEED. PLANTING.', '(A SHOOT. THEN A LEAF.)', 'WATER. WATER. YES.'], set: SEED.planted, give: 'heartPiece' },
         { lines: ['WATER. WATER. THIS BED', 'IS EMPTY. IT WANTS A SEED', 'FROM CLEAN SOIL.'] },

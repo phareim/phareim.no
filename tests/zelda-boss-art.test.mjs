@@ -35,10 +35,11 @@ const DRAWN = {
   deepseek: ['deepseek_0', 'deepseek_1', 'deepseek_bite', 'deepseek_fin'],
 }
 const NOT_YET = ['mistral', 'deepseek', 'gemini', 'llama', 'troll'].filter(b => !DRAWN[b])
+const FRONTIER = ['grok', 'phi', 'mixtral', 'orca', 'falcon', 'bloom', 'bard', 'copilot']
 
 describe('isometric bosses', () => {
   it('has the bosses drawn so far, apart from the folk', () => {
-    assert.deepEqual([...M.BOSS_FAMILIES].sort(), Object.keys(DRAWN).filter(b => !M.BOSSES_HELD.has(b)).sort())
+    assert.deepEqual([...M.BOSS_FAMILIES].sort(), [...Object.keys(DRAWN), ...FRONTIER].filter(b => !M.BOSSES_HELD.has(b)).sort())
     // A held boss keeps its art in bossArt.ts, but the game draws its classic sprite.
     for (const b of M.BOSSES_HELD) for (const name of DRAWN[b]) assert.notEqual(M.familyOf(name), b, name)
     for (const b of Object.keys(DRAWN)) assert.equal(M.FOLK_ART[b], undefined, b)

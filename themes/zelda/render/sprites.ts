@@ -16,6 +16,7 @@ import { PAL as BASE_PAL } from '../../base/pixel/palette'
 import { WILD_RAW } from './spritesWild'
 import { BEACH_RAW } from './spritesBeach'
 import { DIG_RAW } from './spritesDig'
+import { FRONTIER_RAW } from './frontierSprites'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
 
@@ -1600,6 +1601,7 @@ const RAW: Record<string, Rows> = {
   ...BEACH_RAW,
   ...TREE_RAW,
   ...DIG_RAW,
+  ...FRONTIER_RAW,
 }
 
 

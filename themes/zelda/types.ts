@@ -10,6 +10,7 @@
  */
 
 import type { BattlePick, BattleState, MapBattleDef } from './battleTypes'
+import type { FrontierNpcLook } from './render/frontierSprites'
 export type * from './battleTypes'
 
 // ---------------------------------------------------------------------------
@@ -301,7 +302,7 @@ export type EntDef =
   | { t: 'valve'; flag: string } // a valve wheel (tile 'ξ'): a hit sets or clears `flag`
   | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid' | 'tree'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid' | 'tree' | FrontierNpcLook
 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
@@ -453,6 +454,8 @@ export interface MapDef {
   /** Letter stones: walking over them in this order sets `flag`. */
   codes?: Array<{ word: string; flag: string }>
   props?: Prop[]
+  /** Isometric scenery, in tile units. These decorations have no collision of their own. */
+  isoLandmarks?: IsoLandmark[]
   /**
    * Walking off this edge (where the hero stands on open ground) leads into
    * that map at the same place along the edge: the frontier's regions
@@ -473,6 +476,20 @@ export interface MapDef {
   dig?: DigDef
   /** Physical combat (`engine/puzzles/`): foes knocked into pits, water or spikes fall, drown or are hurt. On by itself in a map with puzzle tiles. */
   physics?: boolean
+}
+
+export interface IsoLandmark {
+  art: string
+  x: number
+  y: number
+  z?: number
+  /** The classic scenery the landmark replaces in the isometric view. */
+  cover?: Rect
+  /** Numbered art frames, or a one-pixel bob with the same artwork. */
+  motion?: { frames: number; fps: number; bob?: boolean }
+  /** A different sprite once a quest flag has been set. */
+  lit?: { flag: string; art: string }
+  shadow?: { tall: number; wide: number; deep?: number }
 }
 
 export interface AreaIntro {

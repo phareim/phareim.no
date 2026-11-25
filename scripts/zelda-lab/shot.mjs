@@ -120,6 +120,13 @@ function near(map, id, dy = 2) {
   const d = WORLD.generate(map)
   d.rows.forEach((row, y) => { const x = [...row].findIndex(ch => d.marks[ch]?.ent.id === id); if (x >= 0) { s.hero.x = x + 0.5; s.hero.y = y + dy + 0.5; s.hero.dir = 'up' } })
 }
+function nearArt(map, id, dx, dy) {
+  place(map, 'camp')
+  const art = WORLD.generate(map).isoLandmarks.find(lm => lm.art === id)
+  s.hero.x = art.x + dx
+  s.hero.y = art.y + dy
+  s.hero.dir = 'up'
+}
 const put = (map, x, y, dir) => { enterMap(world, s, map, Object.keys({}).length ? '' : 'door', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir; s.hero.auto = null }
 const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1', stick: null, attract: false, cam: null, banner: null, keys: q.get('touch') === '1' ? { a: 'THE SWORD BUTTON', b: 'THE ITEM BUTTON', cycle: 'THE SWAP BUTTON', touch: true } : { a: 'SPACE', b: 'K', cycle: 'Q' } }
 // Part 22: a boss room's scene + '-hit' is the same moment with every boss in it flashing (the hurt frame and the
@@ -147,14 +154,21 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
   case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
-  case 'f-quarry': case 'f-lumenby': give(); near('fr:2,3', 'q.gunn'); run(30); break
-  case 'f-underglow': give(); place('fr:0,3:deep2', 'up'); run(30); break
+  case 'f-quarry': give(); near('fr:2,3', 'q.gunn'); run(30); break
+  case 'f-lumenby': {
+    give()
+    nearArt('fr:2,3', 'quarry_letter_e_off', -0.5, 3)
+    for (const n of [1, 3, 5, 7]) s.flags['q.lumenby.lot' + n] = true
+    run(30)
+    break
+  }
+  case 'f-underglow': give(); place('fr:0,3:deep1', 'up', 0.75, 0); run(30); break
   case 'f-seterfell': give(); near('fr:4,1', 'q.bell.tail'); run(30); break
-  case 'f-yulefjord': give(); near('fr:5,0', 'q.bell.ringer'); run(30); break
+  case 'f-yulefjord': give(); nearArt('fr:5,0', 'fjord_church', 0.05, 2.95); run(30); break
   case 'f-stillsand': give(); near('fr:10,4', 'l.caravan.cook'); run(30); break
-  case 'f-sporelight': give(); near('fr:9,2', 'l.steam.clerk'); run(30); break
+  case 'f-sporelight': give(); near('fr:9,2', 'l.steam.clerk'); s.map.enemies.length = 0; run(30); break
   case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
-  case 'f-rerun': give(); near('fr:8,7', 'l.band'); run(30); break
+  case 'f-rerun': give(); nearArt('fr:8,7', 'rerun_house_0', 2, 3); s.map.enemies.length = 0; run(30); break
   case 'f-cave': { give(); const id = ['fr:6,7', 'fr:5,7', 'fr:6,6', 'fr:5,6', 'fr:4,6', 'fr:6,5', 'fr:5,5', 'fr:4,5', 'fr:3,4'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
   case 'look-snow': give(); place('look-snow:fr:4,6', 'camp', 0, -1); run(30); break
   case 'look-snow-2': give(); place('look-snow:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
@@ -601,13 +615,21 @@ const SHOTS = [
   ['q-ledge-1280', 'q-ledge', 1280, 800, 1, 0],
   ['q-hole-1280', 'q-hole', 1280, 800, 1, 0],
   ['f-lumenby', 'f-lumenby', 1280, 800, 1, 0],
+  ['f-lumenby-390', 'f-lumenby', 390, 844, 2, 0],
   ['f-underglow', 'f-underglow', 1280, 800, 1, 0],
+  ['f-underglow-390', 'f-underglow', 390, 844, 2, 0],
   ['f-seterfell', 'f-seterfell', 1280, 800, 1, 0],
+  ['f-seterfell-390', 'f-seterfell', 390, 844, 2, 0],
   ['f-yulefjord', 'f-yulefjord', 1280, 800, 1, 0],
+  ['f-yulefjord-390', 'f-yulefjord', 390, 844, 2, 0],
   ['f-stillsand', 'f-stillsand', 1280, 800, 1, 0],
+  ['f-stillsand-390', 'f-stillsand', 390, 844, 2, 0],
   ['f-sporelight', 'f-sporelight', 1280, 800, 1, 0],
+  ['f-sporelight-390', 'f-sporelight', 390, 844, 2, 0],
   ['f-fogstage', 'f-fogstage', 1280, 800, 1, 0],
+  ['f-fogstage-390', 'f-fogstage', 390, 844, 2, 0],
   ['f-rerun', 'f-rerun', 1280, 800, 1, 0],
+  ['f-rerun-390', 'f-rerun', 390, 844, 2, 0],
   ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
     [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
     [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],

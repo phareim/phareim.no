@@ -14,7 +14,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'`,
+      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_THING_ART } from './render/iso/frontierArt'; export { FRONTIER } from './world/gen/frontier'; export { WORLD } from './world'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -95,6 +95,35 @@ describe('things drawn by hand', () => {
       assert.ok(p.x + p.w <= q.x || q.x + q.w <= p.x || p.y + p.h <= q.y || q.y + q.h <= p.y, 'overlap')
     }
     assert.equal(M.withThings(props), a)
+  })
+
+  it('packs each frontier kit separately and supplies every generated landmark frame', () => {
+    const props = M.buildProps()
+    const base = M.withThings(props)
+    for (const [realm, art] of Object.entries(M.REALM_THING_ART)) {
+      const atlas = M.withThings(props, art)
+      assert.ok(atlas.h <= 2048, `${realm} atlas: ${atlas.h}px tall`)
+      for (const [id, t] of Object.entries(art)) {
+        const box = atlas.sprites[M.thingKey(id)]
+        assert.ok(box && box.y >= base.h, id)
+        assert.equal(t.rows.length, t.h, id)
+        assert.equal(t.nrows.length, t.h, id)
+        assert.equal(bytes(t.deep).length, t.w * t.h, id)
+      }
+    }
+    const ids = M.FRONTIER.layout.flatMap((row, y) => [...row].flatMap((r, x) => r === ' ' ? [] : [`fr:${x},${y}`]))
+    ids.push(...Array.from({ length: 6 }, (_, i) => `fr:0,3:deep${i + 1}`))
+    for (const id of ids) {
+      const def = M.WORLD.generate(id)
+      for (const lm of def?.isoLandmarks ?? []) {
+        const names = lm.motion && !lm.motion.bob
+          ? Array.from({ length: lm.motion.frames }, (_, i) => `${lm.art}_${i}`)
+          : [lm.art]
+        if (lm.lit) names.push(lm.lit.art)
+        for (const name of names) assert.ok(M.REALM_THING_ART[def.realm]?.[name], `${id}: ${name}`)
+      }
+    }
+    assert.equal(M.withThings(props), base)
   })
 
   it('stands a piece of furniture once for its run of tiles', () => {

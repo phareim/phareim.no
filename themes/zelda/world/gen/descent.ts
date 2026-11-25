@@ -14,7 +14,7 @@
  * Not here yet (README TODO): the Pull (climbing greys a heart), the
  * glowstick ranks and turnstiles, Rut's lifts, the PHI boss.
  */
-import type { CellDef, EnemyKind, EntDef, ItemId, Mark, MapDef, TrackId } from '../../types'
+import type { CellDef, EnemyKind, EntDef, IsoLandmark, ItemId, Mark, MapDef, TrackId } from '../../types'
 import { carveRooms } from './cave'
 import { DEEP_FOLK } from './quests'
 import { Rng, hash } from './rng'
@@ -63,6 +63,7 @@ export function generateLayer(ctx: DescentCtx): MapDef {
   const { g, dist } = carveRooms(rng, cols, rowsN)
   const n = cols * rowsN
   const id = deepId(ctx.top, ctx.layer)
+  const isoLandmarks: IsoLandmark[] = []
   const marks: Record<string, Mark> = {}
   let next = 0xe000
   const mark = (ent: EntDef, tile?: Mark['tile']) => { const ch = String.fromCharCode(next++); marks[ch] = tile ? { ent, tile } : { ent }; return ch }
@@ -76,9 +77,19 @@ export function generateLayer(ctx: DescentCtx): MapDef {
   // The way up, the way on down (or, at the bottom, the Geyser home).
   g[2]![3] = mark({ t: 'warp', to: ctx.layer === 1 ? ctx.top : deepId(ctx.top, ctx.layer - 1), entry: ctx.layer === 1 ? 'deep' : 'down' }, '>')
   const entries: MapDef['entries'] = { up: { x: 3.5, y: 3.5, dir: 'down' } }
+  if (ctx.layer === 1) {
+    isoLandmarks.push(
+      { art: 'underglow_ledge_se', x: 6.5, y: 2.5 },
+      { art: 'underglow_lift_cage', x: 6, y: 3.6 },
+      { art: 'underglow_lift_rope', x: 6, y: 3.6, z: 0.78 },
+      { art: 'underglow_lift_wheel', x: 6, y: 3.6, z: 1.6, motion: { frames: 4, fps: 1 } },
+    )
+  }
   if (ctx.layer < DEEP_LAYERS) {
     g[fy + 2]![fx + RW - 4] = mark({ t: 'warp', to: deepId(ctx.top, ctx.layer + 1), entry: 'up' }, '>')
     entries.down = { x: fx + RW - 4 + 0.5, y: fy + 3.5, dir: 'down' }
+    const rank = ['rose', 'pink', 'cyan', 'violet', 'gold'][ctx.layer - 1]!
+    isoLandmarks.push({ art: `underglow_glowstick_${rank}`, x: entries.down.x + 0.95, y: entries.down.y })
   } else {
     // The Geyser: a ring of lamps round the hole it comes up through.
     const gx = fx + RW / 2
@@ -86,6 +97,7 @@ export function generateLayer(ctx: DescentCtx): MapDef {
     for (const [dx, dy] of [[-2, -2], [2, -2], [-2, 2], [2, 2]] as const) g[gy + dy]![gx + dx] = 't'
     g[gy]![gx] = mark({ t: 'warp', to: ctx.top, entry: 'deep' }, '>')
     entries.down = { x: gx + 0.5, y: gy + 1.5, dir: 'down' }
+    isoLandmarks.push({ art: 'underglow_sun', x: gx + 0.5, y: gy - 1.3, motion: { frames: 2, fps: 1 } })
     g[gy - 3]![gx - 4] = mark({ t: 'sign', lines: ['THE GEYSER', 'IT GOES UP. ALL THE WAY.'] })
   }
 
@@ -104,7 +116,16 @@ export function generateLayer(ctx: DescentCtx): MapDef {
       for (let i = 0; i < k; i++) {
         const x = rng.int(2, RW - 3)
         const y = rng.int(2, RH - 3)
-        if (free(x, y)) g[cy + y]![cx + x] = tile
+        if (free(x, y)) {
+          const tx = cx + x
+          const ty = cy + y
+          g[ty]![tx] = tile
+          const art = ctx.layer === 2 && tile === 'T' ? 'underglow_roots' :
+            ctx.layer === 3 && tile === 'r' ? `underglow_shards_${i % 2}` :
+            ctx.layer === 4 && tile === 'M' ? `underglow_mast_${i % 3}` :
+            ctx.layer === 5 && tile === 'M' ? 'underglow_cabinet' : null
+          if (art) isoLandmarks.push({ art, x: tx + 0.5, y: ty + 0.5, cover: { x: tx, y: ty, w: 1, h: 1 } })
+        }
       }
     }
     if (r !== 0) {
@@ -139,6 +160,7 @@ export function generateLayer(ctx: DescentCtx): MapDef {
     cells,
     marks,
     entries,
+    isoLandmarks,
     keyring: deepId(ctx.top, 0),
     realm: ctx.realm.id,
     ...(ctx.realm.look ? { look: ctx.realm.look } : {}),

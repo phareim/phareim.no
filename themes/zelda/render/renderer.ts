@@ -39,6 +39,7 @@ import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
 import { PAL } from './sprites'
+import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
@@ -47,6 +48,14 @@ const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 
 
 /** Foes drawn larger than a person. */
 const BIG_FOES: ReadonlySet<string> = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
+
+/** Frontier skins for existing field enemy behaviours. The boss art has its own future encounters. */
+const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierCreature>>> = {
+  lumenby: { skull: 'timberbeetle', zapper: 'orehopper' },
+  yulefjord: { skull: 'draug', dasher: 'nokk' },
+  stillsand: { bat: 'stonebird' },
+  rerun: { hound: 'mowermob', drone: 'flamingomob', spitter: 'mailboxmob' },
+}
 
 const T = TILE
 
@@ -717,13 +726,20 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
   }
 
-  function enemySprite(e: Enemy): { name: string; flip: boolean } {
+  function enemySprite(e: Enemy, realm?: string): { name: string; flip: boolean } {
     // Each figure steps through its own number of frames (two as drawn; more when the studio
     // added some, render/sheet.ts frameCount). Poses that hold one frame keep it.
     const tick = Math.floor(time * (e.kind === 'bat' ? 8 : 4) + hash2(e.home.x, e.home.y) * 4)
     const f = (prefix: string) => tick % frameCount(prefix, 2)
     const fast = (prefix: string) => Math.floor(time * 10) % frameCount(prefix, 2)
     const { key, flip } = dirKey(e.dir)
+    const frontier = realm ? FRONTIER_FOE_LOOKS[realm]?.[e.kind] : undefined
+    if (frontier) {
+      if (frontier === 'stonebird') return { name: e.ai.mode === 'rest' ? 'stonebird_perch' : 'stonebird_fly', flip }
+      if (frontier === 'nokk' && e.ai.mode === 'idle') return { name: 'nokk_eyes', flip }
+      const prefix = `${frontier}_${key}`
+      return { name: `${prefix}_${f(prefix)}`, flip }
+    }
     switch (e.kind) {
       case 'blob': return { name: `blob_${e.ai.mode === 'hop' ? 1 : f('blob')}`, flip: false }
       case 'spitter': return { name: `spitter_${key}_${e.ai.tell > 0 ? 1 : f(`spitter_${key}`)}`, flip }
@@ -785,7 +801,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         lights.push({ x: (e.x + other.x) / 2, y: (e.y + other.y) / 2 - 0.6, r: 3, color: '#ff2fa0', a: 0.6 })
       }
     }
-    const { name, flip } = enemySprite(e)
+    const { name, flip } = enemySprite(e, mapInfo(world, s.map.id).def.realm)
     const flying = e.kind === 'bat' || e.kind === 'king' || e.kind === 'drone' || (e.kind === 'mistral' && e.ai.mode !== 'down') || (e.kind === 'gemini' && e.ai.mode !== 'down')
     if (e.kind === 'mistral') lights.push({ x: e.x, y: e.y - 1, r: 4, color: '#9ff6ff', a: e.ai.mode === 'down' ? 1 : 0.6 })
     if (e.kind === 'gemini') lights.push({ x: e.x, y: e.y - 1, r: 2.4, color: e.home.x < (this_map_twin(e)?.home.x ?? Infinity) ? '#2ff3ff' : '#ff2fa0', a: e.ai.mode === 'down' ? 0.3 : 0.8 })
@@ -952,7 +968,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           const y = n.y * T - cy + 6
           if (n.look === 'tree') { drawTree(g, x, y); return }
           if (n.look !== 'bonfire') shadow(g, x, y - 1, 10)
-          put(g, `${n.look}_${f}`, x, y, n.dir === 'left')
+          if (frontierNpcLook(n.look)) {
+            const { key, flip } = dirKey(n.dir)
+            const prefix = `${n.look}_${key}`
+            const frame = Math.floor(time * 2 + n.home.x) % frameCount(prefix, 2)
+            put(g, `${prefix}_${frame}`, x, y, flip)
+          } else put(g, `${n.look}_${f}`, x, y, n.dir === 'left')
           if (n.look === 'smoker') smoke(g, x + (n.dir === 'left' ? -1 : 1) * (f ? 6 : 7), y - (f ? 9 : 5), time, ui.reducedMotion)
         },
       })

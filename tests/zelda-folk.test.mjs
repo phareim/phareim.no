@@ -14,7 +14,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './render/iso/folk'; export { FOLK_ART } from './render/iso/folkArt'; export { setSpriteOverrides, spriteRows, frameCount, spriteRevision } from './render/sheet'; export { SPRITES } from './render/sprites'`,
+      contents: `export * from './render/iso/folk'; export { FOLK_ART } from './render/iso/folkArt'; export { FRONTIER_FOLK_ART, FRONTIER_BOSS_ART } from './render/iso/frontierArt/peopleData'; export { setSpriteOverrides, spriteRows, frameCount, spriteRevision } from './render/sheet'; export { SPRITES } from './render/sprites'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -36,7 +36,7 @@ describe('isometric figures', () => {
   ]
 
   it('has the families drawn so far, and none of the hero or the bosses', () => {
-    assert.deepEqual([...M.FOLK_FAMILIES].sort(), [...DRAWN].sort())
+    assert.deepEqual([...M.FOLK_FAMILIES].sort(), [...DRAWN, ...Object.keys(M.FRONTIER_FOLK_ART)].sort())
     for (const boss of ['hero', 'king', 'mistral', 'deepseek', 'gemini', 'llama', 'troll']) assert.equal(M.FOLK_ART[boss], undefined, boss)
   })
 
@@ -84,6 +84,18 @@ describe('isometric figures', () => {
     assert.equal(M.familyOf('keeper_0'), 'keeper')
     assert.equal(M.familyOf('keeper_hat'), null)
     assert.equal(M.familyOf('hero_down_0'), null)
+  })
+
+  it('routes the frontier figures and bosses from every classic sprite to their own art', () => {
+    for (const [name, family] of Object.entries({ ...M.FRONTIER_FOLK_ART, ...M.FRONTIER_BOSS_ART })) {
+      assert.ok(M.familyFresh(family), name)
+      for (const sprite of Object.keys(family.src)) {
+        const frame = M.facingOf(sprite, name, false)
+        assert.ok(frame && family.frames[frame.key], sprite)
+        assert.equal(M.familyOf(sprite), name)
+        assert.match(M.SPRITES[sprite].rows.join(''), /^[.a-zA-Z]+$/)
+      }
+    }
   })
 
   it('hashes rows like FNV-1a', () => {

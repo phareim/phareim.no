@@ -42,6 +42,7 @@ import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engi
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
 import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
+import { REALM_THING_ART } from './frontierArt'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
@@ -142,15 +143,26 @@ export default function isoView(kit: Kit): View {
   try { engine = createEngine() } catch { return legacyView(kit) }
   /** The things built for this view (`props.ts`), once they are painted. */
   let propAtlas: PropAtlas | null = null
+  let realmArt: string | undefined
+  let coverDef: ReturnType<typeof mapInfo>['def'] | null = null
+  const covered = new Set<number>()
   /** The realm look whose materials are on the GPU ('' the coast's). */
   let matLook = ''
+  const sendProps = (realm?: string) => {
+    realmArt = realm
+    propAtlas = withThings(buildProps(), realm ? REALM_THING_ART[realm] : undefined)
+    engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
+  }
   const sendMaterials = () => {
     const mats = buildMaterials()
     matLook = ''
     // (With the things drawn by hand packed under the built ones: part 23, `things.ts`.)
-    propAtlas = withThings(buildProps())
     engine.materials(mats.data, mats.w, mats.h)
-    engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
+    sendProps(realmArt)
+  }
+  const prepareProps = (realm: string | undefined) => {
+    const want = realm && REALM_THING_ART[realm] ? realm : undefined
+    if (want !== realmArt) sendProps(want)
   }
   /**
    * Paints the view's own pictures, the materials and the things. All of it at once is a pause one can feel
@@ -710,6 +722,7 @@ export default function isoView(kit: Kit): View {
     if (!base || base.mapId !== m.id) { base = createTileLayer(world, m, 'base'); fresh(); if (late()) return false }
     if (!objects || objects.mapId !== m.id) { objects = createTileLayer(world, m, 'objects'); fresh(); if (late()) return false }
     const def = mapInfo(world, m.id).def
+    prepareProps(def.realm)
     const fLook = floraOf(def.look)
     if (def.kind === 'overworld' && floraLook !== fLook) {
       while (!stepFlora(fLook)) if (late()) return false
@@ -737,6 +750,18 @@ export default function isoView(kit: Kit): View {
     const m = s.map
     const info = mapInfo(world, m.id)
     const def = info.def
+    prepareProps(def.realm)
+    if (coverDef !== def) {
+      coverDef = def
+      covered.clear()
+      const sprites = propAtlas!.sprites
+      for (const { art, cover, motion } of def.isoLandmarks ?? []) {
+        if (!cover || !Object.prototype.hasOwnProperty.call(sprites, thingKey(motion && !motion.bob ? `${art}_0` : art))) continue
+        for (let y = cover.y; y < cover.y + cover.h; y++) {
+          for (let x = cover.x; x < cover.x + cover.w; x++) covered.add(y * m.w + x)
+        }
+      }
+    }
     const kind = def.kind
     const time = kit.time()
     const reduced = ui.reducedMotion
@@ -1004,6 +1029,10 @@ export default function isoView(kit: Kit): View {
     // From the near corner to the far one, so what stands in front is drawn first and hides the rest early.
     for (let ty = R.y + R.h - 1; ty >= R.y; ty--) for (let tx = R.x + R.w - 1; tx >= R.x; tx--) {
       if (!inRoom(tx, ty)) continue
+      if (drawn && k >= 1 && tx >= 0 && tx < m.w && covered.has(ty * m.w + tx)) {
+        bare((tx - R.x) * T, (ty - R.y) * T, T, T)
+        continue
+      }
       const shp = shapeAt(tx, ty)
       const t = tileAt(m, kind, tx, ty)
       // (A counter or a fence that runs north lies flat as a card, and stands as a thing of this view's own.)
@@ -1188,6 +1217,11 @@ export default function isoView(kit: Kit): View {
         }
         else if (t === 'i' && kind === 'interior') prop = 'stool'
         else if (t === 'β' || t === 'ρ' || t === 'ξ' || t === 'μ' || t === 'ν' || t === 'π' || t === 'κ') {
+          if (drawn && k >= 1 && def.realm === 'yulefjord' && (t === 'μ' || t === 'ν')) {
+            stand(thingKey(t === 'μ' ? 'fjord_mirror_a' : 'fjord_mirror_b'), tx + 0.5, ty + 0.5, px, 1)
+            bare(sx, sy - up, T, T + up)
+            continue
+          }
           // The physical puzzles' things (`puzzleProps.ts`): a receiver lit, a valve open, an emitter's way.
           const pz = puzzleInfo(info)
           const i = ty * m.w + tx
@@ -1393,6 +1427,19 @@ export default function isoView(kit: Kit): View {
       const frame = Math.floor((reduced ? 0 : time) * lm.fps) % lm.frames
       const id = lm.bob ? lm.id : `${lm.id}_${frame}`
       if (hasThing(id)) stand(thingKey(id), lm.x, lm.y, px, rise, lm.bob ? frame / (T * DENSITY) : 0)
+    }
+    if (drawn) for (const lm of def.isoLandmarks ?? []) {
+      const tx = Math.floor(lm.x)
+      const ty = Math.floor(lm.y)
+      if (!inRoom(tx, ty)) continue
+      const art = lm.lit && has(s, lm.lit.flag) ? lm.lit.art : lm.art
+      const motion = lm.motion
+      const frame = motion && !reduced ? Math.floor(time * motion.fps) % motion.frames : 0
+      const key = thingKey(motion && !motion.bob ? `${art}_${frame}` : art)
+      if (!Object.prototype.hasOwnProperty.call(propAtlas!.sprites, key)) continue
+      const z = (lm.z ?? digLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
+      stand(key, lm.x, lm.y, px, rise, z)
+      if (lm.shadow) cards.push({ x: lm.x, y: lm.y, ...lm.shadow })
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
     if (drawn) for (const b of m.phys?.rolling ?? []) {

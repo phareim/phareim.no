@@ -64,18 +64,28 @@ export function paintThing(t: ThingArt, albedo: Uint8ClampedArray, normal: Uint8
 }
 
 let made: { from: PropAtlas; atlas: PropAtlas } | null = null
+let expanded: { from: PropAtlas; extra: Record<string, ThingArt>; atlas: PropAtlas } | null = null
 
-/** The built things' atlas with every drawn thing packed under it (shelves, two clear px round each). */
-export function withThings(props: PropAtlas): PropAtlas {
-  if (made?.from === props) return made.atlas
+/** Pack the base art below the built things and extend it with the visible realm's kit. */
+export function withThings(props: PropAtlas, extra?: Record<string, ThingArt>): PropAtlas {
+  if (made?.from !== props) made = { from: props, atlas: packThings(props, THING_ART) }
+  if (!extra) { expanded = null; return made.atlas }
+  if (expanded?.from !== made.atlas || expanded.extra !== extra) {
+    expanded = { from: made.atlas, extra, atlas: packThings(made.atlas, extra) }
+  }
+  return expanded.atlas
+}
+
+/** Pack into shelves with two clear pixels around each sprite. */
+function packThings(props: PropAtlas, art: Record<string, ThingArt>): PropAtlas {
   const w = props.w
-  const ids = Object.keys(THING_ART).sort((a, b) => THING_ART[b]!.h - THING_ART[a]!.h)
+  const ids = Object.keys(art).sort((a, b) => art[b]!.h - art[a]!.h)
   const at: Record<string, [number, number]> = {}
   let x = 2
   let y = props.h + 2
   let shelf = 0
   for (const id of ids) {
-    const t = THING_ART[id]!
+    const t = art[id]!
     if (x + t.w + 2 > w) { x = 2; y += shelf + 2; shelf = 0 }
     at[id] = [x, y]
     x += t.w + 2
@@ -88,14 +98,12 @@ export function withThings(props: PropAtlas): PropAtlas {
   normal.set(props.normal)
   const sprites: Record<string, PropSprite> = { ...props.sprites }
   for (const id of ids) {
-    const t = THING_ART[id]!
+    const t = art[id]!
     const [ox, oy] = at[id]!
     paintThing(t, albedo, normal, w, ox, oy)
     sprites[thingKey(id)] = { x: ox, y: oy, w: t.w, h: t.h, ax: t.ax, ay: t.ay, top: 0 }
   }
-  const atlas = { w, h, albedo, normal, sprites: sprites as PropAtlas['sprites'] }
-  made = { from: props, atlas }
-  return atlas
+  return { w, h, albedo, normal, sprites: sprites as PropAtlas['sprites'] }
 }
 
 const fresh = new Map<string, boolean>()

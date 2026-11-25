@@ -4,10 +4,13 @@
  * `src`: the hash (`rowsHash`) of each classic sprite's rows the family was drawn from, as the game showed them with
  * the studio's live pack applied. Edit the rows here (or redraw and regenerate), never the hashes by hand.
  */
+import { FRONTIER_FOLK_ART } from './frontierArt/peopleData'
+
 export interface FolkFrame { ax: number; ay: number; rows: readonly string[] }
 export interface FolkFamily { pal: Record<string, string>; src: Record<string, string>; frames: Record<string, FolkFrame> }
 
 export const FOLK_ART: Record<string, FolkFamily> = {
+  ...FRONTIER_FOLK_ART,
   keeper: {
     pal: { a: '#200734', b: '#e796b0', c: '#ebd7ec', d: '#b169ed', e: '#431a60', f: '#6b30a2', g: '#632b9b', h: '#eabfc8', i: '#863fcc', j: '#bb90da', k: '#522283', l: '#9e56d3', m: '#7c3e9d', n: '#8b43d0', o: '#2d0e44', p: '#cd76dc', q: '#b147c9' },
     src: { keeper_0: '02d581e4', keeper_1: '6795f7a4' },
