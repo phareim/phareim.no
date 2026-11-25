@@ -451,6 +451,22 @@ describe('Neon Shrine dig & build', () => {
     assert.doesNotMatch(shell, /'item_pickaxe'/)
   })
 
+  it('draws a ramp only on its own tile, not in the land beyond the edges (render/iso/dig.ts)', () => {
+    // 10×4, a ramp rising east at the east edge (9, 1).
+    const tiles = Array(40).fill('.')
+    const h = Array(40).fill(1)
+    tiles[1 * 10 + 9] = 'и'
+    h[1 * 10 + 9] = 2
+    const m = { w: 10, h: 4, tiles, dig: { h, g: 1, z: 1 } }
+    assert.ok(R.rampSlope(m, 9, 1))
+    assert.equal(R.rampSides(m, 9, 1).length, 2)
+    // Beyond the west edge one row down, and beyond the east edge one row up, the row-major index lands on it.
+    for (const [x, y] of [[-1, 2], [10, 0], [-1, 1], [0, -1], [9, 4], [-24, 5], [33, 1]]) {
+      assert.equal(R.rampSlope(m, x, y), null, `slope at ${x}, ${y}`)
+      assert.deepEqual(R.rampSides(m, x, y), [], `sides at ${x}, ${y}`)
+    }
+  })
+
   it('reads old saves, and saves with the tools out', () => {
     const s = quarry(['shovel'])
     const save = Z.toSave(s)

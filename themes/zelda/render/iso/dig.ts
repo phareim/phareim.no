@@ -57,11 +57,16 @@ export function digCapOf(m: MapState, tx: number, ty: number): [number, number] 
   return [tx, ty]
 }
 
+/** The way a ramp on tile (tx, ty) rises; undefined off the map (the land drawn beyond its edge) or on no ramp. */
+function rampAt(m: MapState, tx: number, ty: number): readonly [number, number] | undefined {
+  if (!m.dig || tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return undefined
+  return RAMPS[m.tiles[ty * m.w + tx]!]
+}
+
 export type Corner = [number, number, number]
 /** A ramp's slope: its four corners (top-left, top-right, bottom-right, bottom-left of its picture), z above the ground. */
 export function rampSlope(m: MapState, tx: number, ty: number): Corner[] | null {
-  const t = m.tiles[ty * m.w + tx]!
-  const d = RAMPS[t]
+  const d = rampAt(m, tx, ty)
   if (!d || !m.dig) return null
   const hi = m.dig.h[ty * m.w + tx]! - m.dig.g
   const lo = hi - 1
@@ -79,7 +84,7 @@ export function rampSlope(m: MapState, tx: number, ty: number): Corner[] | null 
  * rectangle. Each comes with whether it faces east.
  */
 export function rampSides(m: MapState, tx: number, ty: number): Array<{ q: Corner[]; east: boolean }> {
-  const d = RAMPS[m.tiles[ty * m.w + tx]!]
+  const d = rampAt(m, tx, ty)
   if (!d || !m.dig) return []
   const lo = m.dig.h[ty * m.w + tx]! - m.dig.g - 1
   const hi = lo + 1
