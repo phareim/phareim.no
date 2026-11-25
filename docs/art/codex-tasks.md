@@ -204,7 +204,7 @@ chain with a blob in front.
   - The head may be partly hidden: use the neck point, or bake the head into
     `roll_1/2` and leave `nx` unset.
   - Classic `hero_*_roll_0..3` replace the rotated stand-ins the rework ships with.
-- [ ] **H4 · Blade at 16 directions (P1).**
+- [x] **H4 · Blade at 16 directions (P1, `ba5847a`).**
   - Iso: `sword_e1` (22.5° off horizontal) and `sword_e2` (67.5°), plus the Arc
     Blade's `sword2_e1`, `sword2_e2`, in `BLADE_ART`/`BLADE_PAL` (`heroArt.ts`).
     About 26×20 px, same grip and guard as today.
@@ -223,7 +223,7 @@ chain with a blob in front.
 - [ ] **H7 · Hurt from every side (P3).**
   `hurt/back/*` (3 bodies; hurt is front only today), and a `stagger` pose (knees
   buckled, front/back) for the shield bounce and the hard knock.
-- [ ] **H8 · Foes reeling (P2).**
+- [x] **H8 · Foes reeling (P2, `ba5847a`).**
   - A `front_hurt` frame (squashed, eyes shut or X'd, recoiling) for each small foe
     family in `FOLK_ART` (`render/iso/folkArt.ts`): `blob`, `spitter`, `hound`,
     `drone`, `sentry`, `bat`, `dasher`, `zapper` and `skull`; `knight` front and back.
@@ -231,7 +231,7 @@ chain with a blob in front.
     `facingOf` maps `<family>_hurt` to `front_hurt`, as `king_hurt` already does.
     Add the `src` hash with the classic rows so `familyFresh` holds.
   - The rework shows it while a foe is staggered.
-- [ ] **H9 · Impact and slash marks (P2).**
+- [x] **H9 · Impact and slash marks (P2, `ba5847a`).**
   - `hitfx_0..3`: a 4-ray impact star, white core, cyan rim; 16×16 classic, a 4-frame fx.
   - `slash_0..2`: a straight slash line across a foe, 24×8, fading.
   - `hitfx_gold_0..3`: for the Arc Blade and crits.
@@ -286,12 +286,12 @@ These are the pieces it cannot draw by itself.
   Brighter lens frames for `fjord_lighthouse` (four directions, the lit side white-gold)
   and a spotlight head for `fogstage_spotlight` in eight directions. The beam itself is
   procedural; it needs a source that points where it shines.
-- [ ] **L3 · Camp neon boards (P2).**
+- [x] **L3 · Camp neon boards (P2, `ba5847a`).**
   - A small two-post board with neon letters, in four colourways (pink, cyan, gold,
     violet), and a blank board the game writes a short word on: `CAMP`, `OPEN`, `INN`.
   - It stands upright, because decals lie flat on the ground in the iso view.
   - Lands in `THING_ART`.
-- [ ] **L4 · Small life (P3).**
+- [x] **L4 · Small life (P3, `ba5847a`).**
   - Classic-palette sprites, two to four frames each, at 5 sheet px to a scene px:
     - a fish jumping out of water and back (3 frames + splash);
     - a gull and a crow in flight (2 frames);
@@ -306,16 +306,16 @@ These are the pieces it cannot draw by itself.
 The plain between the realms has no scenery of its own, and the Landing is a
 dock in a pool.
 
-- [ ] **M1 · Meadow landmarks (P1).**
+- [x] **M1 · Meadow landmarks (P1, `ba5847a`).**
   A windmill with turning sails (four frames), a waystone with a glowing rune, three
   haystack sizes, a rusted bus stop with a timetable board, and a hand cart. Anchored
   by `frontierScenery.ts` to the meadow's stamps (camp, hamlet, grove, stones).
-- [ ] **M2 · Road lanterns (P1).**
+- [x] **M2 · Road lanterns (P1, `ba5847a`).**
   - A lantern post for the frontier roads, in five tones (pink, cyan, violet, gold,
     rose), lit and unlit.
   - The game places them along roads by hash, so they must tile next to the road's
     stones without covering them.
-- [ ] **M3 · Coast set for the Landing (P2).**
+- [x] **M3 · Coast set for the Landing (P2, `ba5847a`).**
   - Pieces:
     - a breakwater (straight and end pieces);
     - a pier that runs out into deep water;
@@ -323,6 +323,6 @@ dock in a pool.
     - a harbour light on a post.
   - The generator is to give the Landing a real shoreline; until then these sit on its
     sand.
-- [ ] **M4 · Campfire set (P2).**
+- [x] **M4 · Campfire set (P2, `ba5847a`).**
   - Pieces: logs to sit on, a kettle on a tripod, a lean-to.
   - Fire frames to match the bonfire's, lit by the light work.
