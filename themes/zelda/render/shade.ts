@@ -18,7 +18,7 @@
 import type { GameState, MapKind, MapState, TileChar, World } from '../types'
 import { TILE } from '../types'
 import { mapInfo, raised } from '../engine/index'
-import { beyondTile } from './beyond'
+import { atlasBeyond, beyondTile } from './beyond'
 import { exitTiles } from './exits'
 import { shapeOf } from './iso/shape'
 import { makeCanvas } from './sheet'
@@ -163,7 +163,8 @@ export function createShade(world: World): Shade {
   function field(m: MapState, kind: MapKind): Masses {
     if (masses && massMap === m && massVersion === m.version) return masses
     const own = exitTiles(world, m.id)
-    const tile = (x: number, y: number): TileChar => x < 0 || y < 0 || x >= m.w || y >= m.h ? (kind === 'overworld' ? beyondTile(m.tiles, m.w, m.h, x, y) : '#') : m.tiles[y * m.w + x]!
+    const near = atlasBeyond(world, m.id)
+    const tile = (x: number, y: number): TileChar => x < 0 || y < 0 || x >= m.w || y >= m.h ? (kind === 'overworld' ? beyondTile(m.tiles, m.w, m.h, x, y, near) : '#') : m.tiles[y * m.w + x]!
     // Crystal blocks count as up: which of them are is asked per frame (`raised`).
     masses = massesOf(m.w, m.h, kind, tile, (x, y) => own.has(y * m.w + x), () => true)
     massMap = m

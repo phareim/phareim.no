@@ -17,7 +17,7 @@ and isometric views, on every map they are gated to.
 | `held/` | Drawn and wired but not shipped: the critic held them back (see below). Not in the registry |
 | `glimmerfae.ts` | The reference critter: placement over tiles, frame from the clock, a reaction from the hero's distance, a glow and a glitter trail |
 
-**The gate.** `maps` (hand-made map ids) or `realms` (frontier realm ids),
+**The gate.** `maps` (map ids) or `realms` (the lands' realm ids, `MapDef.realm`),
 `kinds` (default overworld; the Underglow's layers are dungeons) and `when`:
 `dark` (sun ≤ 0.12), `day`, `dusk-dawn` (−0.3 < sun ≤ 0.35) or `always`. Without
 the prism the game sits at the stuck dusk (sun ≈ 0.1) for good, so `dark` and
@@ -43,13 +43,13 @@ The designs are in `docs/art/life-catalog.json` (18 by Codex, 6 fairy and light 
 | `wisps` | Wildwood water | dark | A procession of will-o'-wisps with reflections, keeping ahead of the hero |
 | `fairyring` | Wildwood ground by trees | dusk-dawn | A mushroom ring lights round and round; step in and it all lights and the fairy bows |
 | `pitweaver` | Wildwood pits | dark | A spider stitches a glowing crescent over a pit |
-| `moonbloom` | Neon Coast, the Green Miles | always (opens in the dark) | Pale flowers open as the night deepens and breathe out glowing pollen |
+| `moonbloom` | Neon Coast, Seter Fell | always (opens in the dark) | Pale flowers open as the night deepens and breathe out glowing pollen |
 | `birchghost` | Seter Fell, by the sleeping trolls | dusk-dawn | A birch spirit lifts a leaf lantern each time the troll breathes in |
 | `fjordcrown` | Yule Fjord, by the ice | dark | Jellyfish press their crowns of light to the ice |
 | `roottailor` | The Underglow | always | An upside-down imp darns a root with hot pink thread |
 | `sporeparasol` | The Sporelight | always | Two mushroom folk share one umbrella |
 | `paperunderstudy` | Fogstage, by the painted flats | always | A paper actor steps out of the scenery and bows in a spotlight ring |
-| `hayteacup` | The Green Miles, by every second haystack | always | A field mouse pours tea from a seedpod into a thimble, sips, and holds the cup up to the hero |
+| `hayteacup` | Seter Fell's Lower Pasture, by every second haystack | always | A field mouse pours tea from a seedpod into a thimble, sips, and holds the cup up to the hero |
 | `quartzhare` | Stillsand, at the foot of every second quartz island | always | A sand hare tips its glassy ears into the light until a spectrum lands on the sand; it sits low when the hero comes |
 
 **Held** (`held/`; each needs what the critic said before it moves up and into `CRITTERS`;

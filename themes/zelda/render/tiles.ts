@@ -16,7 +16,7 @@ import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
 import { isDigChar, paintDigTile, setDigPaint } from './dig'
-import { beyondTile } from './beyond'
+import { atlasBeyond, beyondTile, type Beyond } from './beyond'
 import { drawPuzzleLive, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
 import { CLASSIC, MOOD, realmLook } from './looks'
 import { standIns, standsIn, type StandIn } from './standIns'
@@ -876,12 +876,13 @@ export interface TileLayer {
   pass: LayerPass
 }
 
-function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
+function atFor(m: MapState, tx: number, ty: number, kind: MapKind, near?: Beyond | null): At {
   return (dx, dy) => {
     const x = tx + dx
     const y = ty + dy
-    // Past an outdoor map's edge the land goes on (`beyond.ts`): the sea stays sea, rock stays rock.
-    if (x < 0 || y < 0 || x >= m.w || y >= m.h) return kind === 'overworld' ? beyondTile(m.tiles, m.w, m.h, x, y) : '#'
+    // Past an outdoor map's edge the land goes on (`beyond.ts`): the next map on the grid, or else the sea stays
+    // sea and rock stays rock.
+    if (x < 0 || y < 0 || x >= m.w || y >= m.h) return kind === 'overworld' ? beyondTile(m.tiles, m.w, m.h, x, y, near) : '#'
     return m.tiles[y * m.w + x]!
   }
 }
@@ -906,6 +907,7 @@ export function paintField(kind: MapKind, look: string | undefined, g: G, tile: 
 function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1: number, y1: number, pass: LayerPass = 'all') {
   const kind = mapInfo(world, m.id).def.kind
   const look = mapInfo(world, m.id).def.look
+  const near = atlasBeyond(world, m.id)
   setLook(look)
   // Exits that bring their own sprite (cabinets, board, kiosk, terminals) stand on bare ground.
   const own = exitTiles(world, m.id)
@@ -927,16 +929,16 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   if (pass !== 'objects') for (let ty = Y0; ty <= Y1; ty++) for (let tx = X0; tx <= X1; tx++) {
     const t = m.tiles[ty * m.w + tx]!
     // The puzzles' tiles, over the map's own floor (`puzzleTiles.ts`).
-    if (paintPuzzleBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), () => { if (!(look === 'lab' && paintLabBase(g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind)))) paintBase(kind, g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind)) })) continue
-    if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))) continue
-    paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
+    if (paintPuzzleBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near), () => { if (!(look === 'lab' && paintLabBase(g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near)))) paintBase(kind, g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near)) })) continue
+    if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near))) continue
+    paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near))
   }
   // The frontier's solid scenery, which only the isometric view has art for: a stand-in where it is in the way.
   const props = m.scenery ? standIns(world, m.id) : null
   // Objects from one tile further out so overhangs reach in.
   if (pass !== 'base') for (let ty = Math.max(0, Y0 - 1); ty <= Math.min(m.h - 1, Y1 + 1); ty++) for (let tx = Math.max(0, X0 - 1); tx <= Math.min(m.w - 1, X1 + 1); tx++) {
     if (own.has(ty * m.w + tx)) continue
-    paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), marquee, cover.has(ty * m.w + tx), look)
+    paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near), marquee, cover.has(ty * m.w + tx), look)
     const prop = props?.get(ty * m.w + tx)
     if (prop && standsIn(m, ty * m.w + tx)) standIn(g, prop, tx * T, ty * T)
   }

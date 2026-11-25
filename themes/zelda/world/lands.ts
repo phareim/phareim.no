@@ -1,6 +1,6 @@
 /** The lands around the coast and the Wildwood (docs/worlds/atlas.md), by map id. */
 import type { MapDef } from '../types'
-import { SETERFELL } from './seterfell'
+import { FELLCAVE, SETERFELL } from './seterfell'
 import { YULEFJORD } from './yulefjord'
 import { SPORELIGHT } from './sporelight'
 import { STILLSAND } from './stillsand'
@@ -10,6 +10,7 @@ import { FOGSTAGE } from './fogstage'
 
 export const LANDS: Record<string, MapDef> = {
   seterfell: SETERFELL,
+  fellcave: FELLCAVE,
   yulefjord: YULEFJORD,
   sporelight: SPORELIGHT,
   stillsand: STILLSAND,

@@ -1,9 +1,9 @@
 /**
- * Haystack tea (docs/art/life-catalog.json → hayteacup). A field mouse beside a haystack in the meadow sets a
+ * Haystack tea (docs/art/life-catalog.json → hayteacup). A field mouse beside a haystack on Seter Fell sets a
  * thimble on a bit of straw, pours tea from a seedpod (a gold drop falls) and sips it. Come within 1.6 tiles and
  * it holds the cup up to you, turning to face you. Any hour. Frames drawn by Codex (scripts/life-lab/draw.sh).
- * Placement: every second `meadow_hay_*` landmark (the catalogue says 1 in 3; a meadow region has only one or two
- * stacks), the mouse on the ground tile just south of the stack.
+ * Placement: every second `meadow_hay_*` landmark (the catalogue says 1 in 3; the Lower Pasture has four stacks),
+ * the mouse on the ground tile just south of the stack.
  */
 import type { Critter } from './types'
 
@@ -12,7 +12,7 @@ const OPEN = '.,:;'
 
 const mouse: Critter = {
   id: 'hayteacup',
-  realms: ['meadow'],
+  realms: ['seterfell'],
   when: 'always',
   pal: {o: '#3a2c33', n: '#25212a', e: '#191823', f: '#7d6a5f', l: '#a08c7c', i: '#8e6d73', p: '#b29983', h: '#e5cfaa', r: '#367b9b', c: '#59b8ca', q: '#c4f5ed', b: '#c68a35', g: '#ffd23f', k: '#ffe788', w: '#fff3bc', s: '#e6cc85', d: '#ad8d60'},
   frames: {

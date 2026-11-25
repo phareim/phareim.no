@@ -14,8 +14,14 @@
  * A painter asking for a neighbour across the map's edge is given the same
  * answer, so the map's last row is drawn for what lies next to it: sea runs
  * on without a shore, and rock over the sea shows its face.
+ *
+ * Where the world's grid has a map next to this one (`World.atlas`), what lies
+ * beyond the edge is that map's own ground (`atlasBeyond`): from Seter Fell's
+ * rim the view looks down on Whisper Woods and the town, not on made-up woods.
  */
-import type { TileChar } from '../types'
+import type { TileChar, World } from '../types'
+import { atlasAt } from '../engine/game'
+import { mapInfo } from '../engine/map'
 
 /** How many tiles of land a view may draw outside an outdoor map. */
 export const BEYOND = 24
@@ -49,8 +55,10 @@ function smooth(x: number, y: number, size: number, salt: number): number {
  * The tile at (x, y) outside a w × h map (inside it: the map's own tile).
  * One of '~' (sea), '#' (rock), ',' (a road going on) and 'T' (woods).
  */
-export function beyondTile(tiles: readonly TileChar[], w: number, h: number, x: number, y: number): TileChar {
+export function beyondTile(tiles: readonly TileChar[], w: number, h: number, x: number, y: number, near?: Beyond | null): TileChar {
   if (x >= 0 && y >= 0 && x < w && y < h) return tiles[y * w + x]!
+  const there = near?.(x, y)
+  if (there) return there
   const cx = Math.max(0, Math.min(w - 1, x))
   const cy = Math.max(0, Math.min(h - 1, y))
   // A road runs straight on.
@@ -77,4 +85,30 @@ export function beyondTile(tiles: readonly TileChar[], w: number, h: number, x: 
 export function massifHeight(w: number, h: number, x: number, y: number): number {
   const d = Math.max(-x, x - (w - 1), -y, y - (h - 1), 0)
   return Math.max(1, Math.min(3, 1 + Math.floor((d - 3 + smooth(x, y, 4, 3) * 5) / 3)))
+}
+
+/** What a neighbouring map of the grid has at (x, y) in this map's tiles, or null where no map lies. */
+export type Beyond = (x: number, y: number) => TileChar | null
+
+/** The ground a neighbour shows past the edge: its own, with the things on it (lamps, chests, signs) left out. */
+const SHOWN = new Set<TileChar>(['.', ',', ':', ';', '-', '=', '~', 'T', '#', '*', 'F', 'H', 'O'])
+const ROCK = new Set<TileChar>(['%', '^', 'R', 'G', 'I', 'M', 'q', '['])
+
+const nears = new WeakMap<World, Map<string, Beyond | null>>()
+
+/** The grid's neighbours of `mapId` as a `Beyond` (kept per world and map), or null for a map off the grid. */
+export function atlasBeyond(world: World, mapId: string): Beyond | null {
+  let per = nears.get(world)
+  if (!per) nears.set(world, (per = new Map()))
+  if (per.has(mapId)) return per.get(mapId)!
+  const o = world.atlas?.[mapId]
+  const near: Beyond | null = o ? (x, y) => {
+    const n = atlasAt(world, o.x + x, o.y + y, mapId)
+    if (!n) return null
+    const info = mapInfo(world, n.map)
+    const t = info.base[n.y * info.w + n.x]!
+    return SHOWN.has(t) ? t : ROCK.has(t) ? '#' : '.'
+  } : null
+  per.set(mapId, near)
+  return near
 }

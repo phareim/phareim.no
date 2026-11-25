@@ -49,7 +49,7 @@ import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKin
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { nightOf, skyGrade, type DayLook } from '../daylight'
-import { BEYOND, beyondTile, massifHeight } from '../beyond'
+import { atlasBeyond, BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { buildLookMaterials, buildMaterials, materialId, stepLookMaterials, stepMaterials, type Material } from './materials'
 import { CLASSIC, GROUND, lumaOf, MOOD, realmLook, type Life, type RealmLook } from '../looks'
@@ -364,7 +364,7 @@ export default function isoView(kit: Kit): View {
     if (kind !== 'overworld') return '#'
     const ex = x + M
     const ey = y + M
-    return ex >= 0 && ey >= 0 && ex < ew && ey < eh && shapeMap === m ? outer[ey * ew + ex]! : beyondTile(m.tiles, m.w, m.h, x, y)
+    return ex >= 0 && ey >= 0 && ex < ew && ey < eh && shapeMap === m ? outer[ey * ew + ex]! : beyondTile(m.tiles, m.w, m.h, x, y, atlasBeyond(world, m.id))
   }
 
   /** The part of a map-sized picture under the window (bx, by, bw, bh), laid at the window's corner. */

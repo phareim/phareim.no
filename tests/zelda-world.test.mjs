@@ -204,7 +204,7 @@ describe('the grid', () => {
       s.hero.x = x + 0.5
       s.hero.y = y + 0.5
       const move = { n: { x: 0, y: -1 }, s: { x: 0, y: 1 }, w: { x: -1, y: 0 }, e: { x: 1, y: 0 } }[p.side]
-      for (let i = 0; i < 120 && s.mode !== 'warp'; i++) step(s, inp({ move }))
+      for (let i = 0; i < 120 && s.mode !== 'warp'; i++) { if (s.mode === 'dialog') P.settle(s); step(s, inp({ move })) }
       assert.equal(s.mode, 'warp', `${p.from} → ${p.to} at ${x},${y}: the edge leads on`)
       for (let i = 0; i < 180 && s.mode !== 'play'; i++) { step(s); if (s.mode === 'dialog') P.settle(s) }
       assert.equal(s.map.id, p.to)

@@ -1,6 +1,6 @@
 /**
- * Moonblooms (docs/art/life-catalog.json → moonbloom). Pale lilac flowers in rare clumps on the grass of the Green
- * Miles (meadow) and the Neon Coast. They are closed bud by day and open as the night deepens (half, open, wide);
+ * Moonblooms (docs/art/life-catalog.json → moonbloom). Pale lilac flowers in rare clumps on the grass of Seter
+ * Fell and the Neon Coast. They are closed bud by day and open as the night deepens (half, open, wide);
  * open ones give off a soft white-violet glow and let motes of pale gold pollen drift up in a slow wavy line,
  * fading. Come within 2.5 tiles and they lean a pixel toward you and open one step further.
  * Frames drawn by Codex (scripts/life-lab/draw.sh). The sprite cannot be rotated through `LifeCtx.add`, so the lean
@@ -11,7 +11,7 @@ import type { Critter } from './types'
 const moonbloom: Critter = {
   id: 'moonbloom',
   maps: ['overworld'],
-  realms: ['meadow'],
+  realms: ['seterfell'],
   when: 'always',
   pal: {o: '#332346', q: '#9a79cb', p: '#c9afef', h: '#e9d9ff', w: '#fff6ff', e: '#24504e', g: '#4e9479', s: '#8bc9a0', a: '#fff0af'},
   frames: {
