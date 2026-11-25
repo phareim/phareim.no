@@ -81,6 +81,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Nova & Rex' Drive to the Mountains (`outrun`) | `docs/games/outrun.md` | `themes/outrun/`, `public/outrun/` (its pictures), `scripts/outrun-lab/` (shots and how the pictures are made) |
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
+| Neon Shrine's physical puzzles (ice, beams, weights, boulders, sluices; kits for the generator) | `docs/games/neon-shrine-puzzles.md` | `themes/zelda/engine/puzzles/`, `world/puzzlelab.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Rex & Nova: Space Voyagers II (theme id `voyagers2`) | `docs/games/voyagers2.md` | `themes/voyagers2/` (DESIGN.md; engine/, story/, render/), `scripts/voyagers2-lab/`, `public/voyagers2/` |
 | Rex & Nova: Space Voyagers I (theme id `galaga`, parked) | `docs/games/galaga.md` | `themes/galaga/` (DESIGN.md; engine/, story/, render/), `scripts/galaga-lab/`, `public/galaga/` |

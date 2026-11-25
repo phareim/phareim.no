@@ -50,6 +50,8 @@ import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { buildMaterials, materialId, stepMaterials, type Material } from './materials'
 import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind, type PropSprite } from './props'
+import { puzzlePropOf, rollKind } from './puzzleProps'
+import { puzzleInfo } from '../../engine/index'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
@@ -367,7 +369,7 @@ export default function isoView(kit: Kit): View {
         const rise = sh === ROOF && pitchSent > 0 ? pitchSent * (roofSouth(ex - M, ey - M) + 0.5) : 0
         if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.min(255, Math.round(((sh.h / T + rise) / 4) * 255))) }
       }
-      if (t === '~') data[(ey * ew + ex) * 4 + 1] = 255
+      if (t === '~' || t === 'ω') data[(ey * ew + ex) * 4 + 1] = 255
       if (look === 'lab') {
         // A lab's ground is its plates wherever it is not a wall, coolant or a shaft (`paintLabBase`).
         data[(ey * ew + ex) * 4 + 3] = t === '#' || t === '%' || t === '^' || t === '~' || t === 'O' ? 0 : materialId('plates')
@@ -388,6 +390,8 @@ export default function isoView(kit: Kit): View {
       }
       // Pavement after rain, a polished floor: neon shows in them (the composite pass).
       if (kind === 'overworld' ? t === ',' && !wild : t === '.' || t === ',' || t === 'f') data[(ey * ew + ex) * 4 + 2] = kind === 'overworld' ? 150 : kind === 'interior' ? 190 : 110
+      // The puzzles' ice is glazed, the drained basin still wet.
+      if (t === 'α' || t === 'ψ') data[(ey * ew + ex) * 4 + 2] = t === 'α' ? 255 : 170
     }
     engine.tiles(data, ew, eh)
   }
@@ -1103,6 +1107,13 @@ export default function isoView(kit: Kit): View {
           prop = ch?.big ? (open ? 'bigChestOpen' : 'bigChest') : open ? 'chestOpen' : 'chest'
         }
         else if (t === 'i' && kind === 'interior') prop = 'stool'
+        else if (t === 'β' || t === 'ρ' || t === 'ξ' || t === 'μ' || t === 'ν' || t === 'π' || t === 'κ') {
+          // The physical puzzles' things (`puzzleProps.ts`): a receiver lit, a valve open, an emitter's way.
+          const pz = puzzleInfo(info)
+          const i = ty * m.w + tx
+          const flag = pz.receivers.get(i) ?? pz.valves.get(i)
+          prop = puzzlePropOf(t, { lit: !!m.phys?.lit.includes(i) || (t === 'ρ' && !!flag && has(s, flag)), open: !!flag && has(s, flag), dir: pz.emitters.find(e => e.idx === i)?.dir })
+        }
         else if (t === 't' && kind !== 'dungeon') {
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
           const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
@@ -1118,7 +1129,7 @@ export default function isoView(kit: Kit): View {
           }
         }
         if (prop) {
-          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' ? ty + 0.5 : ty + 0.62, px, rise)
+          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' || prop.startsWith('pz') ? ty + 0.5 : ty + 0.62, px, rise)
           cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
           if (rise >= 1) { bare(sx, sy - up, T, T + up); continue }
           sunk = 1 - rise
@@ -1290,6 +1301,12 @@ export default function isoView(kit: Kit): View {
     if (drawn) for (const lm of LANDMARKS[m.id] ?? []) {
       const id = `${lm.id}_${Math.floor((reduced ? 0 : time) * lm.fps) % lm.frames}`
       if (hasThing(id)) stand(thingKey(id), lm.x, lm.y, px, rise)
+    }
+    // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
+    if (drawn) for (const b of m.phys?.rolling ?? []) {
+      if (!inRoom(b.x, b.y)) continue
+      stand(rollKind(b.dx, b.dx ? b.x : b.y), b.x, b.y + 0.12, px, rise)
+      cards.push({ x: b.x, y: b.y + 0.2, tall: 0.7 * rise, wide: 0.34 })
     }
     const deep = standAll()
     // --- the ground picture's last layers ------------------------------------------------

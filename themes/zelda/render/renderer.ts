@@ -31,6 +31,7 @@ import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, facingDir, fireflies, queueLuna, queueProps, setLunaFacing, type Item } from './wild'
+import { drawBeams, drawMovingMirror, queuePuzzles } from './puzzleTiles'
 import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
@@ -853,6 +854,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     queueProps(g, world, s, cx, cy, qw, qh, time, ui.reducedMotion, items, lights, flat)
     for (const it of items) it.big = true
     if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
+    queuePuzzles(g, s, cx, cy, items)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
@@ -862,6 +864,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         ay: b.fy + (b.ty - b.fy) * p + 1,
         y: b.fy + 1,
         draw: () => {
+          if (b.kind === 'μ' || b.kind === 'ν') { drawMovingMirror(g, Math.round(bx), Math.round(by), b.kind); return }
           if (b.kind !== 'B') { drawBlock(g, Math.round(bx), Math.round(by)); return }
           // A block dropping into a hole shrinks away at the end.
           const k = b.falls ? Math.max(0, 1 - Math.max(0, p - 0.7) / 0.3) : 1
@@ -974,6 +977,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** What flies and glows, drawn after the light: shots and the disc. `place` puts a world point on the scene; `dirOf` turns a world direction into the scene's. */
   function projectiles(g: G, s: GameState, place: Place, dirOf: (vx: number, vy: number) => Vec = (vx, vy) => ({ x: vx, y: vy })) {
     const m = s.map
+    drawBeams(g, s, place, time, false)
     for (const p of m.projectiles) {
       const at = place(p.x, p.y)
       const px = at.x

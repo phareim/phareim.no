@@ -27,17 +27,21 @@
  * `scripts/zelda-lab/props-sheet.mjs` draws them all.
  */
 
+import { PUZZLE_BUILD, PUZZLE_PROP_KINDS, type PuzzlePropKind } from './puzzleProps'
+
 /** A fence's part of one tile, by where the fence goes on: 1 west, 2 east, 4 north, 8 south, added up. */
 export type FenceKind = `fence${number}`
 export type PropKind = 'lampPink' | 'lampCyan' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
   | 'counter' | 'counterN' | 'counterS' | 'counterNS' | 'counterY'
   | 'chest' | 'chestOpen' | 'bigChest' | 'bigChestOpen' | 'blockPink' | 'blockCyan'
   | FenceKind
+  | PuzzlePropKind // the physical puzzles' things (`puzzleProps.ts`)
 export const PROP_KINDS: readonly PropKind[] = [
   'lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool',
   'counter', 'counterN', 'counterS', 'counterNS', 'counterY',
   'chest', 'chestOpen', 'bigChest', 'bigChestOpen', 'blockPink', 'blockCyan',
   ...Array.from({ length: 16 }, (_, i): FenceKind => `fence${i}`),
+  ...PUZZLE_PROP_KINDS,
 ]
 
 /** How high a counter's top lies, in scene px: what stands on a counter stands there. */
@@ -441,6 +445,7 @@ export const BUILD: Record<PropKind, (b: Solids) => void> = {
   blockPink: b => block(b, 'blockPink', 'glassPink'),
   blockCyan: b => block(b, 'blockCyan', 'glassCyan'),
   ...Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`fence${i}`, (b: Solids) => fence(b, i)])),
+  ...PUZZLE_BUILD,
 }
 
 let built: PropAtlas | null = null

@@ -16,6 +16,7 @@ import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
 import { beyondTile } from './beyond'
+import { drawPuzzleLive, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
 
 /** The Wildwood's deeper night: darker grass, more moonlit violet crowns. Set per paint. */
 let wild = false
@@ -277,6 +278,8 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
 export type GroundKind = 'grass' | 'path' | 'sand' | 'floor' | 'boards' | null
 
 export function groundKindOf(kind: MapKind, t: TileChar, at: At): GroundKind {
+  // The puzzles' ice and sluices are their own ground (`puzzleTiles.ts`).
+  if (t === 'α' || t === 'ω' || t === 'ψ') return null
   const ground: GroundKind = kind === 'overworld' ? 'grass' : kind === 'dungeon' ? 'floor' : 'boards'
   switch (t) {
     case '~': case '=': case '#': case '%': case '^': case 'f': case 'O':
@@ -742,6 +745,7 @@ function plateBase(g: G, px: number, py: number) {
 }
 
 function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, marquee: boolean, bare: boolean, look?: string) {
+  if (paintPuzzleObject(g, t, px, py)) return
   if (paintNewObject(look, g, t, px, py, tx, ty)) return
   if (look === 'lab' && paintLabObject(g, t, px, py, tx, ty, at)) return
   switch (t) {
@@ -856,6 +860,8 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   if (pass !== 'all') g.clearRect(X0 * T, Y0 * T, (X1 - X0 + 1) * T, (Y1 - Y0 + 1) * T)
   if (pass !== 'objects') for (let ty = Y0; ty <= Y1; ty++) for (let tx = X0; tx <= X1; tx++) {
     const t = m.tiles[ty * m.w + tx]!
+    // The puzzles' tiles, over the map's own floor (`puzzleTiles.ts`).
+    if (paintPuzzleBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), () => { if (!(look === 'lab' && paintLabBase(g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind)))) paintBase(kind, g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind)) })) continue
     if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))) continue
     paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
   }
@@ -1059,6 +1065,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
       }
     }
   }
+  drawPuzzleLive(g, world, s, x0, y0, x1, y1, cx, cy, time, lights, reduced)
   void cellIndex
 }
 
