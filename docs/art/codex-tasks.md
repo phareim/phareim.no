@@ -255,7 +255,7 @@ Each realm's side of a road has a gate notch in the region's rim. This work
 also lives on branch `claude/trusting-gauss-rmqin0` until merged. The gate
 data is in `world/gen/gates.ts`.
 
-- [ ] **W1 · Gate arches, one per realm (P1).**
+- [x] **W1 · Gate arches, one per realm (P1, `47816b2`).**
   - Size: a three-tile-wide arch the road runs under, about 2.5 tiles tall.
   - Each in the realm's own material:
     - LUMENBY: timber headframe with a cyan lumen lamp.
@@ -267,7 +267,7 @@ data is in `world/gen/gates.ts`.
   - Where it lands: `THING_ART` (`render/iso/thingArt.ts`) or the realm's kit in
     `render/iso/frontierArt/`, placed through `frontierScenery.ts`/`isoLandmarks`
     keyed `'gate'`. Give each arch a lit variant (neon on) and declare its glow pixels.
-- [ ] **W2 · The coast side of the gates (P2).**
+- [x] **W2 · The coast side of the gates (P2, `47816b2`).**
   - One shared waymark for the hand-made maps: a neon arrow post that names the realm
     in the pixel font's letters. Two frames, the arrow lit and dim, for a slow blink.
   - Plus a small "BORDER" barrier arm for the wardens' gates (blade-locked), up and down.
@@ -278,11 +278,11 @@ The light work in the same branch is procedural: lamps lighting the mist, lights
 on the landmarks, embers, fireflies, lanterns over the fjord, sweeping beams.
 These are the pieces it cannot draw by itself.
 
-- [ ] **L1 · Lit windows at night (P2).**
+- [x] **L1 · Lit windows at night (P2, `47816b2`).**
   Night variants of `fjord_cottage`, `seter_hut`, the Rerun garage houses and the
   bathhouse: warm window panes with a 1-px glow rim, plus one "TV" pane in blue.
   Declare the glow pixels in `ThingArt.glow`, so the panes bloom in the iso view.
-- [ ] **L2 · Lighthouse lens and stage spotlight heads (P2).**
+- [x] **L2 · Lighthouse lens and stage spotlight heads (P2, `47816b2`).**
   Brighter lens frames for `fjord_lighthouse` (four directions, the lit side white-gold)
   and a spotlight head for `fogstage_spotlight` in eight directions. The beam itself is
   procedural; it needs a source that points where it shines.
