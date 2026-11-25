@@ -71,7 +71,8 @@ character's; every camp's roads true to the macro map; the clean seed talked
 through end to end). Pictures:
 `VIEW=iso node scripts/zelda-lab/shot.mjs <dir> f-landing,f-meadow,f-cave` and
 one per realm: `f-lumenby`, `f-underglow`, `f-seterfell`, `f-yulefjord`,
-`f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`.
+`f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`; the words in the phone's box: `f-say-gunn-390`,
+`f-say-folk-390`, `f-say-roads-390` (a camp sign's roads out), `f-say-cross-390`, `f-say-intro-390`.
 
 ## The macro map
 
