@@ -341,6 +341,8 @@ function interact(c: Ctx): boolean {
     if (!has(s, c.info.levers.get(idx) ?? '')) { throwLever(c, tx, ty); return true }
     return false
   }
+  // A mirror turns, a valve opens or shuts (`puzzles/`).
+  if (hitPuzzle(c, tx, ty, t)) return true
   if (t === '$') {
     const chest = c.info.chests.get(idx)
     if (chest && !has(s, `chest:${chest.id}`)) {

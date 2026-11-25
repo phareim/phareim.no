@@ -12,6 +12,7 @@ import { WILDWOOD } from './wildwood'
 import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
+import { PUZZLELAB } from './puzzlelab'
 
 export { INTRO } from './intro'
 
@@ -32,6 +33,8 @@ export const WORLD: World = {
     lab1b: LAB1B,
     deep1: DEEP1,
     deep2: DEEP2,
+    // The physical puzzles' lab (`engine/puzzles/`): not linked from the world yet.
+    puzzlelab: PUZZLELAB,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,
