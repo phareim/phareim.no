@@ -52,9 +52,16 @@ cd "$workspace"
 heavy_run() { if command -v heavy >/dev/null 2>&1; then heavy -- "$@"; else "$@"; fi; }
 echo "Building $site from $revision"
 heavy_run npm ci --include=dev --no-audit --no-fund
-# One run of every tests/*.test.mjs, so a new test file joins the checks by itself. One pass also keeps small suites
-# from queuing for the heavy slot one at a time.
-heavy_run env -u pm_id NODE_ENV=test npm test
+# The tests the change since the last deploy of this site can break (tests/areas.mjs), in one pass. Everything when
+# there is no such deploy to compare with: the first one, a lost or garbled mark, or a history rewritten under it.
+deployed=$(cat "$mark" 2>/dev/null || true)
+if [[ "$deployed" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] && git -C "$repo" merge-base --is-ancestor "$deployed" "$revision" 2>/dev/null; then
+  echo "Testing what changed since $deployed"
+  heavy_run env -u pm_id NODE_ENV=test npm run test:changed -- --base "$deployed"
+else
+  echo "No deployed ancestor to compare with; testing everything"
+  heavy_run env -u pm_id NODE_ENV=test npm test
+fi
 # vue-tsc outgrows V8's default heap (~1 GB under heavy's 2 GB cap); give it room below the cap.
 heavy_run env NODE_OPTIONS=--max-old-space-size=1792 npm run typecheck
 heavy_run npm run build
