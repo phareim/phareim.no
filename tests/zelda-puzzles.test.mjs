@@ -3,6 +3,10 @@
 // scripted walk, and the older maps left alone.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { load } from './zelda-load.mjs'
 
 let Z
@@ -216,6 +220,28 @@ describe('weights', () => {
     const ev = step(w, w.s, inp({ move: DIR.up }), 30)
     assert.ok(w.s.map.plates.includes('w:7'))
     assert.ok(ev.some(e => e.type === 'plate' && e.x === 2.5 && e.y === 1.5))
+  })
+})
+
+describe('beams on screen', () => {
+  const render = join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda', 'render')
+  it('the glow holds still with reduced motion, and every view passes the frame\'s setting on', async () => {
+    const esbuild = createRequire(import.meta.url)('esbuild')
+    const out = esbuild.buildSync({ stdin: { contents: `export { drawBeams } from './puzzleTiles'`, resolveDir: render, loader: 'ts' }, bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error' })
+    const { drawBeams } = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+    const glow = (time, reduced) => {
+      const alphas = []
+      const g = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() { alphas.push(this.globalAlpha) } }
+      drawBeams(g, { map: { phys: { beams: [{ x0: 1, y0: 1, x1: 1, y1: 5 }] } } }, (x, y) => ({ x, y }), time, reduced)
+      return alphas[0]
+    }
+    assert.notEqual(glow(0.01, false), glow(0.06, false), 'it flickers')
+    for (const t of [0.01, 0.06, 1.3]) assert.equal(glow(t, true), 1)
+    // The call sites: none hard-codes the setting.
+    const files = readdirSync(render, { recursive: true }).filter(f => f.endsWith('.ts')).map(f => join(render, f))
+    const calls = files.flatMap(f => [...readFileSync(f, 'utf8').matchAll(/(?<!function )drawBeams\(([^)]*)\)/g)].map(m => [f, m[1].split(',').map(a => a.trim())]))
+    assert.ok(calls.length >= 1)
+    for (const [f, args] of calls) assert.ok(!['true', 'false'].includes(args[4]), `${f}: drawBeams(${args.join(', ')})`)
   })
 })
 
