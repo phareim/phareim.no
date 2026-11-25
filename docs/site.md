@@ -6,17 +6,31 @@ here; per-game detail lives in `docs/games/`.
 
 ## Test areas
 
-`npm test` runs every `tests/*.test.mjs` in one pass (what the deploy runs).
-Per area:
+`npm test` runs every `tests/*.test.mjs` in one pass. `tests/areas.mjs` is
+the one table of areas: each area's test files (by name pattern, so a new
+`zelda-*.test.mjs` joins `test:zelda` by itself) and what a changed path
+runs. `npm run test:changed` (`scripts/test-affected.mjs --worktree`) runs
+what the change since `origin/master`, uncommitted work included, can
+break: Markdown and `docs/` nothing; a shared path (`themes/base/`,
+`server/`, `components/`, `composables/`, `plugins/`, `package*.json`,
+`nuxt.config.ts`, `app.vue`, test helpers, `scripts/deploy*`) everything;
+a changed test file itself; a theme its area and the areas that import it;
+a path the table does not know everything, naming it. `--base <rev>`,
+`--list` and `--area <name>` change what it compares, prints or runs. A new
+theme gets a row in `PATHS` (`tests/site-tests.test.mjs` checks every theme
+directory has one, and every test file an area). Per area (`npm run
+test:<area>`):
 
 - `test:portal` — the town, every cabinet and link, the login console, the NEW LOOK stall, the newsstand, the coast road
 - `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio (both chips), the Wildwood run, the views (the registry, the isometric view's camera, how tiles stand, the turn, its materials and standing things), the HUD skins
 - `test:eschold` — the shared Escape tap/hold state machine
 - `test:tetris` — Russian Block Game gestures (tap, direction lock, drop, soft drop, hold)
 - `test:leaderboard` — Hall of Fame names and game list
-- `test:starfox`, `test:wingman` — Star Fox balance, story, arsenal, bosses; the wingman squad
+- `test:starfox` — Star Fox balance, story, arsenal, bosses and the wingman squad; `test:wingman` the squad alone
 - `test:anotherworld` — Another Shore: physics, threats, a playtester through all five chapters, saves, audio
-- `test:galaga` — Space Voyagers I (parked): engine, encounters, bosses, the radio director, autopilot voyages, layout, audio
+- `test:galaga` — Space Voyagers I (parked): engine, encounters, bosses, the radio director, two autopilot voyages into VOYAGE II, layout, audio
+- `test:shore`, `test:invaders`, `test:rtype`, `test:ships`, `test:radio` — Another Shore II, Space Invaders on a phone, G-Type, the Hangar's ships, the radio's catalogue
+- `test:deploy` — the deploy script and this test rig (the areas table, `test-affected.mjs`)
 - `test:voyagers2` — Space Voyagers II (the Wing Commander one): flight, damage, missiles and decoys, the two seats, sorties, the campaign tree and save, the bot table, the words, the layout; `docs/games/voyagers2.md`
 - `test:outrun` — Drive to the Mountains: road, driving, traffic, crashes, clock, banter, and that `public/outrun` holds exactly the listed pictures
 - `test:breakout` — Space Paddle — The Odyssey: the rules in `themes/breakout/engine.ts` (speed, boards, pulse bricks, the planet, capsules, lives, attract mode, a seeded autopilot run); `docs/games/breakout.md`
@@ -141,6 +155,6 @@ A visit starts in the isometric view, which adds to that number for every browse
 ## Deployment extras
 
 - D1 migrations apply before publishing to Pages (`phareim-no`, production branch `master`). `wrangler.toml` carries the output dir, compatibility flags and `LEADERBOARD_DB` binding. Credentials: `~/.config/phareim-deploy/env` (600), with Pages and D1 edit rights.
-- The deploy runs `npm test`, then typecheck and build, in an isolated worktree through `heavy`.
+- The deploy runs the tests, then typecheck and build, in an isolated worktree through `heavy`. The tests are `npm run test:changed -- --base <last deployed revision>` when the site's mark names an ancestor of the new revision; the first deploy, a missing or garbled mark and a rewritten history run `npm test`. Typecheck and build always run whole.
 - Branch previews publish without migrations at `<name>.phareim-no.pages.dev`. There is no standing `beta` branch or beta.phareim.no.
 - Manual: `bash scripts/deploy-site.sh [--branch <name>] [commit]`. File lock and successful revision: `~/.local/state/phareim-deploy/`. Busy pushes coalesce in the webhook queue; duplicate revisions skip work. Logs: `pm2 logs sleeper-deploy`; status: `https://sleeper.phareim.no/deploy/health`.

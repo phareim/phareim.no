@@ -235,7 +235,7 @@ built site (`npm run build`, `npm run preview`, port 8788).
 
 ## Tests
 
-`npm run test:galaga` (110 tests, about 60 s):
+`npm run test:galaga` (110 tests; most of the time is the boss fights). Two whole voyages are flown, one at each height, on the radio into VOYAGE II (`galaga-script`); how hard the voyage is seed by seed is `tune.mjs`'s table, not a test:
 
 | File | Covers |
 |---|---|
