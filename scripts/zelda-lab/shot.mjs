@@ -106,7 +106,10 @@ const at = (map, x, y, dir = 'down') => { enterMap(WORLD, s, map, Object.keys({}
 function place(map, entryId, dx = 0, dy = 0) { enterMap(world, s, map, entryId, ev); s.hero.x += dx; s.hero.y += dy; s.hero.auto = null }
 const put = (map, x, y, dir) => { enterMap(world, s, map, Object.keys({}).length ? '' : 'door', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir; s.hero.auto = null }
 const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1', stick: null, attract: false, cam: null, banner: null, keys: q.get('touch') === '1' ? { a: 'THE SWORD BUTTON', b: 'THE ITEM BUTTON', cycle: 'THE SWAP BUTTON', touch: true } : { a: 'SPACE', b: 'K', cycle: 'Q' } }
-switch (scene) {
+// Part 22: a boss room's scene + '-hit' is the same moment with every boss in it flashing (the hurt frame and the
+// flash, as a hit leaves them).
+const bossHit = /^(boss|l-llama|l-mistral|d-deepseek|d-gemini)-hit$/.test(scene)
+switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'start': run(30); break
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
@@ -270,8 +273,11 @@ switch (scene) {
   case 'd-deepseek': wild(true); s.inv.hook = true; go('deep1', 39.5, 19.5, 'up'); run(150); break
   case 'd-vines': wild(true); s.inv.arc = true; go('deep1', 7.5, 28.5, 'left'); run(10); r.onEvents(stepGame(world, s, 1 / 60, inp({ aPress: true, a: true }))); run(4); break
   case 'd-gemini': wild(true); s.inv.arc = true; go('deep2', 23.5, 10.5, 'up'); run(140); break
+  // Part 22: the troll by the broken bridge (the hero just south of him).
+  case 'w-troll': wild(); go('wildwood', 35.5, 38.5, 'up'); run(30); break
   case 'd-gate': wild(true); s.inv.arc = true; s.flags.gemini = true; s.flags.gateShut = true; go('deep2', 23.5, 8.5, 'up'); run(20); break
 }
+if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
 // DAY=sun|noon|night|dawn: a solved save's running hour, as steady.mjs --day (without it the eternal dusk).
 if (q.get('day')) { s.inv.prism = true; s.daytime = { sun: 500, noon: 580, night: 230, dawn: 400 }[q.get('day')] }
 function wild(luna = false) {
@@ -412,6 +418,13 @@ const SHOTS = [
   ['d-gemini-1280', 'd-gemini', 1280, 800, 1, 0],
   ['d-gate-1280', 'd-gate', 1280, 800, 1, 0],
   ['w-camp-390', 'w-camp', 390, 844, 3, 0],
+  // Part 22: the bosses hurt, and the troll.
+  ['boss-hit-1440', 'boss-hit', 1440, 900, 1, 0],
+  ['l-llama-hit-1280', 'l-llama-hit', 1280, 800, 1, 0],
+  ['l-mistral-hit-1280', 'l-mistral-hit', 1280, 800, 1, 0],
+  ['d-deepseek-hit-1280', 'd-deepseek-hit', 1280, 800, 1, 0],
+  ['d-gemini-hit-1280', 'd-gemini-hit', 1280, 800, 1, 0],
+  ['w-troll-1280', 'w-troll', 1280, 800, 1, 0],
   // The polygon view's set (tmp/poly-lab): the same places at the size the other views are judged at.
   ['shop-1280', 'shop', 1280, 800, 1, 0],
   ['shop-390', 'shop', 390, 844, 3, 0],

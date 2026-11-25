@@ -397,8 +397,9 @@ classic picture. `/?view=<id>` asks for one.
   `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
   looks.
 - **The people** (`iso/folk.ts`, `iso/folkArt.ts`; parts 19 and 20, 2026-11-24).
-  Everyone but the bosses is redrawn for this view
-  as isometric pixel art (the hero since part 21, its own way: *The hero* below): two px of theirs to the classic px (a 16 × 16 sprite
+  Everyone but the mistral is redrawn for this view
+  as isometric pixel art (the hero since part 21, its own way: *The hero* below; the bosses since part 22,
+  rotoscoped: *The bosses* below): two px of theirs to the classic px (a 16 × 16 sprite
   becomes about 20–34 × 17–35, the 24 × 24 knight about 38 × 48), chunky like
   the hero, an outline in each part's darkest shade, at most 24 colours a
   figure in the dusk-neon family (near-identical dark shades merged into one),
@@ -412,9 +413,8 @@ classic picture. `/?view=<id>` asks for one.
     (with `skull_jump`), `eye`, `blade` (in no room yet), `knight`, and the
     labs' `hound` (four ways and `hound_open`) and `drone`.
 
-  Not drawn: the bosses (the
-  king, `mistral`, `deepseek`, `gemini`, `llama`, the troll), which stay
-  classic. A family
+  The bosses are `bossArt.ts`'s (part 22, *The bosses* below); only the
+  `mistral` is still classic. A family
   carries one drawn three-quarter front (turned to the viewer's lower left)
   and, for a foe that walks four ways, one three-quarter back (turned to the
   upper left); mirroring gives the other two. The engine's four ways go
@@ -543,6 +543,67 @@ classic picture. `/?view=<id>` asks for one.
       the folk were, then sorted into roles and parts by script
       (`tmp/iso-figures-21/tools/build.py` on the Mac); `tests/zelda-hero-art.test.mjs`
       holds the coverage, the recolouring and the fallback.
+  - *The bosses* (`iso/bossArt.ts`; part 22, 2026-11-25; Petter: «Kjør på med
+    rotoskopering, både av sjefer og greier rundt i verden. Viktig at vi holder
+    oss i en ekte piksel-følelse.»). The king (and its shards), the troll, the gemini twins, the llama and the deepseek are drawn in the same art as the
+    people, rotoscoped: each was built in 3D (the king and the twins from
+    Blender primitives, the others a Pixal3D mesh of a Codex reference picture),
+    posed for its classic frames (a bob, a tilt, a part moved, the eye or the
+    mouth changed, the whirlwind turned) and rendered from this view's own
+    angle (orthographic, the ground turned 45° and seen as a 2:1 diamond,
+    height not foreshortened); then Codex drew every frame of the boss by hand
+    on one sheet over that render, with the redrawn folk beside it as the style
+    and the classic frames as the identity. The 3D model is only the guide: it
+    never ships, and every px is the drawing's, cut at one pitch per sheet with
+    a hard alpha. What makes each one readable is kept: the king's big pink
+    eye, its crown with the yellow studs and its glitch streaks; the twins
+    clearly cyan and clearly pink, the split mask and the gold stripe; the
+    troll's moss, sprout, tusks and nose; the llama's pink harness and yellow
+    tag; the deepseek's glowing cyan lure, its grin and its bite. The mistral is
+    still the classic sprite (its reference and mesh are made; part 22 stopped
+    before drawing it). The llama is drawn but held back (`BOSSES_HELD` in
+    `folk.ts`), so the game shows its classic sprite: the drawing became a
+    fluffy four-legged animal that reads as a dog or a squirrel, without the
+    classic's upright stance and L badge, and parts of it are doubled px. It
+    waits for a redraw at the 10 px guide that keeps the classic identity.
+    - *Size.* Codex draws pixel art on a grid of its own, about 10 px of its
+      1536-px sheet to a pixel whatever it is asked; a figure drawn smaller on
+      the sheet comes out in 2 × 2 blocks once cut at the view's density (the
+      first king and troll did; they were redrawn). So a boss is guided at 10
+      px a pixel (the king one frame to a sheet, the troll's pair, the
+      deepseek's two poses and fin) or at 5 where the figure is small enough
+      that the drawing still lands on whole px (the twins, the llama), and every
+      sheet is cut at the grid it was actually drawn on. A boss drawn in the
+      round is about the classic's size in the world, not its shape: the troll is
+      39 × 39 (the classic 22 × 24 doubled is 44 × 48), the llama's front 44 × 38,
+      its back 35 × 51, the deepseek 58 × 41.
+    - *Frames.* The king's second frame is its first with the pupil 2 px aside,
+      the fists 2 px lower and the glitch streaks moved (a script's edit); its
+      hurt frame is a Codex edit of the first (the stone flashing pale pink, the
+      eye shut). The troll's blink is the first with only the eyes taken from
+      the second drawing; the deepseek's second frame is its first a px higher.
+      The twins' and the llama's steps are drawn on one sheet, placed by their
+      best px match on the first.
+    - *Colours.* Many: a family keeps the drawing's colours (64–110), merged only
+      where they are one colour under the image's noise (none off by more than
+      24 of 255). The letters run past the ASCII ones into Latin-1 (`À`…`ÿ`), still
+      one character a px.
+    - *How it gets in.* They are families as the folk are (`familyOf`,
+      `facingOf`, `familyFresh`, the same router and big cells): the hurt flash
+      is the art's silhouette, the king's tell line, its shards' lights and the
+      twins' tether stay the classic painter's, the turn crosses them in the
+      stipple with the folk, and the studio's newer edit of a boss's classic
+      rows makes that boss classic again. They face the viewer as the classic
+      ones do: `king_hurt` is `front_hurt`, and a pair drawn apart is keyed by
+      the rest of its name (`gemini_b_1` is `front_b_1`). The troll is a figure
+      like the townsfolk: one front, mirrored as the classic one is. The king's
+      shards (`shard`) are a family of one picture, drawn on the king's sheet.
+      The polygon view's figures go through the same router, so they are there
+      too.
+    - *Made* in `tmp/iso-figures-22/` on the Mac (`blender/`, `sheets/`,
+      `tools/`: `guide.py`, Codex, `cut2.py`, `edit.py`, `build.py`, `emit.py`);
+      `tests/zelda-boss-art.test.mjs` holds the families, the hashes, the
+      facings and the identity colours.
   - *What the studio would need* to edit them: a second kind of entry in the
     pack (`folk`: a family's palette, frames as rows at twice the classic
     size, anchors, the `src` hashes), exported by `export-sprites.mjs` beside
@@ -680,9 +741,11 @@ classic picture. `/?view=<id>` asks for one.
   imports `iso/view` statically). A view of an engine that exists needs no code: the
   studio publishes it.
 - **Known rough edges of the isometric view** (2026-11-12; figures 2026-11-24): the art under
-  it is still the 16 px art, treated on its way up, so the hero's sprite and
-  the bosses are classic figures with a 16-bit finish beside the redrawn
-  people and hero (above); the hero's walk steps and arm swings are generic
+  it is still the 16 px art, treated on its way up, so the mistral is a classic figure with a 16-bit finish beside the redrawn
+  people, hero and bosses (above); the bosses' crisp art shimmers a little more
+  than the smoothed classic did as the king hovers (`steady.mjs` `king-stand`:
+  1.40 against 1.20), and the deepseek and the troll are a little smaller than
+  their classic sprites; the hero's walk steps and arm swings are generic
   edits, and its heads from the larger guide sheet (the bare short hair, the
   bow, get and hurt) are a px or two bigger than the rest; the townsfolk turn to
   no back, a figure the studio has changed since it was drawn is classic until

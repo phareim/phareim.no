@@ -24,6 +24,10 @@
  *   family is drawn the classic way again (its live rows, smoothed as before) until it is redrawn. Whole
  *   families, so an animation never steps between two kinds of drawing.
  *
+ * - *The bosses* (part 22) are families too, in `bossArt.ts`: built in 3D, posed for their classic frames, rendered
+ *   from this view's angle and drawn over by hand as pixel art. They face the viewer as the classic ones do
+ *   (`king_hurt` is the front frame `front_hurt`, `gemini_b_1` is `front_b_1`); the king's shards are a family of one
+ *   picture (`shard`). The troll by the bridge is a townsperson's kind of figure: a front, mirrored as the classic.
  * - *The hero and its blade* (part 21) go through the same router, but their art is `hero.ts`'s: composed from parts
  *   and recoloured by roles for whatever look the hero wears, the blades redrawn at twice their size. A hero shape not
  *   wholly drawn, or a hero the studio has redrawn, is the classic sprite, as a stale family is.
@@ -31,10 +35,22 @@
  * Pure but for the canvases, which are made the first time a frame is asked for.
  */
 import { FOLK_ART, type FolkFamily } from './folkArt'
+import { BOSS_ART } from './bossArt'
 import { bladePic, heroPic } from './hero'
 import { frameCount, makeCanvas, spriteRevision, spriteRows, spriteTag as spriteTagOf, type SpriteTag } from '../sheet'
 
 export type Facing = 'front' | 'back'
+
+/**
+ * Bosses drawn but not shown: their art stays in `bossArt.ts` until a redraw lands, and the game draws the classic
+ * sprite. The llama's drawing lost its classic identity (the upright stance and the L badge) and is partly doubled
+ * px (Petter's review, 2026-11-25).
+ */
+export const BOSSES_HELD = new Set(['llama'])
+const SHOWN_BOSSES = Object.fromEntries(Object.entries(BOSS_ART).filter(([k]) => !BOSSES_HELD.has(k)))
+
+/** Every family with art: the people and foes (`folkArt.ts`) and the bosses shown (`bossArt.ts`). */
+const ART: Record<string, FolkFamily> = { ...FOLK_ART, ...SHOWN_BOSSES }
 
 /** FNV-1a over the rows, one line each: eight hex digits. */
 export function rowsHash(rows: readonly string[] | undefined): string {
@@ -52,7 +68,7 @@ export function rowsHash(rows: readonly string[] | undefined): string {
  * The family a classic sprite belongs to, when it has isometric art (its name must be one the art was drawn from).
  * A sprite of one picture (`eye`, `blade`) is a family of its own.
  */
-export function familyOf(name: string, art: Record<string, FolkFamily> = FOLK_ART): string | null {
+export function familyOf(name: string, art: Record<string, FolkFamily> = ART): string | null {
   const i = name.indexOf('_')
   const fam = i < 0 ? name : name.slice(0, i)
   return art[fam]?.src[name] ? fam : null
@@ -78,6 +94,8 @@ export function facingOf(name: string, fam: string, flip: boolean, idle = false)
   }
   if (/^\d+$/.test(rest)) return { key: `${idle ? 'idle' : 'front'}_${rest}`, flip }
   if (/^[a-z]+$/.test(rest)) return { key: `front_${rest}`, flip }
+  // One of a pair drawn apart (part 22: `gemini_a_0`, `gemini_b_down`): a front frame by the rest of its name.
+  if (/^[a-z]_[a-z0-9]+$/.test(rest)) return { key: `front_${rest}`, flip }
   return null
 }
 
@@ -149,7 +167,7 @@ export function folkPic(tag: SpriteTag): FolkPic | null {
   const famId = familyOf(tag.name)
   if (!famId) return null
   if (seen !== spriteRevision()) { seen = spriteRevision(); fresh.clear() }
-  const fam = FOLK_ART[famId]!
+  const fam = ART[famId]!
   let ok = fresh.get(famId)
   if (ok === undefined) { ok = familyFresh(fam); fresh.set(famId, ok) }
   if (!ok) return null
@@ -181,8 +199,9 @@ export function folkMix(k: number): number {
   return t * t * (3 - 2 * t)
 }
 
-/** The families with art, for the lab and the tests. */
+/** The families with art, for the lab and the tests: the people and foes, and the bosses. */
 export const FOLK_FAMILIES = Object.keys(FOLK_ART)
+export const BOSS_FAMILIES = Object.keys(SHOWN_BOSSES)
 
 /**
  * Watch what the classic painter draws into a view's atlas (`ag`): a sprite with art here is drawn into the figures'

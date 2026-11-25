@@ -27,7 +27,7 @@ let M
 before(async () => { M = await load() })
 
 describe('isometric figures', () => {
-  // Part 19's pilot and part 20's rest of the people and foes. The hero and the bosses stay classic.
+  // Part 19's pilot and part 20's rest of the people and foes. The hero's art is `heroArt.ts` (part 21), the bosses' `bossArt.ts` (part 22).
   const DRAWN = [
     'keeper', 'vendor', 'kid', 'barmaid', 'guard', 'petter', 'robot', 'cat', 'blob', 'spitter',
     'twirler', 'hippie', 'smoker', 'guitar', 'sleeper',
@@ -71,7 +71,7 @@ describe('isometric figures', () => {
     assert.deepEqual(M.facingOf('spitter_up_0', 'spitter', false), { key: 'back_0', flip: true })
     // Townsfolk keep their front, mirrored as the classic sprite is.
     assert.deepEqual(M.facingOf('keeper_1', 'keeper', true), { key: 'front_1', flip: true })
-    assert.equal(M.familyOf('king_hurt'), null)
+    assert.equal(M.familyOf('king_hurt', M.FOLK_ART), null)  // (the bosses are `bossArt.ts`'s, part 22)
     // Poses of their own and sprites of one picture (part 20); Luna's standing frames apart from her walk.
     assert.deepEqual(M.facingOf('hound_open', 'hound', true), { key: 'front_open', flip: true })
     assert.deepEqual(M.facingOf('skull_jump', 'skull', false), { key: 'front_jump', flip: false })

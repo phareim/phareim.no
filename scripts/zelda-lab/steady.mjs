@@ -66,6 +66,14 @@ const CASES = {
   // and the Wildwood's people standing there.
   'foes-lamp': ['r-plaza', `__lab.s.hero.x = 18.5; __lab.s.hero.y = 12.6; __lab.s.hero.dir = 'up'; { const m = __lab.s.map.enemies; const P = [['sentry', 17.3, 13.2], ['dasher', 19.8, 13.0], ['zapper', 17.6, 11.5], ['bat', 19.6, 11.6]]; const used = []; for (const [k, x, y] of P) { const e = m.find(o => o.kind === k && !used.includes(o)); if (e) { used.push(e); e.x = x; e.y = y; e.home = { x, y } } } for (const e of m) if (!used.includes(e)) { e.x = -50; e.y = -50 } }`, [[90, STILL]]],
   'folk2-still': ['r-plaza', `__lab.s.hero.x = 18.5; __lab.s.hero.y = 12.6; __lab.s.hero.dir = 'up'; { const L = ['ghost', 'mossa', 'dusty', 'toby', 'max', 'owl']; const n0 = __lab.s.map.npcs[0]; __lab.s.map.npcs.length = 0; L.forEach((look, i) => __lab.s.map.npcs.push({ ...n0, id: 'still' + i, look, x: 17.2 + (i % 3) * 1.3, y: 13.4 + Math.floor(i / 3) * 1.2, dir: 'down', wander: false, vx: 0, vy: 0, home: { x: 17.2 + (i % 3) * 1.3, y: 13.4 + Math.floor(i / 3) * 1.2 } })); for (const e of __lab.s.map.enemies) { e.x = -50; e.y = -50 } }`, [[90, STILL]]],
+  // Part 22: standing in each boss's room while the boss goes about its fight, under the room's own light (the king's
+  // pink glow, the twins' lights), and by the troll at the bridge.
+  'king-stand': ['boss', ``, [[90, STILL]]],
+  'gemini-stand': ['d-gemini', ``, [[90, STILL]]],
+  'llama-stand': ['l-llama', ``, [[90, STILL]]],
+  'deepseek-stand': ['d-deepseek', ``, [[90, STILL]]],
+  'mistral-stand': ['l-mistral', ``, [[90, STILL]]],
+  'troll-stand': ['w-troll', ``, [[90, STILL]]],
   'camp-east': ['w-camp', ``, [[90, RIGHT]]],
   'camp-west': ['w-camp', ``, [[90, LEFT]]],
   'camp-south': ['w-camp', ``, [[90, DOWN]]],
