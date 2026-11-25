@@ -1,11 +1,13 @@
 # Art tasks for Codex — the frontier
 
-Picked up with Codex (`image_gen`) on the Mac, the way parts 19–23 were made
-(`docs/games/neon-shrine.md` → the folk, the hero, the bosses, the things; the
-pipelines are in `tmp/iso-figures-20/tools/`, `tmp/iso-figures-21/tools/`,
-`tmp/iso-figures-23/` on the Mac). One task = one sheet or a small set of sheets.
-Tick the box and add the commit hash when a task ships; replace the task's text
-with what was learned instead of appending.
+The frontier art ships as native-grid sprites. The ferry was drawn from
+an `image_gen` concept. The realm kits and actors are baked from posed
+solids and classic pixel art at the isometric view’s own resolution.
+The tools, atlas and screenshot scenes are documented in
+[Frontier art](../worlds/README.md#frontier-art).
+
+The boxes track artwork. The boss families and extra quest states are
+available in the art registry for their planned encounters and mechanics.
 
 **Every task, the same rules**
 
@@ -56,79 +58,103 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
 
 ## LUMENBY QUARRY (`lumenby`, dig & build, iso only)
 
-- [ ] **Q1 · The hill sign (P1).** The giant L-U-M-E-N-B-Y letters on the hillside, each
-  letter unlit and lit (14 frames: every letter in both states), so the town's rebuilding
-  lights them one by one.
-- [ ] **Q2 · Quarry things (P1).** Mine cart (empty / full of glowing ore), haul ramp
-  piece, timber headframe, ore vein in rock (cyan lumen glow), crate of tubes.
-- [ ] **Q3 · Folk (P2).** The quarry foreman, a tube-blower, the Lift Lady (sketch →
-  Folk). Classic first.
-- [ ] **Q4 · Foes (P2).** The timber beetle and the hopping ore vein (sketch → Foes).
-- [ ] **Q5 · GROK (P3).** The tunnel-boring machine boss, rotoscoped as part 22: a 3D
-  guide (Blender primitives), posed per frame, then drawn.
+- [x] **Q1 · The hill sign (P1, `62ad0c9`).**
+  Fourteen scaffolded LUMENBY letter sprites, with grey-violet and lit-pink states. The sign
+  stands above the union hall. Its light states are keyed by lot, with a mixed-state view in
+  the lab.
+- [x] **Q2 · Quarry things (P1, `62ad0c9`).**
+  Two mine-cart loads, north and west haul ramps, the timber headframe, a cyan lumen vein
+  and a crate of glass tubes. Their anchors follow the quarry stamps.
+- [x] **Q3 · Folk (P2, `62ad0c9`).**
+  Foreman, tube-blower and Lift Lady have classic facings and separate isometric poses. Gunn
+  and Nils use the new art.
+- [x] **Q4 · Foes (P2, `62ad0c9`).**
+  A timber beetle with a walking step and a cyan ore mimic with a hop, paired with existing
+  quarry enemy behaviours.
+- [x] **Q5 · GROK (P3, `62ad0c9`).**
+  GROK has roll, ram, vented daze and drill poses, with a reproducible Blender guide and a
+  registered boss sprite family.
 
 ## THE UNDERGLOW (`underglow`)
 
-- [ ] **U1 · Ledge set (P1).** Spiral ledge edge pieces with depth below, rope lift (cage,
-  rope, top wheel), glowstick markers in the five rank colours.
-- [ ] **U2 · Layer landmarks (P2).** Fossil arcade cabinet in rock, upside-down grove
-  roots, glass-sea shards, a broadcast mast, the Sun Below's glow disc.
-- [ ] **U3 · PHI (P3).** The golden spiral boss.
+- [x] **U1 · Ledge set (P1, `62ad0c9`).**
+  Three ledge faces, cage, repeating rope and four wheel frames. All five rank markers glow
+  in their own colours.
+- [x] **U2 · Layer landmarks (P2, `62ad0c9`).**
+  Fossil cabinet, upside-down roots, two shard clusters, three mast states and the Sun Below
+  disc. The descent places them by layer.
+- [x] **U3 · PHI (P3, `62ad0c9`).**
+  PHI has a segmented golden coil, a lit segment and a floor-eating pose in the boss atlas.
 
 ## SETER FELL (`seterfell`)
 
-- [ ] **F1 · Seter farm (P1).** Turf-roofed log hut (2×2 tiles, door, chimney smoke 2
-  frames), a byre, a stone fence run, a milk churn stand.
-- [ ] **F2 · Sleeping trolls (P1).** Moss boulders with a face and a tiny tree on the back,
-  asleep and waking (2 frames), 2×2 and 3×2.
-- [ ] **F3 · Folk (P2).** Seter girl, the old herder, a huldra (tail hidden in the classic
-  frames' back view), goats as wandering folk. Classic first.
-- [ ] **F4 · MIXTRAL (P3).** Three troll heads sharing one gold eye.
+- [x] **F1 · Seter farm (P1, `62ad0c9`).**
+  Smoking turf-roof hut, byre, tileable stone walls and the churn stand dress the seter
+  stamps.
+- [x] **F2 · Sleeping trolls (P1, `62ad0c9`).**
+  Two sleeping troll sizes with birches on their backs. Both have a distinct waking frame.
+- [x] **F3 · Folk (P2, `62ad0c9`).**
+  Dairymaid, old herder, huldra and wandering goat have classic and isometric walking
+  frames. The huldra’s classic back view keeps her tail hidden.
+- [x] **F4 · MIXTRAL (P3, `62ad0c9`).**
+  MIXTRAL has a shared gold eye that can appear in any of the three troll heads.
 
 ## YULE FJORD (`yulefjord`)
 
-- [ ] **Y1 · Fjord village (P1).** Red boathouse on stilts, snow-roofed cottage, a small
-  stave church, a lighthouse with a turning beam (4 frames), a lantern post.
-- [ ] **Y2 · Ice (P1).** Ice floe pieces, an ice block that reads as a mirror (for the
-  beam puzzles), frozen water edge.
-- [ ] **Y3 · Folk (P2).** Fisher, the lamp-sweeping old woman, a child with a sled. Classic first.
-- [ ] **Y4 · Foes (P2).** Draug in half a boat (small), the nøkk in the water (eyes only,
-  then risen). **ORCA** (P3) the boss.
+- [x] **Y1 · Fjord village (P1, `62ad0c9`).**
+  Stilted red boathouse, snow-roofed cottage, stave church, lantern and a four-direction
+  rotating lighthouse beam.
+- [x] **Y2 · Ice (P1, `62ad0c9`).**
+  Three floe sizes and four ice edges dress the fjord. The two ice-mirror sprites follow the
+  beam-puzzle tile directions.
+- [x] **Y3 · Folk (P2, `62ad0c9`).**
+  Fisher, lamplighter and sled child use the new classic and isometric frames.
+- [x] **Y4 · Foes (P2, `62ad0c9`).**
+  The draug rows a half-boat, and the nøkk has submerged eyes and risen poses. ORCA has
+  rowing and stranded boss art.
 
 ## STILLSAND (`stillsand`, physical puzzles, iso only)
 
-- [ ] **D1 · Floating islands (P1).** A violet stone island hovering over the sand (its
-  shadow on the dunes), one tree, the gold quartz glowing in its roots; small/medium/
-  large, and one sunk lower (the weight puzzles).
-- [ ] **D2 · Garden machines (P2).** White garden robots tending flowers (folk), a quartz
-  lens on a stand that turns (4 directions).
-- [ ] **D3 · Stone bird (P2).** The silent rider's stone bird, perched and flying.
-  **FALCON** (P3) the boss.
+- [x] **D1 · Floating islands (P1, `62ad0c9`).**
+  Three sizes of hovering violet island and a lowered variant, with a quartz-bearing root
+  tree and a shadow on the sand.
+- [x] **D2 · Garden machines (P2, `62ad0c9`).**
+  The white watering robot has classic and isometric steps. The quartz lens has four
+  directions and turns at the seed bed.
+- [x] **D3 · Stone bird (P2, `62ad0c9`).**
+  Stone bird perched and flying, plus FALCON’s takeoff, dive, blinded and exposed-quartz
+  boss poses.
 
 ## SPORELIGHT (`sporelight`, field battles)
 
-- [ ] **P1 · Giant mushrooms (P1).** Tree-sized glowing mushrooms in teal and violet
-  (3 sizes), glow-moss tufts, a spore cloud puff (3 frames).
-- [ ] **P2 · The bathhouse (P2).** The spirit bathhouse front (3×3 tiles, lanterns), a
-  wooden bath tag item icon.
-- [ ] **P3 · Grazer (P2).** The van-sized grazer, calm (cyan eyes) and angry (pink eyes),
-  2 walk frames. **BLOOM** (P3) the forest god.
+- [x] **P1 · Giant mushrooms (P1, `62ad0c9`).**
+  Tree-sized teal and violet mushrooms in three sizes each, glow-moss and three spore-puff
+  frames.
+- [x] **P2 · The bathhouse (P2, `62ad0c9`).**
+  Lantern-lit three-tile bathhouse frontage and a classic wooden bath-tag icon.
+- [x] **P3 · Grazer (P2, `62ad0c9`).**
+  Two grazer steps each with calm cyan and angry pink eyes. BLOOM has standing, kneeling,
+  ring and calm boss art.
 
 ## FOGSTAGE (`fogstage`, field battles)
 
-- [ ] **G1 · Stage country (P1).** Stage spotlight on a pole (lit), painted flat house
-  (front only, a prop brace behind), sandbags and rope, a poster board (8 posters for the
-  BARD quest: same board, 8 pictures).
-- [ ] **G2 · The RAINCHECK (P2).** The theatre blimp moored at a hill: 4×2 tiles, a slow
-  bob (2 frames), its gangway.
-- [ ] **G3 · Folk (P2).** Wind-up puppet extras (key turning, 2 frames), the stage manager.
-  **BARD** (P3) the prompter's box boss.
+- [x] **G1 · Stage country (P1, `62ad0c9`).**
+  Lit stage spotlight, painted house front with braces, sandbags and rope, and eight
+  different pictures on the same poster board.
+- [x] **G2 · The RAINCHECK (P2, `62ad0c9`).**
+  The RAINCHECK bobs at its mooring over the gangway.
+- [x] **G3 · Folk (P2, `62ad0c9`).**
+  Wind-up extra with two key poses, a stage manager, and BARD’s prompter box with singing
+  and dazed curtain poses.
 
 ## RERUN ESTATES (`rerun`, field battles)
 
-- [ ] **R1 · The cul-de-sac (P1).** Suburban house with garage (2 variants), mailbox,
-  phone booth (glowing), station wagon, lawn flamingo, sprinkler (2 frames), lawnmower.
-- [ ] **R2 · Three eras (P2).** The same house in 1958, 1986 and 2086 (three drawings of
-  one footprint), for the era transform.
-- [ ] **R3 · Foes (P2).** Mower, flamingo flock, biting mailbox. **COPILOT** (P3) the
-  self-driving station wagon.
+- [x] **R1 · The cul-de-sac (P1, `62ad0c9`).**
+  Two garage houses, mailbox, glowing booth, station wagon, lawn flamingo, two sprinkler
+  frames and lawnmower.
+- [x] **R2 · Three eras (P2, `62ad0c9`).**
+  The same house footprint in 1958, 1986 and 2086, with distinct material and roof
+  treatments.
+- [x] **R3 · Foes (P2, `62ad0c9`).**
+  Mower, flamingo flock and biting mailbox use existing field behaviours. COPILOT has honk,
+  neon and rust boss poses.
