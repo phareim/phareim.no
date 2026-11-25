@@ -159,7 +159,9 @@ const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1',
 // Part 22: a boss room's scene + '-hit' is the same moment with every boss in it flashing (the hurt frame and the
 // flash, as a hit leaves them).
 const bossHit = /^(boss|l-llama|l-mistral|d-deepseek|d-gemini)-hit$/.test(scene)
-switch (bossHit ? scene.slice(0, -4) : scene) {
+// Part 24: 'l-mistral-down' is the lab with the mistral blown out (its down heap and the dizzy stars).
+const bossDown = scene === 'l-mistral-down'
+switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'start': run(30); break
   // The frontier (world/gen/): the Landing, the crossroads camp north of it, a cave, and one place in each realm
   // (beside a quest site's or a landmark's people, so the realm's own places are in the picture).
@@ -491,6 +493,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   }
 }
 if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
+if (bossDown) for (const e of s.map.enemies) if (e.kind === 'mistral') { e.ai.mode = 'down'; e.ai.t = 9 }
 // DAY=sun|noon|night|dawn: a solved save's running hour, as steady.mjs --day (without it the eternal dusk).
 if (q.get('day')) { s.inv.prism = true; s.daytime = { sun: 500, noon: 580, night: 230, dawn: 400 }[q.get('day')] }
 function wild(luna = false) {
@@ -657,6 +660,7 @@ const SHOTS = [
   ['boss-hit-1440', 'boss-hit', 1440, 900, 1, 0],
   ['l-llama-hit-1280', 'l-llama-hit', 1280, 800, 1, 0],
   ['l-mistral-hit-1280', 'l-mistral-hit', 1280, 800, 1, 0],
+  ['l-mistral-down-1280', 'l-mistral-down', 1280, 800, 1, 0],
   ['d-deepseek-hit-1280', 'd-deepseek-hit', 1280, 800, 1, 0],
   ['d-gemini-hit-1280', 'd-gemini-hit', 1280, 800, 1, 0],
   ['w-troll-1280', 'w-troll', 1280, 800, 1, 0],

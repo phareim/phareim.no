@@ -898,7 +898,11 @@ classic picture. `/?view=<id>` asks for one.
   people, hero and bosses (above); the bosses' crisp art shimmers a little more
   than the smoothed classic did as the king hovers (`steady.mjs` `king-stand`:
   1.40 against 1.20), and the deepseek and the troll are a little smaller than
-  their classic sprites; the hero's walk steps and arm swings are generic
+  their classic sprites; the mistral's frames 1–3 turn the ribbons Codex's own
+  way rather than the turned guides' (the face holds still within a px), its
+  `down` heap shows the floor in small gaps between the coils, and the llama's
+  two back steps differ little, so its walk away shows less than its walk
+  toward the viewer; the hero's walk steps and arm swings are generic
   edits, and its heads from the larger guide sheet (the bare short hair, the
   bow, get and hurt) are a px or two bigger than the rest; the townsfolk turn to
   no back, a figure the studio has changed since it was drawn is classic until
