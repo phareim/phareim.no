@@ -363,9 +363,13 @@ classic picture. `/?view=<id>` asks for one.
   in the wind, part round the hero, and thin out between the viewer and the
   hero so nobody is lost in the woods. Cutting a bush or grass changes the
   tile, and the plant is gone with it.
-- **The hero** (`figure.ts`). In this view the hero is the classic
-  four-way sprite, smoothed (value `figure: 'classic'`, the default). Value
-  `figure: 'modelled'` swaps it for a small figure built in the round (ellipsoids and capsules:
+- **The hero** (`hero.ts`, `figure.ts`). In this view the hero is drawn in the
+  view's own isometric pixel art, as the people are (part 21, 2026-11-25; "The
+  people" below, *The hero*), with value `figure: 'classic'` (the default; the
+  name is the old one: it is the four-way hero of the classic painter, now in
+  that art). It is the classic four-way sprite, smoothed, with `figures:
+  'classic'`, for a shape not wholly drawn, and while the studio has redrawn it.
+  Value `figure: 'modelled'` swaps it for a small figure built in the round (ellipsoids and capsules:
   head, hair, band, torso, arms, legs) and drawn in software every frame
   into a 160 × 96 px cell, a pixel to the scene's pixel, with a normal and a
   glow for every pixel (`renderFigure(pose, look)`; pure, no canvas). So it
@@ -386,15 +390,15 @@ classic picture. `/?view=<id>` asks for one.
   the booth's shape and colours, a made figure's colours, or the drawn
   hero), every hair, headwear and bottom. The classic painter still draws
   what the hero holds up (a pot, a found thing) and the blade's light
-  (`kit.setHeroBare`). During the turn from another view the sprite stands
-  until the turn is half done. `node scripts/zelda-lab/figure-sheet.mjs <outDir>` draws
+  (`kit.setHeroBare`). During the turn from another view the drawn hero stands
+  until the turn is half done, then the modelled one. `node scripts/zelda-lab/figure-sheet.mjs <outDir>` draws
   the figure's sheets (every yaw, the walk, the acts, the swings, the looks,
   lit, and beside the classic frames) without a browser;
   `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
   looks.
 - **The people** (`iso/folk.ts`, `iso/folkArt.ts`; parts 19 and 20, 2026-11-24).
-  Everyone but the hero and the bosses is redrawn for this view
-  as isometric pixel art: two px of theirs to the classic px (a 16 × 16 sprite
+  Everyone but the bosses is redrawn for this view
+  as isometric pixel art (the hero since part 21, its own way: *The hero* below): two px of theirs to the classic px (a 16 × 16 sprite
   becomes about 20–34 × 17–35, the 24 × 24 knight about 38 × 48), chunky like
   the hero, an outline in each part's darkest shade, at most 24 colours a
   figure in the dusk-neon family (near-identical dark shades merged into one),
@@ -408,7 +412,7 @@ classic picture. `/?view=<id>` asks for one.
     (with `skull_jump`), `eye`, `blade` (in no room yet), `knight`, and the
     labs' `hound` (four ways and `hound_open`) and `drone`.
 
-  Not drawn: the hero (the modelled figure stands for it) and the bosses (the
+  Not drawn: the bosses (the
   king, `mistral`, `deepseek`, `gemini`, `llama`, the troll), which stay
   classic. A family
   carries one drawn three-quarter front (turned to the viewer's lower left)
@@ -479,6 +483,66 @@ classic picture. `/?view=<id>` asks for one.
     and re-quantised by script, a few eyes and lights set by hand) is in the
     jobs' evidence on the Mac (`tmp/iso-figures/`, `tmp/iso-figures-20/`,
     whose `tools/` is the whole pipeline for all 32).
+  - *The hero* (`iso/hero.ts`, `iso/heroArt.ts`; part 21, 2026-11-25; Petter:
+    «tegn helten i samme stil som resten!»). The same art at the same density
+    and proportions as the townsfolk (`kid` and `petter` were the guide's style
+    references), the brightest figure on the screen, with what makes it the
+    hero: the cyan jacket over the white stripe, the pink headband with its
+    tails, the yellow buckle. Unlike a family it is composed and recoloured, as
+    the classic hero is (`heroFrames`, `heroLook`):
+    - *Roles, not colours.* Each px is one of the look's eight colours (skin,
+      hair, what is on the head, shirt, stripe, belt, below the belt, shoes) at
+      a slot: the role's outline (its darkest), then its shades, 2–4 a role, or
+      a fixed colour (the eyes, the open mouth). One slot is the look's colour
+      itself (`HERO_BASE`); every other is mixed from it toward the dark (for
+      skin the rose `#5a1a3a` that `lookPalette` shades skin with) or toward
+      white, by the amount the drawing has it (`HERO_MIX`, fitted to the
+      drawing). A colour left at the drawn one keeps the drawing's own shades
+      (`HERO_DRAWN`), so `DRAWN_LOOK` is the hero as drawn, as in `lookPalette`.
+      A dress is the skirt in the shirt's colours.
+    - *Composed.* A frame is a body (torso and legs, per pose and facing and
+      what is worn below), the head (hair and what is on it) set on the body's
+      neck point, the hair that falls past the chin laid over the torso, and
+      raised arms (carry, get) over that. The parts are drawn once: four hair
+      styles with the band, the short hair bare and with the bow; the bow is
+      set on the other bare heads, and a bare head is the band's px as hair,
+      slot for slot (the short hair's flying tails go with the band, so its
+      bare head is a drawing of its own). Shorts are the trousers with the
+      lower leg as skin; the skirt is a drawn piece over bare legs, with a hem
+      and pleats in shade. `heroArtCovers(shape)` says whether every part of a
+      shape is there; one that is not is the classic hero, every frame of it,
+      never a drawn head on classic legs. All 48 shapes are covered.
+    - *Frames.* Front and back for standing, the walk, the swing, carrying (two)
+      and pushing, mirrored for the other two facings and mapped from the
+      classic sprite's name as the folk's are (south the front, east the front
+      mirrored, north the back mirrored, west the back); the classic side
+      frames are not needed. The walk's two steps are pixel edits of standing
+      (one leg lifted two px under the jacket's hem, the other hand swung two px
+      forward); the second carrying frame is the step's legs. Facing the viewer
+      only: holding up a find (the arms up, the mouth open), hurt (the arms
+      flung out, the eyes squeezed to lines), the three falling frames (the
+      standing front shrunk as the classic shrinks it) and lying (it turned on
+      its side as the classic is).
+    - *How it gets in.* Through the folk's router, unless the modelled hero is
+      drawn: everything the classic painter does round the hero carries over (a
+      blink frame not drawn, the hurt flash as the art's silhouette, the shadow,
+      what it holds up, the blade's light, the cross in a stipple at the turn
+      with the folk). Seen through a wall, both cards are drawn every other px.
+    - *The blades.* `sword_v`, `sword_h`, `sword_d` and the Arc Blade's
+      `sword2_*` at twice their size (EPX, so a diagonal keeps one clean step;
+      then a lit edge, a light line and the white core to a deep edge, the guard
+      lit on top, the grip wrapped), in fixed colours. They land exactly where
+      the classic ones do, so the swing and the hits are unchanged; the canvases
+      `spriteT` mirrors upside down are tagged too (`flipV`), so the router knows
+      them.
+    - *The studio.* The studio can still redraw the classic hero: while its rows
+      for a `hero_*` sprite are worn (no look from the booth), the hero is
+      classic (`heroStudioEdited`).
+    - *Made* by Codex image generation over three guide sheets of the classic
+      frames (poses; the hair and the bow; get, hurt and the bottoms), cut as
+      the folk were, then sorted into roles and parts by script
+      (`tmp/iso-figures-21/tools/build.py` on the Mac); `tests/zelda-hero-art.test.mjs`
+      holds the coverage, the recolouring and the fallback.
   - *What the studio would need* to edit them: a second kind of entry in the
     pack (`folk`: a family's palette, frames as rows at twice the classic
     size, anchors, the `src` hashes), exported by `export-sprites.mjs` beside
@@ -618,7 +682,9 @@ classic picture. `/?view=<id>` asks for one.
 - **Known rough edges of the isometric view** (2026-11-12; figures 2026-11-24): the art under
   it is still the 16 px art, treated on its way up, so the hero's sprite and
   the bosses are classic figures with a 16-bit finish beside the redrawn
-  people (above); the townsfolk turn to
+  people and hero (above); the hero's walk steps and arm swings are generic
+  edits, and its heads from the larger guide sheet (the bare short hair, the
+  bow, get and hurt) are a px or two bigger than the rest; the townsfolk turn to
   no back, a figure the studio has changed since it was drawn is classic until
   it is redrawn, and the drawings have been cleaned by script and only touched
   by hand where something was lost (the robot's screen, the smoker's
@@ -652,8 +718,9 @@ look is the isometric world's own art in the polygon engine's land and light:
   - *the camera* looks as the isometric one does, nearer and with depth (`CRANE`
     above);
   - *the hero and every figure* (part 16, Petter: «alle figurene kan få samme
-    32-bit-oppskalering»): the isometric look's hero is the classic four-way
-    sprite (its value `figure` is `classic`), and so is the 32-bit look's now
+    32-bit-oppskalering»): the isometric look's hero was then the classic four-way
+    sprite (its value `figure` is `classic`; since part 21 it is drawn in that
+    view's own art), and the 32-bit look's is the classic sprite now
     (value `figure` `classic`, the default). Every person and thing in the
     32-bit look (the hero, people, Luna and the followers, foes, bosses,
     animals, what is carried, pickups) is its classic picture at four fine px

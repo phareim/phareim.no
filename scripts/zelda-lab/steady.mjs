@@ -55,6 +55,8 @@ const CASES = {
   // Standing by a lamp on the square (part 10): its pool must neither pop nor crawl.
   'lamp-stand': ['r-plaza', `__lab.s.hero.x = 18.5; __lab.s.hero.y = 12.6; __lab.s.hero.dir = 'up'`, [[90, STILL]]],
   'camp-walk': ['w-camp', ``, [[90, UP]]],
+  // Part 21: the hero walking east past the square's lamp (the hero's own art under a moving light).
+  'hero-lamp': ['r-plaza', `__lab.s.hero.x = 16.8; __lab.s.hero.y = 12.9; __lab.s.hero.dir = 'right'`, [[90, RIGHT]]],
   // The redrawn people standing still round the hero under the square's lamp (part 19): their light, not their walk.
   'folk-still': ['r-plaza', `__lab.s.hero.x = 18.5; __lab.s.hero.y = 12.6; __lab.s.hero.dir = 'up'; { const L = ['kid', 'vendor', 'barmaid', 'petter', 'robot', 'keeper']; const n0 = __lab.s.map.npcs[0]; __lab.s.map.npcs.length = 0; L.forEach((look, i) => __lab.s.map.npcs.push({ ...n0, id: 'still' + i, look, x: 17.2 + (i % 3) * 1.3, y: 13.4 + Math.floor(i / 3) * 1.2, dir: 'down', wander: false, vx: 0, vy: 0, home: { x: 17.2 + (i % 3) * 1.3, y: 13.4 + Math.floor(i / 3) * 1.2 } })); for (const e of __lab.s.map.enemies) { e.x = -50; e.y = -50 } }`, [[90, STILL]]],
   // Standing beside figures under a lamp (part 19): a blob and a spitter moved next to the hero by the lamp on the

@@ -844,8 +844,8 @@ export default function isoView(kit: Kit): View {
     ag.setTransform(1, 0, 0, 1, 0, 0)
     ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
     if (folkUsed) { hg.setTransform(1, 0, 0, 1, 0, 0); hg.clearRect(0, 0, folkAtlas.width, folkUsed); folkUsed = 0 }
-    // The figures in this view's own art (`folk.ts`) take over from the classic sprites through the middle of the
-    // turn, crossing in a stipple, about when the modelled hero does.
+    // The figures in this view's own art (`folk.ts`, the hero's `hero.ts`) take over from the classic sprites through
+    // the middle of the turn, crossing in a stipple, about when the modelled hero does.
     const folk = par.figures !== 'classic' ? folkMix(k) : 0
     // The hero's body and blade are this view's own once the turn is under way (`figure.ts`); the classic
     // painter then draws only what the hero holds up.
@@ -1139,7 +1139,8 @@ export default function isoView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
-      if (folk > 0 && cellY + C.h <= FOLK_ROWS && !it.hero) router.begin(cellX, cellY, C.w, C.h, folk)
+      // (The hero too, in its own art (`hero.ts`, part 21), unless the modelled hero is drawn instead.)
+      if (folk > 0 && cellY + C.h <= FOLK_ROWS && !(it.hero && modelled)) router.begin(cellX, cellY, C.w, C.h, folk)
       it.draw()
       const folkHit = router.end()
       if (folkHit) folkUsed = Math.max(folkUsed, (cellY + C.h) * DENSITY)
@@ -1217,7 +1218,10 @@ export default function isoView(kit: Kit): View {
           quad(gx, gy, ft, fl, gx, gy, ft, fr, gx, gy, ff, fr, gx, gy, ff, fl, 0, 0, FIG.w, FIG.h, 3, 3)
           ghost = { start: nv - 6, count: 6 }
         }
-      } else if (it.hero && k > 0.5) ghost = { start: nv - 6, count: 6 }
+      } else if (it.hero && k > 0.5) {
+        // Seen through a wall: the hero's card, and the art's card in front of it when it has one.
+        ghost = folkHit ? { start: nv - 12, count: 12 } : { start: nv - 6, count: 6 }
+      }
     }
 
     atlasUsed = used

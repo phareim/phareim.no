@@ -232,6 +232,9 @@ switch (scene) {
   case 'r-tree': s.hero.x = 25.8; s.hero.y = 27.2; s.hero.dir = 'up'; run(40); break
   case 'r-jam': s.hero.x = 25.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
   case 'r-sword': give(); run(20); break
+  // Part 21: the hero mid-swing on the square (the blade's art), and the hero hurt (the flash and the hurt frame).
+  case 'r-swing': give(); go('overworld', 20.5, 17.5, 'down'); run(20); r.onEvents(stepGame(world, s, 1 / 60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
+  case 'r-hurt': give(); go('overworld', 20.5, 17.5, 'down'); run(20); s.hero.act = 'hurt'; s.hero.actT = 0.05; s.hero.invuln = 0.9; s.hero.vx = 0; s.hero.vy = 0; break
   case 'r-rich': give(); s.inv.bits = 4321; run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
   // The VIP room: a counter that turns a corner, the back bar, the velvet floor.
@@ -363,6 +366,8 @@ const SHOTS = [
   ['r-tree-390', 'r-tree', 390, 844, 3, 0],
   ['r-jam-1280', 'r-jam', 1280, 800, 1, 0],
   ['r-sword-1280', 'r-sword', 1280, 800, 1, 0],
+  ['r-swing-1280', 'r-swing', 1280, 800, 1, 0],
+  ['r-hurt-1280', 'r-hurt', 1280, 800, 1, 0],
   ['r-sword-390', 'r-sword', 390, 844, 3, 0],
   ['r-rich-390', 'r-rich', 390, 844, 3, 0],
   ['r-rich-1280', 'r-rich', 1280, 800, 1, 0],

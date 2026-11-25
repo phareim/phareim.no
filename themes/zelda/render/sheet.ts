@@ -26,7 +26,7 @@ let revision = 0
  * people in art of its own (the isometric view's figures, `iso/folk.ts`) tells by this what the classic painter
  * meant to draw, without the painter knowing.
  */
-export interface SpriteTag { name: string; flip: boolean; color?: string }
+export interface SpriteTag { name: string; flip: boolean; color?: string; flipV?: boolean }
 const tags = new WeakMap<object, SpriteTag>()
 export function spriteTag(c: unknown): SpriteTag | undefined {
   return c && typeof c === 'object' ? tags.get(c) : undefined
@@ -52,6 +52,15 @@ export function setHeroColors(colors: HeroColors | null): void {
 export function setHeroLook(look: HeroLook | null): void {
   heroLook = look
   dressHero()
+}
+
+/**
+ * Has the studio redrawn the hero the game shows? (Its rows for a `hero_*` sprite, worn when no look from the booth is:
+ * a look's frames are always `heroFrames`'.) A view with its own art for the hero (`iso/hero.ts`) then draws the
+ * classic one, as it does a family of the folk the studio has changed.
+ */
+export function heroStudioEdited(): boolean {
+  return !heroLook && Object.keys(overrides).some(n => n.startsWith('hero_'))
 }
 
 /** What the hero wears, as a look: the booth's, else a made figure's colours on the drawn shape, else the drawn hero. */
@@ -129,6 +138,7 @@ export function spriteT(name: string, fh: boolean, fv: boolean): Canvas {
   g.scale(1, -1)
   g.drawImage(src, 0, 0)
   cache.set(key, c)
+  tags.set(c, { name, flip: fh, flipV: true })
   return c
 }
 

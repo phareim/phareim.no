@@ -1,7 +1,8 @@
 /**
- * The isometric view's own people (parts 19 and 20, 2026-11-24): figures redrawn as isometric pixel art at the view's
- * density, two px of theirs to one px of the classic sprite, in their own colours (3–5 shades a material, an
- * outline in each part's darkest shade), and drawn as authored: no Scale2x, no blend of shades on the way up.
+ * The isometric view's own people (parts 19 and 20, 2026-11-24; the hero, part 21, 2026-11-25): figures redrawn as
+ * isometric pixel art at the view's density, two px of theirs to one px of the classic sprite, in their own colours
+ * (3–5 shades a material, an outline in each part's darkest shade), and drawn as authored: no Scale2x, no blend of
+ * shades on the way up.
  *
  * - *Which figures.* A family (`keeper`, `spitter`, …) is in `folkArt.ts`: for each of its drawn facings
  *   (`front`: three-quarter toward the viewer's lower left; `back`: three-quarter away, toward the upper left)
@@ -23,9 +24,14 @@
  *   family is drawn the classic way again (its live rows, smoothed as before) until it is redrawn. Whole
  *   families, so an animation never steps between two kinds of drawing.
  *
+ * - *The hero and its blade* (part 21) go through the same router, but their art is `hero.ts`'s: composed from parts
+ *   and recoloured by roles for whatever look the hero wears, the blades redrawn at twice their size. A hero shape not
+ *   wholly drawn, or a hero the studio has redrawn, is the classic sprite, as a stale family is.
+ *
  * Pure but for the canvases, which are made the first time a frame is asked for.
  */
 import { FOLK_ART, type FolkFamily } from './folkArt'
+import { bladePic, heroPic } from './hero'
 import { frameCount, makeCanvas, spriteRevision, spriteRows, spriteTag as spriteTagOf, type SpriteTag } from '../sheet'
 
 export type Facing = 'front' | 'back'
@@ -136,6 +142,10 @@ let seen = -1
  * null when it has none, or has none that is still fresh: then the classic sprite is drawn.
  */
 export function folkPic(tag: SpriteTag): FolkPic | null {
+  // The hero and its blade have art of their own (`hero.ts`, part 21).
+  if (tag.name.startsWith('hero_')) return heroPic(tag)
+  if (tag.name.startsWith('sword')) return bladePic(tag)
+  if (tag.flipV) return null
   const famId = familyOf(tag.name)
   if (!famId) return null
   if (seen !== spriteRevision()) { seen = spriteRevision(); fresh.clear() }
