@@ -388,14 +388,15 @@ export function generateRegion(ctx: RegionCtx): MapDef {
       default: break
     }
   }
-  // Foes on the open land the roads reach, away from the camp and the passes.
+  // Foes on the open land the roads reach, away from the passes and every entry (the camp, a cave's mouth, a site's
+  // way back up): the hero must not arrive within a group's sight. (10 tiles, manhattan: more than sight, cluster and mill.)
   const reach = reachable(rows, W, H, entries.camp ?? { x: nodes[0]?.x ?? W / 2, y: nodes[0]?.y ?? H / 2 })
   if (!ctx.landing) {
     let open = 0
     for (let i = 0; i < W * H; i++) if (reach[i]) open++
     // (A battle realm's foes stand in groups of one to four: fewer places for them.)
     const want = Math.round((open / 100) * realm.density * (1 + 0.2 * Math.min(ctx.depth, 6)) * (realm.special === 'battle' ? 0.4 : 1))
-    const keepOff = [...passTiles, ...(entries.camp ? [entries.camp] : [])]
+    const keepOff = [...passTiles, ...Object.values(entries)]
     for (let n = 0, tries = 0; n < want && tries < want * 30; tries++) {
       const x = rng.int(RIM + 1, W - RIM - 2)
       const y = rng.int(RIM + 1, H - RIM - 2)

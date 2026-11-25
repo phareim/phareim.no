@@ -231,6 +231,25 @@ describe('the frontier', () => {
     assert.ok(seen.dig && seen.battle && seen.puzzles)
   })
 
+  it('keeps every battle group out of sight of the entries the hero arrives at', () => {
+    // A group sees `sight` tiles; its foes stand up to ~1.2 off its spot and mill ~0.9 further.
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      if (!d.battle) continue
+      for (const g of d.battle.groups) for (const [k, e] of Object.entries(d.entries)) {
+        const dist = Math.hypot(g.x - e.x, g.y - e.y)
+        assert.ok(dist > (g.sight ?? 0) + 3, `${g.id} stands ${dist.toFixed(1)} from ${id}:${k}`)
+      }
+    }
+    // Up the stairs from the Battle Glade, out of a Sporelight cave: no fight before the hero moves.
+    for (const [map, entry] of [['fr:7,2', 'from-arena'], ['fr:8,2', 'cave0']]) {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map, entry } })
+      s.inv.sword = true
+      for (let k = 0; k < 180 && s.mode === 'play'; k++) step(s)
+      assert.equal(s.mode, 'play', `${map}:${entry} starts a fight`)
+    }
+  })
+
   it('leads down into the three first maps and back up', () => {
     for (const [map, region] of [['quarry', 'fr:2,2'], ['arena', 'fr:7,2'], ['puzzlelab', 'fr:9,4']]) {
       const r = Z.WORLD.generate(region)
