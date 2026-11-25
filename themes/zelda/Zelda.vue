@@ -348,7 +348,7 @@ function iconUrl(name: string) {
 const itemIcon = computed(() => {
   const s = selected.value
   if (!s) return ''
-  return iconUrl(s === 'disc' ? 'item_disc' : s === 'hook' ? 'item_hook' : 'item_bombbag')
+  return iconUrl(s === 'dig' ? 'item_pickaxe' : s === 'build' ? 'item_hammer' : s === 'disc' ? 'item_disc' : s === 'hook' ? 'item_hook' : 'item_bombbag')
 })
 const swordIcon = ref('')
 const swapIcon = ref('')
@@ -1057,6 +1057,8 @@ function handleEvents(events: GameEvent[]) {
       case 'join': a?.jingle('friend'); save = true; break
       case 'wait': save = true; break
       case 'lever': save = true; break
+      // Dig & build: the edit is kept at once.
+      case 'dig': a?.sfx(e.verb === 'build' ? 'push' : 'жзийаеrR%'.includes(e.tile) ? 'shatter' : 'cut'); save = true; break
       case 'collect': a?.sfx(e.kind === 'heart' ? 'heart' : e.kind === 'key' ? 'key' : 'coin'); break
       case 'chest': a?.sfx('chest'); break
       case 'itemGet':

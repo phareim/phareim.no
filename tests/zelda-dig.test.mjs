@@ -272,6 +272,53 @@ describe('Neon Shrine dig & build', () => {
     assert.equal(Z.parseSave({ ...save, inv: { ...save.inv, selected: 'spade' } }), null)
   })
 
+  it('plays the quarry through: each tool opens the way to the next, and the hammer climbs and bridges', () => {
+    const s = quarry()
+    /** Walk straight to the middle of tile (x, y), one axis at a time; true when there. */
+    const go = (x, y) => {
+      for (let i = 0; i < 900; i++) {
+        settle(s)
+        const dx = x + 0.5 - s.hero.x
+        const dy = y + 0.5 - s.hero.y
+        if (Math.abs(dx) < 0.06 && Math.abs(dy) < 0.06) return true
+        const mx = Math.abs(dx) >= 0.06 ? Math.sign(dx) * Math.min(1, Math.abs(dx) * 4 + 0.2) : 0
+        step(s, inp({ move: Math.abs(mx) > 0 ? { x: mx, y: 0 } : { x: 0, y: Math.sign(dy) * Math.min(1, Math.abs(dy) * 4 + 0.2) } }))
+      }
+      return false
+    }
+    const face = dir => { s.hero.dir = dir; s.hero.aim = undefined }
+    const open = (dir, flag) => { face(dir); step(s, inp({ aPress: true, a: true })); settle(s); assert.ok(s.flags[flag], flag) }
+    const dig = (dir, item = 'dig') => { face(dir); use(s, item) }
+    // The shovel by the road.
+    assert.ok(go(13, 19)); open('up', 'chest:quarry.shovel')
+    // Through the ring of turf to the pickaxe.
+    assert.ok(go(10, 19)); assert.ok(go(10, 12)); assert.ok(go(5, 12)); dig('down')
+    assert.ok(go(5, 15), 'through the turf'); open('down', 'chest:quarry.pickaxe')
+    // Through the stone wall (its ore) to the axe, and a block of the wall for stone.
+    assert.ok(go(5, 9)); dig('up')
+    assert.ok(go(4, 9)); dig('up')
+    assert.ok(go(5, 6), 'through the wall'); open('up', 'chest:quarry.axe')
+    assert.ok(Z.matCount(s, 'stone') >= 1 && Z.matCount(s, 'lumen') >= 1)
+    // Into the grove to the hammer, wood on the way.
+    assert.ok(go(5, 10)); assert.ok(go(25, 10)); assert.ok(go(25, 11)); dig('down')
+    assert.ok(go(24, 11)); dig('down')
+    assert.ok(go(25, 14), 'into the grove'); open('down', 'chest:quarry.hammer')
+    // Up a ramp to the ledge chest.
+    s.inv.build = 'stone'
+    assert.ok(go(25, 11)); assert.ok(go(16, 11)); assert.ok(go(16, 9)); dig('up', 'build')
+    assert.equal(tile(s, 16, 8), 'ж')
+    assert.ok(go(16, 5), 'up the ramp'); open('up', 'chest:quarry.ledge')
+    // Planks to the island.
+    assert.ok(go(21, 5), 'down off the ledge'); assert.ok(go(21, 4))
+    for (let x = 22; x <= 24; x++) {
+      if (Z.matCount(s, 'wood') < 1) s.inv.mats.wood = 1 // (a tree more would do)
+      dig('right', 'build')
+      assert.equal(tile(s, x, 4), '=')
+      assert.ok(go(x, 4))
+    }
+    assert.ok(go(25, 5)); open('right', 'chest:quarry.island')
+  })
+
   it('keeps foes out of a lamp\'s light', () => {
     const s = quarry()
     const e = s.map.enemies.find(f => f.kind === 'blob')

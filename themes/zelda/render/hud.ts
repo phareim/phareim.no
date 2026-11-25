@@ -3,13 +3,15 @@
  * the B-item box, bits/bombs/keys, the area banner, the dialog box and the
  * pause screen with the quest hint.
  */
-import type { GameState } from '../types'
+import type { GameState, World } from '../types'
 import { objective } from '../progress'
 import { subst, type HudKeys } from '../keys'
 import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
+import { buildKind, DIG_MATS, isDigItem, matCount } from '../engine/dig'
+import { digIcon } from './dig'
 
 type G = CanvasRenderingContext2D
 
@@ -250,7 +252,7 @@ function icon(g: G, skin: HudSkin, name: string, x: number, y: number) {
   else g.drawImage(spr, x, y)
 }
 
-export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boolean, skin: HudSkin = NEON_SKIN) {
+export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boolean, skin: HudSkin = NEON_SKIN, world?: World) {
   const h = s.hero
   const inv = s.inv
   const F = hudFont(skin)
@@ -281,13 +283,18 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   const keys = keyCount(s)
   if (keys > 0 || s.map.ring !== 'shrine' || s.map.id === 'shrine') counter('hud_key', keys, 1, skin.prize)
   if (hasBigKey(s)) { icon(g, skin, 'hud_bigkey', cx, cy); cx += 12 }
+  // Dig & build: the materials, while a tool is out (the hammer's kind lit).
+  if (isDigItem(inv.selected) && s.map.dig) {
+    const lit = inv.selected === 'build' ? buildKind(s) : null
+    for (const k of DIG_MATS) if (matCount(s, k) > 0 || k === lit) counter(`hud_${k}`, matCount(s, k), 1, k === lit || (lit === 'lamp' && (k === 'lumen' || k === 'wood')) ? skin.prize : skin.text)
+  }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
   // its pause chip owns the top-right corner).
   if (!touch && inv.selected) {
     const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
-    const item = inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
+    const item = isDigItem(inv.selected) && world ? digIcon(world, s) : inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
     icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)
     F.draw(g, 'K', bx + 24, 4, skin.cool, skin.outline)
   }
