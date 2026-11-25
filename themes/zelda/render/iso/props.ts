@@ -104,6 +104,7 @@ export const MATS = {
   front: mat(0, '#150c22', '#1f1430', '#2b1c40', '#3d2a58', '#4f3a70'),
   seam: mat(0, '#150c22', '#150c22', '#1a1028', '#1a1028', '#1a1028'),
   chestWood: mat(0, '#24140c', '#3a2418', '#6a4432', '#8a5a44', '#a87458'),
+  sand: mat(0, '#493045', '#805347', '#ab795c', '#cf9a73', '#e4b58a'),
   chestViolet: mat(0, '#2c1260', '#54259e', '#7c3cd0', '#9a4ff0', '#ff8ae0'),
   gold: mat(0.3, '#7a4e0c', '#c4861c', '#ffd23f', '#fff1b0', '#ffffff'),
   blockPink: mat(0, '#3a0830', '#6a1050', '#8a1868', '#b01874', '#ff2fa0'),
@@ -124,20 +125,29 @@ export interface Solids {
 
 const W: number = PROP.w
 const H: number = PROP.h
-const N = W * H
 const FAR = -1e9
 /** The artist's light: from above, a little from the south-west, so the top is lightest and the east side darkest. */
 const LIGHT = (() => { const v = [-0.36, 0.26, 0.9]; const n = Math.hypot(v[0]!, v[1]!, v[2]!); return [v[0]! / n, v[1]! / n, v[2]! / n] as const })()
 
 /** One thing on the bench: for every pixel how near it is, what it is made of and which way it faces. */
 class Bench {
-  readonly t = new Float32Array(N).fill(FAR)
-  readonly m = new Int8Array(N).fill(-1)
-  readonly nx = new Float32Array(N)
-  readonly ny = new Float32Array(N)
-  readonly nz = new Float32Array(N)
+  readonly t: Float32Array
+  readonly m: Int8Array
+  readonly nx: Float32Array
+  readonly ny: Float32Array
+  readonly nz: Float32Array
   /** 1: the pixel lies on its tile's edge, where the thing goes on into the next tile: no line is drawn round it there. */
-  readonly open = new Uint8Array(N)
+  readonly open: Uint8Array
+
+  constructor(private readonly grid: { w: number; h: number; ax: number; ay: number } = PROP) {
+    const n = grid.w * grid.h
+    this.t = new Float32Array(n).fill(FAR)
+    this.m = new Int8Array(n).fill(-1)
+    this.nx = new Float32Array(n)
+    this.ny = new Float32Array(n)
+    this.nz = new Float32Array(n)
+    this.open = new Uint8Array(n)
+  }
 
   /** A point of a solid at pixel i, `t` along the line of sight (larger is nearer). */
   private hit(i: number, t: number, x: number, y: number, z: number, nx: number, ny: number, nz: number, pick: Pick) {
@@ -150,10 +160,11 @@ class Bench {
 
   /** Every pixel's line of sight: it passes through (x0, y0, 0) and runs along (1, 1, 1) toward the viewer. */
   private each(fn: (i: number, x0: number, y0: number) => void) {
-    for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
-      const sx = px + 0.5 - PROP.ax
-      const sy = py + 0.5 - PROP.ay
-      fn(py * W + px, sx / 2 + sy, sy - sx / 2)
+    const { w, h, ax, ay } = this.grid
+    for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+      const sx = px + 0.5 - ax
+      const sy = py + 0.5 - ay
+      fn(py * w + px, sx / 2 + sy, sy - sx / 2)
     }
   }
 
@@ -219,17 +230,18 @@ class Bench {
    * `lined`: false for a part of something longer, whose silhouette is not the thing's own.
    */
   paint(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, aw: number, ox: number, oy: number, lined = true) {
-    const tone = new Int8Array(N)
-    const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && this.m[y * W + x]! >= 0
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x
+    const { w, h, ay } = this.grid
+    const tone = new Int8Array(w * h)
+    const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && this.m[y * w + x]! >= 0
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x
       if (this.m[i]! < 0) continue
       const lam = this.nx[i]! * LIGHT[0] + this.ny[i]! * LIGHT[1] + this.nz[i]! * LIGHT[2]
       let k = lam > 0.93 ? 4 : lam > 0.62 ? 3 : lam > 0.2 ? 2 : 1
       const glows = MATS[MAT_NAMES[this.m[i]!]!].glow >= 1
       if (!glows) {
         // Something well in front, up and to the left of this pixel, lays a step of shade on it.
-        const up = y > 0 && this.m[i - W]! >= 0 ? this.t[i - W]! - this.t[i]! : 0
+        const up = y > 0 && this.m[i - w]! >= 0 ? this.t[i - w]! - this.t[i]! : 0
         const left = x > 0 && this.m[i - 1]! >= 0 ? this.t[i - 1]! - this.t[i]! : 0
         if (up > 3.2 || left > 3.2) k = Math.max(1, k - 1)
         // The line round the silhouette, on the lower right only.
@@ -238,15 +250,15 @@ class Bench {
       }
       tone[i] = k
     }
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x
       if (this.m[i]! < 0) continue
       const M = MATS[MAT_NAMES[this.m[i]!]!]
       const c = M.ramp[tone[i]!]!
       const o = ((oy + y) * aw + ox + x) * 4
       albedo[o] = c[0]; albedo[o + 1] = c[1]; albedo[o + 2] = c[2]
       // A point (x, y, z) lies (x + y) / 2 px nearer than the anchor, which is its row on the screen plus its height.
-      albedo[o + 3] = depthCode(y + 0.5 - PROP.ay + this.t[i]!)
+      albedo[o + 3] = depthCode(y + 0.5 - ay + this.t[i]!)
       const S2 = Math.SQRT1_2
       normal[o] = Math.round(((this.nx[i]! - this.ny[i]!) * S2 * 0.5 + 0.5) * 255)
       normal[o + 1] = Math.round((this.nz[i]! * 0.5 + 0.5) * 255)
@@ -254,6 +266,46 @@ class Bench {
       normal[o + 3] = Math.round(M.glow * 255)
     }
   }
+}
+
+/** Rasterise one prop at scene density for the art exporter, including space around its ground anchor. */
+export function rasterThing(build: (solids: Solids) => void) {
+  const draw: ((bench: Bench) => void)[] = []
+  let left = 0
+  let right = 0
+  let top = 0
+  let bottom = 0
+  const bounds = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => {
+    left = Math.min(left, x0 - y1)
+    right = Math.max(right, x1 - y0)
+    top = Math.min(top, (x0 + y0) / 2 - z1)
+    bottom = Math.max(bottom, (x1 + y1) / 2 - z0)
+  }
+  build({
+    box(x0, y0, z0, x1, y1, z1, pick) {
+      bounds(x0, y0, z0, x1, y1, z1)
+      draw.push(bench => bench.box(x0, y0, z0, x1, y1, z1, pick))
+    },
+    post(x, y, z0, z1, r, pick) {
+      bounds(x - r, y - r, z0, x + r, y + r, z1)
+      draw.push(bench => bench.post(x, y, z0, z1, r, pick))
+    },
+    ball(x, y, z, rx, ry, rz, pick) {
+      bounds(x - rx, y - ry, z - rz, x + rx, y + ry, z + rz)
+      draw.push(bench => bench.ball(x, y, z, rx, ry, rz, pick))
+    },
+  })
+  if (!draw.length) throw new Error('A thing needs at least one solid')
+  const ax = 1 - Math.floor(left)
+  const ay = 1 - Math.floor(top)
+  const w = ax + Math.ceil(right) + 1
+  const h = ay + Math.ceil(bottom) + 1
+  const bench = new Bench({ w, h, ax, ay })
+  draw.forEach(paint => paint(bench))
+  const albedo = new Uint8ClampedArray(w * h * 4)
+  const normal = new Uint8ClampedArray(albedo.length)
+  bench.paint(albedo, normal, w, 0, 0)
+  return { w, h, ax, ay, albedo, normal }
 }
 
 function hash(x: number, y: number, salt = 0): number {
