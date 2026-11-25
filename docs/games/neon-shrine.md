@@ -938,6 +938,8 @@ every outdoor map; interiors and dungeons keep their own light.
   shows at dusk and dawn. The classic view casts the sun's shadows only
   round the view while the sun moves (`shade.ts`, `moving`; a whole map is
   about 25 ms) and turns them in steps of 3°.
+- **Ambient life** (`render/life/`): fairies, owls, wisps and other small critters
+  round the hero, gated by map, realm and hour. `docs/games/neon-shrine-life.md`.
 - **Values** (both engines, the iso view's under "Day and night"):
   `daytime` (`cycle`, or hold the light at `dusk`, `night`, `dawn`, `noon`
   for trying a look; it holds the light only, not the woods), `nightLight`,

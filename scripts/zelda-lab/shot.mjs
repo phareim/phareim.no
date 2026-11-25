@@ -199,7 +199,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     break
   }
   // Ambient life (render/life/): LIFE=<map>,<x>,<y> puts the hero there with no foes about; LIFE_T=<s> moves the clock.
-  case 'life': { give(); const [mp, lx, ly] = (q.get('at') || 'overworld,30,20').split(','); go(mp, +lx, +ly, 'down'); s.map.enemies.length = 0; run(10); break }
+  case 'life': { give(); const parts = (q.get('at') || 'overworld,30,20').split(','); const ly = parts.pop(), lx = parts.pop(), mp = parts.join(','); go(mp, +lx, +ly, 'down'); s.map.enemies.length = 0; run(10); break }
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
   case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break

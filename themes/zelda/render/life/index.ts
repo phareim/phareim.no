@@ -6,10 +6,40 @@ import { paintRows } from '../sheet'
 import type { Item } from '../wild'
 import type { Critter, LifeCtx } from './types'
 import glimmerfae from './glimmerfae'
+import awningslug from './awningslug'
+import bellbloom from './bellbloom'
+import birchghost from './birchghost'
+import fairyring from './fairyring'
+import fjordcrown from './fjordcrown'
+import inkwisp from './inkwisp'
+import lacecrab from './lacecrab'
+import moonbloom from './moonbloom'
+import owlwatch from './owlwatch'
+import paperunderstudy from './paperunderstudy'
+import pitweaver from './pitweaver'
+import ribbonkit from './ribbonkit'
+import roottailor from './roottailor'
+import sporeparasol from './sporeparasol'
+import wisps from './wisps'
 export type { Critter, LifeCtx } from './types'
 
 export const CRITTERS: readonly Critter[] = [
   glimmerfae,
+  awningslug,
+  bellbloom,
+  birchghost,
+  fairyring,
+  fjordcrown,
+  inkwisp,
+  lacecrab,
+  moonbloom,
+  owlwatch,
+  paperunderstudy,
+  pitweaver,
+  ribbonkit,
+  roottailor,
+  sporeparasol,
+  wisps,
 ]
 
 /** The lab (`scripts/zelda-lab/shot.mjs`, LIFE_FILE) shows one critter file in place of the registry. */
