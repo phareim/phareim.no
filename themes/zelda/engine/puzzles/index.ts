@@ -234,6 +234,9 @@ export function blastPuzzle(c: Ctx, x: number, y: number) {
     const oy = ty + 0.5 - y
     if (Math.abs(Math.abs(ox) - Math.abs(oy)) < 0.15) continue // on the diagonal: no clear way to go
     const [dx, dy] = Math.abs(ox) > Math.abs(oy) ? [Math.sign(ox), 0] : [0, Math.sign(oy)]
+    // A stone its lever still holds does not budge: kicked off its road first, the lever could not send it.
+    const held = t === 'κ' ? pz(c).boulders.get(ty * m.w + tx)?.flag : undefined
+    if (held && !has(c.s, held)) continue
     if (t === 'κ') startRoll(c, ty * m.w + tx, dx, dy)
     else if (!m.moving.some(b => b.tx === tx && b.ty === ty)) shove(c, tx, ty, dx, dy)
   }
@@ -616,7 +619,7 @@ function drown(c: Ctx, tx: number, ty: number) {
 
 /**
  * Entering a dungeon room (after the blocks went home): the floors under where they stood come back, and unless
- * a gate of the room is open, its mirrors go back to where and how they were.
+ * a gate of the room is open, its mirrors and the stones that came to rest go back to where and how they were.
  */
 export function resetPuzzleRoom(c: Ctx, index: number) {
   const p = pz(c)
@@ -627,6 +630,15 @@ export function resetPuzzleRoom(c: Ctx, index: number) {
   const cy = Math.floor(index / c.info.cols)
   const solved = c.info.gates.some(g => g.cell === index && has(s, `gate:${g.id}`))
   const homes = p.mirrors.get(index)
+  const inRoom = (i: number) => Math.floor((i % m.w) / c.info.cw) === cx && Math.floor(i / m.w / c.info.ch) === cy
+  // Unless solved, the room's stones that came to rest go home too (a thrown lever lets them roll again).
+  if (!solved) for (const f of Object.keys(s.flags)) {
+    const q = puzzleFlag(f, m.id)
+    if (!q || !('rest' in q) || q.rest < 0 || !inRoom(q.home)) continue
+    if (m.tiles[q.rest] === 'κ') m.tiles[q.rest] = puzzleFloor(c, q.rest)
+    m.tiles[q.home] = 'κ'
+    delete s.flags[f]
+  }
   for (let y = cy * c.info.ch; y < (cy + 1) * c.info.ch; y++) for (let x = cx * c.info.cw; x < (cx + 1) * c.info.cw; x++) {
     const i = y * m.w + x
     const t = m.tiles[i]!

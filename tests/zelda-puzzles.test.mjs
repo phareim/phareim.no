@@ -583,6 +583,56 @@ describe('the Puzzle Lab', () => {
       assert.ok(r.ok, `room ${cx},${cy}: ${r.states} states`)
     }
   })
+
+  it('D: a bomb does not kick the stone the lever still holds', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'puzzlelab', entry: 'start' } })
+    s.inv.sword = true
+    s.zoneIndex = 2
+    put(s, 41, 9)
+    s.hero.invuln = 99
+    // A bomb just west of the waiting stone (44,2) goes off.
+    s.map.bombs.push({ id: 999, x: 43.5, y: 2.5, t: Z.BOMB_FUSE - 1 / 120 })
+    step(Z.WORLD, s, inp(), 60)
+    assert.equal(tile(s, 44, 2), 'κ', 'the stone stays where the lever holds it')
+    assert.ok(!Object.keys(s.flags).some(f => f.startsWith('boulder:puzzlelab:')), 'no rolled stone saved')
+    // The lever then lets it go: the wall breaks and the pit to the west fills.
+    s.flags['lab.d.roll'] = true
+    step(Z.WORLD, s, inp(), 120)
+    assert.equal(tile(s, 36, 2), '.')
+    assert.equal(tile(s, 35, 2), '.')
+    assert.ok(s.flags['fill:puzzlelab:131'])
+  })
+
+  it('F: a stone that came to rest in the beam\'s road goes home when the hero comes back, and rolls again', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'puzzlelab', entry: 'start' } })
+    s.inv.sword = true
+    const g = Z.WORLD
+    s.zoneIndex = 0
+    put(s, 13, 4)
+    // The mirror pushed off the ice to (4,4), in the stone's road; then the lever.
+    s.map.tiles[5 * s.map.w + 10] = 'α'
+    s.map.tiles[4 * s.map.w + 4] = 'μ'
+    s.flags['lab.f.roll'] = true
+    step(g, s, inp(), 120)
+    assert.equal(tile(s, 4, 3), 'κ', 'the stone rests in the beam\'s row')
+    assert.ok(s.flags['boulder:puzzlelab:52:148'], 'and is saved there')
+    // Out into E and back: the room is not solved, so its mirror and its stone go home and the lever lets it go again.
+    walkTo(s, 17, 4)
+    assert.equal(s.zoneIndex, 1, 'in E')
+    walkTo(s, 13, 4)
+    assert.equal(s.zoneIndex, 0, 'in F')
+    step(g, s, inp(), 120)
+    assert.equal(tile(s, 4, 3), '.', 'the beam\'s road is open')
+    assert.equal(tile(s, 4, 10), 'κ', 'the stone rolled on to the wall')
+    assert.equal(tile(s, 10, 5), 'μ', 'the mirror is home')
+    assert.ok(s.flags['boulder:puzzlelab:52:484'])
+    assert.ok(!s.flags['boulder:puzzlelab:52:148'])
+    // The room plays as it was meant to: the mirror up the ice, turned, the receiver lit.
+    walkTo(s, 10, 6)
+    hold(g, s, 'up', 60)
+    pressA(g, s, 'up')
+    assert.ok(s.flags['lab.f.lit'], 'the receiver is lit')
+  })
 })
 
 describe('the older maps', () => {
