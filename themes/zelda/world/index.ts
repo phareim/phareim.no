@@ -12,6 +12,7 @@ import { WILDWOOD } from './wildwood'
 import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
+import { frontierMap } from './gen/frontier'
 
 export { INTRO } from './intro'
 
@@ -35,6 +36,8 @@ export const WORLD: World = {
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,
+  // The frontier across the bay: regions made when first walked into (docs/worlds/).
+  generate: id => frontierMap(id),
 }
 
 /** Every exit in the world with the map it stands in, in authoring order (the page's hidden link list reads it). */

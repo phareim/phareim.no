@@ -95,9 +95,18 @@ export function validateWorld(world: World): string[] {
   }
   if (!world.maps[world.start.map]) out.push(`start map ${world.start.map} missing`)
   else if (!entriesOf[world.start.map]?.has(world.start.entry)) out.push('start entry missing')
+  // A warp into a map the world makes on demand (the frontier) lands on that map's entries.
+  const landsIn = (to: string): Set<string> | undefined => {
+    if (entriesOf[to] || Object.prototype.hasOwnProperty.call(world.maps, to)) return entriesOf[to]
+    const def = world.generate?.(to)
+    if (!def) return undefined
+    const set = new Set(Object.keys(def.entries ?? {}))
+    for (const m of Object.values(def.marks)) if (m.ent.t === 'entry' || m.ent.t === 'exit') set.add(m.ent.id)
+    return (entriesOf[to] = set)
+  }
   for (const [id, def] of Object.entries(world.maps)) {
     for (const m of Object.values(def.marks)) {
-      if (m.ent.t === 'warp' && !entriesOf[m.ent.to]?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
+      if (m.ent.t === 'warp' && !landsIn(m.ent.to)?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
     }
     out.push(...reachability(id, world))
     // Holes: the floor below has the same size and floor under every hole.

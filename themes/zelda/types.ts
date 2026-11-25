@@ -391,6 +391,20 @@ export interface MapDef {
   /** Letter stones: walking over them in this order sets `flag`. */
   codes?: Array<{ word: string; flag: string }>
   props?: Prop[]
+  /**
+   * Walking off this edge (where the hero stands on open ground) leads into
+   * that map at the same place along the edge: the frontier's regions
+   * (`world/gen/`), which line their passes up from both sides.
+   */
+  edges?: Partial<Record<'n' | 's' | 'e' | 'w', string>>
+  /** The generated realm this map belongs to (`world/gen/realms.ts`). */
+  realm?: string
+  /**
+   * The drawing engines this map may be shown in (`viewParams.ts`); absent,
+   * every view. Elsewhere the shell shows the first allowed one for as long
+   * as the hero is here, without changing the visitor's choice.
+   */
+  views?: Array<'classic' | 'iso' | 'poly'>
 }
 
 export interface AreaIntro {
@@ -407,6 +421,8 @@ export interface World {
   luna?: TalkBranch[]
   /** Dialog opened when a new game (no save) starts, after any walk-out from the start entry. */
   intro?: { lines: string[]; who?: string | null }
+  /** Maps made on demand (the frontier, `world/gen/`): asked for an id `maps` does not have. Must return the same def for the same id. */
+  generate?: (id: string) => MapDef | null
 }
 
 // ---------------------------------------------------------------------------

@@ -25,7 +25,7 @@
  */
 import type { GameState, MapKind, MapState, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
-import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
+import { aimOf, has, mapDef, mapInfo, raised, swingAngle } from '../../engine/index'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from '../iso/figure'
 import { folkMix, folkRouter } from '../iso/folk'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook, type FloraSprite } from '../iso/flora'
@@ -1036,7 +1036,7 @@ export default function polyView(kit: Kit): View {
     budget = !ctx || ctx.id !== m.id ? 40 : 7
     if (!ctx || ctx.id !== m.id) governor.settle(performance.now())
     // A door leads to another map: its land is built over the fade.
-    if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, raw, 6)
+    if (s.warp && s.warp.to && s.warp.to !== m.id && mapDef(world, s.warp.to)) landFor(s.warp.to, raw, 6)
     const c = mapCtx(s, raw)
     sendSpill(c, m)
     const st = stateOf(s)

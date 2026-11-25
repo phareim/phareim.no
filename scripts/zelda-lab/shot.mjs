@@ -111,6 +111,11 @@ const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1',
 const bossHit = /^(boss|l-llama|l-mistral|d-deepseek|d-gemini)-hit$/.test(scene)
 switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'start': run(30); break
+  // The frontier (world/gen/): the Landing, a meadow two regions north, the quarry in the north-west, a cave.
+  case 'f-landing': give(); place('fr:4,6', 'camp', 0, -1); run(30); break
+  case 'f-meadow': give(); place('fr:4,4', 'camp'); run(30); break
+  case 'f-quarry': give(); place('fr:1,1', 'camp'); run(30); break
+  case 'f-cave': { give(); const id = ['fr:4,4', 'fr:3,4', 'fr:5,4', 'fr:4,3', 'fr:3,3', 'fr:5,3', 'fr:2,2'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
   case 'market': give(); place('overworld', 'shop', 4, 4); run(20); break
@@ -461,6 +466,11 @@ const SHOTS = [
   ['graves-1280', 'graves', 1280, 800, 1, 0],
   ['lake-1280', 'lake', 1280, 800, 1, 0],
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
+  ['f-landing', 'f-landing', 1280, 800, 1, 0],
+  ['f-landing-390', 'f-landing', 390, 844, 2, 0],
+  ['f-meadow', 'f-meadow', 1280, 800, 1, 0],
+  ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
+  ['f-cave', 'f-cave', 1280, 800, 1, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')

@@ -17,7 +17,7 @@
  */
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
-import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapInfo, shardPos, swingAngle } from '../engine/index'
+import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapDef, mapInfo, shardPos, swingAngle } from '../engine/index'
 import { dayLook, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
@@ -364,7 +364,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /** The scale for a map: the screen's, or larger for an interior that would leave the tall view half empty. */
   function scaleFor(mapId: string): number {
-    const def = world.maps[mapId]
+    const def = mapDef(world, mapId)
     if (!def || def.kind !== 'interior' || H <= W) return baseScale
     const rows = def.rows.length
     if (rows * T * baseScale >= H * 0.8) return baseScale

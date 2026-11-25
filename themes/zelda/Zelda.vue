@@ -142,7 +142,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { createGame, HOURS, resumeAfterWin, setDaytime, setSession, stepGame, toSave } from './engine/index'
+import { createGame, HOURS, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -474,13 +474,47 @@ function syncSound() {
   audio?.setFlavor(flavorForView(def.engine, resolveParams(def.engine, def.params)))
 }
 
+/** The map the view was last fitted to, and the visitor's own view while a map holds the world in another (MapDef.views). */
+let fitMap = ''
+let heldView: ViewId | null = null
+
+/** May this map be shown in that view? (MapDef.views; the frontier's dig realms are isometric only.) */
+function allows(id: ViewId): boolean {
+  const only = state ? mapInfo(WORLD, state.map.id).def.views : undefined
+  const def = viewDef(id)
+  return !only || !def || only.includes(def.engine as 'classic' | 'iso' | 'poly')
+}
+
+/**
+ * A map that is drawn in some views only: turn to the first it allows (the isometric one first) without making it the
+ * visitor's choice, and back to their own view on a map that allows it again.
+ */
+function fitView() {
+  if (!state) return
+  fitMap = state.map.id
+  if (!allows(viewId.value)) {
+    heldView ??= viewId.value
+    const round = viewList()
+    const to = round.find(v => v.engine === 'iso' && allows(v.id)) ?? round.find(v => allows(v.id))
+    if (to) void showView(to.id, false, false)
+  } else if (heldView && heldView !== viewId.value && allows(heldView)) {
+    const back = heldView
+    heldView = null
+    void showView(back, false, false)
+  } else if (heldView && allows(heldView)) heldView = null
+}
+
 function cycleView() {
   if (phase.value !== 'play') return
   // (The visitor has found the views: the switch has nothing left to point out.)
   sw.fresh = false
   audio?.sfx('menu')
   // (The pause screen names the view itself; in play the turn switch shows it, and names it when it arrives.)
-  void showView(nextView(viewId.value))
+  let next = nextView(viewId.value)
+  for (let i = 0; i < viewList().length && !allows(next); i++) next = nextView(next)
+  if (next === viewId.value) { turnRefuse(); return }
+  heldView = null
+  void showView(next)
 }
 
 /** The studio published views (or took them back): the round changes, and the view on screen takes its new values at once. */
@@ -907,7 +941,7 @@ function comeBack() {
 }
 
 function trackFor(s: GameState): TrackId {
-  const def = WORLD.maps[s.map.id]!
+  const def = mapInfo(WORLD, s.map.id).def
   if (def.areas) {
     const h = s.hero
     const a = def.areas.find(r => h.x >= r.x && h.x < r.x + r.w && h.y >= r.y && h.y < r.y + r.h)
@@ -1188,6 +1222,7 @@ function frame(nowMs: number) {
   purse.step(state.inv, state.flags)
   renderer.onEvents(events)
   handleEvents(events)
+  if (state.map.id !== fitMap) fitView()
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
   syncDeck()
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {

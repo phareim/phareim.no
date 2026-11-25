@@ -938,19 +938,21 @@ function isWall(def, x, y) {
 describe('world data and the look', () => {
   it('names tones and light levels, never a hex colour', async () => {
     const { readdirSync } = await import('node:fs')
-    const dir = new URL('../themes/zelda/world/', import.meta.url)
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.ts')) continue
-      assert.doesNotMatch(readFileSync(new URL(f, dir), 'utf8'), /#[0-9a-fA-F]{6}\b/, `${f} carries a hex colour: name a Tone (types.ts) instead`)
+    for (const part of ['world', 'world/gen']) {
+      const dir = new URL(`../themes/zelda/${part}/`, import.meta.url)
+      for (const f of readdirSync(dir)) {
+        if (!f.endsWith('.ts')) continue
+        assert.doesNotMatch(readFileSync(new URL(f, dir), 'utf8'), /#[0-9a-fA-F]{6}\b/, `${f} carries a hex colour: name a Tone (types.ts) instead`)
+      }
     }
   })
   it('keeps the engine and the world free of the renderer', async () => {
     const { readdirSync } = await import('node:fs')
-    for (const part of ['engine', 'world']) {
+    for (const part of ['engine', 'world', 'world/gen']) {
       const dir = new URL(`../themes/zelda/${part}/`, import.meta.url)
       for (const f of readdirSync(dir)) {
         if (!f.endsWith('.ts')) continue
-        assert.doesNotMatch(readFileSync(new URL(f, dir), 'utf8'), /from '\.\.\/render\//, `${part}/${f} imports from render/`)
+        assert.doesNotMatch(readFileSync(new URL(f, dir), 'utf8'), /from '(\.\.\/)+render\//, `${part}/${f} imports from render/`)
       }
     }
   })

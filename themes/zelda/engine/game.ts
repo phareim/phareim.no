@@ -11,7 +11,7 @@ import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, TALK_REST,
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
-import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapInfo, moveCircle, tileAt } from './map'
+import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapDef, mapInfo, moveCircle, tileAt } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
@@ -246,6 +246,8 @@ function play(c: Ctx, dt: number, inp: Input) {
       return
     }
   }
+  // Off the edge into the next region (the frontier).
+  if (c.info.def.edges && edgeOut(c, inp)) return
   // Dungeon room change
   if (c.info.def.kind === 'dungeon') {
     const idx = cellIndex(c.info, h.x, h.y)
@@ -288,6 +290,37 @@ function play(c: Ctx, dt: number, inp: Input) {
       }
     }
   }
+}
+
+/**
+ * The hero pushes against an edge that has a map beyond it: fade into that
+ * map at the same place along the edge, one step in. Generated regions cut
+ * their passes at the same places from both sides, so it is open ground.
+ */
+function edgeOut(c: Ctx, inp: Input): boolean {
+  const s = c.s
+  const h = s.hero
+  const edges = c.info.def.edges!
+  const near = HERO_R + 0.08
+  const { w, h: hh } = c.info
+  let side: 'n' | 's' | 'e' | 'w' | null = null
+  if (h.x <= near && inp.move.x < -0.3) side = 'w'
+  else if (h.x >= w - near && inp.move.x > 0.3) side = 'e'
+  else if (h.y <= near && inp.move.y < -0.3) side = 'n'
+  else if (h.y >= hh - near && inp.move.y > 0.3) side = 's'
+  const to = side && edges[side]
+  if (!side || !to) return false
+  const next = mapDef(c.w, to)
+  if (!next) return false
+  const nw = next.rows[0]!.length
+  const nh = next.rows.length
+  const IN = 1.1
+  const at = side === 'w' ? { x: nw - IN, y: h.y } : side === 'e' ? { x: IN, y: h.y } : side === 'n' ? { x: h.x, y: nh - IN } : { x: h.x, y: IN }
+  s.mode = 'warp'
+  s.warp = { t: 0, to, entry: '', swapped: false, at }
+  h.act = 'walk'
+  c.ev.push({ type: 'warp' })
+  return true
 }
 
 function scroll(c: Ctx, dt: number) {
@@ -477,7 +510,7 @@ function validSave(world: World, v: SaveData): boolean {
 /** True when `map` is in the world and has an entry `entry` (placed, listed, or beside an exit). */
 export function hasEntry(world: World, map: unknown, entry: unknown): boolean {
   if (typeof map !== 'string' || typeof entry !== 'string') return false
-  if (!Object.prototype.hasOwnProperty.call(world.maps, map)) return false
+  if (typeof map !== 'string' || !mapDef(world, map)) return false
   try { return Object.prototype.hasOwnProperty.call(mapInfo(world, map).entries, entry) } catch { return false }
 }
 
