@@ -231,6 +231,22 @@ describe('the frontier', () => {
     assert.ok(seen.dig && seen.battle && seen.puzzles)
   })
 
+  it('sets one heart piece down in every realm but the Landing’s', () => {
+    const hearts = {}
+    const realms = new Set()
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      realms.add(d.realm)
+      for (const m of Object.values(d.marks)) if (m.ent.t === 'chest' && m.ent.item === 'heartPiece' && m.ent.id.endsWith('.heart')) (hearts[d.realm] ??= []).push(m.ent.id)
+    }
+    // (The Underglow, under the map, keeps its pieces on its layers.)
+    assert.equal(realms.size, Object.keys(GEN.REALMS).length - 1)
+    for (const r of realms) {
+      if (r === 'landing') { assert.equal(hearts[r], undefined); continue }
+      assert.equal(hearts[r]?.length, 1, `${r}: ${hearts[r] ?? 'no heart piece'}`)
+    }
+  })
+
   it('keeps every battle group out of sight of the entries the hero arrives at', () => {
     // A group sees `sight` tiles; its foes stand up to ~1.2 off its spot and mill ~0.9 further.
     for (const id of ids()) {

@@ -218,7 +218,13 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     const n = rng.int(poi.min, poi.max)
     for (let i = 0; i < n; i++) put(poi.stamp)
   }
-  if (ctx.heart) put('relic')
+  // The realm's heart piece must stand: where no random spot is left, the first spot that fits (scanned, unpadded last).
+  if (ctx.heart && !put('relic')) {
+    const st = STAMPS.relic!
+    let spot: { x: number; y: number } | undefined
+    for (const pad of [st.pad ?? 0, 0]) for (let y = 0; y < H && !spot; y++) for (let x = 0; x < W && !spot; x++) if (fits(x, y, st.rows[0]!.length, st.rows.length, pad)) spot = { x, y }
+    if (spot) put('relic', spot)
+  }
 
   // --- 4. roads -----------------------------------------------------------------
   const carve = (x: number, y: number) => {
