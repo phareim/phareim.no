@@ -78,6 +78,14 @@ const MASSIF: readonly Shape[] = [WALL_TOP, { ...WALL_TOP, h: 2 * TILE }, { ...W
  */
 const LAID_WIPE = 0.6
 
+/** The two triangles of a quad round a point, as corners: a lamp's pool, a blob shadow. */
+const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
+
+/** A lamp placed in the world for this frame: where, how far it reaches, its colour and strength. */
+interface Placed { x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }
+/** What throws a blob: where it stands, how tall, its half width, how dark; `deep`: a body's half depth (its width runs along x). */
+interface Card { x: number; y: number; tall: number; wide?: number; dark?: number; deep?: number }
+
 /** The atlas of people and things: one cell each, small or big, in classic px. */
 const ATLAS = 1024
 const SMALL = { w: 64, h: 80, ax: 32, ay: 62 }
@@ -247,6 +255,26 @@ export default function isoView(kit: Kit): View {
   const standing: number[] = []
   /** Where the things with a body stand (x, y pairs): they carry lights like those who stand, and throw no blob. */
   const bearers: number[] = []
+  /** Both kinds of feet, for the lights carried over them. */
+  const feetOf = [standing, bearers] as const
+  /**
+   * Scratch for `draw`, emptied at the start of each frame instead of made again (a phone's collector notices
+   * sixty maps and arrays a second): the counters' front edges, this frame's lights and loose lights, what throws a
+   * blob, and the lamps placed in the world (their objects reused, `nPlaced` of them in use).
+   */
+  const tops = new Map<number, number>()
+  const lights: Light[] = []
+  const loose: Light[] = []
+  const cards: Card[] = []
+  const placed: Placed[] = []
+  let nPlaced = 0
+  /** A light's colour as the GPU takes it, by its hex (the same few colours every frame; read only). */
+  const lampRgb = new Map<string, [number, number, number]>()
+  const rgbOf = (hex: string): [number, number, number] => {
+    let c = lampRgb.get(hex)
+    if (!c) { if (lampRgb.size > 256) lampRgb.clear(); c = rgb(hex); lampRgb.set(hex, c) }
+    return c
+  }
   /** Small things in the air: the dust a step kicks up. World points (tiles), a height, a life. */
   const motes: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; life: number; color: string }> = []
   let stepT = 0
@@ -882,7 +910,7 @@ export default function isoView(kit: Kit): View {
      * classic art puts on that tile's picture stands on its top, at the front, so a price under a ware hangs
      * down the counter's face.
      */
-    const tops = new Map<number, number>()
+    tops.clear()
     /**
      * How far the things this view builds itself have come up (`props.ts`): they are drawn as the finished view
      * sees them, so they rise out of the ground over the last part of the turn, while the classic pictures they
@@ -916,7 +944,7 @@ export default function isoView(kit: Kit): View {
     }
 
     // --- the classic picture, in parts ---------------------------------------------
-    const lights: Light[] = []
+    lights.length = 0
     const og = fit(objs, bw, bh)
     og.setTransform(1, 0, 0, 1, 0, 0)
     og.clearRect(0, 0, objs.width, objs.height)
@@ -966,8 +994,7 @@ export default function isoView(kit: Kit): View {
     const shading = par.shading as number
     const eastShade = (0.16 + 0.5 * shading) * k
     const southShade = (0.06 + 0.3 * shading) * k
-    /** What throws a blob: where it stands, how tall, its half width, how dark; `deep`: a body's half depth (its width runs along x). */
-    const cards: Array<{ x: number; y: number; tall: number; wide?: number; dark?: number; deep?: number }> = []
+    cards.length = 0
     /** The row of the face tile with `d` face rows under it, in column tx below row ty; -1 if the art has none. */
     const faceRow = (tx: number, ty: number, d: number): number => {
       let y = ty + 1
@@ -1257,7 +1284,7 @@ export default function isoView(kit: Kit): View {
             continue
           }
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
-          const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
+          const sandy = (tileOf(tx + 1, ty) === '-' ? 1 : 0) + (tileOf(tx - 1, ty) === '-' ? 1 : 0) + (tileOf(tx, ty + 1) === '-' ? 1 : 0) + (tileOf(tx, ty - 1) === '-' ? 1 : 0) >= 2
           if (!(outdoors && sandy)) prop = hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
           else if (drawn) {
             // The tiki torch drawn by hand, its flame leaning with the breeze as the classic one's (part 23).
@@ -1495,7 +1522,7 @@ export default function isoView(kit: Kit): View {
     const vx = Math.round(c.x - vw / 2)
     const vy = Math.round(c.y - vh / 2)
     /** Lights already on the scene (fireflies), in classic px. */
-    const loose: Light[] = []
+    loose.length = 0
     if (def.look === 'wild' && !ui.attract) {
       const n = lights.length
       fireflies(vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights, xg, kit.day('iso')?.fireflies ?? 1)
@@ -1604,30 +1631,35 @@ export default function isoView(kit: Kit): View {
 
     // --- lamps -------------------------------------------------------------------------
     const amb = kit.ambient(s, ui, lights)
-    const placed: Array<{ x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }> = []
+    nPlaced = 0
+    const put = (x: number, y: number, z: number, r: number, color: string, a: number) => {
+      const o = placed[nPlaced] ??= { x: 0, y: 0, z: 0, r: 0, c: [0, 0, 0], a: 0 }
+      o.x = x; o.y = y; o.z = z; o.r = r; o.c = rgbOf(color); o.a = Math.max(0, Math.min(1, a))
+      nPlaced++
+    }
     for (const L of lights) {
       const p = world3(L.x, L.y)
       if (p[2] === 0) {
         // The classic picture puts a carried light up the screen from its bearer's feet: a lantern in a hand,
         // a cabinet's screen, a fire's heart. Here that is height, over the feet it belongs to.
         let best = 2
-        for (const feet of [standing, bearers]) for (let i = 0; i < feet.length; i += 2) {
+        for (const feet of feetOf) for (let i = 0; i < feet.length; i += 2) {
           const up = feet[i + 1]! - L.y
           if (Math.abs(feet[i]! - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = feet[i]!; p[1] = feet[i + 1]!; p[2] = up }
         }
       }
-      placed.push({ x: p[0], y: p[1], z: p[2], r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
+      put(p[0], p[1], p[2], L.r, L.color, L.a)
     }
     for (const L of loose) {
       const p = toGround(cam, L.x * zoom, L.y * zoom)
-      placed.push({ x: p.x, y: p.y, z: 0.4, r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
+      put(p.x, p.y, 0.4, L.r, L.color, L.a)
     }
-    if (placed.length * 6 * LVERT > lightVerts.length) lightVerts = new Float32Array(placed.length * 6 * LVERT * 2)
+    if (nPlaced * 6 * LVERT > lightVerts.length) lightVerts = new Float32Array(nPlaced * 6 * LVERT * 2)
     let nl = 0
-    for (const L of placed) {
+    for (let li = 0; li < nPlaced; li++) {
+      const L = placed[li]!
       if (L.x + L.r < R.x || L.y + L.r < R.y || L.x - L.r > R.x + R.w || L.y - L.r > R.y + R.h) continue
-      const cs = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
-      for (const [dx, dy] of cs) {
+      for (const [dx, dy] of CORNERS) {
         const o = nl * LVERT
         lightVerts[o] = L.x + dx * L.r; lightVerts[o + 1] = L.y + dy * L.r
         lightVerts[o + 2] = L.x; lightVerts[o + 3] = L.y; lightVerts[o + 4] = L.z; lightVerts[o + 5] = L.r
@@ -1646,7 +1678,8 @@ export default function isoView(kit: Kit): View {
       let dx = outdoors ? sunDir.x * 0.5 : 0
       let dy = outdoors ? sunDir.y * 0.5 : 0
       let sum = outdoors ? 0.5 : 0.15
-      for (const L of placed) {
+      for (let li = 0; li < nPlaced; li++) {
+        const L = placed[li]!
         const lx = L.x - x
         const ly = L.y - y
         const d = Math.hypot(lx, ly)
@@ -1667,8 +1700,7 @@ export default function isoView(kit: Kit): View {
       const hl = len / 2 + (deep < 0 ? wide : wide * Math.abs(ux) + deep * Math.abs(uy))
       const cx0 = x + ux * len * 0.5
       const cy0 = y + uy * len * 0.5
-      const cs = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
-      for (const [a, b] of cs) {
+      for (const [a, b] of CORNERS) {
         const o = nb * BVERT
         blobVerts[o] = cx0 + ux * hl * a - uy * hw * b
         blobVerts[o + 1] = cy0 + uy * hl * a + ux * hw * b
