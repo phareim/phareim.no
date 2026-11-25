@@ -4,6 +4,7 @@ import { hash } from './rng'
 const prop = (art: string, x: number, y: number, details: Partial<IsoLandmark> = {}): IsoLandmark => ({ art, x, y, ...details })
 const bob = { frames: 2, fps: 1, bob: true }
 const cycle = (frames: number, fps: number) => ({ frames, fps })
+const GATE_REALMS = new Set(['lumenby', 'seterfell', 'sporelight', 'stillsand', 'fogstage', 'rerun'])
 
 const CAMP: IsoLandmark[] = [
   prop('camp_board_cyan', 4.4, 1.05),
@@ -77,8 +78,8 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
   },
   yulefjord: {
     stilts: [
-      prop('fjord_cottage', 2.5, 4.5, { cover: { x: 1, y: 3, w: 3, h: 3 } }),
-      prop('fjord_cottage', 8.5, 4.5, { cover: { x: 7, y: 3, w: 3, h: 3 } }),
+      prop('fjord_cottage', 2.5, 4.5, { night: 'fjord_cottage_night', cover: { x: 1, y: 3, w: 3, h: 3 } }),
+      prop('fjord_cottage', 8.5, 4.5, { night: 'fjord_cottage_night', cover: { x: 7, y: 3, w: 3, h: 3 } }),
       prop('fjord_lantern', 5.5, 8.5, { cover: { x: 5, y: 8, w: 1, h: 1 } }),
       prop('fjord_floe_mid', 2.35, 0.7),
       prop('fjord_floe_small', 8.45, 1.35),
@@ -115,7 +116,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('sporelight_puff', 5.8, 3.5, { motion: cycle(3, 2) }),
     ],
     'l.steamhouse': [
-      prop('sporelight_bathhouse', 6.5, 3.3, { cover: { x: 5, y: 2, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.4, deep: 1.35 } }),
+      prop('sporelight_bathhouse', 6.5, 3.3, { night: 'sporelight_bathhouse_night', cover: { x: 5, y: 2, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.4, deep: 1.35 } }),
       prop('sporelight_mushroom_medium_teal', 1.55, 5.45),
       prop('sporelight_mushroom_medium_violet', 11.45, 5.45),
       prop('sporelight_puff', 11.45, 4.75, { motion: cycle(3, 2) }),
@@ -128,7 +129,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('fogstage_sandbags', 3.1, 2.4),
     ],
     hilltown: [
-      prop('fogstage_spotlight', 1.5, 11.6),
+      prop('fogstage_spotlight_0', 1.5, 11.6),
       prop('fogstage_raincheck', 10.65, 9.5, { motion: bob, shadow: { tall: 1.7, wide: 1.5, deep: 0.6 } }),
       prop('fogstage_gangway', 10.75, 10.65),
     ],
@@ -138,17 +139,17 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
     'q.raincheck': [
       prop('fogstage_raincheck', 3.5, 2.25, { motion: bob, shadow: { tall: 1.7, wide: 1.5, deep: 0.6 } }),
       prop('fogstage_gangway', 3.5, 3.45),
-      prop('fogstage_spotlight', 7.6, 1.8),
+      prop('fogstage_spotlight_3', 7.6, 1.8),
       prop('fogstage_poster_2', 6.95, 2.55, { lit: { flag: 'q.act.done', art: 'fogstage_poster_7' } }),
     ],
   },
   rerun: {
     booth: [prop('rerun_phone_booth', 1.5, 1.65, { cover: { x: 1, y: 1, w: 1, h: 1 }, shadow: { tall: 1.2, wide: 0.28 } })],
     culdesac: [
-      prop('rerun_house_0', 2.5, 1.5, { cover: { x: 1, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
-      prop('rerun_house_1', 10.5, 1.5, { cover: { x: 9, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
-      prop('rerun_house_1', 2.5, 8.5, { cover: { x: 1, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
-      prop('rerun_house_0', 10.5, 8.5, { cover: { x: 9, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
+      prop('rerun_house_0', 2.5, 1.5, { night: 'rerun_house_0_night', cover: { x: 1, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
+      prop('rerun_house_1', 10.5, 1.5, { night: 'rerun_house_1_night', cover: { x: 9, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
+      prop('rerun_house_1', 2.5, 8.5, { night: 'rerun_house_1_night', cover: { x: 1, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
+      prop('rerun_house_0', 10.5, 8.5, { night: 'rerun_house_0_night', cover: { x: 9, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 } }),
       prop('rerun_mailbox', 2.65, 3.45),
       prop('rerun_station_wagon', 9.75, 3.65),
       prop('rerun_flamingo', 11.45, 4.8),
@@ -169,7 +170,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
 function seterFarm(fenceY: number): IsoLandmark[] {
   const wall = (x: number, y: number) => prop('seter_fence_ew', x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 } })
   return [
-    prop('seter_hut', 3.5, 3.5, { cover: { x: 2, y: 2, w: 3, h: 3 }, motion: cycle(2, 2) }),
+    prop('seter_hut', 3.5, 3.5, { night: 'seter_hut_night', cover: { x: 2, y: 2, w: 3, h: 3 }, motion: cycle(2, 2) }),
     prop('seter_byre', 7.5, 3.5, { cover: { x: 6, y: 2, w: 3, h: 3 } }),
     prop('seter_churns', 3.5, fenceY + 1.45),
     ...[1, 2, 3, 7, 8, 9].map(x => wall(x, fenceY)),
@@ -177,6 +178,11 @@ function seterFarm(fenceY: number): IsoLandmark[] {
 }
 
 export function sceneryAt(realm: string, stamp: string, x: number, y: number): IsoLandmark[] {
+  if (GATE_REALMS.has(realm) && (stamp === 'gate' || stamp === 'gate:ew')) {
+    const road = stamp === 'gate' ? 'ns' : 'ew'
+    const stem = `gate_${realm}_${road}`
+    return [prop(`${stem}_off`, x + 1.5, y + 1.5, { night: `${stem}_on` })]
+  }
   const scenery = SCENERY[realm]?.[stamp] ?? []
   return (stamp === 'camp' ? [...CAMP, ...scenery] : scenery).map(lm => ({
     ...lm,

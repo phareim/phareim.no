@@ -1,4 +1,3 @@
-import { TONES } from '../tones'
 /**
  * The isometric view, rebuilt as a 16-bit machine would have dreamt it: the
  * same world turned 45° and tipped back, at twice the pixel density, with
@@ -25,6 +24,7 @@ import { TONES } from '../tones'
  * (`legacy.ts`).
  */
 import type { GameState, MapKind, TileChar } from '../../types'
+import { TONES } from '../tones'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, battleFocus, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
@@ -161,7 +161,8 @@ export default function isoView(kit: Kit): View {
     engine.materials(mats.data, mats.w, mats.h)
     sendProps(realmArt)
   }
-  const prepareProps = (realm: string | undefined) => {
+  const prepareProps = (def: ReturnType<typeof mapInfo>['def']) => {
+    const realm = def.realm ?? (def.isoLandmarks?.some(lm => lm.art.startsWith('waymark_') || lm.art.startsWith('border_')) ? 'coast' : undefined)
     const want = realm && REALM_THING_ART[realm] ? realm : undefined
     if (want !== realmArt) sendProps(want)
   }
@@ -723,7 +724,7 @@ export default function isoView(kit: Kit): View {
     if (!base || base.mapId !== m.id) { base = createTileLayer(world, m, 'base'); fresh(); if (late()) return false }
     if (!objects || objects.mapId !== m.id) { objects = createTileLayer(world, m, 'objects'); fresh(); if (late()) return false }
     const def = mapInfo(world, m.id).def
-    prepareProps(def.realm)
+    prepareProps(def)
     const fLook = floraOf(def.look)
     if (def.kind === 'overworld' && floraLook !== fLook) {
       while (!stepFlora(fLook)) if (late()) return false
@@ -751,7 +752,7 @@ export default function isoView(kit: Kit): View {
     const m = s.map
     const info = mapInfo(world, m.id)
     const def = info.def
-    prepareProps(def.realm)
+    prepareProps(def)
     if (coverDef !== def) {
       coverDef = def
       covered.clear()

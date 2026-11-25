@@ -2,7 +2,8 @@
  * SETER FELL's things (Neon Shrine art tasks F1 and F2), built as solids at the scene's own density (32 px to the
  * tile, x east, y south, z up from the ground) and drawn by `rasterThing`, so every pixel knows its depth and facing.
  *
- * F1, the seter farm: the turf-roofed log hut (chimney smoke in two frames), the byre on its stone footing, the
+ * F1, the seter farm: the turf-roofed log hut (chimney smoke in two frames; `seter_hut_night_*` the same two frames
+ * with the window lit for the night, task L1), the byre on its stone footing, the
  * dry-stone fence by the tile (east-west, north-south and an end stack) and the milk churn stand.
  * F2, the sleeping trolls: moss hills of rounded rock with a face on the valley side and birches on the back,
  * asleep (`_0`) and waking (`_1`), a small one on 2×2 tiles and a long one on 3×2.
@@ -11,6 +12,7 @@
  * huts' doors face south, the trolls look east-south-east, as the troll hump stamp's nose rock does.
  */
 import type { MatName, Solids } from '../props'
+import { RIM, lamplight } from './nightPanes'
 
 /** A material rule: where a point of a solid is and which way it faces (as `Pick`). */
 export type Paint = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => MatName
@@ -172,8 +174,11 @@ function chimney(b: Solids, x: number, y: number, z0: number, z1: number, smoke:
 
 const HUT: Omit<House, 'walls' | 'roof'> = { u: 23, v: 16, wall: 22, ridge: 40, eave: 4, end: 4, band: 4.5 }
 
-/** The hut's walls: logs, a plank door, a lit four-pane window on the south; boards and a loft hatch in the east gable. */
-const hutWalls: Paint = (x, y, z, nx, ny, nz) => {
+/**
+ * The hut's walls: logs, a plank door, a lit four-pane window on the south; boards and a loft hatch in the east gable.
+ * At night (L1) the window's frame is a rim of spill light and its panes are brighter lamplight.
+ */
+const hutWalls = (night: boolean): Paint => (x, y, z, nx, ny, nz) => {
   if (nz > 0.5) return 'chestWood'
   if (nx > 0.5) {
     if (z >= HUT.wall) return Math.abs(y) < 2.6 && z > 25 && z < 30.5 ? (Math.abs(y) < 1.6 && z > 26 && z < 29.5 ? 'dark' : 'lip') : boards(y + 64, 4, 'chestWood')
@@ -188,8 +193,9 @@ const hutWalls: Paint = (x, y, z, nx, ny, nz) => {
     }
     // The window: four panes of lamplight in a pale frame.
     if (x > -16 && x < -6 && z > 8 && z < 16) {
-      if (x < -15 || x > -7 || z < 9 || z > 15) return 'lip'
+      if (x < -15 || x > -7 || z < 9 || z > 15) return night ? RIM : 'lip'
       if (Math.abs(x + 11) < 0.6 || Math.abs(z - 12) < 0.55) return 'ink'
+      if (night) return lamplight(x + 15, z - 9, 8, 6)
       return x < -13 && z > 13 ? 'core' : 'gold'
     }
     return logRows(z)
@@ -197,9 +203,9 @@ const hutWalls: Paint = (x, y, z, nx, ny, nz) => {
   return logRows(z)
 }
 
-function hut(smoke: 0 | 1): Thing {
+function hut(smoke: 0 | 1, night = false): Thing {
   return b => {
-    const h: House = { ...HUT, walls: hutWalls, roof: turf(2) }
+    const h: House = { ...HUT, walls: hutWalls(night), roof: turf(2) }
     // The door's frame and step, the window's sill: they stand out of the wall and shade it.
     b.box(-1, -4, 0, 1, 4, 0.4, 'dark')
     house(b, h)
@@ -489,6 +495,8 @@ function trollBig(awake: boolean): Thing {
 export const SETER_THINGS: Record<string, Thing> = {
   seter_hut_0: hut(0),
   seter_hut_1: hut(1),
+  seter_hut_night_0: hut(0, true),
+  seter_hut_night_1: hut(1, true),
   seter_byre: byre,
   seter_fence_ew: b => fenceRun(b, 3),
   seter_fence_ns: b => fenceRun(turned(b, 'y'), 4),

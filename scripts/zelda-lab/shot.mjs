@@ -40,6 +40,7 @@ import { createRenderer } from ${JSON.stringify(join(repo, 'themes/zelda/render/
 import { createGame, stepGame } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
+import { sceneryAt } from ${JSON.stringify(join(repo, 'themes/zelda/world/gen/frontierScenery.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
@@ -71,7 +72,14 @@ const lookWorld = { ...WORLD, generate: id => {
   if (!forced.has(id)) { const base = WORLD.generate(m[2]); forced.set(id, base && { ...base, look: m[1] }) }
   return forced.get(id)
 } }
-const world = scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD
+// Paint the two sides of a planned gate on temporary copies of the real maps.
+const gateMap = scene === 'f-gate-seter' ? WORLD.generate('fr:4,1') : scene === 'f-gate-waymark' ? WORLD.maps.overworld : null
+const gateArt = scene === 'f-gate-seter' ? sceneryAt('seterfell', 'gate', 44, 36) : [
+  { art: 'waymark_seterfell_n', x: 30, y: 10, motion: { frames: 2, fps: 0.75 } },
+  { art: 'border_ns_down', x: 27.5, y: 10 },
+]
+const gateWorld = gateMap && { ...WORLD, maps: { ...WORLD.maps, [gateMap.id]: { ...gateMap, isoLandmarks: [...gateMap.isoLandmarks ?? [], ...gateArt] } } }
+const world = gateWorld ?? (scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD)
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
@@ -153,6 +161,17 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'f-underglow': give(); place('fr:0,3:deep1', 'up', 0.75, 0); run(30); break
   case 'f-seterfell': give(); near('fr:4,1', 'q.bell.tail'); run(30); break
   case 'f-yulefjord': give(); nearArt('fr:5,0', 'fjord_church', 0.05, 2.95); run(30); break
+  case 'f-fjord-cottage': give(); nearArt('fr:3,0', 'fjord_cottage', 0, 2); run(30); break
+  case 'f-fjord-lens': give(); nearArt('fr:3,0', 'fjord_lighthouse', 0.5, 3); run(30); break
+  case 'f-seter-windows': give(); nearArt('fr:4,1', 'seter_hut', 0.5, 2.5); run(30); break
+  case 'f-stage-light': give(); nearArt('fr:1,6', 'fogstage_spotlight_3', -0.5, 1.75); run(30); break
+  case 'f-gate-seter':
+    give()
+    put('fr:4,1', 45.5, 39.3, 'up')
+    s.map.enemies.length = 0
+    run(25, inp({ move: { x: 0, y: -1 } }))
+    break
+  case 'f-gate-waymark': give(); put('overworld', 29, 11.5, 'up'); s.map.enemies.length = 0; run(30); break
   case 'f-stillsand': give(); near('fr:10,4', 'l.caravan.cook'); run(30); break
   case 'f-sporelight': give(); near('fr:9,2', 'l.steam.clerk'); s.map.enemies.length = 0; run(30); break
   case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
@@ -618,6 +637,8 @@ const SHOTS = [
   ['f-fogstage-390', 'f-fogstage', 390, 844, 2, 0],
   ['f-rerun', 'f-rerun', 1280, 800, 1, 0],
   ['f-rerun-390', 'f-rerun', 390, 844, 2, 0],
+  ...['f-fjord-cottage', 'f-fjord-lens', 'f-seter-windows', 'f-stage-light', 'f-gate-waymark', 'f-gate-seter'].map(scene => [scene, scene, 1280, 800, 1, 0]),
+  ['f-gate-seter-390', 'f-gate-seter', 390, 844, 2, 0],
   ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
     [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
     [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],

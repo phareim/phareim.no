@@ -14,7 +14,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_THING_ART } from './render/iso/frontierArt'; export { FRONTIER } from './world/gen/frontier'; export { WORLD } from './world'`,
+      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_THING_ART } from './render/iso/frontierArt'; export { FRONTIER } from './world/gen/frontier'; export { WORLD } from './world'; export { sceneryAt } from './world/gen/frontierScenery'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -131,6 +131,49 @@ describe('things drawn by hand', () => {
       }
     }
     assert.equal(M.withThings(props), base)
+  })
+
+  it('adds lit night windows and keeps each directional lamp frame distinct', () => {
+    const windowPairs = [
+      ['seterfell', 'seter_hut_0', 'seter_hut_night_0'],
+      ['seterfell', 'seter_hut_1', 'seter_hut_night_1'],
+      ['yulefjord', 'fjord_cottage', 'fjord_cottage_night'],
+      ['sporelight', 'sporelight_bathhouse', 'sporelight_bathhouse_night'],
+      ...[0, 1, 1958, 1986, 2086].map(era => ['rerun', `rerun_house_${era}`, `rerun_house_${era}_night`]),
+    ]
+    const glow = t => t.rows.reduce((total, row) => total + [...row].reduce((sum, pixel) => sum + (t.glow[pixel] ?? 0), 0), 0)
+    for (const [realm, day, night] of windowPairs) {
+      const a = M.REALM_THING_ART[realm][day]
+      const b = M.REALM_THING_ART[realm][night]
+      assert.deepEqual([a.w, a.h, a.ax, a.ay], [b.w, b.h, b.ax, b.ay], night)
+      assert.notDeepEqual(a.pal, b.pal, night)
+      assert.ok(glow(b) > 0, night)
+    }
+    for (const [realm, stem, count] of [['yulefjord', 'fjord_lighthouse_lens', 4], ['fogstage', 'fogstage_spotlight', 8]]) {
+      const frames = Array.from({ length: count }, (_, i) => M.REALM_THING_ART[realm][`${stem}_${i}`])
+      assert.ok(frames.every(t => glow(t) > 0), stem)
+      assert.equal(new Set(frames.map(t => JSON.stringify([t.rows, t.pal, t.glow]))).size, count, stem)
+    }
+  })
+
+  it('registers both road axes for each arch and the coast waymarks and barrier poses', () => {
+    for (const realm of ['seterfell', 'sporelight', 'stillsand', 'rerun', 'lumenby', 'fogstage']) {
+      const kit = M.REALM_THING_ART[realm]
+      for (const stamp of ['gate', 'gate:ew']) {
+        const [lm] = M.sceneryAt(realm, stamp, 10, 20)
+        assert.deepEqual([lm.x, lm.y], [11.5, 21.5], realm)
+        const off = kit[lm.art], on = kit[lm.night]
+        assert.deepEqual([off.w, off.h, off.ax, off.ay], [on.w, on.h, on.ax, on.ay], lm.art)
+        assert.deepEqual(off.glow, {}, lm.art)
+        assert.ok(Object.keys(on.glow).length > 0, lm.night)
+      }
+    }
+    const coast = M.REALM_THING_ART.coast
+    for (const stem of ['waymark_seterfell_n', 'waymark_sporelight_n', 'waymark_stillsand_e', 'waymark_rerun_e', 'waymark_lumenby_n', 'waymark_fogstage_w']) {
+      const [on, dim] = [coast[`${stem}_0`], coast[`${stem}_1`]]
+      assert.notDeepEqual(on.glow, dim.glow, stem)
+    }
+    for (const road of ['ns', 'ew']) for (const pose of ['up', 'down']) assert.ok(coast[`border_${road}_${pose}`])
   })
 
   it('stands a piece of furniture once for its run of tiles', () => {
