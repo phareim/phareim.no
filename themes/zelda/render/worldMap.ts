@@ -200,22 +200,57 @@ export function worldChart(world: World, scale: number): { w: number; h: number 
   return { w: Math.ceil(b.w * scale), h: Math.ceil(b.h * scale) }
 }
 
+/** The whole grid as a chart, one px a tile, what has been seen of each known map drawn where it lies. */
+const worlds = new WeakMap<GameState['flags'], { key: string; c: HTMLCanvasElement }>()
+function worldCanvas(world: World, s: GameState): HTMLCanvasElement {
+  const b = atlasBox(world)
+  const known = b.rects.filter(r => !r.away || !!s.flags[`seen:${r.id}`] || r.id === s.map.id)
+  const key = known.map(r => `${r.id}:${s.explored?.[r.id] ?? ''}`).join('|')
+  const hit = worlds.get(s.flags)
+  if (hit?.key === key) return hit.c
+  const c = hit?.c ?? document.createElement('canvas')
+  c.width = b.w
+  c.height = b.h
+  const g = c.getContext('2d')!
+  g.clearRect(0, 0, b.w, b.h)
+  for (const r of known) {
+    const info = mapInfo(world, r.id)
+    const { cw, ch } = chunkGrid(r.w, r.h)
+    for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) {
+      if (!seenTile(s, r.id, r.w, cx * CHUNK, cy * CHUNK)) continue
+      for (let y = cy * CHUNK; y < Math.min(r.h, (cy + 1) * CHUNK); y++) for (let x = cx * CHUNK; x < Math.min(r.w, (cx + 1) * CHUNK); x++) {
+        g.fillStyle = inkOf(info.base[y * r.w + x] ?? '.')
+        g.fillRect(r.x - b.x0 + x, r.y - b.y0 + y, 1, 1)
+      }
+    }
+  }
+  worlds.set(s.flags, { key, c })
+  return c
+}
+
 /**
- * The whole world on one small chart (`docs/worlds/atlas.md`): each map a block where it lies on the grid, the
- * coast and the Wildwood always, a land once walked into (`seen:<id>`), the map the hero is on in the prize
- * colour and the hero a hot dot where they stand on it. North is up: a plan of where the lands lie.
+ * The whole world on one small chart (`docs/worlds/atlas.md`): every map of the grid where it lies, with what has
+ * been seen of it in the chart's colours, the coast and the Wildwood always, a land once walked into (`seen:<id>`).
+ * The map the hero is on is framed in the prize colour and the hero is a hot dot. North is up: a plan of where the
+ * lands lie and how much of them has been walked.
  */
 function drawWorldChart(g: G, world: World, s: GameState, x: number, y: number, scale: number, skin: HudSkin) {
   const b = atlasBox(world)
+  // Each known map a dim block, so a land walked into shows where it lies before much of it is seen.
   for (const r of b.rects) {
-    const known = !r.away || !!s.flags[`seen:${r.id}`]
-    if (!known && r.id !== s.map.id) continue
-    const rx = x + Math.round((r.x - b.x0) * scale)
-    const ry = y + Math.round((r.y - b.y0) * scale)
-    const rw = Math.max(2, Math.round(r.w * scale) - 1)
-    const rh = Math.max(2, Math.round(r.h * scale) - 1)
-    g.fillStyle = r.id === s.map.id ? skin.prize : skin.cool
-    g.fillRect(rx, ry, rw, rh)
+    if (r.away && !s.flags[`seen:${r.id}`] && r.id !== s.map.id) continue
+    g.fillStyle = skin.slot
+    g.fillRect(x + Math.round((r.x - b.x0) * scale), y + Math.round((r.y - b.y0) * scale), Math.max(2, Math.round(r.w * scale)), Math.max(2, Math.round(r.h * scale)))
+  }
+  g.save()
+  g.imageSmoothingEnabled = false
+  g.drawImage(worldCanvas(world, s), x, y, Math.round(b.w * scale), Math.round(b.h * scale))
+  g.restore()
+  const here = b.rects.find(r => r.id === s.map.id)
+  if (here) {
+    g.strokeStyle = skin.prize
+    g.lineWidth = 1
+    g.strokeRect(x + Math.round((here.x - b.x0) * scale) + 0.5, y + Math.round((here.y - b.y0) * scale) + 0.5, Math.round(here.w * scale) - 1, Math.round(here.h * scale) - 1)
   }
   const o = world.atlas?.[s.map.id]
   if (o) {
@@ -264,7 +299,7 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
   // (Beside the map on a wide screen, under it on an upright phone, where the width is what the map is short of.)
   const tall = ph > w
   const full = fr ? worldChart(world, 1) : null
-  const scale = full ? Math.min(tall ? (w - 16) / full.w : 0.26, (ph - 40) * (tall ? 0.38 : 1) / full.h) : 0
+  const scale = full ? Math.min(tall ? (w - 16) / full.w : 130 / full.w, (ph - 40) * (tall ? 0.42 : 1) / full.h) : 0
   const grid = full ? worldChart(world, scale) : null
   const area = { x: x + 8, y: y + 20, w: w - 16 - (grid && !tall ? grid.w + 10 : 0), h: ph - 28 - (grid && tall ? grid.h + 18 : 0) }
   if (grid) {
