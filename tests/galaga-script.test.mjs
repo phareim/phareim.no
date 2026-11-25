@@ -1,5 +1,6 @@
 // Space Voyagers' script (themes/galaga/story): the rules every line keeps,
-// and that every cue is asked for by the engine or by the page.
+// that every cue is asked for by the engine or by the page, and two whole
+// voyages on the radio, through the ending into VOYAGE II.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -75,19 +76,25 @@ test('every cue is asked for by the engine, except the five the page asks for', 
   }
 })
 
-test('a voyage on the radio: every cue asked for exists, and the monitor always shows a real speaker', () => {
+test('a voyage on the radio, through the ending into VOYAGE II: every cue asked for exists, the monitor always shows a real speaker, the score runs on', () => {
   const asked = new Set()
   const said = new Set()
   const speakers = new Set()
-  for (const [seed, pilot] of [[1, 'rex'], [2, 'nova']]) {
-    const w = createWorld({ seed, height: 320, pilot })
+  // One voyage at each field height, each into VOYAGE II's first sector: the only whole voyages the tests fly.
+  for (const [seed, pilot, height] of [[1, 'rex', 432], [2, 'nova', 320]]) {
+    const w = createWorld({ seed, height, pilot })
     const ap = createAutopilot()
     const d = createDirector({ random: () => rand(w.talkRng), session: new Set() })
-    // Through the ending and the next voyage's card, so the last fight's lines get said.
-    while (!w.over && !(w.voyage === 2 && w.stage === 'wave') && w.tick < 60000) {
+    const seen = []
+    let scoreAtEnding = -1
+    while (!w.over && !(w.voyage === 2 && w.sector === 2) && w.tick < 2 * 30 * 60 * 60) {
       step(w, autopilot(ap, w))
       for (const e of w.events) {
+        if (e.type === 'ending') { seen.push('ending'); scoreAtEnding = w.score }
+        if (e.type === 'voyage') seen.push(`voyage ${e.n}`)
+        if (e.type === 'card' && (e.kind === 'ending' || e.kind === 'voyage')) seen.push(`card ${e.kind}`)
         if (e.type !== 'cue') continue
+        if (e.kind === 'voyage2') seen.push('cue voyage2')
         assert.ok(CUES[e.kind], `the engine asked for ${e.kind}`)
         assert.ok(!PAGE_CUES.includes(e.kind))
         if (e.alt) assert.ok(CUES[e.alt], `the engine's alternative ${e.alt}`)
@@ -102,7 +109,10 @@ test('a voyage on the radio: every cue asked for exists, and the monitor always 
       said.add(m.cue)
       speakers.add(m.who)
     }
+    assert.deepEqual(seen, ['ending', 'card ending', 'voyage 2', 'card voyage', 'cue voyage2'], `${pilot} at ${height}`)
     assert.equal(w.voyage, 2, 'the run got to the ending')
+    assert.equal(w.stats.sectorsCleared, 6, 'and through the first sector of VOYAGE II')
+    assert.ok(scoreAtEnding > 0 && w.score > scoreAtEnding, 'the score runs on')
   }
   for (const id of ['sector.1', 'sector.5', 'boss.knight.enter', 'boss.fader.dead', 'boss.deafstar.enter', 'boss.deafstar.dead', 'bonus.start']) {
     assert.ok(said.has(id), `${id} was heard`)

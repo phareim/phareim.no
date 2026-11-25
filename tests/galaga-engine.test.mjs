@@ -43,19 +43,7 @@ test('a world: 240 wide, height clamped to 320..432, the two pilots', () => {
   assert.equal(w.player.level, 1)
 })
 
-test('determinism: the same seed and inputs give the same world after 10,000 ticks', () => {
-  const play = seed => {
-    const w = world(seed, 368)
-    const ap = createAutopilot()
-    for (let i = 0; i < 10_000; i++) step(w, autopilot(ap, w))
-    return hashWorld(w)
-  }
-  const a = play(11)
-  assert.equal(a, play(11))
-  assert.notEqual(a, play(12))
-})
-
-test('a recorded run replays tick for tick', () => {
+test('determinism: a recorded run replays tick for tick, and another seed is another run', () => {
   const w = world(5)
   const ap = createAutopilot()
   const tape = []
@@ -70,6 +58,10 @@ test('a recorded run replays tick for tick', () => {
   const again = []
   for (let i = 0; i < 3000; i++) { step(r, tape[i]); if (i % 500 === 0) again.push(hashWorld(r)) }
   assert.deepEqual(again, hashes)
+  // Another seed is another run, on the same tape.
+  const o = world(6)
+  for (let i = 0; i < 3000; i++) step(o, tape[i])
+  assert.notEqual(hashWorld(o), hashWorld(r))
 })
 
 test('events are pooled: the array and its records are reused', () => {
