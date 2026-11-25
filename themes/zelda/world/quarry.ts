@@ -1,6 +1,6 @@
 /**
  * THE OLD QUARRY: the dig & build demo (`MapDef.dig`, docs/games/neon-shrine-dig.md), down the stairs at
- * `fr:2,2` in Lumenby (`gen/demos.ts`). Four tools in four chests, each opening the way to the next: the shovel by the road, the
+ * Lumenby's pit (`demos.ts`). Four tools in four chests, each opening the way to the next: the shovel by the road, the
  * pickaxe in a ring of turf, the axe behind a stone wall, the hammer in a grove. With the hammer: a ramp up
  * the plateau to its chest, planks to the island's, lamps against the foes. Three caches lie buried where
  * pink flowers ring the ground. Drawn for the isometric view (heights); the classic view shows the edges.

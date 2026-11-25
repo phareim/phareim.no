@@ -8,9 +8,9 @@ const withGate = (realm: string, kit: Promise<Kit>): Promise<Kit> =>
     ({ ...art, ...Object.fromEntries(Object.entries(gates).filter(([id]) => id.startsWith(`gate_${realm}_`))) }))
 
 /**
- * Each realm's scenery is a chunk of its own, fetched the first time the view needs it (or a neighbour of where
- * the hero is: `warmRealmArt`), so a visit to the town never downloads the frontier's art. The isometric renderer
- * only puts the current realm's kit on the GPU (`view.ts`); until it is here that realm's landmarks are not drawn.
+ * Each realm's scenery is a chunk of its own, fetched the first time the view needs it, so a visit to the town
+ * never downloads the lands' art. The isometric renderer puts the current map's kits on the GPU (`view.ts`,
+ * `kitsFor`); until they are here their landmarks are not drawn.
  * `coast` is the hand-made maps' waymarks and barriers by the gates.
  */
 export const REALM_ART_LOADERS: Record<string, () => Promise<Kit>> = {
@@ -63,14 +63,12 @@ export function realmArt(realm: string | undefined): Kit | undefined {
   return undefined
 }
 
-/** Start fetching a realm's kit ahead of need (a neighbouring region's), without waiting for it. */
-export function warmRealmArt(realm: string | undefined): void { realmArt(realm) }
-
 /**
- * The kit a map draws its landmarks from: its realm's, or on a hand-made map with the gates' waymarks and
- * barriers, the coast's (`coast`). Undefined for a map with none.
+ * The kits a map draws its landmarks from: its realm's, any it names besides (`MapDef.kits`), and on a hand-made
+ * map with the gates' waymarks and barriers, the coast's (`coast`). Empty for a map with none.
  */
-export function kitFor(def: { realm?: string; isoLandmarks?: ReadonlyArray<{ art: string }> } | null | undefined): string | undefined {
-  const realm = def?.realm ?? (def?.isoLandmarks?.some(lm => lm.art.startsWith('waymark_') || lm.art.startsWith('border_')) ? 'coast' : undefined)
-  return hasRealmArt(realm) ? realm : undefined
+export function kitsFor(def: { realm?: string; kits?: readonly string[]; isoLandmarks?: ReadonlyArray<{ art: string }> } | null | undefined): string[] {
+  const out = [def?.realm, ...(def?.kits ?? [])]
+  if (def?.isoLandmarks?.some(lm => lm.art.startsWith('waymark_') || lm.art.startsWith('border_'))) out.push('coast')
+  return [...new Set(out.filter(hasRealmArt))]
 }

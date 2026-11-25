@@ -63,11 +63,10 @@ const BIT_ITEMS: Record<string, number> = { bits5: 5, bits20: 20, bits50: 50 }
 
 /**
  * The world's one-time bits: chest and floor-item flags, dig caches (`took:<id>`) and battle prizes
- * (`battle:<id>:prize`) → bits. The frontier's maps are made on demand, so a flag that names one
- * (`chest:fr:<rx>,<ry>…`) has that map made and read the first time it is asked for.
+ * (`battle:<id>:prize`) → bits.
  */
-export function bitRewards(world: Pick<World, 'maps'> & Partial<Pick<World, 'generate'>>): Map<string, number> {
-  const out = new RewardMap(world.generate)
+export function bitRewards(world: Pick<World, 'maps'>): Map<string, number> {
+  const out = new Map<string, number>()
   for (const map of Object.values(world.maps)) addRewards(out, map)
   return out
 }
@@ -79,21 +78,6 @@ function addRewards(out: Map<string, number>, map: MapDef) {
   }
   for (const c of map.dig?.caches ?? []) if (BIT_ITEMS[c.item]) out.set(`took:${c.id}`, BIT_ITEMS[c.item]!)
   for (const g of map.battle?.groups ?? []) if (g.prize && BIT_ITEMS[g.prize]) out.set(`battle:${g.id}:prize`, BIT_ITEMS[g.prize]!)
-}
-
-class RewardMap extends Map<string, number> {
-  private read = new Set<string>()
-  constructor(private gen?: World['generate']) { super() }
-  override get(flag: string): number | undefined {
-    const v = super.get(flag)
-    if (v !== undefined || !this.gen) return v
-    const m = /^(?:chest|took|battle):(fr:[^.]+)\./.exec(flag)
-    if (!m || this.read.has(m[1]!)) return undefined
-    this.read.add(m[1]!)
-    const def = this.gen(m[1]!)
-    if (def) addRewards(this, def)
-    return super.get(flag)
-  }
 }
 
 function rewardOf(once: OnceRewards, flag: string): number {

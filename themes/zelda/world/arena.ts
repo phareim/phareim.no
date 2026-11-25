@@ -3,7 +3,7 @@
  * groups of rising strength stand in a walled glade; touching one starts
  * a turn-by-turn fight where everyone stands. A chest by the way in holds
  * three neon tonics. Down the stairs at `fr:7,2` in the Sporelight
- * (`gen/demos.ts`); docs/games/neon-shrine-battle.md.
+ * (`demos.ts`); docs/games/neon-shrine-battle.md.
  */
 import type { MapDef } from '../types'
 

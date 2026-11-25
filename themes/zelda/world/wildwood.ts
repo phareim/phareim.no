@@ -10,7 +10,7 @@
  * and the Deep Lab's bunker. Residents ask for help and give some:
  * Mossa (a waffle; three glowshrooms), Toby (his walkie-talkie), Max
  * (bombs, hints), Dusty (a vacuum tube), the troll (his hat), the owl.
- * Two gates lead on into the frontier (`gen/gates.ts`), each between two lamp
+ * Two gates lead on into the lands past it (`gates.ts`), each between two lamp
  * posts: north out of the Riddle Grove (Lumenby and its quarry) and west out
  * of the Deep Woods (Fogstage).
  *
@@ -18,7 +18,7 @@
  * are listed in `marks`. Row 0 is the north edge; the sea is the south.
  */
 import type { MapDef, Mark, TalkBranch } from '../types'
-import { gateWarp } from './gen/gates'
+import { gateWarp } from './gates'
 
 const npc = (id: string, look: import('../types').NpcLook, talk: TalkBranch[], extra: Partial<{ wander: boolean; dir: import('../types').Dir }> = {}): Mark =>
   ({ ent: { t: 'npc', id, look, talk, ...extra } })
@@ -95,7 +95,7 @@ export const WILDWOOD: MapDef = {
     { name: 'THE CAMP', x: 42, y: 28, w: 20, h: 24, entry: 'camp' },
     { name: 'WILDWOOD SHORE', x: 62, y: 0, w: 22, h: 52, entry: 'town' },
   ],
-  // By the gates (gen/gates.ts), in the isometric view: a neon waymark naming the realm past each one.
+  // By the gates (gates.ts), in the isometric view: a neon waymark naming the realm past each one.
   isoLandmarks: [
     { art: 'waymark_lumenby_n', x: 41.4, y: 2.4, motion: { frames: 2, fps: 0.75 } },
     { art: 'waymark_fogstage_w', x: 2.6, y: 19.3, motion: { frames: 2, fps: 0.75 } },
@@ -112,7 +112,7 @@ export const WILDWOOD: MapDef = {
     brambles: { x: 42.5, y: 20.5, dir: 'up' },
     bridge: { x: 36.5, y: 38.5, dir: 'left' },
     deep: { x: 26.5, y: 38.5, dir: 'left' },
-    // Back from the frontier through a gate: just inside it.
+    // Back from a land through a gate: just inside it.
     'gate-quarry': { x: 39.5, y: 1.5, dir: 'down' },
     'gate-fog': { x: 1.5, y: 20.5, dir: 'right' },
   },
@@ -142,7 +142,7 @@ export const WILDWOOD: MapDef = {
     K: { tile: 'D', ent: { t: 'warp', to: 'deep1', entry: 'start' } },
     // The Deep Lab's bunker opens once Mistral's wind has died.
     G: { tile: 'X', ent: { t: 'gate', open: { flag: 'mistral' } } },
-    // The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>`.
+    // The gates into the lands (gates.ts): each warp's entry over there is `gate-<id>`.
     'Ƨ': gateWarp('quarry'),
     'Ɓ': sign(['↑ THE GROVE GATE: LUMENBY QUARRY, IN THE HILLS.', 'THE QUARRY SIGN ON THE HILL HAS GONE DARK.', 'GATE WARDEN ON DUTY.']),
     'Ɗ': gateWarp('fog'),

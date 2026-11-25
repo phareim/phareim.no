@@ -475,7 +475,7 @@ export interface MapDef {
    * flag `bigkey:<ring>`.
    */
   keyring?: string
-  /** The painter's palette: Project Horizon's labs, the deep Wildwood; the frontier's realms (`render/looks.ts`). */
+  /** The painter's palette: Project Horizon's labs, the deep Wildwood; the lands' looks (`render/looks.ts`). */
   look?: 'lab' | 'wild' | 'snow' | 'dune' | 'spore' | 'fog' | 'quarry' | 'suburb'
   /** Crystal switches of every map in this group share one state (a flag), across rooms and floors. */
   crystal?: string
@@ -487,13 +487,17 @@ export interface MapDef {
   /** Isometric scenery, in tile units. Only those with a `solid` footprint are in anyone's way. */
   isoLandmarks?: IsoLandmark[]
   /**
-   * Walking off this edge (where the hero stands on open ground) leads into
-   * that map at the same place along the edge: the frontier's regions
-   * (`world/gen/`), which line their passes up from both sides.
+   * The land beyond the coast this map belongs to (`docs/worlds/atlas.md`): its art kit, its light and air, its
+   * people's and foes' looks, the critters that live there (`render/life/`).
    */
-  edges?: Partial<Record<'n' | 's' | 'e' | 'w', string>>
-  /** The generated realm this map belongs to (`world/gen/realms.ts`). */
   realm?: string
+  /** More art kits the map draws landmarks from, besides its realm's (`render/iso/frontierArt/index.ts`). */
+  kits?: string[]
+  /**
+   * A land out past the hand-made coast: a reload of the tab continues here instead of in town, and walking in
+   * opens its areas' first-visit words on arrival.
+   */
+  away?: boolean
   /**
    * The drawing engines this map may be shown in (`viewParams.ts`); absent,
    * every view. Elsewhere the shell shows the first allowed one for as long
@@ -567,8 +571,17 @@ export interface World {
   luna?: TalkBranch[]
   /** Dialog opened when a new game (no save) starts, after any walk-out from the start entry. */
   intro?: { lines: string[]; who?: string | null }
-  /** Maps made on demand (the frontier, `world/gen/`): asked for an id `maps` does not have. Must return the same def for the same id. */
-  generate?: (id: string) => MapDef | null
+  /**
+   * Where each outdoor map lies on the one grid of the world (`docs/worlds/atlas.md`): the tile its top-left
+   * corner is on. Walking off a map's edge where the ground is open carries the hero into the map that holds the
+   * next tile, at the same place along the edge.
+   */
+  atlas?: Record<string, { x: number; y: number }>
+  /**
+   * Where a save made on a map the world no longer has continues (the generated frontier's `fr:` regions, gone
+   * since the lands were made by hand), or null to fall back to the start.
+   */
+  rescue?: (map: string, entry: string) => { map: string; entry: string } | null
 }
 
 // ---------------------------------------------------------------------------
@@ -935,7 +948,7 @@ export interface GameState {
    * instead of changing map; with `at` it lands on that spot (a drop through
    * a hole) instead of an entry.
    */
-  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean }
+  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean; edge?: boolean }
   dialog: Dialog | null
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }

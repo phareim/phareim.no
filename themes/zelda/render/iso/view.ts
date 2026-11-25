@@ -44,8 +44,7 @@ import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engi
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
 import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
-import { kitFor, realmArt as realmKit, warmRealmArt } from './frontierArt'
-import { FRONTIER_PREFIX, realmAt } from '../../world/gen/frontier'
+import { kitsFor, realmArt as realmKit } from './frontierArt'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
@@ -181,18 +180,20 @@ export default function isoView(kit: Kit): View {
   try { engine = createEngine() } catch { return legacyView(kit) }
   /** The things built for this view (`props.ts`), once they are painted. */
   let propAtlas: PropAtlas | null = null
-  let realmArt: string | undefined
+  /** The kits on the GPU now, joined by '+' ('' none). */
+  let realmArt = ''
   let coverDef: ReturnType<typeof mapInfo>['def'] | null = null
   const covered = new Set<number>()
   /** Solid scenery whose art is on the GPU: its classic stand-in (`../standIns.ts`) stands down for it. */
   const propped = new Set<number>()
   /** The realm look whose materials are on the GPU ('' the coast's). */
   let matLook = ''
-  const sendProps = (realm?: string) => {
-    realmArt = realm
-    propAtlas = withThings(buildProps(), realm ? realmKit(realm) : undefined)
+  const sendProps = (kits: string) => {
+    realmArt = kits
+    const art = kits ? Object.assign({}, ...kits.split('+').map(k => realmKit(k))) : undefined
+    propAtlas = withThings(buildProps(), art)
     engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
-    // (The landmarks that cover classic scenery are counted again with the kit that is on the GPU now.)
+    // (The landmarks that cover classic scenery are counted again with the kits that are on the GPU now.)
     coverDef = null
   }
   const sendMaterials = () => {
@@ -202,29 +203,18 @@ export default function isoView(kit: Kit): View {
     engine.materials(mats.data, mats.w, mats.h)
     sendProps(realmArt)
   }
-  /** The map whose neighbours' kits were asked for last. */
-  let warmedFor: MapDef | null = null
   /**
-   * Puts the map's realm kit on the GPU once its chunk is here (`frontierArt/index.ts`); until then the atlas
-   * has none, and the realm's landmarks are left out (the classic scenery under them stays). False while it is
-   * still on its way. The kits of the regions beyond the map's edges are fetched meanwhile, so walking on into
-   * one finds its kit here.
+   * Puts the map's kits on the GPU once their chunks are here (`frontierArt/index.ts`); until then the atlas has
+   * none of them, and their landmarks are left out (the classic scenery under them stays). False while one is
+   * still on its way.
    */
   const prepareProps = (def: MapDef): boolean => {
     // (The hand-made maps' waymarks and barriers by the gates are a kit of their own, `coast`.)
-    const want = kitFor(def)
-    const kit = want ? realmKit(want) : undefined
-    const have = kit ? want : undefined
+    const want = kitsFor(def)
+    const here = want.map(k => !!realmKit(k)).every(Boolean)
+    const have = here ? want.join('+') : ''
     if (have !== realmArt) sendProps(have)
-    if (warmedFor !== def) {
-      warmedFor = def
-      for (const to of Object.values(def.edges ?? {})) {
-        const m = to?.startsWith(FRONTIER_PREFIX) ? /^fr:(\d+),(\d+)$/.exec(to) : null
-        if (m) warmRealmArt(realmAt(Number(m[1]), Number(m[2]))?.id)
-      }
-      if (def.entries?.deep) warmRealmArt('underglow')
-    }
-    return !want || !!kit
+    return here
   }
   /**
    * Paints the view's own pictures, the materials and the things. All of it at once is a pause one can feel

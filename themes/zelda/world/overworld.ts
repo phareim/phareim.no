@@ -12,7 +12,7 @@
  * Hollow Graves (NE, the Shrine's door), Home Glade (SW), the Crossroads and
  * Mirror Lake (SE).
  *
- * Four gates lead from the coast into the frontier on foot (`gen/gates.ts`), each
+ * Four gates lead from the coast into the lands around it on foot (`gates.ts`), each
  * at the end of a short road between two lamp posts: north out of Whisper
  * Woods past a boulder (Seter Fell), north out of the Night Market past its
  * warden (the Sporelight), east out of the Hollow Graves through a cracked
@@ -25,11 +25,7 @@
  */
 import type { MapDef } from '../types'
 import { INTRO } from './intro'
-import { FRONTIER, regionId } from './gen/frontier'
-import { gateWarp } from './gen/gates'
-
-/** Where the ferry from the pier lands: the frontier's Landing. */
-const LANDING = regionId(FRONTIER.landing.rx, FRONTIER.landing.ry)
+import { gateWarp } from './gates'
 
 /** The town is the first 40 columns; everything east of it is the old overworld, shifted by this much. */
 export const TOWN_W = 40
@@ -113,7 +109,7 @@ export const OVERWORLD: MapDef = {
     // The newsstand's roof: the wordmark of sleeper.phareim.md, over the stand's own NEWS board.
     { x: 15.5, y: 22.35, text: 'SLEEPER_', scale: 1, align: 'center', tone: 'rose' },
   ],
-  // By the gates (gen/gates.ts), in the isometric view: a neon waymark naming the realm past each one, blinking
+  // By the gates (gates.ts), in the isometric view: a neon waymark naming the realm past each one, blinking
   // slowly, and at the wardens' gates a BORDER arm that is down until the hero has a blade (`frontierArt/gates.ts`).
   isoLandmarks: [
     { art: 'waymark_seterfell_n', x: 47.4, y: 2.6, motion: { frames: 2, fps: 0.75 } },
@@ -139,7 +135,7 @@ export const OVERWORLD: MapDef = {
     vip: { x: 6.5, y: 9.5, dir: 'down' },
     // Back from the auth page: in front of the guard, who asked for the login.
     vipguard: { x: 8.5, y: 9.5, dir: 'up' },
-    // Back from the frontier through a gate: on the road just inside it (south of the fell's boulder, west of the graves' crack).
+    // Back from a land through a gate: on the road just inside it (south of the fell's boulder, west of the graves' crack).
     'gate-fell': { x: 45.5, y: 2.5, dir: 'down' },
     'gate-spore': { x: 81.5, y: 2.5, dir: 'down' },
     'gate-sand': { x: 101.5, y: 12.5, dir: 'left' },
@@ -153,12 +149,12 @@ export const OVERWORLD: MapDef = {
     { kind: 'glow', x: 102.5, y: 37.5, w: 3.5, tone: 'violet' },
   ],
   marks: {
-    // The ferry at the end of the pier: across the bay to the frontier (world/gen/, docs/worlds/).
-    'Ŧ': { ent: { t: 'warp', to: LANDING, entry: 'camp' }, tile: '=' },
+    // The ferry at the end of the pier: west round the cape and north up the coast to Yule Fjord's harbour (docs/worlds/atlas.md).
+    'Ŧ': { ent: { t: 'warp', to: 'yulefjord', entry: 'ferry' }, tile: '=' },
     'Ƒ': { ent: { t: 'entry', id: 'ferry', dir: 'up' }, tile: '=' },
-    'Ŋ': { ent: { t: 'sign', lines: ['THE FERRY: TO THE FRONTIER.', 'IT BRINGS YOU BACK ANY TIME.'] } },
-    'Ƥ': { ent: { t: 'npc', id: 'ferryman', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['NO BLADE, NO BOAT.', 'THE FRONTIER BITES.', 'THE KEEPER EAST OF TOWN HAS ONE.'] }] }, tile: '=' },
-    // ---- The gates into the frontier (gen/gates.ts): each warp's entry over there is `gate-<id>` ----
+    'Ŋ': { ent: { t: 'sign', lines: ['THE FERRY: NORTH TO YULE FJORD.', 'IT BRINGS YOU BACK ANY TIME.'] } },
+    'Ƥ': { ent: { t: 'npc', id: 'ferryman', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['NO BLADE, NO BOAT.', 'YULE FJORD BITES.', 'THE KEEPER EAST OF TOWN HAS ONE.'] }] }, tile: '=' },
+    // ---- The gates into the lands (gates.ts): each warp's entry over there is `gate-<id>` ----
     'Ƨ': gateWarp('fell'),
     'Ɓ': { tile: 'S', ent: { t: 'sign', lines: ['↑ THE WOODS GATE: SETER FELL, AND THE COLD PAST IT.', 'A BOULDER HAS ROLLED INTO THE GATE.', 'GATE WARDEN ON DUTY.'] } },
     // The bomb bag lies just south of here, and may be found before the blade: the warden keeps the gate till then.

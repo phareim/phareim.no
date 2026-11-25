@@ -194,10 +194,9 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { createGame, HOURS, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
+import { awayMap, createGame, HOURS, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
-import { neighbourPrefetch } from './prefetch'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
@@ -237,7 +236,7 @@ const emit = defineEmits<{
 }>()
 
 const RETURN_KEY = 'portal.return'
-/** Set while this tab's continue point is out in the frontier: a reload continues there (`loadSpot`), a new visit does not. */
+/** Set while this tab's continue point is out in a land past the coast: a reload continues there (`loadSpot`), a new visit does not. */
 const OUT_KEY = 'zelda.out'
 /** A theme exit that has not navigated after this long (bad id) comes back to the world. */
 const STUCK_S = 2.5
@@ -290,14 +289,6 @@ let linkedUser = ''
 let renderer: Renderer | null = null
 let audio: ZeldaAudio | null = null
 let state: GameState = createGame(WORLD, { at: WORLD.start })
-/**
- * The frontier's next regions, made when nothing is moving (paused, a panel or a dialog open, or a long idle
- * slice) so crossing an edge does not stall; never mid-warp, mid-fight or mid-scroll, and never in a short slice.
- */
-const prefetch = neighbourPrefetch(WORLD, {
-  busy: () => state.mode === 'warp' || state.mode === 'battle' || state.mode === 'scroll',
-  calm: () => paused.value || panel.value !== null || state.mode === 'dialog' || state.mode === 'get',
-})
 let raf = 0
 let lastT = 0
 let hitStopMs = 0
@@ -899,7 +890,7 @@ function readOut(): boolean {
 /** Keeps OUT_KEY in step with the continue point. */
 function writeOut(s: GameState) {
   try {
-    if (s.entry.map.startsWith('fr:')) sessionStorage.setItem(OUT_KEY, '1')
+    if (awayMap(WORLD, s.entry.map, s.entry.entry)) sessionStorage.setItem(OUT_KEY, '1')
     else sessionStorage.removeItem(OUT_KEY)
   } catch { /* private mode: a reload starts on the plaza */ }
 }
@@ -915,7 +906,6 @@ function begin(save: SaveData | null, at: Spot | null, banner = false) {
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
   writeOut(state)
-  prefetch.near(state.map.id)
   // Before the prism only in development: out there it would empty the woods at noon for anyone.
   if (askedHour !== null && (import.meta.dev || state.inv.prism)) setDaytime(WORLD, state, askedHour)
   purse.adopt(state.inv, state.flags)
@@ -1270,7 +1260,6 @@ function handleEvents(events: GameEvent[]) {
       case 'unlock': case 'gate': save = true; break
       case 'enter':
         save = true
-        prefetch.near(state.map.id)
         if (e.area !== bannerArea) ui.banner = { text: e.area, t: 0 }
         bannerArea = e.area
         playTrack(e.track)
@@ -1588,7 +1577,6 @@ onBeforeUnmount(() => {
   canvas.value?.parentElement?.style.removeProperty('--zelda-hint-play')
   liveStop?.()
   liveStop = null
-  prefetch.stop()
   cancelAnimationFrame(raf)
   observer?.disconnect()
   muteStop?.()

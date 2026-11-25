@@ -98,15 +98,8 @@ export function validateWorld(world: World): string[] {
   }
   if (!world.maps[world.start.map]) out.push(`start map ${world.start.map} missing`)
   else if (!entriesOf[world.start.map]?.has(world.start.entry)) out.push('start entry missing')
-  // A warp into a map the world makes on demand (the frontier) lands on that map's entries.
-  const landsIn = (to: string): Set<string> | undefined => {
-    if (entriesOf[to] || Object.prototype.hasOwnProperty.call(world.maps, to)) return entriesOf[to]
-    const def = world.generate?.(to)
-    if (!def) return undefined
-    const set = new Set(Object.keys(def.entries ?? {}))
-    for (const m of Object.values(def.marks)) if (m.ent.t === 'entry' || m.ent.t === 'exit') set.add(m.ent.id)
-    return (entriesOf[to] = set)
-  }
+  const landsIn = (to: string): Set<string> | undefined => entriesOf[to]
+  out.push(...atlasProblems(world))
   for (const [id, def] of Object.entries(world.maps)) {
     for (const m of Object.values(def.marks)) {
       if (m.ent.t === 'warp' && !landsIn(m.ent.to)?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
@@ -166,6 +159,12 @@ function reachability(id: string, world: World): string[] {
     }
   })
   for (const e of Object.values(def.entries ?? {})) seed(Math.floor(e.x), Math.floor(e.y))
+  // A land's passes: open rim tiles with open ground on the next map of the grid (`atlasProblems` checks both sides).
+  const o = world.atlas?.[id]
+  if (o) {
+    for (let x = 0; x < w; x++) for (const y of [0, h - 1]) if (PASSABLE.has(tile(x, y)) && atlasTile(world, o.x + x, o.y + y + (y ? 1 : -1), id)) seed(x, y)
+    for (let y = 0; y < h; y++) for (const x of [0, w - 1]) if (PASSABLE.has(tile(x, y)) && atlasTile(world, o.x + x + (x ? 1 : -1), o.y + y, id)) seed(x, y)
+  }
   // Landing spots under the holes of the floor above.
   for (const up of Object.values(world.maps)) {
     if (up.below !== id || up.rows.length !== h || up.rows[0]!.length !== w) continue
@@ -232,5 +231,47 @@ function reachability(id: string, world: World): string[] {
       if (!near(x, y)) out.push(`${id}: ${m.ent.t} at ${x},${y} is unreachable`)
     }
   })
+  return out
+}
+
+/** The tile at (gx, gy) on the world's grid, on whichever map of the atlas holds it but `not`; null where none does. */
+function atlasTile(world: World, gx: number, gy: number, not?: string): TileChar | null {
+  for (const [id, o] of Object.entries(world.atlas ?? {})) {
+    const def = world.maps[id]
+    if (id === not || !def) continue
+    const x = gx - o.x
+    const y = gy - o.y
+    if (x >= 0 && y >= 0 && y < def.rows.length && x < def.rows[0]!.length) return tileOf(def, x, y)
+  }
+  return null
+}
+
+/**
+ * The grid (`World.atlas`): every map on it exists, no two overlap, and every seam is honest: a rim tile a walker
+ * can stand on has open ground on the map beyond it (or no map beyond it), and a pass is open on both sides, so
+ * walking off an edge always lands somewhere and never into a wall.
+ */
+function atlasProblems(world: World): string[] {
+  const out: string[] = []
+  const placed = Object.entries(world.atlas ?? {}).filter(([id]) => {
+    if (world.maps[id]) return true
+    out.push(`atlas: ${id} is not a map`)
+    return false
+  }).map(([id, o]) => ({ id, ...o, w: world.maps[id]!.rows[0]!.length, h: world.maps[id]!.rows.length }))
+  for (const a of placed) for (const b of placed) {
+    if (a.id < b.id && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) out.push(`atlas: ${a.id} overlaps ${b.id}`)
+  }
+  for (const a of placed) {
+    const def = world.maps[a.id]!
+    const check = (x: number, y: number, gx: number, gy: number) => {
+      const mine = tileOf(def, x, y)
+      const there = atlasTile(world, gx, gy, a.id)
+      if (there === null) return
+      const open = (t: TileChar) => !TILE_INFO[t].solid
+      if (open(mine) && !open(there)) out.push(`atlas: ${a.id} ${x},${y} is open but the map beyond it is closed at ${gx},${gy}`)
+    }
+    for (let x = 0; x < a.w; x++) { check(x, 0, a.x + x, a.y - 1); check(x, a.h - 1, a.x + x, a.y + a.h) }
+    for (let y = 0; y < a.h; y++) { check(0, y, a.x - 1, a.y + y); check(a.w - 1, y, a.x + a.w, a.y + y) }
+  }
   return out
 }

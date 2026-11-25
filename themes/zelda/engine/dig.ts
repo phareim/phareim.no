@@ -21,8 +21,8 @@ import { baseHeights, digLevel, groundOf, isRamp, MAX_HEIGHT, RAMPS } from './di
 import { dirVec } from './util'
 
 /**
- * Edits one map may hold, edits in all, and maps that may hold any. Every dig map of the world (the quarry and
- * the generated dig realms' regions, 19 now) has room; the total keeps the save small: at most about 5 KB of
+ * Edits one map may hold, edits in all, and maps that may hold any. Every dig map of the world (the Old Quarry,
+ * Lumenby, Seter Fell, the Underglow's floors) has room; the total keeps the save small: at most about 5 KB of
  * edits (an edit is 6 chars at most), well under the save's 16 KB.
  */
 export const DIG_CAP = 400
@@ -329,7 +329,7 @@ export function digPlan(world: World, s: GameState, item: UseItem | null = s.inv
 
 const arrivals = new WeakMap<MapInfo, Set<number>>()
 
-/** Does the hero come into this map on tile (tx, ty): an entry, or the ground along an edge that leads on (two deep)? */
+/** Does the hero come into this map on tile (tx, ty): an entry, or (in a land, whose passes lead on) the rim, two deep? */
 function arrival(info: MapInfo, tx: number, ty: number): boolean {
   let at = arrivals.get(info)
   if (!at) {
@@ -337,8 +337,7 @@ function arrival(info: MapInfo, tx: number, ty: number): boolean {
     arrivals.set(info, at)
   }
   if (at.has(ty * info.w + tx)) return true
-  const ed = info.def.edges
-  return !!ed && (!!(ed.w && tx < 2) || !!(ed.e && tx >= info.w - 2) || !!(ed.n && ty < 2) || !!(ed.s && ty >= info.h - 2))
+  return !!info.def.away && (tx < 2 || ty < 2 || tx >= info.w - 2 || ty >= info.h - 2)
 }
 
 /** Is anyone standing on tile (tx, ty): the hero, a foe, a person? */

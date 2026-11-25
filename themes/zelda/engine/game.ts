@@ -130,8 +130,8 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.hook = null
   s.battle = null
   if (!at) s.entry = { map: mapId, entry: entryId }
-  // A frontier region walked into is lit on the MAP page's grid of regions.
-  if (info.def.edges) s.flags[`seen:${mapId}`] = true
+  // A land walked into is drawn on the MAP page's chart of the world (and the QUEST line stops pointing at the gates).
+  if (info.def.away) s.flags[`seen:${mapId}`] = true
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
   settleFoes(world, s)
@@ -279,7 +279,7 @@ function play(c: Ctx, dt: number, inp: Input) {
     }
   }
   // Off the edge into the next region (the frontier).
-  if (c.info.def.edges && edgeOut(c, inp)) return
+  if (c.w.atlas?.[c.s.map.id] && edgeOut(c, inp)) return
   // Dungeon room change
   if (c.info.def.kind === 'dungeon') {
     const idx = cellIndex(c.info, h.x, h.y)
@@ -332,14 +332,30 @@ function areaIntro(c: Ctx, a: { intro?: AreaIntro }) {
 }
 
 /**
- * The hero pushes against an edge that has a map beyond it: fade into that
- * map at the same place along the edge, one step in. Generated regions cut
- * their passes at the same places from both sides, so it is open ground.
+ * The map on the world's grid (`World.atlas`) that holds tile (gx, gy), and that tile in its own coordinates;
+ * null where no map does (the sea, the hills between the lands).
+ */
+export function atlasAt(world: World, gx: number, gy: number, not?: string): { map: string; x: number; y: number } | null {
+  for (const [map, o] of Object.entries(world.atlas ?? {})) {
+    if (map === not) continue
+    const def = mapDef(world, map)
+    if (!def) continue
+    const x = gx - o.x
+    const y = gy - o.y
+    if (x >= 0 && y >= 0 && y < def.rows.length && x < def.rows[0]!.length) return { map, x, y }
+  }
+  return null
+}
+
+/**
+ * The hero pushes against an edge with a land beyond it on the grid: fade into that map at the same place along
+ * the edge, one step in. Both maps open the same tiles of a pass (`docs/worlds/atlas.md`, the seams), so it is
+ * open ground on both sides; anywhere else a rim of cliff, sea or wood keeps the hero from the edge.
  */
 function edgeOut(c: Ctx, inp: Input): boolean {
   const s = c.s
   const h = s.hero
-  const edges = c.info.def.edges!
+  const o = c.w.atlas![s.map.id]!
   const near = HERO_R + 0.08
   const { w, h: hh } = c.info
   let side: 'n' | 's' | 'e' | 'w' | null = null
@@ -347,24 +363,28 @@ function edgeOut(c: Ctx, inp: Input): boolean {
   else if (h.x >= w - near && inp.move.x > 0.3) side = 'e'
   else if (h.y <= near && inp.move.y < -0.3) side = 'n'
   else if (h.y >= hh - near && inp.move.y > 0.3) side = 's'
-  const to = side && edges[side]
-  if (!side || !to) return false
-  const next = mapDef(c.w, to)
+  if (!side) return false
+  // The grid tile just past the edge, level with the hero.
+  const gx = o.x + (side === 'w' ? -1 : side === 'e' ? w : Math.floor(h.x))
+  const gy = o.y + (side === 'n' ? -1 : side === 's' ? hh : Math.floor(h.y))
+  const next = atlasAt(c.w, gx, gy, s.map.id)
   if (!next) return false
-  const nw = next.rows[0]!.length
-  const nh = next.rows.length
+  const land = mapInfo(c.w, next.map)
   const IN = 1.1
-  const at = side === 'w' ? { x: nw - IN, y: h.y } : side === 'e' ? { x: IN, y: h.y } : side === 'n' ? { x: h.x, y: nh - IN } : { x: h.x, y: IN }
+  const fx = h.x - Math.floor(h.x)
+  const fy = h.y - Math.floor(h.y)
+  const at = side === 'w' ? { x: land.w - IN, y: next.y + fy } : side === 'e' ? { x: IN, y: next.y + fy }
+    : side === 'n' ? { x: next.x + fx, y: land.h - IN } : { x: next.x + fx, y: IN }
+  const back = side === 'w' ? { x: land.w - 0.5, y: at.y } : side === 'e' ? { x: 0.5, y: at.y }
+    : side === 'n' ? { x: at.x, y: land.h - 0.5 } : { x: at.x, y: 0.5 }
   // Only into open ground: a way dug or built to the edge off a pass meets the neighbour's rim, and stays here.
-  const land = mapInfo(c.w, to)
-  const edgeTile = (x: number, y: number) => land.base[Math.floor(y) * land.w + Math.floor(x)]
-  const back = side === 'w' ? { x: nw - 0.5, y: h.y } : side === 'e' ? { x: 0.5, y: h.y } : side === 'n' ? { x: h.x, y: nh - 0.5 } : { x: h.x, y: 0.5 }
   for (const p of [at, back]) {
-    const t = edgeTile(p.x, p.y)
+    if (p.x < 0 || p.y < 0 || p.x >= land.w || p.y >= land.h) return false
+    const t = land.base[Math.floor(p.y) * land.w + Math.floor(p.x)]
     if (!t || TILE_INFO[t].solid) return false
   }
   s.mode = 'warp'
-  s.warp = { t: 0, to, entry: '', swapped: false, at }
+  s.warp = { t: 0, to: next.map, entry: '', swapped: false, at, edge: true }
   h.act = 'walk'
   c.ev.push({ type: 'warp' })
   return true
@@ -411,16 +431,20 @@ function warp(c: Ctx, dt: number) {
       s.hero.act = 'idle'
       s.shake = Math.max(s.shake, 0.2)
       c.ev.push({ type: 'land' })
-    } else if (w.at && mapInfo(c.w, w.to).def.edges && mapInfo(c.w, w.to).entries.camp) {
-      // Walked over an edge into the next region: its camp is the continue point now (death; a reload, `loadSpot`).
-      s.entry = { map: w.to, entry: 'camp' }
+    } else if (w.edge) {
+      // Walked over an edge into the next land: the area walked into is the continue point now (death; a reload,
+      // `loadSpot`), or failing that the land's first entry.
+      const into = areaAt(c.w, s).entry
+      const entries = mapInfo(c.w, w.to).entries
+      const entry = into && entries[into] ? into : Object.keys(entries)[0]!
+      s.entry = { map: w.to, entry }
     }
   }
   if (w.t >= WARP_TIME * 2) {
     s.warp = null
     s.mode = 'play'
-    // A generated region is one area from edge to edge, so walking about never changes it: its intro opens on arrival.
-    if (mapInfo(c.w, s.map.id).def.edges) areaIntro(c, areaAt(c.w, s))
+    // Arriving in a land (by a gate, the ferry, a seam) opens the first-visit words of the area arrived in.
+    if (mapInfo(c.w, s.map.id).def.away) areaIntro(c, areaAt(c.w, s))
   }
 }
 
@@ -558,28 +582,38 @@ export function toSave(s: GameState): SaveData | null {
 }
 
 /**
- * A save continues where it was made, when the game starts there (no `at`: death in a session, a reload out in
- * the frontier, `loadSpot`; otherwise the shell starts in town and the save gives the items and flags). Where
- * that spot has gone (an entry renamed, a cave or a region that changed), it continues at the map's camp; in the
- * frontier, at its region's camp or else the ferry's pier; on a map the world no longer has, at the start. The
- * items, hearts and flags are never thrown away for it.
+ * A save continues where it was made, when the game starts there (no `at`: death in a session, a reload out in a
+ * land, `loadSpot`; otherwise the shell starts in town and the save gives the items and flags). Where that spot
+ * has gone (an entry renamed), it continues at the map's first entry; on a map the world no longer has, where
+ * `World.rescue` says (the generated frontier's regions: the land that took their place), or at the start. The
+ * items, hearts and flags are never thrown away for it; dig edits and explored tiles of maps that are gone are.
  */
 function rescueSave(world: World, v: SaveData): SaveData {
   if (hasEntry(world, v.map, v.entry)) return v
-  if (hasEntry(world, v.map, 'camp')) return { ...v, entry: 'camp' }
-  const region = /^fr:\d+,\d+/.exec(String(v.map))?.[0]
-  if (region && hasEntry(world, region, 'camp')) return { ...v, map: region, entry: 'camp' }
-  if (region && hasEntry(world, 'overworld', 'ferry')) return { ...v, map: 'overworld', entry: 'ferry' }
-  return { ...v, map: world.start.map, entry: world.start.entry }
+  if (mapDef(world, v.map)) return { ...v, entry: Object.keys(mapInfo(world, v.map).entries)[0]! }
+  const to = world.rescue?.(v.map, v.entry)
+  const spot = to && hasEntry(world, to.map, to.entry) ? to : world.start
+  const gone = (id: string) => !mapDef(world, id)
+  const dig = v.dig ? Object.fromEntries(Object.entries(v.dig).filter(([id]) => !gone(id))) : undefined
+  const explored = v.explored ? Object.fromEntries(Object.entries(v.explored).filter(([id]) => !gone(id))) : undefined
+  return { ...v, map: spot.map, entry: spot.entry, ...(dig ? { dig } : {}), ...(explored ? { explored } : {}) }
+}
+
+/** A map out past the hand-made coast (`MapDef.away`), or one a save names that the world moved out there. */
+export function awayMap(world: World, map: string, entry = ''): boolean {
+  const def = mapDef(world, map)
+  if (def) return !!def.away
+  const to = world.rescue?.(map, entry)
+  return !!to && !!mapDef(world, to.map)?.away
 }
 
 /**
- * Where a page load starts. A tab that was out in the frontier (`out`: the shell keeps it per tab) reloads at the
- * save's own continue point there: null, so `createGame` takes the save's (rescued when it has gone). Otherwise in
- * front of the exit last used (`back`), or on the plaza: a new visit always starts in town, with the save's items.
+ * Where a page load starts. A tab that was out in a land (`out`: the shell keeps it per tab) reloads at the save's
+ * own continue point there: null, so `createGame` takes the save's (rescued when it has gone). Otherwise in front
+ * of the exit last used (`back`), or on the plaza: a new visit always starts in town, with the save's items.
  */
 export function loadSpot(world: World, save: SaveData | null, back: World['start'] | null, out: boolean): World['start'] | null {
-  if (out && save && /^fr:/.test(save.map)) return null
+  if (out && save && awayMap(world, save.map, save.entry)) return null
   return back ?? world.start
 }
 

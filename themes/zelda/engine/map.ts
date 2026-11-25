@@ -53,8 +53,7 @@ const cache = new WeakMap<MapDef, MapInfo>()
 
 /** A map's def: an authored one, or one the world makes on demand (the frontier). Undefined for an id neither has. */
 export function mapDef(world: World, id: string): MapDef | undefined {
-  if (Object.prototype.hasOwnProperty.call(world.maps, id)) return world.maps[id]
-  return world.generate?.(id) ?? undefined
+  return Object.prototype.hasOwnProperty.call(world.maps, id) ? world.maps[id] : undefined
 }
 
 export function mapInfo(world: World, id: string): MapInfo {

@@ -1,29 +1,40 @@
-import type { IsoLandmark, LandmarkLight, Tone } from '../../types'
-import { hash } from './rng'
+/**
+ * Scenery for the lands' isometric view (`IsoLandmark`), in two parts: helpers a map writes its landmarks with,
+ * and presets, the set pieces the realms' places were drawn with (a seter, the stilts, a cul-de-sac …), anchored
+ * at a place's top-left tile: `sceneryAt(realm, place, x, y)`. A preset's art comes from that realm's kit
+ * (`render/iso/frontierArt/`), and `cover` hides the classic tiles under it (the place's `H` houses, `F` fences),
+ * which stay solid in every view. The tile patterns the presets fit are in `scripts/world-lab/stamps.ts`.
+ */
+import type { IsoLandmark, LandmarkLight, Tone } from '../types'
 
-const prop = (art: string, x: number, y: number, details: Partial<IsoLandmark> = {}): IsoLandmark => ({ art, x, y, ...details })
-const bob = { frames: 2, fps: 1, bob: true }
-const cycle = (frames: number, fps: number) => ({ frames, fps })
+/** A landmark: art id, the ground point under its middle (tiles), and anything else it carries. */
+export const prop = (art: string, x: number, y: number, details: Partial<IsoLandmark> = {}): IsoLandmark => ({ art, x, y, ...details })
+export const bob = { frames: 2, fps: 1, bob: true }
+/** Numbered frames `<art>_0 … _<frames-1>` played at `fps`. */
+export const cycle = (frames: number, fps: number) => ({ frames, fps })
 /** A light a landmark carries (`LandmarkLight`): its tone, reach, strength, and the rest. */
-const light = (tone: Tone, r: number, a: number, more: Partial<LandmarkLight> = {}): LandmarkLight => ({ tone, r, a, ...more })
+export const light = (tone: Tone, r: number, a: number, more: Partial<LandmarkLight> = {}): LandmarkLight => ({ tone, r, a, ...more })
+/** A road lantern on a verge, dark by day and lit after dusk (the always-loaded roadside kit). */
+export const lantern = (tone: 'pink' | 'cyan' | 'violet' | 'gold' | 'rose', x: number, y: number): IsoLandmark =>
+  prop(`road_lantern_${tone}_off`, x, y, { night: `road_lantern_${tone}_on`, light: { r: 2.15, tone, a: 0.55 } })
 /** A giant cap's glow under itself, at its height: teal or lilac, breathing. */
-const cap = (tone: Tone, r: number, z: number) => [light(tone, r, 0.55, { z, anim: 'pulse' })]
+export const cap = (tone: Tone, r: number, z: number) => [light(tone, r, 0.55, { z, anim: 'pulse' })]
 /**
  * Lights in front of a building stand just past its cover's south edge (`dy`): inside it the classic house's
  * mass would hide them (the light's shadows, `iso/shaders.ts`).
  */
 /** A cottage's lit window spilling warm light onto the snow in front. */
-const COTTAGE = [light('amber', 2.5, 0.75, { z: 0.5, dy: 1.8 })]
+export const COTTAGE = [light('amber', 2.5, 0.75, { z: 0.5, dy: 1.8 })]
 /** A stage spotlight's beam, swinging over the fog. */
-const SPOT = [light('cream', 5.5, 0.75, { z: 1.1, anim: 'sweep' })]
+export const SPOT = [light('cream', 5.5, 0.75, { z: 1.1, anim: 'sweep' })]
 /** A blimp's red light, blinking under its belly. */
-const BLIMP = [light('red', 1.4, 0.8, { z: 1.2, anim: 'blink' })]
+export const BLIMP = [light('red', 1.4, 0.8, { z: 1.2, anim: 'blink' })]
 /** A poster lit for the show. */
-const POSTER = [light('pink', 1.5, 0.7, { z: 0.6, dy: 0.3, lit: true })]
+export const POSTER = [light('pink', 1.5, 0.7, { z: 0.6, dy: 0.3, lit: true })]
 /** A porch light by a front door. */
-const PORCH = [light('gold', 2, 0.6, { z: 0.6, dy: 1.8 })]
-/** The tiles a thing stands on, solid to walkers (`IsoLandmark.solid`): w × h from tile (x, y), in stamp tiles. */
-const at = (x: number, y: number, w = 1, h = 1) => ({ solid: { x, y, w, h } })
+export const PORCH = [light('gold', 2, 0.6, { z: 0.6, dy: 1.8 })]
+/** The tiles a thing stands on, solid to walkers (`IsoLandmark.solid`): w × h from tile (x, y). */
+export const at = (x: number, y: number, w = 1, h = 1) => ({ solid: { x, y, w, h } })
 
 const GATE_REALMS = new Set(['lumenby', 'seterfell', 'sporelight', 'stillsand', 'fogstage', 'rerun'])
 
@@ -224,32 +235,4 @@ export function sceneryAt(realm: string, stamp: string, x: number, y: number): I
     ...(lm.cover ? { cover: { ...lm.cover, x: lm.cover.x + x, y: lm.cover.y + y } } : {}),
     ...(lm.solid ? { solid: { ...lm.solid, x: lm.solid.x + x, y: lm.solid.y + y } } : {}),
   }))
-}
-
-const ROAD_TONES = ['pink', 'cyan', 'violet', 'gold', 'rose'] as const
-const ROAD_VERGE = new Set(['.', ':', ';', '-'])
-
-/** Sparse lamps on open verges. Read the completed layout without consuming its random stream. */
-export function roadsideLights(rows: string[][], claimed: Uint8Array, seed: number): IsoLandmark[] {
-  const w = rows[0]!.length
-  const out: IsoLandmark[] = []
-  for (let y = 2; y < rows.length - 2; y++) for (let x = 2; x < w - 2; x++) {
-    if (rows[y]![x] !== ',' || claimed[y * w + x]) continue
-    const chance = hash(seed, x, y)
-    if (chance % 23 !== 0) continue
-    const across = rows[y]![x - 1] === ',' || rows[y]![x + 1] === ','
-    const sign = chance & 1 ? 1 : -1
-    for (const side of [sign, -sign]) {
-      const nx = x + (across ? 0 : side)
-      const ny = y + (across ? side : 0)
-      if (claimed[ny * w + nx] || !ROAD_VERGE.has(rows[ny]![nx]!)) continue
-      if (out.some(p => Math.abs(p.x - nx - 0.5) + Math.abs(p.y - ny - 0.5) < 5)) continue
-      const tone = ROAD_TONES[(chance >>> 8) % ROAD_TONES.length]!
-      out.push(prop(`road_lantern_${tone}_off`, nx + 0.5, ny + 0.5, {
-        night: `road_lantern_${tone}_on`, light: { r: 2.15, tone, a: 0.55 },
-      }))
-      break
-    }
-  }
-  return out
 }

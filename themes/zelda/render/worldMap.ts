@@ -12,9 +12,6 @@ import type { HudKeys } from '../keys'
 import { mapDef, mapInfo } from '../engine/map'
 import { charted, chunkGrid, CHUNK, seenAny, seenTile } from '../engine/explore'
 import { TILE_INFO, isTileChar } from '../world/tiles'
-import { FRONTIER, realmAt } from '../world/gen/frontier'
-/** The hand-made maps a way out of the frontier lands on: the gates' homes, and the ferry's pier. */
-const COAST = new Set<string>([...(FRONTIER.gates ?? []).map(g => g.home.map), 'overworld'])
 import { projection } from './iso/project'
 import { TILE } from '../types'
 import { drawMenuTabs, hudFont, type HudSkin } from './hud'
@@ -181,55 +178,59 @@ function seenBounds(s: GameState, w: number, h: number): { x: number; y: number;
 
 /** The name over the map: the area the hero is in where the map has named ones, else the map's own. */
 function placeName(s: GameState, def: MapDef): string {
-  const xy = frontierXY(s)
-  const realm = def.realm && xy ? realmAt(xy[0], xy[1]) : null
-  if (realm) return realm.name
   return (s.area || def.name || '').toUpperCase()
 }
 
-function frontierXY(s: GameState): [number, number] | null {
-  const m = /^fr:(\d+),(\d+)/.exec(s.map.id)
-  return m ? [Number(m[1]), Number(m[2])] : null
+/** The grid's extent (`World.atlas`): every outdoor map's rectangle on it, and the box round them all. */
+function atlasBox(world: World) {
+  const rects = Object.entries(world.atlas ?? {}).flatMap(([id, o]) => {
+    const def = world.maps[id]
+    return def ? [{ id, x: o.x, y: o.y, w: def.rows[0]!.length, h: def.rows.length, away: !!def.away }] : []
+  })
+  const x0 = Math.min(...rects.map(r => r.x))
+  const y0 = Math.min(...rects.map(r => r.y))
+  const x1 = Math.max(...rects.map(r => r.x + r.w))
+  const y1 = Math.max(...rects.map(r => r.y + r.h))
+  return { rects, x0, y0, w: x1 - x0, h: y1 - y0 }
+}
+
+/** The world chart's size in px for a scale (px a tile). */
+export function worldChart(world: World, scale: number): { w: number; h: number } {
+  const b = atlasBox(world)
+  return { w: Math.ceil(b.w * scale), h: Math.ceil(b.h * scale) }
 }
 
 /**
- * The frontier's regions as a grid of small squares: the ones walked into lit (`seen:<id>`), the Landing in the
- * prize colour, the hero's own in the hot one, and a gate's region (`gates.ts`) with a bar on the side its gate
- * is cut into, the way in from the coast. Its size for a cell size, and the drawing.
+ * The whole world on one small chart (`docs/worlds/atlas.md`): each map a block where it lies on the grid, the
+ * coast and the Wildwood always, a land once walked into (`seen:<id>`), the map the hero is on in the prize
+ * colour and the hero a hot dot where they stand on it. North is up: a plan of where the lands lie.
  */
-export function frontierGrid(cell: number): { w: number; h: number } {
-  const cols = Math.max(...FRONTIER.layout.map(r => r.length))
-  return { w: cols * cell, h: FRONTIER.layout.length * cell }
+function drawWorldChart(g: G, world: World, s: GameState, x: number, y: number, scale: number, skin: HudSkin) {
+  const b = atlasBox(world)
+  for (const r of b.rects) {
+    const known = !r.away || !!s.flags[`seen:${r.id}`]
+    if (!known && r.id !== s.map.id) continue
+    const rx = x + Math.round((r.x - b.x0) * scale)
+    const ry = y + Math.round((r.y - b.y0) * scale)
+    const rw = Math.max(2, Math.round(r.w * scale) - 1)
+    const rh = Math.max(2, Math.round(r.h * scale) - 1)
+    g.fillStyle = r.id === s.map.id ? skin.prize : skin.cool
+    g.fillRect(rx, ry, rw, rh)
+  }
+  const o = world.atlas?.[s.map.id]
+  if (o) {
+    const hx = x + Math.round((o.x + s.hero.x - b.x0) * scale)
+    const hy = y + Math.round((o.y + s.hero.y - b.y0) * scale)
+    g.fillStyle = skin.outline
+    g.fillRect(hx - 2, hy - 2, 4, 4)
+    g.fillStyle = skin.hot
+    g.fillRect(hx - 1, hy - 1, 2, 2)
+  }
 }
 
-function drawFrontierGrid(g: G, s: GameState, x: number, y: number, cell: number, skin: HudSkin) {
-  const here = frontierXY(s)
-  FRONTIER.layout.forEach((row, ry) => {
-    for (let rx = 0; rx < row.length; rx++) {
-      if (!realmAt(rx, ry)) continue
-      const id = `fr:${rx},${ry}`
-      const isHere = !!here && here[0] === rx && here[1] === ry
-      const landing = FRONTIER.landing.rx === rx && FRONTIER.landing.ry === ry
-      g.fillStyle = isHere ? skin.hot : landing ? skin.prize : s.flags[`seen:${id}`] ? skin.cool : skin.slot
-      g.fillRect(x + rx * cell, y + ry * cell, cell - 1, cell - 1)
-      const gate = FRONTIER.gates?.find(gt => gt.region === id)
-      if (gate) {
-        const cx = x + rx * cell
-        const cy = y + ry * cell
-        const k = cell - 1
-        g.fillStyle = skin.ok
-        if (gate.side === 's') g.fillRect(cx, cy + k - 1, k, 1)
-        else if (gate.side === 'n') g.fillRect(cx, cy, k, 1)
-        else if (gate.side === 'w') g.fillRect(cx, cy, 1, k)
-        else g.fillRect(cx + k - 1, cy, 1, k)
-      }
-    }
-  })
-}
-
-/** The frontier's grid beside this map: out there, and (once the blade is in hand) on a map a gate leads from. */
-function showsFrontier(s: GameState): boolean {
-  return !!frontierXY(s) || (s.inv.sword && !!FRONTIER.gates?.some(gt => gt.home.map === s.map.id))
+/** The world chart beside this map: on a map of the grid, once the blade is in hand (before it, the coast is all). */
+function showsWorld(world: World, s: GameState): boolean {
+  return s.inv.sword && !!world.atlas?.[s.map.id]
 }
 
 export interface MapPageOpts {
@@ -241,7 +242,7 @@ export interface MapPageOpts {
   view: string
 }
 
-/** The MAP page of the menu: tabs, the map of where the hero is, the frontier's regions beside it out there. */
+/** The MAP page of the menu: tabs, the map of where the hero is, and the world's chart beside it. */
 export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: number, o: MapPageOpts, skin: HudSkin) {
   g.fillStyle = skin.veil
   g.fillRect(0, 0, vw, vh)
@@ -258,18 +259,19 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
   skin.panel(g, x, y, w, ph, 'cool')
   const name = placeName(s, def)
   F.draw(g, name, x + 8, y + 7, skin.prize)
-  // Out in the frontier (and where its gates are) its regions stand at the right.
-  const fr = showsFrontier(s)
-  const cell = fr ? Math.max(3, Math.min(6, Math.floor((ph - 30) / FRONTIER.layout.length))) : 0
-  const grid = fr ? frontierGrid(cell) : null
+  // On the grid's maps (once the blade is in hand) the whole world's chart stands at the right.
+  const fr = showsWorld(world, s)
   // (Beside the map on a wide screen, under it on an upright phone, where the width is what the map is short of.)
   const tall = ph > w
+  const full = fr ? worldChart(world, 1) : null
+  const scale = full ? Math.min(tall ? (w - 16) / full.w : 0.26, (ph - 40) * (tall ? 0.38 : 1) / full.h) : 0
+  const grid = full ? worldChart(world, scale) : null
   const area = { x: x + 8, y: y + 20, w: w - 16 - (grid && !tall ? grid.w + 10 : 0), h: ph - 28 - (grid && tall ? grid.h + 18 : 0) }
   if (grid) {
     const gx = tall ? x + Math.round((w - grid.w) / 2) : x + w - 8 - grid.w
     const gy = tall ? area.y + area.h + 4 : area.y
-    drawFrontierGrid(g, s, gx, gy, cell, skin)
-    F.draw(g, 'FRONTIER', tall ? Math.round(x + (w - F.width('FRONTIER')) / 2) : gx, gy + grid.h + 4, skin.dim)
+    drawWorldChart(g, world, s, gx, gy, scale, skin)
+    F.draw(g, 'THE WORLD', tall ? Math.round(x + (w - F.width('THE WORLD')) / 2) : gx, gy + grid.h + 4, skin.dim)
   }
   if (!charted(def) || !seenAny(s, s.map.id)) {
     const say = charted(def) ? 'NOTHING SEEN YET' : 'NO MAP INDOORS'
@@ -311,11 +313,11 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
       placed.push({ x: lx, y: ly, w: lw })
       F.draw(g, label, lx, ly, skin.dim, skin.outline)
     }
-    // The ways between the coast and the frontier seen on this map (the gates, the ferry): a lit square each.
-    // (Out there only those home: a region's stairs down to the quarry, the glade or the lab are no way to the coast.)
-    const out = !!frontierXY(s)
+    // The ways between the coast and the lands seen on this map (the gates, the ferry): a lit square each.
+    // (Out in a land only those home: its stairs down to the quarry, the glade or the lab are no way to the coast.)
     for (const wp of info.warps) {
-      if (!(out ? COAST.has(wp.to) : wp.to.startsWith('fr:')) || !seenTile(s, s.map.id, info.w, wp.x, wp.y)) continue
+      const to = world.maps[wp.to]
+      if (!to || !world.atlas?.[wp.to] || !!to.away === !!def.away || !seenTile(s, s.map.id, info.w, wp.x, wp.y)) continue
       const p = at(wp.x + 0.5, wp.y + 0.5)
       g.fillStyle = skin.outline
       g.fillRect(Math.round(p.x) - 2, Math.round(p.y) - 2, 4, 4)

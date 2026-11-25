@@ -41,14 +41,14 @@ import { createGame, stepGame } from ${JSON.stringify(join(repo, 'themes/zelda/e
 import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.ts'))}
 import { reveal } from ${JSON.stringify(join(repo, 'themes/zelda/engine/explore.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
-import { sceneryAt } from ${JSON.stringify(join(repo, 'themes/zelda/world/gen/frontierScenery.ts'))}
+import { sceneryAt } from ${JSON.stringify(join(repo, 'themes/zelda/world/scenery.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { spawnEnemy } from ${JSON.stringify(join(repo, 'themes/zelda/engine/spawn.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
-import { kitFor, loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
+import { kitsFor, loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
 import { mapDef } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
@@ -502,7 +502,7 @@ function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.
 // Several frames so fades (exit labels) settle and the clock moves.
 ;(async () => {
   // (A realm's scenery is a chunk of its own, fetched when the view first needs it: the lab waits for it.)
-  await loadRealmArt(kitFor(mapDef(world, s.map.id)))
+  await Promise.all(kitsFor(mapDef(world, s.map.id)).map(loadRealmArt))
   if (q.get('t')) r.draw(s, ui, +q.get('t'))
   const frames = +(q.get('frames') || 40)
   for (let k = 0; k < frames; k++) {

@@ -1,8 +1,9 @@
 /**
- * The one world: the town (phareim.no's front door) and Neon Shrine's coast,
- * shrine and rooms. A visitor starts in the town square facing Petter's name.
+ * The one world: the town (phareim.no's front door), Neon Shrine's coast, shrine and rooms, the Wildwood, and the
+ * lands around them, all on one grid (`atlas.ts`, docs/worlds/atlas.md). A visitor starts in the town square
+ * facing Petter's name.
  */
-import type { ExitDef, MapDef, World } from '../types'
+import type { ExitDef, World } from '../types'
 import { hasEntry } from '../engine/game'
 import { OVERWORLD } from './overworld'
 import { SHRINE } from './shrine'
@@ -12,13 +13,12 @@ import { WILDWOOD } from './wildwood'
 import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
-import { frontierMap } from './gen/frontier'
 import { ARENA } from './arena'
 import { QUARRY } from './quarry'
 import { PUZZLELAB } from './puzzlelab'
-import { DEMOS, linkBack } from './gen/demos'
-
-const demo = (def: MapDef) => linkBack(def, DEMOS.find(d => d.map === def.id)!)
+import { linkBack } from './demos'
+import { ATLAS, rescueFrontier } from './atlas'
+import { LANDS } from './lands'
 
 export { INTRO } from './intro'
 
@@ -39,17 +39,20 @@ export const WORLD: World = {
     lab1b: LAB1B,
     deep1: DEEP1,
     deep2: DEEP2,
-    // Field battles' demo glade, down from Sporelight (gen/demos.ts).
-    arena: demo(ARENA),
-    // Dig & build's first map (`MapDef.dig`), down from Lumenby: the tools are here.
-    quarry: demo(QUARRY),
-    // The physical puzzles' lab (`engine/puzzles/`), down from Stillsand.
-    puzzlelab: demo(PUZZLELAB),
+    // Field battles' glade, down a root stair in the Sporelight (demos.ts).
+    arena: linkBack(ARENA),
+    // Dig & build's first map (`MapDef.dig`), down from Lumenby's pit: the tools are here.
+    quarry: linkBack(QUARRY),
+    // The physical puzzles' lab (`engine/puzzles/`), inside Stillsand's gold pyramid.
+    puzzlelab: linkBack(PUZZLELAB),
+    // The lands around the coast and the Wildwood (docs/worlds/atlas.md).
+    ...LANDS,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,
-  // The frontier across the bay: regions made when first walked into (docs/worlds/).
-  generate: id => frontierMap(id),
+  atlas: ATLAS,
+  // Saves made in the generated frontier (gone since 2026-11) continue in the land that took its place.
+  rescue: rescueFrontier,
 }
 
 /** Every exit in the world with the map it stands in, in authoring order (the page's hidden link list reads it). */
