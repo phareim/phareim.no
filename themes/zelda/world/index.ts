@@ -13,6 +13,7 @@ import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
 import { frontierMap } from './gen/frontier'
+import { ARENA } from './arena'
 
 export { INTRO } from './intro'
 
@@ -33,6 +34,8 @@ export const WORLD: World = {
     lab1b: LAB1B,
     deep1: DEEP1,
     deep2: DEEP2,
+    // Field battles' demo glade: not linked from the world yet.
+    arena: ARENA,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,

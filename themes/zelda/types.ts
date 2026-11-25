@@ -9,6 +9,9 @@
  * Design: DESIGN.md next to this file; status and checks: docs/games/neon-shrine.md.
  */
 
+import type { BattlePick, BattleState, MapBattleDef } from './battleTypes'
+export type * from './battleTypes'
+
 // ---------------------------------------------------------------------------
 // Basics
 // ---------------------------------------------------------------------------
@@ -160,6 +163,7 @@ export type ItemId =
   | 'tube' // a vacuum tube for Dusty's radio
   | 'walkie' // Toby's lost walkie-talkie
   | 'hat' // the troll's hat
+  | 'tonic3' // three neon tonics (field battles: ITEM heals)
 
 export type UseItem = 'disc' | 'bombs' | 'hook'
 
@@ -405,6 +409,8 @@ export interface MapDef {
    * as the hero is here, without changing the visitor's choice.
    */
   views?: Array<'classic' | 'iso' | 'poly'>
+  /** Field battles: foe groups here are fought in place, Chrono Trigger–style (`engine/battle/`). */
+  battle?: MapBattleDef
 }
 
 export interface AreaIntro {
@@ -458,6 +464,8 @@ export interface Enemy {
   away?: boolean
   /** Walking in to its home from past the screen's edge, or out past it. */
   trek?: { x: number; y: number; out: boolean; stuck: number }
+  /** A field battle's foe (`MapDef.battle`): the group it belongs to. It does not fight in real time. */
+  group?: string
 }
 
 export interface Projectile {
@@ -660,6 +668,8 @@ export interface Inventory {
   shrooms: number
   /** Small keys per dungeon other than the Shrine (whose keys are `keys`), by MapDef.keyring. */
   keyrings: Record<string, number>
+  /** Field battles: neon tonics carried (ITEM heals with one). */
+  tonics: number
 }
 
 /** The grappling hook in flight. Positions in tiles. */
@@ -692,7 +702,7 @@ export interface Follower {
 }
 
 /** 'exit' is terminal like 'won': the screen stays dark and the shell navigates away. */
-export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won' | 'exit'
+export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won' | 'exit' | 'battle'
 
 export interface Dialog {
   lines: string[]
@@ -752,6 +762,8 @@ export interface GameState {
    * stuck on the horizon (before the Sun Prism).
    */
   daytime: number | null
+  /** A field battle under way (mode 'battle', and 'dying' when it was lost). */
+  battle?: BattleState | null
   /**
    * What the screen shows (the shell says, each frame): the classic view's
    * size in tiles, and whether the picture is turned (the 16-bit view, which
@@ -786,6 +798,10 @@ export interface Input {
   autoFace: boolean
   /** A tap this frame on the left (-1) or right (1) half of the screen; picks YES or NO. */
   tapSide?: -1 | 1
+  /** A tap this frame, CSS px on the canvas (field battles: the shell turns it into `pick`). */
+  tap?: Vec
+  /** Field battles: a command or a target touched. */
+  pick?: BattlePick
 }
 
 export const NO_INPUT: Input = { move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false }
@@ -852,6 +868,7 @@ export type GameEvent =
   | { type: 'join' }
   | { type: 'wait' } // Luna sat down at her fort
   | { type: 'bark'; x: number; y: number }
+  | { type: 'battle'; what: 'start' | 'won' | 'fled' | 'turn' | 'tech'; track?: TrackId; boss?: boolean }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

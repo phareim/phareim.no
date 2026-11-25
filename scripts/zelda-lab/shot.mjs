@@ -296,6 +296,22 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   // Part 22: the troll by the broken bridge (the hero just south of him).
   case 'w-troll': wild(); go('wildwood', 35.5, 38.5, 'up'); run(30); break
   case 'd-gate': wild(true); s.inv.arc = true; s.flags.gemini = true; s.flags.gateShut = true; go('deep2', 23.5, 8.5, 'up'); run(20); break
+  // Field battles (docs/games/neon-shrine-battle.md) in the demo glade: b-field before a fight; the others in one,
+  // the menu open (b-menu), a target being picked (b-target), the tech list (b-tech), a blow landing (b-hit),
+  // the hero alone (b-solo).
+  case 'b-field': wild(true); s.inv.tonics = 3; go('arena', 15.5, 18.5, 'up'); run(30); break
+  case 'b-menu': case 'b-target': case 'b-tech': case 'b-hit': case 'b-solo': {
+    wild(scene !== 'b-solo'); s.inv.tonics = 3
+    const g = scene === 'b-hit' ? [18.5, 9.4] : scene === 'b-solo' ? [23.5, 14.6] : [8.5, 18.4]
+    go('arena', g[0], g[1], 'up'); run(2)
+    if (s.luna) { s.luna.x = s.hero.x + 0.6; s.luna.y = s.hero.y + 0.9 }
+    for (let k = 0; k < 400 && s.mode === 'play'; k++) run(1, inp({ move: { x: 0, y: -1 } }))
+    for (let k = 0; k < 900 && !(s.battle && s.battle.menu && s.battle.menu.who === 'hero'); k++) { run(1); if (s.battle && s.battle.menu && s.battle.menu.who !== 'hero') run(1, inp({ aPress: true })) }
+    if (scene === 'b-target') run(1, inp({ aPress: true }))
+    if (scene === 'b-tech') run(1, inp({ pick: { cmd: 1 } }))
+    if (scene === 'b-hit') { run(1, inp({ aPress: true })); run(1, inp({ aPress: true })); run(21) }
+    break
+  }
 }
 if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
 // DAY=sun|noon|night|dawn: a solved save's running hour, as steady.mjs --day (without it the eternal dusk).
@@ -453,6 +469,15 @@ const SHOTS = [
   ['d-deepseek-hit-1280', 'd-deepseek-hit', 1280, 800, 1, 0],
   ['d-gemini-hit-1280', 'd-gemini-hit', 1280, 800, 1, 0],
   ['w-troll-1280', 'w-troll', 1280, 800, 1, 0],
+  // Field battles: a phone (375×667) and a laptop.
+  ['b-field-375', 'b-field', 375, 667, 2, 0],
+  ['b-menu-375', 'b-menu', 375, 667, 2, 0],
+  ['b-target-375', 'b-target', 375, 667, 2, 0],
+  ['b-tech-375', 'b-tech', 375, 667, 2, 0],
+  ['b-hit-375', 'b-hit', 375, 667, 2, 0],
+  ['b-solo-375', 'b-solo', 375, 667, 2, 0],
+  ['b-menu-1280', 'b-menu', 1280, 800, 1, 0],
+  ['b-hit-1280', 'b-hit', 1280, 800, 1, 0],
   // The polygon view's set (tmp/poly-lab): the same places at the size the other views are judged at.
   ['shop-1280', 'shop', 1280, 800, 1, 0],
   ['shop-390', 'shop', 390, 844, 3, 0],

@@ -207,7 +207,7 @@ export function settleFoes(world: World, s: GameState) {
     const twins: Enemy[] = []
     let i = 0
     for (const e of m.enemies) {
-      if (!ROAMS.has(e.kind) || e.once || e.carries || e.id.includes(':night')) continue
+      if (e.group || !ROAMS.has(e.kind) || e.once || e.carries || e.id.includes(':night')) continue
       e.rank = 0.15 + hash(e.home.x, e.home.y, 3) * 0.8
       if (!TWINS.has(e.kind)) continue
       const at = twinSpot(world, m, e, i++)
