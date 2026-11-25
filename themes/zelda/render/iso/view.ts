@@ -23,7 +23,7 @@
  * Without WebGL2 the canvas view this one replaced draws instead
  * (`legacy.ts`).
  */
-import type { GameState, MapKind, TileChar } from '../../types'
+import type { GameState, MapDef, MapKind, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, battleFocus, has, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
@@ -37,13 +37,15 @@ import { NEON_SKIN } from '../hud'
 import { HIRES_WINDOW_SKIN } from '../hud16'
 import { drawHookChain, fireflies } from '../wild'
 import { centreIn, groundRect, type Rect } from './project'
-import { FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
+import { CARD, FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
+import { standsIn } from '../standIns'
 import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camera'
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
 import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
-import { REALM_THING_ART } from './frontierArt'
+import { hasRealmArt, realmArt as realmKit, warmRealmArt } from './frontierArt'
+import { FRONTIER_PREFIX, realmAt } from '../../world/gen/frontier'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
@@ -101,6 +103,14 @@ const MASSIF: readonly Shape[] = [WALL_TOP, { ...WALL_TOP, h: 2 * TILE }, { ...W
  * counter laid north) is taken off the ground from its far end over this share of the thing's rise.
  */
 const LAID_WIPE = 0.6
+
+/** The two triangles of a quad round a point, as corners: a lamp's pool, a blob shadow. */
+const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
+
+/** A lamp placed in the world for this frame: where, how far it reaches, its colour and strength. */
+interface Placed { x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }
+/** What throws a blob: where it stands, how tall, its half width, how dark; `deep`: a body's half depth (its width runs along x). */
+interface Card { x: number; y: number; tall: number; wide?: number; dark?: number; deep?: number }
 
 /** The atlas of people and things: one cell each, small or big, in classic px. */
 const ATLAS = 1024
@@ -171,12 +181,16 @@ export default function isoView(kit: Kit): View {
   let realmArt: string | undefined
   let coverDef: ReturnType<typeof mapInfo>['def'] | null = null
   const covered = new Set<number>()
+  /** Solid scenery whose art is on the GPU: its classic stand-in (`../standIns.ts`) stands down for it. */
+  const propped = new Set<number>()
   /** The realm look whose materials are on the GPU ('' the coast's). */
   let matLook = ''
   const sendProps = (realm?: string) => {
     realmArt = realm
-    propAtlas = withThings(buildProps(), realm ? REALM_THING_ART[realm] : undefined)
+    propAtlas = withThings(buildProps(), realm ? realmKit(realm) : undefined)
     engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
+    // (The landmarks that cover classic scenery are counted again with the kit that is on the GPU now.)
+    coverDef = null
   }
   const sendMaterials = () => {
     const mats = buildMaterials()
@@ -185,9 +199,28 @@ export default function isoView(kit: Kit): View {
     engine.materials(mats.data, mats.w, mats.h)
     sendProps(realmArt)
   }
-  const prepareProps = (realm: string | undefined) => {
-    const want = realm && REALM_THING_ART[realm] ? realm : undefined
-    if (want !== realmArt) sendProps(want)
+  /** The map whose neighbours' kits were asked for last. */
+  let warmedFor: MapDef | null = null
+  /**
+   * Puts the map's realm kit on the GPU once its chunk is here (`frontierArt/index.ts`); until then the atlas
+   * has none, and the realm's landmarks are left out (the classic scenery under them stays). False while it is
+   * still on its way. The kits of the regions beyond the map's edges are fetched meanwhile, so walking on into
+   * one finds its kit here.
+   */
+  const prepareProps = (def: MapDef): boolean => {
+    const want = hasRealmArt(def.realm) ? def.realm : undefined
+    const kit = want ? realmKit(want) : undefined
+    const have = kit ? want : undefined
+    if (have !== realmArt) sendProps(have)
+    if (warmedFor !== def) {
+      warmedFor = def
+      for (const to of Object.values(def.edges ?? {})) {
+        const m = to?.startsWith(FRONTIER_PREFIX) ? /^fr:(\d+),(\d+)$/.exec(to) : null
+        if (m) warmRealmArt(realmAt(Number(m[1]), Number(m[2]))?.id)
+      }
+      if (def.entries?.deep) warmRealmArt('underglow')
+    }
+    return !want || !!kit
   }
   /**
    * Paints the view's own pictures, the materials and the things. All of it at once is a pause one can feel
@@ -250,6 +283,26 @@ export default function isoView(kit: Kit): View {
   const standing: number[] = []
   /** Where the things with a body stand (x, y pairs): they carry lights like those who stand, and throw no blob. */
   const bearers: number[] = []
+  /** Both kinds of feet, for the lights carried over them. */
+  const feetOf = [standing, bearers] as const
+  /**
+   * Scratch for `draw`, emptied at the start of each frame instead of made again (a phone's collector notices
+   * sixty maps and arrays a second): the counters' front edges, this frame's lights and loose lights, what throws a
+   * blob, and the lamps placed in the world (their objects reused, `nPlaced` of them in use).
+   */
+  const tops = new Map<number, number>()
+  const lights: Light[] = []
+  const loose: Light[] = []
+  const cards: Card[] = []
+  const placed: Placed[] = []
+  let nPlaced = 0
+  /** A light's colour as the GPU takes it, by its hex (the same few colours every frame; read only). */
+  const lampRgb = new Map<string, [number, number, number]>()
+  const rgbOf = (hex: string): [number, number, number] => {
+    let c = lampRgb.get(hex)
+    if (!c) { if (lampRgb.size > 256) lampRgb.clear(); c = rgb(hex); lampRgb.set(hex, c) }
+    return c
+  }
   /** Small things in the air: the dust a step kicks up. World points (tiles), a height, a life. */
   const motes: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; life: number; color: string }> = []
   let stepT = 0
@@ -347,6 +400,8 @@ export default function isoView(kit: Kit): View {
       const ty = ey - M
       const inside = tx >= 0 && ty >= 0 && tx < m.w && ty < m.h
       let sh = shapeOf(outer[ey * ew + ex]!, kind, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy), inside && own.has(ty * m.w + tx), true)
+      // Solid scenery's classic stand-in stands up as a card (when the realm's own art is drawn, it stands down).
+      if (inside && standsIn(m, ty * m.w + tx)) sh = CARD
       // The rock beyond the edge rises in steps the further out it lies.
       if (!inside && sh === WALL_TOP) sh = MASSIF[massifHeight(m.w, m.h, tx, ty + sh.f) - 1]!
       // Dig & build: ground above its level stands up as a column (`dig.ts`).
@@ -760,7 +815,8 @@ export default function isoView(kit: Kit): View {
     if (!base || base.mapId !== m.id) { base = createTileLayer(world, m, 'base'); fresh(); if (late()) return false }
     if (!objects || objects.mapId !== m.id) { objects = createTileLayer(world, m, 'objects'); fresh(); if (late()) return false }
     const def = mapInfo(world, m.id).def
-    prepareProps(def.realm)
+    // (The lab, which waits for everything, waits for the realm's kit too; a visit draws on without it.)
+    if (!prepareProps(def) && all) return false
     const fLook = floraOf(def.look)
     if (def.kind === 'overworld' && floraLook !== fLook) {
       while (!stepFlora(fLook)) if (late()) return false
@@ -788,15 +844,19 @@ export default function isoView(kit: Kit): View {
     const m = s.map
     const info = mapInfo(world, m.id)
     const def = info.def
-    prepareProps(def.realm)
+    prepareProps(def)
     if (coverDef !== def) {
       coverDef = def
       covered.clear()
+      propped.clear()
       const sprites = propAtlas!.sprites
-      for (const { art, cover, motion } of def.isoLandmarks ?? []) {
-        if (!cover || !Object.prototype.hasOwnProperty.call(sprites, thingKey(motion && !motion.bob ? `${art}_0` : art))) continue
-        for (let y = cover.y; y < cover.y + cover.h; y++) {
+      for (const { art, cover, solid, motion } of def.isoLandmarks ?? []) {
+        if (!(cover || solid) || !Object.prototype.hasOwnProperty.call(sprites, thingKey(motion && !motion.bob ? `${art}_0` : art))) continue
+        if (cover) for (let y = cover.y; y < cover.y + cover.h; y++) {
           for (let x = cover.x; x < cover.x + cover.w; x++) covered.add(y * m.w + x)
+        }
+        if (solid) for (let y = solid.y; y < solid.y + solid.h; y++) {
+          for (let x = solid.x; x < solid.x + solid.w; x++) if (info.scenery.has(y * m.w + x)) propped.add(y * m.w + x)
         }
       }
     }
@@ -903,7 +963,7 @@ export default function isoView(kit: Kit): View {
      * classic art puts on that tile's picture stands on its top, at the front, so a price under a ware hangs
      * down the counter's face.
      */
-    const tops = new Map<number, number>()
+    tops.clear()
     /**
      * How far the things this view builds itself have come up (`props.ts`): they are drawn as the finished view
      * sees them, so they rise out of the ground over the last part of the turn, while the classic pictures they
@@ -937,7 +997,7 @@ export default function isoView(kit: Kit): View {
     }
 
     // --- the classic picture, in parts ---------------------------------------------
-    const lights: Light[] = []
+    lights.length = 0
     /** The time things move by (0 under reduced motion: everything holds still). */
     const tm = reduced ? 0 : time
     /** Beams that sweep (a landmark's `sweep` light): drawn over the lit scene as a dithered wedge. */
@@ -992,8 +1052,7 @@ export default function isoView(kit: Kit): View {
     const shading = par.shading as number
     const eastShade = (0.16 + 0.5 * shading) * k
     const southShade = (0.06 + 0.3 * shading) * k
-    /** What throws a blob: where it stands, how tall, its half width, how dark; `deep`: a body's half depth (its width runs along x). */
-    const cards: Array<{ x: number; y: number; tall: number; wide?: number; dark?: number; deep?: number }> = []
+    cards.length = 0
     /** The row of the face tile with `d` face rows under it, in column tx below row ty; -1 if the art has none. */
     const faceRow = (tx: number, ty: number, d: number): number => {
       let y = ty + 1
@@ -1076,7 +1135,7 @@ export default function isoView(kit: Kit): View {
     // From the near corner to the far one, so what stands in front is drawn first and hides the rest early.
     for (let ty = R.y + R.h - 1; ty >= R.y; ty--) for (let tx = R.x + R.w - 1; tx >= R.x; tx--) {
       if (!inRoom(tx, ty)) continue
-      if (drawn && k >= 1 && tx >= 0 && tx < m.w && covered.has(ty * m.w + tx)) {
+      if (drawn && k >= 1 && tx >= 0 && tx < m.w && (covered.has(ty * m.w + tx) || (propped.has(ty * m.w + tx) && standsIn(m, ty * m.w + tx)))) {
         bare((tx - R.x) * T, (ty - R.y) * T, T, T)
         continue
       }
@@ -1283,7 +1342,7 @@ export default function isoView(kit: Kit): View {
             continue
           }
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
-          const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
+          const sandy = (tileOf(tx + 1, ty) === '-' ? 1 : 0) + (tileOf(tx - 1, ty) === '-' ? 1 : 0) + (tileOf(tx, ty + 1) === '-' ? 1 : 0) + (tileOf(tx, ty - 1) === '-' ? 1 : 0) >= 2
           if (!(outdoors && sandy)) {
             const pair = outdoors && mood ? mood.lamp : null
             prop = pair ? LAMP_PROPS[pair[hash2(tx, ty, 11) < 0.5 ? 0 : 1]] ?? 'lampPink' : hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
@@ -1549,7 +1608,7 @@ export default function isoView(kit: Kit): View {
     const vx = Math.round(c.x - vw / 2)
     const vy = Math.round(c.y - vh / 2)
     /** Lights already on the scene (fireflies), in classic px. */
-    const loose: Light[] = []
+    loose.length = 0
     if (def.look === 'wild' && !ui.attract) {
       const n = lights.length
       fireflies(vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights, xg, kit.day('iso')?.fireflies ?? 1)
@@ -1760,30 +1819,35 @@ export default function isoView(kit: Kit): View {
 
     // --- lamps -------------------------------------------------------------------------
     const amb = kit.ambient(s, ui, lights)
-    const placed: Array<{ x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }> = []
+    nPlaced = 0
+    const put = (x: number, y: number, z: number, r: number, color: string, a: number) => {
+      const o = placed[nPlaced] ??= { x: 0, y: 0, z: 0, r: 0, c: [0, 0, 0], a: 0 }
+      o.x = x; o.y = y; o.z = z; o.r = r; o.c = rgbOf(color); o.a = Math.max(0, Math.min(1, a))
+      nPlaced++
+    }
     for (const L of lights) {
       const p: [number, number, number] = L.z !== undefined ? [L.x, L.y, L.z] : world3(L.x, L.y)
       if (p[2] === 0 && L.z === undefined) {
         // The classic picture puts a carried light up the screen from its bearer's feet: a lantern in a hand,
         // a cabinet's screen, a fire's heart. Here that is height, over the feet it belongs to.
         let best = 2
-        for (const feet of [standing, bearers]) for (let i = 0; i < feet.length; i += 2) {
+        for (const feet of feetOf) for (let i = 0; i < feet.length; i += 2) {
           const up = feet[i + 1]! - L.y
           if (Math.abs(feet[i]! - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = feet[i]!; p[1] = feet[i + 1]!; p[2] = up }
         }
       }
-      placed.push({ x: p[0], y: p[1], z: p[2], r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
+      put(p[0], p[1], p[2], L.r, L.color, L.a)
     }
     for (const L of loose) {
       const p = toGround(cam, L.x * zoom, L.y * zoom)
-      placed.push({ x: p.x, y: p.y, z: 0.4, r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
+      put(p.x, p.y, 0.4, L.r, L.color, L.a)
     }
-    if (placed.length * 6 * LVERT > lightVerts.length) lightVerts = new Float32Array(placed.length * 6 * LVERT * 2)
+    if (nPlaced * 6 * LVERT > lightVerts.length) lightVerts = new Float32Array(nPlaced * 6 * LVERT * 2)
     let nl = 0
-    for (const L of placed) {
+    for (let li = 0; li < nPlaced; li++) {
+      const L = placed[li]!
       if (L.x + L.r < R.x || L.y + L.r < R.y || L.x - L.r > R.x + R.w || L.y - L.r > R.y + R.h) continue
-      const cs = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
-      for (const [dx, dy] of cs) {
+      for (const [dx, dy] of CORNERS) {
         const o = nl * LVERT
         lightVerts[o] = L.x + dx * L.r; lightVerts[o + 1] = L.y + dy * L.r
         lightVerts[o + 2] = L.x; lightVerts[o + 3] = L.y; lightVerts[o + 4] = L.z; lightVerts[o + 5] = L.r
@@ -1802,7 +1866,8 @@ export default function isoView(kit: Kit): View {
       let dx = outdoors ? sunDir.x * 0.5 : 0
       let dy = outdoors ? sunDir.y * 0.5 : 0
       let sum = outdoors ? 0.5 : 0.15
-      for (const L of placed) {
+      for (let li = 0; li < nPlaced; li++) {
+        const L = placed[li]!
         const lx = L.x - x
         const ly = L.y - y
         const d = Math.hypot(lx, ly)
@@ -1823,8 +1888,7 @@ export default function isoView(kit: Kit): View {
       const hl = len / 2 + (deep < 0 ? wide : wide * Math.abs(ux) + deep * Math.abs(uy))
       const cx0 = x + ux * len * 0.5
       const cy0 = y + uy * len * 0.5
-      const cs = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
-      for (const [a, b] of cs) {
+      for (const [a, b] of CORNERS) {
         const o = nb * BVERT
         blobVerts[o] = cx0 + ux * hl * a - uy * hw * b
         blobVerts[o + 1] = cy0 + uy * hl * a + ux * hw * b

@@ -484,7 +484,7 @@ export interface MapDef {
   /** Letter stones: walking over them in this order sets `flag`. */
   codes?: Array<{ word: string; flag: string }>
   props?: Prop[]
-  /** Isometric scenery, in tile units. These decorations have no collision of their own. */
+  /** Isometric scenery, in tile units. Only those with a `solid` footprint are in anyone's way. */
   isoLandmarks?: IsoLandmark[]
   /**
    * Walking off this edge (where the hero stands on open ground) leads into
@@ -515,6 +515,13 @@ export interface IsoLandmark {
   z?: number
   /** The classic scenery the landmark replaces in the isometric view. */
   cover?: Rect
+  /**
+   * The tiles it stands on, solid to whoever walks (`MapInfo.scenery`, engine/map.ts): a cart, a crate, a mailbox
+   * is in the way in every view, and where its art is not drawn a classic stand-in shows it (`render/standIns.ts`).
+   * A tile on the run of a road, at the map's rim, under anyone or anything placed, beside an entry, a warp, a door
+   * or an exit (unless the footprint spans that way in), or one that would cut off open ground stays open.
+   */
+  solid?: Rect
   /** Numbered art frames, or a one-pixel bob with the same artwork. */
   motion?: { frames: number; fps: number; bob?: boolean }
   /** A different sprite once a quest flag has been set. */
@@ -749,6 +756,8 @@ export interface MapState {
   dig?: DigState
   /** The physical puzzles' live state (`engine/puzzles/`), made on first use; absent on maps without them. */
   phys?: PhysState
+  /** Tiles the map's landmarks stand on (`MapInfo.scenery`): solid to walkers, whatever the tile is. */
+  scenery?: ReadonlySet<number>
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */

@@ -47,6 +47,8 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
+import { loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
+import { mapDef } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
 // LIVE=<pack.json> applies the studio's live sprites (render/live.ts) as the site does, before anything is drawn.
@@ -468,6 +470,8 @@ function wild(luna = false) {
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
 ;(async () => {
+  // (A realm's scenery is a chunk of its own, fetched when the view first needs it: the lab waits for it.)
+  await loadRealmArt(mapDef(world, s.map.id)?.realm)
   const frames = +(q.get('frames') || 40)
   for (let k = 0; k < frames; k++) {
     if (k === frames - 2 && late) late()
