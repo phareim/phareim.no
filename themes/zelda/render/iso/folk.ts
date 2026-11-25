@@ -43,10 +43,10 @@ export type Facing = 'front' | 'back'
 
 /**
  * Bosses drawn but not shown: their art stays in `bossArt.ts` until a redraw lands, and the game draws the classic
- * sprite. The llama's drawing lost its classic identity (the upright stance and the L badge) and is partly doubled
- * px (Petter's review, 2026-11-25).
+ * sprite. Empty now: the llama, held after part 22 (its drawing lost the upright stance and the L badge, and was
+ * partly doubled px), was redrawn face-on in part 24 and is shown again.
  */
-export const BOSSES_HELD = new Set(['llama'])
+export const BOSSES_HELD = new Set<string>([])
 const SHOWN_BOSSES = Object.fromEntries(Object.entries(BOSS_ART).filter(([k]) => !BOSSES_HELD.has(k)))
 
 /** Every family with art: the people and foes (`folkArt.ts`) and the bosses shown (`bossArt.ts`). */

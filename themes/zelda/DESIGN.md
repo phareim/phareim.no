@@ -149,7 +149,7 @@ are redrawn for it as isometric pixel art at its own density (`iso/folk.ts`: sin
 recoloured by roles in `iso/hero.ts`, the bosses since part 22 rotoscoped in `iso/bossArt.ts`; the studio's newer edit of a classic sprite wins until the art is redrawn). Since part 23
 the things of the world (the van, tents, fires, torches, the mast, tanks, the DJ booths, the furniture, the labs'
 consoles and benches, a fountain in the square's pool) are rotoscoped too, from guides built of solids (`iso/things.ts`).
-What still waits for its isometric art (the mistral, the pictures on the walls, the pool's square water, the effects) is
+What still waits for its isometric art (the pictures on the walls, the pool's square water, the effects) is
 in the journal thread `neon-shrine-isometric-art`.
 
 **Rotoscoped pixel art** (Petter, 2026-11-25: «Alt vi legger ut skal ha en håndtegnet piksel-art følelse … Vi tåler

@@ -448,7 +448,7 @@ classic picture. `/?view=<id>` asks for one.
   `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
   looks.
 - **The people** (`iso/folk.ts`, `iso/folkArt.ts`; parts 19 and 20, 2026-11-24).
-  Everyone but the mistral is redrawn for this view
+  Everyone is redrawn for this view
   as isometric pixel art (the hero since part 21, its own way: *The hero* below; the bosses since part 22,
   rotoscoped: *The bosses* below): two px of theirs to the classic px (a 16 × 16 sprite
   becomes about 20–34 × 17–35, the 24 × 24 knight about 38 × 48), chunky like
@@ -464,8 +464,7 @@ classic picture. `/?view=<id>` asks for one.
     (with `skull_jump`), `eye`, `blade` (in no room yet), `knight`, and the
     labs' `hound` (four ways and `hound_open`) and `drone`.
 
-  The bosses are `bossArt.ts`'s (part 22, *The bosses* below); only the
-  `mistral` is still classic. A family
+  The bosses are `bossArt.ts`'s (parts 22 and 24, *The bosses* below). A family
   carries one drawn three-quarter front (turned to the viewer's lower left)
   and, for a foe that walks four ways, one three-quarter back (turned to the
   upper left); mirroring gives the other two. The engine's four ways go
@@ -595,8 +594,10 @@ classic picture. `/?view=<id>` asks for one.
       holds the coverage, the recolouring and the fallback.
   - *The bosses* (`iso/bossArt.ts`; part 22, 2026-11-25; Petter: «Kjør på med
     rotoskopering, både av sjefer og greier rundt i verden. Viktig at vi holder
-    oss i en ekte piksel-følelse.»). The king (and its shards), the troll, the gemini twins, the llama and the deepseek are drawn in the same art as the
-    people, rotoscoped: each was built in 3D (the king and the twins from
+    oss i en ekte piksel-følelse.»; the llama redrawn and the mistral drawn in
+    part 24, «Ja, tegn dem»). All six are drawn in the same art as the people:
+    the king (and its shards), the troll, the gemini twins, the llama, the
+    deepseek and the mistral, rotoscoped: each was built in 3D (the king and the twins from
     Blender primitives, the others a Pixal3D mesh of a Codex reference picture),
     posed for its classic frames (a bob, a tilt, a part moved, the eye or the
     mouth changed, the whirlwind turned) and rendered from this view's own
@@ -609,31 +610,55 @@ classic picture. `/?view=<id>` asks for one.
     eye, its crown with the yellow studs and its glitch streaks; the twins
     clearly cyan and clearly pink, the split mask and the gold stripe; the
     troll's moss, sprout, tusks and nose; the llama's pink harness and yellow
-    tag; the deepseek's glowing cyan lure, its grin and its bite. The mistral is
-    still the classic sprite (its reference and mesh are made; part 22 stopped
-    before drawing it). The llama is drawn but held back (`BOSSES_HELD` in
-    `folk.ts`), so the game shows its classic sprite: the drawing became a
-    fluffy four-legged animal that reads as a dog or a squirrel, without the
-    classic's upright stance and L badge, and parts of it are doubled px. It
-    waits for a redraw at the 10 px guide that keeps the classic identity.
+    tag; the deepseek's glowing cyan lure, its grin and its bite; the
+    mistral's icy cyan spiral round the orb with its calm face.
+    - *The llama* (part 24). Part 22's drawing was held back (`BOSSES_HELD` in
+      `folk.ts`): seen side-on from the mesh it became a fluffy four-legged
+      animal that read as a dog or a squirrel, without the classic's upright
+      stance and L badge, and partly doubled px. It was redrawn face-on: the
+      mesh turned to face the camera and tipped back 25° (stretched 1.2 in
+      height) so the head stands high on the short neck with its two tall
+      ears, about as wide as it is tall; the violet visor of eyes and the
+      grumpy mouth, the pink harness across the chest with the big yellow L
+      tag, the lavender wool and violet legs. Front, walk step and spit on one
+      sheet, the back's two steps on another (from behind: the harness across
+      the back with its centre strap, the tail). `BOSSES_HELD` is empty now;
+      the mechanism and its test stay for the next drawing that misses.
+    - *The mistral* (part 24). Its classic turns its spiral in the picture's
+      own plane, the face upright and the tail below, at 7 frames a second (14
+      while it blows), never mirrored. So frame 0 is the mesh face-on (tipped
+      back 30°), and frames 1–3 are the same drawing with the ribbons turned an
+      eighth, a quarter and three eighths of a turn clockwise round the orb:
+      Codex edits of frame 0, each given frame 0's drawing and a guide with the
+      render's ribbons turned (the orb and the tail kept), placed by the orb so
+      the face stays put while the wind turns. `down` (the slumped heap, the
+      orb on top with dizzy eyes, three yellow stars) is an edit of frame 0 as
+      well.
     - *Size.* Codex draws pixel art on a grid of its own, about 10 px of its
       1536-px sheet to a pixel whatever it is asked; a figure drawn smaller on
       the sheet comes out in 2 × 2 blocks once cut at the view's density (the
       first king and troll did; they were redrawn). So a boss is guided at 10
       px a pixel (the king one frame to a sheet, the troll's pair, the
-      deepseek's two poses and fin) or at 5 where the figure is small enough
-      that the drawing still lands on whole px (the twins, the llama), and every
-      sheet is cut at the grid it was actually drawn on. A boss drawn in the
-      round is about the classic's size in the world, not its shape: the troll is
-      39 × 39 (the classic 22 × 24 doubled is 44 × 48), the llama's front 44 × 38,
-      its back 35 × 51, the deepseek 58 × 41.
+      deepseek's two poses and fin, the llama's front and back) or at 5 where
+      the figure is small enough that the drawing still lands on whole px (the
+      twins), and every sheet is cut at the grid it was actually drawn on. The
+      grid is Codex's choice, not the prompt's: the llama's sheets came out at
+      9.7 and 10.45 px, the mistral at about 12 (a portrait sheet drew it 66 px
+      wide; guided at 12 px a pixel, filling the sheet's height, it drew 72 ×
+      76). The edits of a drawing keep its grid when told to; one `down` edit
+      copied the classic's own coarse blocks instead (2 × 2 px) and was
+      redrawn. A boss drawn in the round is about the classic's size in the
+      world, not its shape: the troll is 39 × 39 (the classic 22 × 24 doubled
+      is 44 × 48), the llama's front 42 × 57 and its back 41 × 62 (the classic
+      21 × 26 doubled is 42 × 52), the deepseek 58 × 41, the mistral 72 × 76 (the
+      classic 39 × 39 doubled is 78 × 78).
     - *Frames.* The king's second frame is its first with the pupil 2 px aside,
       the fists 2 px lower and the glitch streaks moved (a script's edit); its
       hurt frame is a Codex edit of the first (the stone flashing pale pink, the
       eye shut). The troll's blink is the first with only the eyes taken from
       the second drawing; the deepseek's second frame is its first a px higher.
       The twins' and the llama's steps are drawn on one sheet, placed by their
-      best px match on the first.
+      best px match on the first; the mistral's turned frames by their orb.
     - *Colours.* Many: a family keeps the drawing's colours (64–110), merged only
       where they are one colour under the image's noise (none off by more than
       24 of 255). The letters run past the ASCII ones into Latin-1 (`À`…`ÿ`), still
@@ -649,7 +674,11 @@ classic picture. `/?view=<id>` asks for one.
       like the townsfolk: one front, mirrored as the classic one is. The king's
       shards (`shard`) are a family of one picture, drawn on the king's sheet.
     - *Made* in `tmp/iso-figures-22/` on the Mac (`blender/`, `sheets/`,
-      `tools/`: `guide.py`, Codex, `cut2.py`, `edit.py`, `build.py`, `emit.py`);
+      `tools/`: `guide.py`, Codex, `cut2.py`, `edit.py`, `build.py`, `emit.py`;
+      the llama's redraw and the mistral in `tmp/iso-figures-24/`, with
+      `pose_glb.py`'s `pitch`, `spin.py` for the turned guides, `orbalign.py`
+      and `splice.py`, which replaces one family in `bossArt.ts` and leaves the
+      others byte for byte);
       `tests/zelda-boss-art.test.mjs` holds the families, the hashes, the
       facings and the identity colours.
   - *What the studio would need* to edit them: a second kind of entry in the
@@ -865,7 +894,7 @@ classic picture. `/?view=<id>` asks for one.
   imports `iso/view` statically). A view of an engine that exists needs no code: the
   studio publishes it.
 - **Known rough edges of the isometric view** (2026-11-12; figures 2026-11-24): the art under
-  it is still the 16 px art, treated on its way up, so the mistral is a classic figure with a 16-bit finish beside the redrawn
+  it is still the 16 px art, treated on its way up, beside the redrawn
   people, hero and bosses (above); the bosses' crisp art shimmers a little more
   than the smoothed classic did as the king hovers (`steady.mjs` `king-stand`:
   1.40 against 1.20), and the deepseek and the troll are a little smaller than

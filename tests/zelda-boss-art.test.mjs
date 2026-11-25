@@ -33,12 +33,16 @@ const DRAWN = {
   gemini: ['gemini_a_0', 'gemini_a_1', 'gemini_a_down', 'gemini_b_0', 'gemini_b_1', 'gemini_b_down'],
   llama: ['llama_down_0', 'llama_down_1', 'llama_up_0', 'llama_up_1', 'llama_side_0', 'llama_side_1', 'llama_spit'],
   deepseek: ['deepseek_0', 'deepseek_1', 'deepseek_bite', 'deepseek_fin'],
+  mistral: ['mistral_0', 'mistral_1', 'mistral_2', 'mistral_3', 'mistral_down'],
 }
 const NOT_YET = ['mistral', 'deepseek', 'gemini', 'llama', 'troll'].filter(b => !DRAWN[b])
 const FRONTIER = ['grok', 'phi', 'mixtral', 'orca', 'falcon', 'bloom', 'bard', 'copilot']
 
 describe('isometric bosses', () => {
   it('has the bosses drawn so far, apart from the folk', () => {
+    // None is held back now (part 24 redrew the llama); the mechanism stays for the next drawing that misses.
+    assert.ok(M.BOSSES_HELD instanceof Set)
+    assert.equal(M.BOSSES_HELD.size, 0)
     assert.deepEqual([...M.BOSS_FAMILIES].sort(), [...Object.keys(DRAWN), ...FRONTIER].filter(b => !M.BOSSES_HELD.has(b)).sort())
     // A held boss keeps its art in bossArt.ts, but the game draws its classic sprite.
     for (const b of M.BOSSES_HELD) for (const name of DRAWN[b]) assert.notEqual(M.familyOf(name), b, name)
@@ -89,6 +93,23 @@ describe('isometric bosses', () => {
     }
   })
 
+  it('keeps the classic identity colours of the part 24 drawings', () => {
+    const rgb = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16))
+    const near = (a, b, d) => Math.hypot(...rgb(a).map((v, i) => v - rgb(b)[i])) <= d
+    // How many px of a frame are within d of a colour.
+    const count = (fam, key, c, d = 60) => {
+      const f = M.BOSS_ART[fam]
+      return f.frames[key].rows.join('').split('').filter(ch => ch !== '.' && near(f.pal[ch], c, d)).length
+    }
+    // The llama: the yellow L tag on the chest (front and spit, not from behind) and the hot-pink harness all round.
+    for (const k of ['front_0', 'front_1', 'front_spit']) assert.ok(count('llama', k, '#ffd23f') >= 20, `llama ${k} tag`)
+    for (const k of ['back_0', 'back_1']) assert.ok(count('llama', k, '#ffd23f') < 5, `llama ${k} no tag`)
+    for (const k of ['front_0', 'back_0']) assert.ok(count('llama', k, '#ff2fa0') >= 25, `llama ${k} harness`)
+    // The mistral: icy cyan ribbons in every turning frame; the yellow stars over it when it is down.
+    for (const k of ['front_0', 'front_1', 'front_2', 'front_3']) assert.ok(count('mistral', k, '#2ff3ff') >= 150, `mistral ${k} cyan`)
+    assert.ok(count('mistral', 'front_down', '#ffd23f') >= 6, 'mistral down stars')
+  })
+
   it('routes the bosses through the folk router, and falls back whole when the studio redraws one', () => {
     M.setSpriteOverrides({})
     assert.equal(M.familyOf('king_hurt'), 'king')
@@ -108,6 +129,17 @@ describe('isometric bosses', () => {
     const ds = M.BOSS_ART.deepseek.frames
     assert.deepEqual(ds.front_1.rows, ds.front_0.rows)
     assert.equal(ds.front_1.ay, ds.front_0.ay + 1)
+    // The mistral (part 24): its turning frames and its fall are front frames, never mirrored, all drawn.
+    for (const n of ['0', '1', '2', '3', 'down']) {
+      assert.equal(M.familyOf(`mistral_${n}`), 'mistral')
+      assert.deepEqual(M.facingOf(`mistral_${n}`, 'mistral', false), { key: `front_${n}`, flip: false })
+    }
+    // Its turned frames are drawings of their own (the ribbons turned), not frame 0 moved.
+    const ms = M.BOSS_ART.mistral.frames
+    for (const k of ['front_1', 'front_2', 'front_3']) assert.notDeepEqual(ms[k].rows, ms.front_0.rows, k)
+    // The llama is shown again: its four ways and its spit route to the art.
+    assert.equal(M.familyOf('llama_down_0'), 'llama')
+    assert.equal(M.familyOf('llama_spit'), 'llama')
     const edited = M.SPRITES.king_1.rows.map((r, i) => (i === 20 ? 'k' + r.slice(1) : r))
     M.setSpriteOverrides({ king_1: edited })
     assert.equal(M.familyFresh(M.BOSS_ART.king), false)
