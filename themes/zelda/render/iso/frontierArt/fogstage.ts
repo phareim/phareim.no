@@ -11,6 +11,42 @@ const spotlight: Thing = b => {
   b.box(-6, 3, 40, 6, 8, 42, 'ink')
 }
 
+/**
+ * The spotlight with a head that turns (L2), for a beam the renderer draws: `dir` in eighths of a turn clockwise
+ * seen from above, `_0` east, `_1` south-east, `_2` south, … `_6` north, `_7` north-east (the fjord lighthouse's
+ * quarters are `_0`, `_2`, `_4`, `_6` here). The same foot and pole as `fogstage_spotlight`; on top a yoke and a
+ * round barrel tipped a little down, its lens a gold ring with a white heart on the end the light leaves by,
+ * a dark cap on the other. Turned away, the ring still shows round the barrel's far end.
+ */
+function turningSpot(dir: number): Thing {
+  const angle = (dir * Math.PI) / 4
+  const dx = Math.cos(angle)
+  const dy = Math.sin(angle)
+  return b => {
+    b.box(-6, -5, 0, 6, 5, 3, 'carve')
+    b.post(0, 0, 3, 32, 1.7, 'pole')
+    b.post(0, 0, 32, 34, 3.4, 'chrome')
+    // The yoke: two arms either side of the barrel, across the way it points.
+    for (const s of [-1, 1]) {
+      const yx = -dy * 5.6 * s
+      const yy = dx * 5.6 * s
+      b.post(yx, yy, 33, 40, 0.9, 'pole')
+      b.ball(yx, yy, 38, 1.4, 1.4, 1.4, 'chrome')
+    }
+    b.box(-1.2, -1.2, 33, 1.2, 1.2, 34.4, 'pole')
+    // The barrel, from its cap to its lens, a little lower at the front.
+    for (let t = -5; t <= 3; t += 0.5) {
+      b.ball(dx * t, dy * t, 38 - t * 0.18, 4, 4, 3.8, t > 2 ? 'ink' : 'chrome')
+    }
+    b.ball(-dx * 5.6, -dy * 5.6, 39, 2.6, 2.6, 2.6, 'ink')
+    // The lens's ring stands a px proud of the barrel all round, so turned away it still shows as a lit rim.
+    b.ball(dx * 4, dy * 4, 37.3, 4.7, 4.7, 4.5, 'gold')
+    b.ball(dx * 6.9, dy * 6.9, 37.1, 2.4, 2.4, 2.3, 'core')
+    // A visor over the lens.
+    b.ball(dx * 4.6, dy * 4.6, 42, 3.4, 3.4, 0.8, 'ink')
+  }
+}
+
 const flat: Thing = b => {
   // A paper-thin painted front, with a stepped gable and two braces visible past its east edge.
   const scenery: Pick = (x, _y, z, _nx, _ny, nz) => {
@@ -88,6 +124,7 @@ const gangway: Thing = b => {
 
 export const FOGSTAGE_THINGS: Record<string, Thing> = {
   fogstage_spotlight: spotlight,
+  ...Object.fromEntries([...Array(8)].map((_, dir) => [`fogstage_spotlight_${dir}`, turningSpot(dir)])),
   fogstage_flat: flat,
   fogstage_sandbags: sandbags,
   ...Object.fromEntries(posters.map((_, frame) => [`fogstage_poster_${frame}`, poster(frame)])),

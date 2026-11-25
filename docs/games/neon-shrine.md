@@ -70,6 +70,16 @@ warp, a fight or a scroll, so what is not ready is made at the warp as before.
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
 
+**Combat art.** Both views quantise the sword sweep to sixteen angles
+(`render/bladeAngles.ts`). The small foes have dedicated hurt frames in both
+atlases, with a separate back frame for the knight. Cyan and gold impact
+stars and fading slash marks are registered for the combat effects. Small
+animals appear around nearby water, flowers, trees and lights. The combo,
+roll, six-frame run, held charge and stagger have classic and isometric
+frames for the combat rework. The modelled figure also supports backhand,
+lunge and roll. Generate a contact sheet with
+`node scripts/zelda-lab/hero-poses.mjs sheet /tmp/hero-poses.png`.
+
 **Views** (2026-10-07; engines and values 2026-11-11). The game can
 be shown in more than one way, and the player can change it in the middle of
 a room. The state, the engine and the world are the same; a view is only how
@@ -712,7 +722,7 @@ classic picture. `/?view=<id>` asks for one.
     Blade, then a dithered tail); the finisher's is wider and stays 60 ms
     as a thinning rim, the spin's goes round. The hero squashes into a windup and stretches
     into the blow, crouches into a roll and leaves three cyan shapes of
-    itself behind it; the backhand shows the swing frame mirrored. Foes
+    itself behind it. Foes
     squash flat under a blow and spring back; a fallen foe bursts white and
     flat along the blow before its poof. A blow throws sparks along it with
     a four-ray star and a ring (a heavy one a gold ring and a cut across);
@@ -723,14 +733,18 @@ classic picture. `/?view=<id>` asks for one.
     kill; `Kit.nudge`, none under reduced motion); dust rises off a roll, a
     lunge and a run turned round. The chain's hits sound a step higher each,
     the finisher heavy (`sword`, `sword2`, `swordHeavy`; `hitHeavy`, `roll`).
-  - *Art to come.* Until the roll is drawn, `hero_*_roll_0..3` are the
-    standing frame tucked, turned a quarter forward, tucked smaller, turned
-    a quarter back (`ROLL_TUCKS` in `heroFrames.ts`; never upside down, and
-    mirrored for the left it still turns forward), and the isometric
-    art makes the same of its own standing body (`ART_EXTRA_POSES` in
-    `iso/hero.ts`: a pose the art does not draw yet falls back to a drawn
-    one, so it never turns the hero classic). The lab's `swing1`, `swing2`,
-    `swing3`, `roll`, `hit` and `kill` scenes show each moment.
+  - *The poses* (drawn by Codex: `heroFrames.ts`, `iso/heroPoses.ts`, `ART_EXTRA_POSES` in `iso/hero.ts`).
+    A chain swing shows the wind-up (`atk_wind`) for its first `WINDUP`,
+    then the forehand (`atk`), the backhand (`atk_back`) or the finisher's
+    lunge and landing (`atk_lunge`, then `atk_land` from 70 % through).
+    The roll plays `roll_0..3` over its time; at full stride the hero runs
+    (`run_0..5` at 12 a second), slower it walks; standing it breathes
+    (`idle_1` every other 0.7 s, none under reduced motion), and holding a
+    charge it braces (`charge`); hurt shows the side it faces (`hero_hurt`
+    from the front). A pose a shape lacks falls back to the swing or to
+    standing (`extraFallback`), never to the classic hero. The lab's
+    `swing1`, `swing2`, `swing3`, `roll`, `hit` and `kill` scenes show each
+    moment.
 - **The land beyond the edge** (`render/beyond.ts`, `iso/lands.ts`,
   2026-11-12). A turned map is a diamond, and outdoors the world goes on
   round it for 24 tiles (`BEYOND`), so the land is never a board on a table.

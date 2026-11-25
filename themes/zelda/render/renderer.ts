@@ -40,6 +40,9 @@ import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
 import { PAL } from './sprites'
+import { bladeHeading } from './bladeAngles'
+import { queueWildlife } from './wildlife'
+import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
@@ -655,14 +658,28 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const [sx, sy] = heroSquash(s)
     const step = Math.floor(h.walkT * 8.5) % 4
     const walkFrame = [1, 0, 2, 0][step]!
+    const speed = Math.hypot(h.vx, h.vy)
     switch (h.act) {
-      case 'walk': name = `hero_${key}_${walkFrame}`; break
-      case 'swing':
-        name = `hero_${key}_atk`
-        // The chain's backhand: the forehand's frame turned the other way (facing the viewer or away: the side
-        // frame would turn the hero round).
-        if (h.swing?.side === -1 && key !== 'side') mirror = !mirror
+      case 'idle':
+        // Held charge: braced low, the blade behind. Otherwise a slow breath (none under reduced motion).
+        if (h.charge > 0.12 && s.inv.sword && !h.carry) name = `hero_${key}_charge`
+        else if (!frameReduced && Math.floor(time / 0.7) % 2 === 1) name = `hero_${key}_idle_1`
         break
+      // At full stride the run (six frames, one in the air); slowed (a held charge, a slope) the walk.
+      case 'walk': name = speed >= 4.5 ? `hero_${key}_run_${Math.floor(h.walkT * 12) % 6}` : `hero_${key}_${walkFrame}`; break
+      case 'swing': {
+        // The chain (`COMBO`): the wind-up, then the forehand, the backhand, and the finisher's lunge and landing.
+        const sw = h.swing
+        const p = sw ? sw.t / swingDur(sw) : 1
+        const n = sw?.n
+        name = `hero_${key}_atk`
+        if (n !== undefined) {
+          if (p < WINDUP) name = `hero_${key}_atk_wind`
+          else if (n === 1) name = `hero_${key}_atk_back`
+          else if (n === 2) name = p < 0.7 ? `hero_${key}_atk_lunge` : `hero_${key}_atk_land`
+        }
+        break
+      }
       case 'throw': case 'use': case 'hook': name = `hero_${key}_atk`; break
       case 'roll': { const r = rollFrame(s); name = r.name; mirror = r.flip; break }
       case 'spin': {
@@ -679,7 +696,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'lift': name = `hero_${key}_carry_0`; break
       case 'carry': name = `hero_${key}_carry_${h.vx || h.vy ? walkFrame % 2 : 0}`; break
       case 'push': name = `hero_${key}_push`; break
-      case 'hurt': name = 'hero_hurt'; break
+      // Hurt from every side (down is the front `hero_hurt`).
+      case 'hurt': name = key === 'down' ? 'hero_hurt' : `hero_${key}_hurt`; mirror = flip; break
       case 'get': name = 'hero_get'; break
     }
     const blade = h.swing || (h.charge > 0.12 && s.inv.sword && !h.carry)
@@ -716,18 +734,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   function bladeSprite1(a: number): { name: string; fh: boolean; fv: boolean } {
-    // Quantise to 8 directions.
-    const o = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8
-    switch (o) {
-      case 0: return { name: 'sword_h', fh: false, fv: false }
-      case 1: return { name: 'sword_d', fh: false, fv: true }
-      case 2: return { name: 'sword_v', fh: false, fv: true }
-      case 3: return { name: 'sword_d', fh: true, fv: true }
-      case 4: return { name: 'sword_h', fh: true, fv: false }
-      case 5: return { name: 'sword_d', fh: true, fv: false }
-      case 6: return { name: 'sword_v', fh: false, fv: false }
-      default: return { name: 'sword_d', fh: false, fv: false }
-    }
+    return bladeHeading(a)
   }
 
   function blit(g: G, name: string, fh: boolean, fv: boolean, x: number, y: number) {
@@ -1016,7 +1023,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * lies on the ground and is drawn at once.
    */
   function queue(g: G, s: GameState, ui: FrameUI, cx: number, cy: number, qw: number, qh: number, lights: Light[], flat: G = g): SceneItem[] {
-    const kind = mapInfo(world, s.map.id).def.kind
+    const def = mapInfo(world, s.map.id).def
+    const { kind } = def
     camX = cx
     camY = cy
     const items: SceneItem[] = []
@@ -1025,6 +1033,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     twinList = m.enemies
     queueProps(g, world, s, cx, cy, qw, qh, time, ui.reducedMotion, items, lights, flat)
     for (const it of items) it.big = true
+    if (!ui.attract && kind === 'overworld') {
+      queueWildlife(g, s, cx, cy, time, ui.reducedMotion, (dayOf(drawing)?.sun ?? 0.12) <= 0.12, items, def.isoLandmarks)
+    }
+    if (!ui.attract) queueLife({ g, s, cx, cy, time, reduced: ui.reducedMotion, sun: kind === 'overworld' ? dayOf(drawing)?.sun ?? 0.12 : -1, kind, realm: def.realm, look: def.look, items, lights, landmarks: def.isoLandmarks ?? [] })
     if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
     queuePuzzles(g, s, cx, cy, items)
     for (const b of m.moving) {

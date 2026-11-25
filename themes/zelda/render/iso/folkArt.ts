@@ -5,6 +5,7 @@
  * the studio's live pack applied. Edit the rows here (or redraw and regenerate), never the hashes by hand.
  */
 import { FRONTIER_FOLK_ART } from './frontierArt/peopleData'
+import { FOE_HURT_ART } from './foeHurtData'
 
 export interface FolkFrame { ax: number; ay: number; rows: readonly string[] }
 export interface FolkFamily { pal: Record<string, string>; src: Record<string, string>; frames: Record<string, FolkFrame> }
@@ -3063,4 +3064,10 @@ export const FOLK_ART: Record<string, FolkFamily> = {
       ] },
     },
   },
+}
+
+for (const [name, hurt] of Object.entries(FOE_HURT_ART)) {
+  const family = FOLK_ART[name]!
+  Object.assign(family.src, hurt.src)
+  Object.assign(family.frames, hurt.frames)
 }

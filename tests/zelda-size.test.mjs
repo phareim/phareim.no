@@ -44,11 +44,12 @@ function staticClosure() {
 describe('the isometric view\'s size', () => {
   it('leaves every realm\'s scenery out of the view\'s chunk', () => {
     const inputs = staticClosure().flatMap(k => Object.keys(out.metafile.outputs[k].inputs))
-    const realmData = inputs.filter(p => /frontierArt\/(fogstage|rerun|sporelight|stillsand|quarry|underglow|seter|fjord)Data\.ts$/.test(p))
+    const realmData = inputs.filter(p => /frontierArt\/(fogstage|rerun|sporelight|stillsand|quarry|underglow|seter|fjord|meadow|landing|gates|coast)Data\.ts$/.test(p))
     assert.deepEqual(realmData, [])
-    // Each is fetched on its own instead.
-    const lazy = Object.values(out.metafile.outputs).filter(o => Object.keys(o.inputs).some(p => /frontierArt\/\w+Data\.ts$/.test(p) && !/(people|building)Data/.test(p)))
-    assert.equal(lazy.length, 8)
+    // Each is fetched on its own instead: the eight realms, the Green Miles, the Landing, the gates' arches and the coast's waymarks. (The
+    // road lanterns, `roadsideData`, stand on every frontier road and ride in the view with the people and buildings.)
+    const lazy = Object.values(out.metafile.outputs).filter(o => Object.keys(o.inputs).some(p => /frontierArt\/\w+Data\.ts$/.test(p) && !/(people|building|roadside)Data/.test(p)))
+    assert.equal(lazy.length, 12)
   })
 
   it('stays under its ceiling, minified and gzipped', () => {

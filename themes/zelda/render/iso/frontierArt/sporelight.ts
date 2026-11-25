@@ -1,4 +1,5 @@
 import type { MatName, Pick, Solids } from '../props'
+import { RIM, lamplight, onRim } from './nightPanes'
 
 type Thing = (solids: Solids) => void
 
@@ -35,19 +36,33 @@ function puff(frame: number): Thing {
   }
 }
 
-const wall: Pick = (x, y, z, nx, _ny, nz) => {
+/**
+ * The bathhouse's walls: timber in courses, a band of gold windows either side of the middle on every face.
+ * At night (L1) each window has a rim of spill light and brighter lamplight between the courses' dark bars.
+ */
+const wall = (night: boolean): Pick => (x, y, z, nx, _ny, nz) => {
   const along = nx > 0.5 ? y : x
   if (z < 4) return 'carve'
-  if (nz < 0.5 && z > 17 && z < 31 && Math.abs(along) > 13 && Math.abs(along) < 25) return 'gold'
+  if (nz < 0.5 && z > 17 && z < 31 && Math.abs(along) > 13 && Math.abs(along) < 25) {
+    if (!night) return 'gold'
+    // The window as the face shows it: from its left edge (the east face runs from its south end), up from its sill.
+    const a = nx > 0.5 ? 25 - Math.abs(along) : Math.abs(along) - 13
+    const left = nx > 0.5 ? along > 0 : along < 0
+    const u = left ? 12 - a : a
+    if (onRim(u, z - 17, 12, 14)) return RIM
+    if (Math.floor(z) % 7 === 0) return 'ink'
+    return lamplight(u, z - 17, 12, 14)
+  }
   return Math.floor(z) % 7 === 0 ? 'ink' : 'wood'
 }
 
-const bathhouse: Thing = b => {
+/** `night` (L1): the windows lit, the lanterns brighter, the transom over the door the bath's cyan light. */
+const bathhouse = (night: boolean): Thing => b => {
   b.box(-44, -42, 0, 44, 42, 5, 'stone')
-  b.box(-36, -28, 5, 36, 27, 38, wall)
+  b.box(-36, -28, 5, 36, 27, 38, wall(night))
   // Dark central vestibule, an open transom, and gold lanterns under the eaves.
   b.box(-12, 23, 5, 12, 30, 31, 'dark')
-  b.box(-10, 29, 26, 10, 31, 30, 'bandCyan')
+  b.box(-10, 29, 26, 10, 31, 30, night ? 'glassCyan' : 'bandCyan')
   for (const x of [-13, 11]) b.box(x, 28, 5, x + 2, 32, 32, 'chestWood')
   for (let level = 0; level < 7; level++) {
     const cut = level * 4.1
@@ -56,7 +71,9 @@ const bathhouse: Thing = b => {
   }
   for (const x of [-29, 29]) {
     b.post(x, 33, 6, 27, 1.1, 'pole')
-    b.box(x - 3.5, 29.5, 18, x + 3.5, 36.5, 25, 'gold')
+    b.box(x - 3.5, 29.5, 18, x + 3.5, 36.5, 25, night
+      ? (px, _py, pz, _nx, _ny, nz) => (nz < 0.5 && pz > 19.5 && pz < 23.5 && Math.abs(px - x) < 2.6 ? 'core' : 'gold')
+      : 'gold')
     b.box(x - 4, 29, 25, x + 4, 37, 28, 'ink')
   }
 }
@@ -92,7 +109,8 @@ export const SPORELIGHT_THINGS: Record<string, Thing> = {
   sporelight_puff_0: puff(0),
   sporelight_puff_1: puff(1),
   sporelight_puff_2: puff(2),
-  sporelight_bathhouse: bathhouse,
+  sporelight_bathhouse: bathhouse(false),
+  sporelight_bathhouse_night: bathhouse(true),
   sporelight_grazer_calm_0: grazer(false, 0),
   sporelight_grazer_calm_1: grazer(false, 1),
   sporelight_grazer_angry_0: grazer(true, 0),

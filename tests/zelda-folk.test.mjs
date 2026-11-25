@@ -75,6 +75,7 @@ describe('isometric figures', () => {
     // Poses of their own and sprites of one picture (part 20); Luna's standing frames apart from her walk.
     assert.deepEqual(M.facingOf('hound_open', 'hound', true), { key: 'front_open', flip: true })
     assert.deepEqual(M.facingOf('skull_jump', 'skull', false), { key: 'front_jump', flip: false })
+    assert.deepEqual(M.facingOf('knight_up_hurt', 'knight', false), { key: 'back_hurt', flip: true })
     assert.deepEqual(M.facingOf('eye', 'eye', false), { key: 'front_0', flip: false })
     assert.deepEqual(M.facingOf('luna_1', 'luna', true, true), { key: 'idle_1', flip: true })
     assert.deepEqual(M.facingOf('luna_down_1', 'luna', false, true), { key: 'front_1', flip: false })
@@ -114,11 +115,11 @@ describe('isometric figures', () => {
   it('records every classic sprite a family stands for (part 20)', () => {
     const src = fam => Object.keys(M.FOLK_ART[fam].src).sort()
     assert.deepEqual(src('ghost'), ['ghost_0', 'ghost_1', 'ghost_2', 'ghost_3'])
-    assert.deepEqual(src('skull'), ['skull_0', 'skull_1', 'skull_jump'])
+    assert.deepEqual(src('skull'), ['skull_0', 'skull_1', 'skull_hurt', 'skull_jump'])
     assert.ok(src('luna').includes('luna_psi') && src('luna').includes('luna_0') && src('luna').includes('luna_side_2'))
     assert.ok(src('hound').includes('hound_open'))
     assert.deepEqual(src('eye'), ['eye'])
-    assert.equal(src('knight').length, 6)
+    assert.equal(src('knight').length, 8)
     // The ones the studio drew are stale without the live pack, as the cat is: the classic sprites stand.
     M.setSpriteOverrides({})
     for (const fam of ['ghost', 'luna', 'toby', 'owl', 'eye']) assert.equal(M.familyFresh(M.FOLK_ART[fam]), false, fam)

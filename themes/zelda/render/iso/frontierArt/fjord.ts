@@ -7,6 +7,9 @@
  * (an arcaded gallery, dragon heads, the bell in its turret, a spire), the lighthouse whose beam turns through the
  * four quarters (`_0` east, `_1` south, `_2` west, `_3` north: clockwise seen from above), and a lantern post, lit
  * and put out.
+ * L1/L2, the night: the cottage with its windows lit (`fjord_cottage_night`, rims of spill light round the panes),
+ * and the lighthouse's lens frames without the baked beam (`fjord_lighthouse_lens_0`…`_3`, the same quarters as
+ * the beam frames), the lamp room brighter and its lit side white-gold, for a beam drawn by the renderer.
  * Y2, the ice: three floes, the mirror block for the beam puzzles (`_a` its mirror from north-west to south-east,
  * `_b` from north-east to south-west, drawn as a line on its top), and the frozen edge where the ice breaks off
  * toward open water, by the side the water lies on (`_n`, `_e`, `_s`, `_w`).
@@ -14,6 +17,7 @@
  * Snow is the pale lavender of `chrome`, ice the deep `blockCyan`; the lamps are gold with a white heart.
  */
 import type { MatName, Solids } from '../props'
+import { RIM, lamplight } from './nightPanes'
 import { house, noise, roofAt, turned, type House, type Paint } from './seter'
 
 type Thing = (b: Solids) => void
@@ -55,11 +59,15 @@ function icicles(b: Solids, u0: number, u1: number, v: number, z: number, salt: 
 const boards = (a: number, w: number, face: MatName, seam: MatName): MatName =>
   (((Math.floor(a) % w) + w) % w === 0 ? seam : face)
 
-/** A four-pane window of lamplight in a white frame: `a` along the wall from its middle, `z` from its sill. */
-function pane(a: number, z: number, w: number, h: number): MatName | null {
+/**
+ * A four-pane window of lamplight in a white frame: `a` along the wall from its middle, `z` from its sill.
+ * At night the frame is a rim of spill light and the panes are brighter.
+ */
+function pane(a: number, z: number, w: number, h: number, night = false): MatName | null {
   if (Math.abs(a) > w / 2 || z < 0 || z > h) return null
-  if (Math.abs(a) > w / 2 - 1 || z < 1 || z > h - 1) return 'chrome'
+  if (Math.abs(a) > w / 2 - 1 || z < 1 || z > h - 1) return night ? RIM : 'chrome'
   if (Math.abs(a) < 0.55 || Math.abs(z - h / 2) < 0.55) return 'ink'
+  if (night) return lamplight(a + w / 2 - 1, z - 1, w - 2, h - 2)
   return a < -w / 2 + 2.2 && z > h - 2.6 ? 'core' : 'gold'
 }
 
@@ -143,7 +151,7 @@ const COTTAGE: Omit<House, 'walls' | 'roof'> = { u: 19, v: 15, wall: 19, ridge: 
  * The cottage in its own frame (ridge north-south: u is south, v is east): ochre boards with white corners, the
  * red door in the south gable with a chalk cross on it, a lit window over it, two lit windows on the east wall.
  */
-const cottageWalls: Paint = (u, v, z, nu, nv, nz) => {
+const cottageWalls = (night: boolean): Paint => (u, v, z, nu, nv, nz) => {
   if (nz > 0.5) return 'sand'
   const clap = Math.floor(z) % 3 === 0 ? 'chestWood' : 'sand'
   if (nu > 0.5) {
@@ -155,20 +163,20 @@ const cottageWalls: Paint = (u, v, z, nu, nv, nz) => {
       if (v > 2 && v < 3 && z > 6.6 && z < 7.8) return 'gold'
       return boards(v + 64, 3, 'clay', 'wood')
     }
-    const p = pane(v, z - 22, 6, 6)
+    const p = pane(v, z - 22, 6, 6, night)
     if (p) return p
     return z >= COTTAGE.wall ? boards(v + 64, 3, 'sand', 'chestWood') : clap
   }
   if (nv > 0.5) {
     if (Math.abs(u) > COTTAGE.u - 1.6) return 'chrome'
-    for (const wu of [-8, 7]) { const p = pane(u - wu, z - 6, 7, 8); if (p) return p }
+    for (const wu of [-8, 7]) { const p = pane(u - wu, z - 6, 7, 8, night); if (p) return p }
   }
   return clap
 }
 
-const cottage: Thing = b => {
+const cottage = (night: boolean): Thing => b => {
   const t = turned(b, 'y')
-  const h: House = { ...COTTAGE, walls: cottageWalls, roof: snowRoof('chrome') }
+  const h: House = { ...COTTAGE, walls: cottageWalls(night), roof: snowRoof('chrome') }
   house(t, h)
   // A brick chimney through the snow near the north end, capped white.
   const cz = roofAt(h, 3) - 2
@@ -262,8 +270,12 @@ const church: Thing = b => {
   b.box(-2.2, -0.5, 85.4, 2.2, 0.5, 86.4, 'gold')
 }
 
-/** The lighthouse: a striped tower on a snowy rock, a gallery, the lamp room, its beam out toward `dir`. */
-function lighthouse(dir: 0 | 1 | 2 | 3): Thing {
+/**
+ * The lighthouse: a striped tower on a snowy rock, a gallery, the lamp room, its beam out toward `dir`.
+ * `bakedBeam` keeps the beam in the current map's four frames. The lens-only frames will be used by the
+ * procedural beam. Both use the brighter white-gold lens.
+ */
+function lighthouse(dir: 0 | 1 | 2 | 3, bakedBeam: boolean): Thing {
   const [dx, dy] = ([[1, 0], [0, 1], [-1, 0], [0, -1]] as const)[dir]
   return b => {
     // The rock it stands on.
@@ -296,16 +308,24 @@ function lighthouse(dir: 0 | 1 | 2 | 3): Thing {
     }
     // The lamp room: gold panes between dark bars, the pane the light faces white.
     b.post(0, 0, 63, 65, 6.4, 'pole')
-    b.post(0, 0, 65, 74, 5.8, (_x, _y, _z, nx, ny) => {
+    b.post(0, 0, 65, 74, 5.8, (x, _y, z, nx, ny) => {
       const a = Math.atan2(ny, nx) / (Math.PI / 4)
       if (Math.abs(a - Math.round(a)) < 0.14) return 'pole'
-      return nx * dx + ny * dy > 0.6 ? 'core' : 'gold'
+      const toward = nx * dx + ny * dy
+      // White where it faces the beam, a white-gold checker either side of that, gold round the back.
+      if (toward > 0.55) return 'core'
+      if (toward > -0.05) return (Math.floor(x * 1.3) + Math.floor(z)) & 1 ? 'core' : 'gold'
+      return 'gold'
     })
+    // The lens itself, a white bull's-eye in a gold ring on the lit side; under it, the lamp's light on the gallery floor.
+    b.ball(dx * 5.4, dy * 5.4, 69.5, 2.9, 2.9, 3.1, 'gold')
+    b.ball(dx * 6.2, dy * 6.2, 69.5, 1.9, 1.9, 2.1, 'core')
+    b.box(dx * 7.2 - 1.4 + Math.min(0, dx) * 2, dy * 7.2 - 1.4 + Math.min(0, dy) * 2, 63, dx * 7.2 + 1.4 + Math.max(0, dx) * 2, dy * 7.2 + 1.4 + Math.max(0, dy) * 2, 63.4, 'gold')
     b.post(0, 0, 74, 75.6, 7.4, snowy('pole', 0.5))
     b.ball(0, 0, 75.6, 6.2, 6.2, 5.2, snowy('clay', 0.8))
     b.post(0, 0, 80, 84, 0.7, 'pole')
     b.ball(0, 0, 84.6, 1.2, 1.2, 1.2, 'gold')
-    beam(b, dx, dy, 69, dir)
+    if (bakedBeam) beam(b, dx, dy, 69, dir)
   }
 }
 
@@ -430,12 +450,17 @@ function frozenEdge(side: 'n' | 'e' | 's' | 'w'): Thing {
 /** Every YULE FJORD thing by id; `_0`…`_3` are the frames of one thing. */
 export const FJORD_THINGS: Record<string, Thing> = {
   fjord_boathouse: boathouse,
-  fjord_cottage: cottage,
+  fjord_cottage: cottage(false),
+  fjord_cottage_night: cottage(true),
   fjord_church: church,
-  fjord_lighthouse_0: lighthouse(0),
-  fjord_lighthouse_1: lighthouse(1),
-  fjord_lighthouse_2: lighthouse(2),
-  fjord_lighthouse_3: lighthouse(3),
+  fjord_lighthouse_0: lighthouse(0, true),
+  fjord_lighthouse_1: lighthouse(1, true),
+  fjord_lighthouse_2: lighthouse(2, true),
+  fjord_lighthouse_3: lighthouse(3, true),
+  fjord_lighthouse_lens_0: lighthouse(0, false),
+  fjord_lighthouse_lens_1: lighthouse(1, false),
+  fjord_lighthouse_lens_2: lighthouse(2, false),
+  fjord_lighthouse_lens_3: lighthouse(3, false),
   fjord_lantern: lanternPost(true),
   fjord_lantern_out: lanternPost(false),
   fjord_floe_small: floe([[-7, -6, 6, 4], [-4, 2, 7, 8]]),

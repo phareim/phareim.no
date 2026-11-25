@@ -26,7 +26,7 @@ import type { Dir, EnemyKind, EntDef, ItemId, Mark, MapDef, Prop, Rect, Spot, Ti
 import { Rng, fbm, hash } from './rng'
 import { STAMPS, type Stamp } from './stamps'
 import { REALMS } from './realms'
-import { sceneryAt } from './frontierScenery'
+import { roadsideLights, sceneryAt } from './frontierScenery'
 import type { FrontierSpec, RealmSpec, Site } from './types'
 import type { Gate } from './gates'
 import type { BattleFoeId, BattleGroupDef } from '../../battleTypes'
@@ -604,7 +604,13 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     }
     const [lx, ly] = xy(best + 1, 1)
     props.push({ kind: 'glow', x: lx + 0.5, y: ly + 0.5, w: 3.5, tone: 'gold' })
+    // The realm's arch over the way in (`frontierArt/gates.ts`), on the rim's inner row: `sceneryAt` stands a
+    // gate stamp's arch at its origin + 1.5, so the origin is one tile up and left of the arch's middle tile.
+    const [ax, ay] = xy(best + 1, RIM)
+    const ns = side === 'n' || side === 's'
+    gateScenery.push(...sceneryAt(realm.id, ns ? 'gate' : 'gate:ew', ax - 1, ay - 1))
   }
+  const gateScenery: ReturnType<typeof sceneryAt> = []
   if (ctx.gate) cutGate(ctx.gate)
 
   // The foes, thinned: none near a placed stamp or site (a slot's own foe stays), none within sight of the gate's
@@ -656,6 +662,8 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   if (realm.views) def.views = realm.views
   if (props.length) def.props = props
   const isoLandmarks = placed.flatMap(p => sceneryAt(realm.id, p.name, p.x, p.y))
+  isoLandmarks.push(...roadsideLights(fin, claimed, hash(F.seed, rx, ry, 18)))
+  isoLandmarks.push(...gateScenery)
   if (isoLandmarks.length) def.isoLandmarks = isoLandmarks
   return def
 }

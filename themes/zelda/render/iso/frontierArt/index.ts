@@ -2,20 +2,29 @@ import type { ThingArt } from '../thingArt'
 
 type Kit = Record<string, ThingArt>
 
+/** A realm's kit with its gate arch (`gatesData.ts`: `gate_<realm>_<road>_<off|on>`), fetched alongside it. */
+const withGate = (realm: string, kit: Promise<Kit>): Promise<Kit> =>
+  Promise.all([kit, import('./gatesData').then(m => m.GATES_ART)]).then(([art, gates]) =>
+    ({ ...art, ...Object.fromEntries(Object.entries(gates).filter(([id]) => id.startsWith(`gate_${realm}_`))) }))
+
 /**
  * Each realm's scenery is a chunk of its own, fetched the first time the view needs it (or a neighbour of where
  * the hero is: `warmRealmArt`), so a visit to the town never downloads the frontier's art. The isometric renderer
  * only puts the current realm's kit on the GPU (`view.ts`); until it is here that realm's landmarks are not drawn.
+ * `coast` is the hand-made maps' waymarks and barriers by the gates.
  */
 export const REALM_ART_LOADERS: Record<string, () => Promise<Kit>> = {
-  fogstage: () => import('./fogstageData').then(m => m.FOGSTAGE_ART),
-  rerun: () => import('./rerunData').then(m => m.RERUN_ART),
-  sporelight: () => import('./sporelightData').then(m => m.SPORELIGHT_ART),
-  stillsand: () => import('./stillsandData').then(m => m.STILLSAND_ART),
-  lumenby: () => import('./quarryData').then(m => m.QUARRY_ART),
+  fogstage: () => withGate('fogstage', import('./fogstageData').then(m => m.FOGSTAGE_ART)),
+  rerun: () => withGate('rerun', import('./rerunData').then(m => m.RERUN_ART)),
+  sporelight: () => withGate('sporelight', import('./sporelightData').then(m => m.SPORELIGHT_ART)),
+  stillsand: () => withGate('stillsand', import('./stillsandData').then(m => m.STILLSAND_ART)),
+  lumenby: () => withGate('lumenby', import('./quarryData').then(m => m.QUARRY_ART)),
   underglow: () => import('./underglowData').then(m => m.UNDERGLOW_ART),
-  seterfell: () => import('./seterData').then(m => m.SETER_ART),
+  seterfell: () => withGate('seterfell', import('./seterData').then(m => m.SETER_ART)),
   yulefjord: () => import('./fjordData').then(m => m.FJORD_ART),
+  meadow: () => import('./meadowData').then(m => m.MEADOW_ART),
+  landing: () => import('./landingData').then(m => m.LANDING_ART),
+  coast: () => import('./coastData').then(m => m.COAST_ART),
 }
 
 /** A fetch that failed (offline) is tried again after this long, not every frame. */
@@ -56,3 +65,12 @@ export function realmArt(realm: string | undefined): Kit | undefined {
 
 /** Start fetching a realm's kit ahead of need (a neighbouring region's), without waiting for it. */
 export function warmRealmArt(realm: string | undefined): void { realmArt(realm) }
+
+/**
+ * The kit a map draws its landmarks from: its realm's, or on a hand-made map with the gates' waymarks and
+ * barriers, the coast's (`coast`). Undefined for a map with none.
+ */
+export function kitFor(def: { realm?: string; isoLandmarks?: ReadonlyArray<{ art: string }> } | null | undefined): string | undefined {
+  const realm = def?.realm ?? (def?.isoLandmarks?.some(lm => lm.art.startsWith('waymark_') || lm.art.startsWith('border_')) ? 'coast' : undefined)
+  return hasRealmArt(realm) ? realm : undefined
+}

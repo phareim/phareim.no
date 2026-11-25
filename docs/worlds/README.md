@@ -64,6 +64,18 @@ way or if it failed) a plain stand-in (a crate, a post, a mushroom, a stone;
 `render/standIns.ts`) stands on each solid tile, so nothing is in the way
 that cannot be seen (`tests/zelda-scenery.test.mjs`). The Underglow places
 its landmarks by layer in `descent.ts`.
+The Green
+Miles have windmills, waystones, haystacks and bus stops. The Landing has a
+pier and breakwater, and the camp kit adds the fire, kettle and neon board.
+Road lamps use the region hash to sit on open verges beside the finished
+road. The lamps, Seter huts, fjord cottages, Rerun houses and Sporelight
+bathhouse switch to emissive frames at dusk. The arches stand over the gates `cutGate` cuts (`region.ts`), and the coast's waymarks and barriers by the gates' hand-made ends (`overworld.ts`, `wildwood.ts`). The fjord lighthouse has four
+lens directions and the Fogstage spotlights have eight head directions.
+
+The six realm arches have day and night sprites for both road axes.
+`sceneryAt` centres a north–south road arch on a three-tile `gate` stamp and
+uses `gate:ew` for an east–west road. The coast atlas holds the two-frame
+destination signs and the raised and lowered BORDER arms for the gate routes.
 
 The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
 Their isometric frames use the same sprite names and live-sprite hash checks

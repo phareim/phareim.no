@@ -526,6 +526,10 @@ export interface IsoLandmark {
   motion?: { frames: number; fps: number; bob?: boolean }
   /** A different sprite once a quest flag has been set. */
   lit?: { flag: string; art: string }
+  /** Sprite variant in twilight and at night, including the frontier's initial dusk. */
+  night?: string
+  /** A local light alongside the emissive pixels of the sprite. */
+  light?: { r: number; tone: Tone; a: number }
   shadow?: { tall: number; wide: number; deep?: number }
   /** What the landmark shines with in the isometric view (the classic one keeps its tiles' lights). */
   lights?: LandmarkLight[]

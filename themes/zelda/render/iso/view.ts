@@ -44,7 +44,7 @@ import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engi
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
 import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
-import { hasRealmArt, realmArt as realmKit, warmRealmArt } from './frontierArt'
+import { kitFor, realmArt as realmKit, warmRealmArt } from './frontierArt'
 import { FRONTIER_PREFIX, realmAt } from '../../world/gen/frontier'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
@@ -173,6 +173,9 @@ function legacyStandIn(kit: Kit): View {
   }
 }
 
+/** Where a stage spotlight's beam points (radians from east, clockwise): a slow swing to and fro. */
+const spotSwing = (tm: number, x: number) => -0.9 + 0.85 * Math.sin(tm * 0.45 + x)
+
 export default function isoView(kit: Kit): View {
   let engine: Engine
   try { engine = createEngine() } catch { return legacyView(kit) }
@@ -208,7 +211,8 @@ export default function isoView(kit: Kit): View {
    * one finds its kit here.
    */
   const prepareProps = (def: MapDef): boolean => {
-    const want = hasRealmArt(def.realm) ? def.realm : undefined
+    // (The hand-made maps' waymarks and barriers by the gates are a kit of their own, `coast`.)
+    const want = kitFor(def)
     const kit = want ? realmKit(want) : undefined
     const have = kit ? want : undefined
     if (have !== realmArt) sendProps(have)
@@ -862,6 +866,8 @@ export default function isoView(kit: Kit): View {
     }
     const kind = def.kind
     const time = kit.time()
+    const day = kit.day('iso')
+    const afterDusk = !day || day.sun <= 0.12
     const reduced = ui.reducedMotion
     const outdoors = kind === 'overworld'
 
@@ -1542,9 +1548,15 @@ export default function isoView(kit: Kit): View {
       const tx = Math.floor(lm.x)
       const ty = Math.floor(lm.y)
       if (!inRoom(tx, ty)) continue
-      const art = lm.lit && has(s, lm.lit.flag) ? lm.lit.art : lm.art
+      let art = lm.lit && has(s, lm.lit.flag) ? lm.lit.art : lm.night && afterDusk ? lm.night : lm.art
       const motion = lm.motion
       const frame = motion && !reduced ? Math.floor(time * motion.fps) % motion.frames : 0
+      // A stage spotlight's head (`frontierArt/fogstage.ts`: eighths of a turn clockwise from east) turns with its beam.
+      const sweeping = lm.lights?.find(L => L.anim === 'sweep')
+      if (sweeping && !motion && /^fogstage_spotlight_\d$/.test(art)) {
+        const ang = spotSwing(tm, lm.x + (sweeping.dx ?? 0))
+        art = `fogstage_spotlight_${((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8}`
+      }
       const key = thingKey(motion && !motion.bob ? `${art}_${frame}` : art)
       if (!Object.prototype.hasOwnProperty.call(propAtlas!.sprites, key)) continue
       const z = (lm.z ?? digLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
@@ -1560,7 +1572,7 @@ export default function isoView(kit: Kit): View {
         if (L.anim === 'sweep') {
           // A beam that turns (a lighthouse's: where the lens frame drawn points it, frame i along the i-th quarter
           // turn from +x, as `frontierArt/fjord.ts` `lighthouse` draws it) or swings to and fro (a stage spotlight).
-          const ang = motion ? (Math.PI * 2 * frame) / motion.frames : -0.9 + 0.85 * Math.sin(tm * 0.45 + lx)
+          const ang = motion ? (Math.PI * 2 * frame) / motion.frames : spotSwing(tm, lx)
           beams.push({ x: lx, y: ly, z: lz, ang, reach: L.r, color, a: L.a * rise })
           lights.push({ x: lx, y: ly, z: lz, r: 1.6, color, a: L.a * rise })
           for (let i = 1; i <= 5; i++) {
@@ -1573,6 +1585,11 @@ export default function isoView(kit: Kit): View {
           : L.anim === 'pulse' ? 0.8 + 0.2 * Math.sin(tm * 1.3 + lx * 2 + ly)
           : L.anim === 'blink' ? (reduced || Math.floor(tm * 1.2 + lx) % 2 === 0 ? 1 : 0.1) : 1
         lights.push({ x: lx, y: ly, z: lz, r: L.r, color, a: L.a * f * rise, fire: L.anim === 'fire' && L.tone === 'fire' })
+      }
+      // Codex's single light (`IsoLandmark.light`): with a night picture, it shines only after dusk.
+      if (lm.light && (!lm.night || afterDusk)) {
+        const { r, tone, a } = lm.light
+        lights.push({ x: lm.x, y: lm.y, z: z + 0.6, r, color: TONES[tone], a: a * rise })
       }
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
@@ -1796,7 +1813,6 @@ export default function isoView(kit: Kit): View {
 
     // --- the sun ------------------------------------------------------------------------
     const own = kit.params('iso', true)
-    const day = kit.day('iso')
     // The sun's own light. By day it whitens as the sun climbs; at night it is the moon's, faint and blue;
     // in the blue hours, when nothing throws a shadow, there is none.
     const ownShadow = own.shadow as number

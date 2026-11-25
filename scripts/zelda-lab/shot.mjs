@@ -41,16 +41,19 @@ import { createGame, stepGame } from ${JSON.stringify(join(repo, 'themes/zelda/e
 import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.ts'))}
 import { reveal } from ${JSON.stringify(join(repo, 'themes/zelda/engine/explore.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
+import { sceneryAt } from ${JSON.stringify(join(repo, 'themes/zelda/world/gen/frontierScenery.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { spawnEnemy } from ${JSON.stringify(join(repo, 'themes/zelda/engine/spawn.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
-import { loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
+import { kitFor, loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
 import { mapDef } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
+// LIFE_FILE=<render/life/<id>.ts>: show that one critter (its default export) in place of the registry.
+${process.env.LIFE_FILE ? `import __critter from ${JSON.stringify(resolve(process.env.LIFE_FILE))}\nimport { setLifeCritters } from ${JSON.stringify(join(repo, 'themes/zelda/render/life/index.ts'))}\nsetLifeCritters([__critter])` : ''}
 // LIVE=<pack.json> applies the studio's live sprites (render/live.ts) as the site does, before anything is drawn.
 ${process.env.LIVE ? `setSpriteOverrides(${JSON.stringify(JSON.parse(readFileSync(process.env.LIVE, 'utf8')).sprites)})` : ''}
 
@@ -75,7 +78,14 @@ const lookWorld = { ...WORLD, generate: id => {
   if (!forced.has(id)) { const base = WORLD.generate(m[2]); forced.set(id, base && { ...base, look: m[1] }) }
   return forced.get(id)
 } }
-const world = scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD
+// Paint the two sides of a planned gate on temporary copies of the real maps.
+const gateMap = scene === 'f-gate-seter' ? WORLD.generate('fr:4,1') : scene === 'f-gate-waymark' ? WORLD.maps.overworld : null
+const gateArt = scene === 'f-gate-seter' ? sceneryAt('seterfell', 'gate', 44, 36) : [
+  { art: 'waymark_seterfell_n', x: 30, y: 10, motion: { frames: 2, fps: 0.75 } },
+  { art: 'border_ns_down', x: 27.5, y: 10 },
+]
+const gateWorld = gateMap && { ...WORLD, maps: { ...WORLD.maps, [gateMap.id]: { ...gateMap, isoLandmarks: [...gateMap.isoLandmarks ?? [], ...gateArt] } } }
+const world = gateWorld ?? (scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD)
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
@@ -188,9 +198,19 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     ui.page = 'map'
     break
   }
+  // Ambient life (render/life/): LIFE=<map>,<x>,<y> puts the hero there with no foes about; LIFE_T=<s> moves the clock.
+  case 'life': { give(); const [mp, lx, ly] = (q.get('at') || 'overworld,30,20').split(','); go(mp, +lx, +ly, 'down'); s.map.enemies.length = 0; run(10); break }
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
   case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
+  case 'f-roadlight': {
+    give()
+    const map = 'fr:6,7'
+    const lamp = WORLD.generate(map).isoLandmarks.find(lm => lm.art.startsWith('road_lantern_'))
+    nearArt(map, lamp.art, 0.25, 1.75)
+    run(30)
+    break
+  }
   case 'f-quarry': give(); near('fr:2,3', 'q.gunn'); run(30); break
   case 'f-lumenby': {
     give()
@@ -202,6 +222,17 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'f-underglow': give(); place('fr:0,3:deep1', 'up', 0.75, 0); run(30); break
   case 'f-seterfell': give(); near('fr:4,1', 'q.bell.tail'); run(30); break
   case 'f-yulefjord': give(); nearArt('fr:5,0', 'fjord_church', 0.05, 2.95); run(30); break
+  case 'f-fjord-cottage': give(); nearArt('fr:3,0', 'fjord_cottage', 0, 2); run(30); break
+  case 'f-fjord-lens': give(); nearArt('fr:3,0', 'fjord_lighthouse', 0.5, 3); run(30); break
+  case 'f-seter-windows': give(); nearArt('fr:4,1', 'seter_hut', 0.5, 2.5); run(30); break
+  case 'f-stage-light': give(); nearArt('fr:1,6', 'fogstage_spotlight_3', -0.5, 1.75); run(30); break
+  case 'f-gate-seter':
+    give()
+    put('fr:4,1', 45.5, 39.3, 'up')
+    s.map.enemies.length = 0
+    run(25, inp({ move: { x: 0, y: -1 } }))
+    break
+  case 'f-gate-waymark': give(); put('overworld', 29, 11.5, 'up'); s.map.enemies.length = 0; run(30); break
   case 'f-stillsand': give(); near('fr:10,4', 'l.caravan.cook'); run(30); break
   case 'f-sporelight': give(); near('fr:9,2', 'l.steam.clerk'); s.map.enemies.length = 0; run(30); break
   case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
@@ -471,7 +502,8 @@ function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.
 // Several frames so fades (exit labels) settle and the clock moves.
 ;(async () => {
   // (A realm's scenery is a chunk of its own, fetched when the view first needs it: the lab waits for it.)
-  await loadRealmArt(mapDef(world, s.map.id)?.realm)
+  await loadRealmArt(kitFor(mapDef(world, s.map.id)))
+  if (q.get('t')) r.draw(s, ui, +q.get('t'))
   const frames = +(q.get('frames') || 40)
   for (let k = 0; k < frames; k++) {
     if (k === frames - 2 && late) late()
@@ -663,6 +695,8 @@ const SHOTS = [
   ['f-puzzle', 'f-puzzle', 1280, 800, 1, 0],
   ['f-battle', 'f-battle', 1280, 800, 1, 0],
   ['f-dig', 'f-dig', 1280, 800, 1, 0],
+  ['life', 'life', 1280, 800, 1, 0],
+  ['life-390', 'life', 390, 844, 2, 0],
   ['f-landing', 'f-landing', 1280, 800, 1, 0],
   ['f-landing-390', 'f-landing', 390, 844, 2, 0],
   ['f-ferry-town', 'f-ferry-town', 1280, 800, 1, 0],
@@ -670,6 +704,8 @@ const SHOTS = [
   ['f-ferry-landing', 'f-ferry-landing', 1280, 800, 1, 0],
   ['f-ferry-landing-390', 'f-ferry-landing', 390, 844, 2, 0],
   ['f-meadow', 'f-meadow', 1280, 800, 1, 0],
+  ['f-meadow-390', 'f-meadow', 390, 844, 2, 0],
+  ['f-roadlight', 'f-roadlight', 1280, 800, 1, 0],
   ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
   ['f-cave', 'f-cave', 1280, 800, 1, 0],
   ['f-pause-390', 'f-pause', 390, 844, 2, 0],
@@ -698,6 +734,8 @@ const SHOTS = [
   ['f-rerun', 'f-rerun', 1280, 800, 1, 0],
   ['f-rerun-390', 'f-rerun', 390, 844, 2, 0],
   ...['gunn', 'folk', 'roads', 'cross', 'intro'].map(k => [`f-say-${k}-390`, `f-say-${k}`, 390, 844, 2, 0]),
+  ...['f-fjord-cottage', 'f-fjord-lens', 'f-seter-windows', 'f-stage-light', 'f-gate-waymark', 'f-gate-seter'].map(scene => [scene, scene, 1280, 800, 1, 0]),
+  ['f-gate-seter-390', 'f-gate-seter', 390, 844, 2, 0],
   ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
     [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
     [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],
@@ -705,7 +743,7 @@ const SHOTS = [
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
-const view = (process.env.DAY ? `&day=${process.env.DAY}` : '') + (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
+const view = (process.env.DAY ? `&day=${process.env.DAY}` : '') + (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '') + (process.env.LIFE ? `&at=${process.env.LIFE}` : '') + (process.env.LIFE_T ? `&t=${process.env.LIFE_T}` : '')
 const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.DAY ? `-${process.env.DAY}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '') + (process.env.TAG ? `-${process.env.TAG}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue

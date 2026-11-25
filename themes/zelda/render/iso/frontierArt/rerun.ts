@@ -1,9 +1,14 @@
 import type { MatName, Pick, Solids } from '../props'
+import { RIM, TV_RIM, lamplight, onRim, television } from './nightPanes'
 
 type Thing = (solids: Solids) => void
 
-/** Same frontage and floor plan before and after an era change. */
-function house(era: 1958 | 1986 | 2086, hip = false): Thing {
+/**
+ * Same frontage and floor plan before and after an era change.
+ * `night` (L1): the windows lit, each with a rim of spill light, the west one of the two front windows a TV's
+ * blue; a line of light under the garage door. Same solids, so the same size and anchor as the day house.
+ */
+function house(era: 1958 | 1986 | 2086, hip = false, night = false): Thing {
   return b => {
     const siding: MatName = era === 1958 ? 'sand' : era === 2086 ? 'chrome' : hip ? 'moss' : 'velvet'
     const roof: MatName = era === 1958 ? 'chestWood' : era === 2086 ? 'pole' : hip ? 'stone' : 'shrine'
@@ -13,7 +18,14 @@ function house(era: 1958 | 1986 | 2086, hip = false): Thing {
       if (nz > 0.5) return roof
       if (z < 5 || Math.floor(z) % 5 === 0) return era === 2086 ? 'carve' : 'wood'
       if (z > 13 && z < 24 && (ny > 0.5 ? Math.abs(x + 17) < 5 || Math.abs(x + 31) < 5 : Math.abs(along - 2) < 8)) {
-        return Math.floor(along) % 6 === 0 || z < 15 ? 'ink' : panes
+        if (!night) return Math.floor(along) % 6 === 0 || z < 15 ? 'ink' : panes
+        if (z < 15) return 'ink'
+        // The pane as the face shows it: from its left edge (east face: from its south end), up from the sill.
+        const [a, w] = ny > 0.5 ? [x - (Math.abs(x + 17) < 5 ? -22 : -36), 10] : [10 - along, 16]
+        const tv = ny > 0.5 && x < -24
+        if (onRim(a, z - 15, w, 9)) return tv ? TV_RIM : RIM
+        if (Math.floor(along) % 6 === 0) return 'ink'
+        return tv ? television(a, z - 15, w, 9) : lamplight(a, z - 15, w, 9)
       }
       if (ny > 0.5 && Math.abs(x + 2) < 5 && z < 23) return 'dark'
       return siding
@@ -21,6 +33,7 @@ function house(era: 1958 | 1986 | 2086, hip = false): Thing {
     b.box(-45, -46, 0, 44, 46, 3, 'stone')
     b.box(-40, -43, 3, 10, 43, 31, wall)
     b.box(11, -38, 3, 40, 43, 24, (x, _y, z, _nx, ny) => {
+      if (night && ny > 0.5 && Math.abs(x - 25) < 10 && z < 4) return 'gold'
       if (ny > 0.5 && Math.abs(x - 25) < 11 && z < 21) return Math.floor(z) % 4 === 0 ? 'ink' : 'chrome'
       return siding
     })
@@ -115,6 +128,11 @@ export const RERUN_THINGS: Record<string, Thing> = {
   rerun_house_1958: house(1958),
   rerun_house_1986: house(1986),
   rerun_house_2086: house(2086),
+  rerun_house_0_night: house(1986, false, true),
+  rerun_house_1_night: house(1986, true, true),
+  rerun_house_1958_night: house(1958, false, true),
+  rerun_house_1986_night: house(1986, false, true),
+  rerun_house_2086_night: house(2086, false, true),
   rerun_mailbox: mailbox,
   rerun_phone_booth: booth,
   rerun_station_wagon: wagon,

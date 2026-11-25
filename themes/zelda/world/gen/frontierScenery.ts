@@ -1,4 +1,5 @@
 import type { IsoLandmark, LandmarkLight, Tone } from '../../types'
+import { hash } from './rng'
 
 const prop = (art: string, x: number, y: number, details: Partial<IsoLandmark> = {}): IsoLandmark => ({ art, x, y, ...details })
 const bob = { frames: 2, fps: 1, bob: true }
@@ -24,8 +25,55 @@ const PORCH = [light('gold', 2, 0.6, { z: 0.6, dy: 1.8 })]
 /** The tiles a thing stands on, solid to walkers (`IsoLandmark.solid`): w × h from tile (x, y), in stamp tiles. */
 const at = (x: number, y: number, w = 1, h = 1) => ({ solid: { x, y, w, h } })
 
+const GATE_REALMS = new Set(['lumenby', 'seterfell', 'sporelight', 'stillsand', 'fogstage', 'rerun'])
+
+const CAMP: IsoLandmark[] = [
+  prop('camp_board_cyan', 4.4, 1.05),
+  prop('camp_fire', 2.1, 2.48, { motion: cycle(4, 5), light: { r: 2.2, tone: 'gold', a: 0.6 } }),
+  prop('camp_tripod', 2.1, 2.48),
+  prop('camp_log', 1.66, 3.11),
+  prop('camp_log', 2.64, 3.05),
+  prop('camp_shelter', 5.3, 0.48),
+]
+
 /** Shared stamp ids such as 'house' are scoped to a realm. Anchors and cover are in stamp tiles. */
 const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
+  meadow: {
+    camp: [prop('meadow_bus_stop', 0.47, 1.78), prop('meadow_cart', 5.6, 2.28)],
+    'q.crossroads': [
+      prop('meadow_bus_stop', 3.4, 1.55),
+      prop('meadow_mill', 6.51, 0.6, { motion: cycle(4, 2), shadow: { tall: 1.45, wide: 0.44 } }),
+      prop('meadow_cart', 7.2, 2.6),
+      prop('camp_board_pink', 7.76, 3.69),
+      prop('camp_log', 4.68, 3.55), prop('camp_log', 5.84, 3.69), prop('camp_tripod', 5.5, 2.86),
+      prop('camp_shelter', 3.7, 0.7),
+    ],
+    hamlet: [prop('meadow_mill', 6.5, 2.35, { motion: cycle(4, 2) }), prop('meadow_cart', 9.4, 5.75)],
+    house: [
+      prop('meadow_mill', 0.6, 2.15, { motion: cycle(4, 2) }),
+      prop('meadow_hay_small', 5.8, 4.25),
+    ],
+    shrine: [prop('meadow_waystone', 3.5, 3.25)],
+    stones: [prop('meadow_waystone', 3.5, 3.25)],
+    grove: [
+      prop('meadow_hay_small', 1.75, 2.8),
+      prop('meadow_hay_medium', 4.5, 2.85),
+      prop('meadow_hay_large', 5.55, 3.25),
+    ],
+  },
+  landing: {
+    'landing:s': [
+      prop('landing_pier', 5.5, 6.5, { cover: { x: 5, y: 5, w: 1, h: 3 } }),
+      prop('landing_breakwater', 1.38, 6.4),
+      prop('landing_breakwater_end', 2.45, 6.4),
+      prop('landing_bollard', 5.79, 7.43),
+      prop('landing_bollard', 5.15, 5.58),
+      prop('landing_crates', 3.7, 4.28),
+      prop('landing_net_rack', 1.63, 4.15),
+      prop('landing_harbour_light', 6.55, 5.35, { light: { r: 2.6, tone: 'cyan', a: 0.65 } }),
+      prop('camp_board_gold', 3.45, 2.08),
+    ],
+  },
   lumenby: {
     'q.unionhall': [
       ...[...'lumenby'].map((ch, i) => prop(`quarry_letter_${ch}_off`, 0.8 + i * 1.2, 0.6, {
@@ -55,8 +103,8 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
   },
   yulefjord: {
     stilts: [
-      prop('fjord_cottage', 2.5, 4.5, { cover: { x: 1, y: 3, w: 3, h: 3 }, lights: COTTAGE }),
-      prop('fjord_cottage', 8.5, 4.5, { cover: { x: 7, y: 3, w: 3, h: 3 }, lights: COTTAGE }),
+      prop('fjord_cottage', 2.5, 4.5, { night: 'fjord_cottage_night', cover: { x: 1, y: 3, w: 3, h: 3 }, lights: COTTAGE }),
+      prop('fjord_cottage', 8.5, 4.5, { night: 'fjord_cottage_night', cover: { x: 7, y: 3, w: 3, h: 3 }, lights: COTTAGE }),
       prop('fjord_lantern', 5.5, 8.5, { cover: { x: 5, y: 8, w: 1, h: 1 }, lights: [light('amber', 4.5, 0.85, { z: 1.1, anim: 'fire' })] }),
       prop('fjord_floe_mid', 2.35, 0.7),
       prop('fjord_floe_small', 8.45, 1.35),
@@ -93,7 +141,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('sporelight_puff', 5.8, 3.5, { motion: cycle(3, 2) }),
     ],
     'l.steamhouse': [
-      prop('sporelight_bathhouse', 6.5, 3.3, {
+      prop('sporelight_bathhouse', 6.5, 3.3, { night: 'sporelight_bathhouse_night',
         cover: { x: 5, y: 2, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.4, deep: 1.35 },
         // Two gold lanterns at its eave posts.
         lights: [light('gold', 2.5, 0.8, { dx: -1, dy: 2, z: 0.8, anim: 'fire' }), light('gold', 2.5, 0.8, { dx: 1, dy: 2, z: 0.8, anim: 'fire' })],
@@ -110,7 +158,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('fogstage_sandbags', 3.1, 2.4, at(3, 2)),
     ],
     hilltown: [
-      prop('fogstage_spotlight', 1.5, 11.6, { lights: SPOT, ...at(1, 11) }),
+      prop('fogstage_spotlight_0', 1.5, 11.6, { lights: SPOT, ...at(1, 11) }),
       prop('fogstage_raincheck', 10.65, 9.5, { motion: bob, shadow: { tall: 1.7, wide: 1.5, deep: 0.6 }, lights: BLIMP }),
       prop('fogstage_gangway', 10.75, 10.65),
     ],
@@ -120,17 +168,17 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
     'q.raincheck': [
       prop('fogstage_raincheck', 3.5, 2.25, { motion: bob, shadow: { tall: 1.7, wide: 1.5, deep: 0.6 }, lights: BLIMP }),
       prop('fogstage_gangway', 3.5, 3.45),
-      prop('fogstage_spotlight', 7.6, 1.8, { lights: SPOT, ...at(7, 1) }),
+      prop('fogstage_spotlight_3', 7.6, 1.8, { lights: SPOT, ...at(7, 1) }),
       prop('fogstage_poster_2', 6.95, 2.55, { lit: { flag: 'q.act.done', art: 'fogstage_poster_7' }, lights: POSTER }),
     ],
   },
   rerun: {
     booth: [prop('rerun_phone_booth', 1.5, 1.65, { cover: { x: 1, y: 1, w: 1, h: 1 }, shadow: { tall: 1.2, wide: 0.28 }, lights: [light('ice', 2, 0.7, { z: 0.9, dy: 0.5 })] })],
     culdesac: [
-      prop('rerun_house_0', 2.5, 1.5, { cover: { x: 1, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
-      prop('rerun_house_1', 10.5, 1.5, { cover: { x: 9, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
-      prop('rerun_house_1', 2.5, 8.5, { cover: { x: 1, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
-      prop('rerun_house_0', 10.5, 8.5, { cover: { x: 9, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
+      prop('rerun_house_0', 2.5, 1.5, { night: 'rerun_house_0_night', cover: { x: 1, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
+      prop('rerun_house_1', 10.5, 1.5, { night: 'rerun_house_1_night', cover: { x: 9, y: 0, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
+      prop('rerun_house_1', 2.5, 8.5, { night: 'rerun_house_1_night', cover: { x: 1, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
+      prop('rerun_house_0', 10.5, 8.5, { night: 'rerun_house_0_night', cover: { x: 9, y: 7, w: 3, h: 3 }, shadow: { tall: 1.7, wide: 1.35, deep: 1.4 }, lights: PORCH }),
       prop('rerun_mailbox', 2.65, 3.45, at(2, 3)),
       prop('rerun_station_wagon', 9.75, 3.65, at(9, 3, 2)),
       prop('rerun_flamingo', 11.45, 4.8, at(11, 4)),
@@ -152,7 +200,7 @@ function seterFarm(fenceY: number): IsoLandmark[] {
   const wall = (x: number, y: number) => prop('seter_fence_ew', x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 } })
   return [
     // The hut's hearth shows at its door, and its chimney smokes (embers and smoke rise from a fire's light).
-    prop('seter_hut', 3.5, 3.5, {
+    prop('seter_hut', 3.5, 3.5, { night: 'seter_hut_night',
       cover: { x: 2, y: 2, w: 3, h: 3 }, motion: cycle(2, 2),
       lights: [light('amber', 2.6, 0.75, { z: 0.5, dy: 1.8 }), light('fire', 2.4, 0.45, { dx: -0.4, dy: -0.8, z: 2, anim: 'fire' })],
     }),
@@ -163,11 +211,45 @@ function seterFarm(fenceY: number): IsoLandmark[] {
 }
 
 export function sceneryAt(realm: string, stamp: string, x: number, y: number): IsoLandmark[] {
-  return (SCENERY[realm]?.[stamp] ?? []).map(lm => ({
+  if (GATE_REALMS.has(realm) && (stamp === 'gate' || stamp === 'gate:ew')) {
+    const road = stamp === 'gate' ? 'ns' : 'ew'
+    const stem = `gate_${realm}_${road}`
+    return [prop(`${stem}_off`, x + 1.5, y + 1.5, { night: `${stem}_on` })]
+  }
+  const scenery = SCENERY[realm]?.[stamp] ?? []
+  return (stamp === 'camp' ? [...CAMP, ...scenery] : scenery).map(lm => ({
     ...lm,
     x: lm.x + x,
     y: lm.y + y,
     ...(lm.cover ? { cover: { ...lm.cover, x: lm.cover.x + x, y: lm.cover.y + y } } : {}),
     ...(lm.solid ? { solid: { ...lm.solid, x: lm.solid.x + x, y: lm.solid.y + y } } : {}),
   }))
+}
+
+const ROAD_TONES = ['pink', 'cyan', 'violet', 'gold', 'rose'] as const
+const ROAD_VERGE = new Set(['.', ':', ';', '-'])
+
+/** Sparse lamps on open verges. Read the completed layout without consuming its random stream. */
+export function roadsideLights(rows: string[][], claimed: Uint8Array, seed: number): IsoLandmark[] {
+  const w = rows[0]!.length
+  const out: IsoLandmark[] = []
+  for (let y = 2; y < rows.length - 2; y++) for (let x = 2; x < w - 2; x++) {
+    if (rows[y]![x] !== ',' || claimed[y * w + x]) continue
+    const chance = hash(seed, x, y)
+    if (chance % 23 !== 0) continue
+    const across = rows[y]![x - 1] === ',' || rows[y]![x + 1] === ','
+    const sign = chance & 1 ? 1 : -1
+    for (const side of [sign, -sign]) {
+      const nx = x + (across ? 0 : side)
+      const ny = y + (across ? side : 0)
+      if (claimed[ny * w + nx] || !ROAD_VERGE.has(rows[ny]![nx]!)) continue
+      if (out.some(p => Math.abs(p.x - nx - 0.5) + Math.abs(p.y - ny - 0.5) < 5)) continue
+      const tone = ROAD_TONES[(chance >>> 8) % ROAD_TONES.length]!
+      out.push(prop(`road_lantern_${tone}_off`, nx + 0.5, ny + 0.5, {
+        night: `road_lantern_${tone}_on`, light: { r: 2.15, tone, a: 0.55 },
+      }))
+      break
+    }
+  }
+  return out
 }

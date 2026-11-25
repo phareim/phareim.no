@@ -95,6 +95,11 @@ export const WILDWOOD: MapDef = {
     { name: 'THE CAMP', x: 42, y: 28, w: 20, h: 24, entry: 'camp' },
     { name: 'WILDWOOD SHORE', x: 62, y: 0, w: 22, h: 52, entry: 'town' },
   ],
+  // By the gates (gen/gates.ts), in the isometric view: a neon waymark naming the realm past each one.
+  isoLandmarks: [
+    { art: 'waymark_lumenby_n', x: 41.4, y: 2.4, motion: { frames: 2, fps: 0.75 } },
+    { art: 'waymark_fogstage_w', x: 2.6, y: 19.3, motion: { frames: 2, fps: 0.75 } },
+  ],
   entries: {
     lab: { x: 52.5, y: 21.5, dir: 'down' },
     mossa: { x: 72.5, y: 33.5, dir: 'down' },

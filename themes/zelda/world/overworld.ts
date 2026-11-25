@@ -113,6 +113,16 @@ export const OVERWORLD: MapDef = {
     // The newsstand's roof: the wordmark of sleeper.phareim.md, over the stand's own NEWS board.
     { x: 15.5, y: 22.35, text: 'SLEEPER_', scale: 1, align: 'center', tone: 'rose' },
   ],
+  // By the gates (gen/gates.ts), in the isometric view: a neon waymark naming the realm past each one, blinking
+  // slowly, and at the wardens' gates a BORDER arm that is down until the hero has a blade (`frontierArt/gates.ts`).
+  isoLandmarks: [
+    { art: 'waymark_seterfell_n', x: 47.4, y: 2.6, motion: { frames: 2, fps: 0.75 } },
+    { art: 'waymark_sporelight_n', x: 83.4, y: 2.6, motion: { frames: 2, fps: 0.75 } },
+    { art: 'border_ns_down', x: 81.5, y: 2.1, lit: { flag: 'item:sword', art: 'border_ns_up' } },
+    { art: 'waymark_stillsand_e', x: 100.4, y: 11.5, motion: { frames: 2, fps: 0.75 } },
+    { art: 'waymark_rerun_e', x: 101.6, y: 35.4, motion: { frames: 2, fps: 0.75 } },
+    { art: 'border_ew_down', x: 101.6, y: 37.5, lit: { flag: 'item:sword', art: 'border_ew_up' } },
+  ],
   // Continue points per area (death puts you back at the last one visited),
   // the Keeper's hut door (stepping out of it), and where the town's doors put you back outside.
   entries: {
