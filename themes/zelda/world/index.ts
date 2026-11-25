@@ -14,6 +14,7 @@ import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
 import { frontierMap } from './gen/frontier'
 import { ARENA } from './arena'
+import { QUARRY } from './quarry'
 
 export { INTRO } from './intro'
 
@@ -36,6 +37,8 @@ export const WORLD: World = {
     deep2: DEEP2,
     // Field battles' demo glade: not linked from the world yet.
     arena: ARENA,
+    // Dig & build's demo (`MapDef.dig`), not linked from the world yet.
+    quarry: QUARRY,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,

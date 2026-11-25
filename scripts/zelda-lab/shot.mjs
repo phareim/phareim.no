@@ -312,6 +312,22 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     if (scene === 'b-hit') { run(1, inp({ aPress: true })); run(1, inp({ aPress: true })); run(21) }
     break
   }
+  // Dig & build (docs/games/neon-shrine-dig.md): Lumenby Quarry with every tool, a ramp up the plateau, a block, a
+  // hole, planks over the lake and a lamp already built. q-quarry: on the ground, the hammer out (the target
+  // outlined); q-ledge: up on the plateau by the ramp; q-hole: down in a hole, the shovel out.
+  case 'q-quarry': case 'q-ledge': case 'q-hole': {
+    give()
+    for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true
+    s.inv.mats = { dirt: 4, stone: 6, wood: 3, lumen: 2 }
+    const W = 32, e = (x, y, v) => [y * W + x, v]
+    s.digEdits = { quarry: Object.fromEntries([e(16, 8, 'ж2'), e(19, 11, 'а2'), e(20, 11, 'а2'), e(20, 10, 'а3'), e(12, 9, 'к0'), e(13, 9, 'к0'), e(22, 4, '=1'), e(23, 4, '=1'), e(21, 6, 't1'), e(5, 13, 'д1'), e(13, 8, 'ж2')]) }
+    if (scene === 'q-quarry') { s.inv.selected = 'build'; s.inv.build = 'stone'; go('quarry', 17.5, 10.5, 'up') }
+    else if (scene === 'q-ledge') { s.inv.selected = 'dig'; go('quarry', 16.5, 5.6, 'left') }
+    else { s.inv.selected = 'dig'; go('quarry', 12.5, 9.5, 'right') }
+    for (const f of s.map.enemies) if (f.kind === 'hound') { f.x = 18.5; f.y = 14.5 }
+    run(20)
+    break
+  }
 }
 if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
 // DAY=sun|noon|night|dawn: a solved save's running hour, as steady.mjs --day (without it the eternal dusk).
@@ -498,6 +514,11 @@ const SHOTS = [
   ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
   ['f-cave', 'f-cave', 1280, 800, 1, 0],
   ['f-pause-390', 'f-pause', 390, 844, 2, 0],
+  // Dig & build's quarry (VIEW=iso is the one that matters).
+  ['q-quarry-1280', 'q-quarry', 1280, 800, 1, 0],
+  ['q-quarry-390', 'q-quarry', 390, 844, 3, 0],
+  ['q-ledge-1280', 'q-ledge', 1280, 800, 1, 0],
+  ['q-hole-1280', 'q-hole', 1280, 800, 1, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')

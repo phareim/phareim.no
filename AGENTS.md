@@ -83,6 +83,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | The frontier (Neon Shrine's generated world: realms, regions, caves) | `docs/worlds/README.md` (+ realm sketches) | `themes/zelda/world/gen/` |
 | Field battles (Neon Shrine: turn-based fights in place on maps with `MapDef.battle`) | `docs/games/neon-shrine-battle.md` | `themes/zelda/engine/battle/`, `render/battle.ts`, `world/arena.ts` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
+| Neon Shrine dig & build (per map: `MapDef.dig`) | `docs/games/neon-shrine-dig.md` | `themes/zelda/engine/dig.ts`, `digGround.ts`, `render/dig.ts`, `render/iso/dig.ts`, `world/quarry.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Rex & Nova: Space Voyagers II (theme id `voyagers2`) | `docs/games/voyagers2.md` | `themes/voyagers2/` (DESIGN.md; engine/, story/, render/), `scripts/voyagers2-lab/`, `public/voyagers2/` |
 | Rex & Nova: Space Voyagers I (theme id `galaga`, parked) | `docs/games/galaga.md` | `themes/galaga/` (DESIGN.md; engine/, story/, render/), `scripts/galaga-lab/`, `public/galaga/` |

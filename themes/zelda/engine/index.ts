@@ -10,3 +10,5 @@ export { solidTile } from './map'
 export { DAY, DAY_LENGTH, HOURS, foeLevel, setDaytime, wayOut } from './day'
 // Field battles (MapDef.battle)
 export { startBattle, menuView, techOk, fighter, fighterAt, battleFocus, wet, PARTY, TECHS, FOES, TP_MAX, INTRO_TIME, OUTRO_TIME, WINDED_TIME } from './battle/index'
+export { digPlan, digTarget, digItems, buildKind, buildKinds, matCount, hasTool, encodeDig, decodeDig, DIG_CAP, DIG_MAPS, DIG_MATS, isDigItem } from './dig'
+export { digZ, digRise, digLevel, heightAt, isRamp, RAMPS } from './digGround'
