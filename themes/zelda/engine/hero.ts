@@ -5,7 +5,7 @@
  */
 import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '../types'
 import {
-  ARC_REACH, BEAM_SPEED, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
+  ARC_REACH, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
@@ -488,12 +488,6 @@ function startSwing(c: Ctx, inp: Input) {
   h.actT = 0
   h.charge = 0
   c.ev.push({ type: 'swing' })
-  // The Arc Blade throws a beam while the hero's hearts are full.
-  if (s.inv.arc && h.hp >= h.maxHp && !s.map.projectiles.some(p => p.kind === 'beam')) {
-    const v = { x: Math.cos(aim), y: Math.sin(aim) }
-    s.map.projectiles.push({ id: nextId(s), kind: 'beam', x: h.x + v.x * 0.7, y: h.y + v.y * 0.7, vx: v.x * BEAM_SPEED, vy: v.y * BEAM_SPEED, r: 0.32, t: 0, life: 0.55, friendly: true })
-    c.ev.push({ type: 'beam' })
-  }
 }
 
 /**

@@ -65,14 +65,14 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 // Enemy damage
 // ---------------------------------------------------------------------------
 
-export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'beam' | 'spit'
+export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit'
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
 /** The ones whose fall clears the room and plays the boss fanfare. */
 const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
 
-const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'beam'
+const blade = (src: HitSource) => src === 'sword' || src === 'spin'
 
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource): boolean {
@@ -308,7 +308,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bits50': return ['YOU GOT 50 BITS!']
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
-    case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES.", 'WHILE YOUR HEARTS ARE FULL, EVERY SWING THROWS A BEAM.']
+    case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
     case 'waffle': return ['A WAFFLE, STILL WARM.', 'SOMEONE IN THESE WOODS WOULD DO A LOT FOR ONE OF THESE.']
     case 'shroom': return s.inv.shrooms >= 3

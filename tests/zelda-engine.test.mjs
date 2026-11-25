@@ -343,6 +343,16 @@ describe('before the blade', () => {
     const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, bPress: true }))]
     assert.ok(ev.some(e => e.type === 'swing'))
   })
+
+  it('the Arc Blade is only a blade: no shot even at full hearts (2026-11-25)', () => {
+    const W = fixture()
+    const s = Z.createGame(W)
+    Object.assign(s.inv, { sword: true, arc: true })
+    s.hero.hp = s.hero.maxHp
+    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))]
+    assert.ok(ev.some(e => e.type === 'swing'))
+    assert.ok(!s.map.projectiles.some(p => p.friendly), 'the swing threw something')
+  })
 })
 
 describe('saves', () => {

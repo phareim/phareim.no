@@ -639,7 +639,7 @@ classic picture. `/?view=<id>` asks for one.
 - **Where a swing is aimed** (`aimOf` in `engine/hero.ts`, every view). The
   hero keeps the exact way the stick last pushed (`hero.aim`; on touch with
   the stick at rest, the way to the foe the blade turned to). A swing
-  sweeps its 171° across that and the Arc Blade's beam flies along it, so
+  sweeps its 171° across that, so
   walking on a diagonal (which is every single key in the turned view)
   strikes along the diagonal. `dir`, the nearest of the four ways, is still
   what everything else goes by; once something else turns the hero (a

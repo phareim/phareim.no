@@ -237,7 +237,7 @@ function stepProjectiles(c: Ctx, dt: number) {
       for (const e of m.enemies) {
         if (!enemyActive(c, e) || e.kind === 'eye') continue
         if (Math.hypot(e.x - p.x, e.y - p.y) < e.r + p.r) {
-          hitEnemy(c, e, 2, p.x - p.vx * 0.05, p.y - p.vy * 0.05, p.kind === 'beam' ? 'beam' : p.kind === 'spit' ? 'spit' : 'shot')
+          hitEnemy(c, e, 2, p.x - p.vx * 0.05, p.y - p.vy * 0.05, p.kind === 'spit' ? 'spit' : 'shot')
           dead = true
           break
         }

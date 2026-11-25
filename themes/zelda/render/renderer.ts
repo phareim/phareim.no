@@ -994,7 +994,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
     for (const p of m.projectiles) {
       if (p.kind === 'gust') continue
-      lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' || p.kind === 'beam' ? 1.8 : 1.4, color: p.kind === 'beam' ? '#ffd23f' : p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })
+      lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' ? 1.8 : 1.4, color: p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })
     }
     for (const b of m.blasts) lights.push({ x: b.x, y: b.y, r: 5 * (1 - b.t), color: '#ff8a3d', a: 1 })
     return amb
@@ -1015,16 +1015,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         g.fillRect(Math.round(px) - 2, Math.round(py) - 2, 5, 4)
         g.fillStyle = '#ffffff'
         g.fillRect(Math.round(px) - 1, Math.round(py) - 2, 2, 1)
-      } else if (p.kind === 'beam') {
-        const n = Math.hypot(v.x, v.y) || 1
-        const ux = v.x / n
-        const uy = v.y / n
-        g.strokeStyle = '#ffd23f'
-        g.lineWidth = 4
-        g.beginPath(); g.moveTo(px - ux * 9, py - uy * 9); g.lineTo(px + ux * 3, py + uy * 3); g.stroke()
-        g.strokeStyle = '#ffffff'
-        g.lineWidth = 2
-        g.beginPath(); g.moveTo(px - ux * 7, py - uy * 7); g.lineTo(px + ux * 3, py + uy * 3); g.stroke()
       } else if (p.kind === 'gust') {
         g.strokeStyle = 'rgba(207,250,255,0.75)'
         g.lineWidth = 1

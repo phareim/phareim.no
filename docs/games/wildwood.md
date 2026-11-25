@@ -85,7 +85,7 @@ Hit rules: `engine/combat.ts` (`bossRules`); brains: `engine/bosses.ts`.
 - **The hook** (`engine/hook.ts`): B, straight along the facing, 8 tiles; bites `|` posts, pillars,
   lamps and chests and reels the hero over pits and water; stuns what it strikes, drags loot back,
   throws levers, flips crystals; never leaves the camera room.
-- **The Arc Blade**: 2 damage (spin 3), longer reach, a beam at full hearts, cuts static vines `l`.
+- **The Arc Blade**: 2 damage (spin 3), longer reach, cuts static vines `l`.
 - **Luna** (`engine/luna.ts`): follows on the hero's trail; A at a psi block `B` makes her slide it
   until something stops it (into a hole with a floor below: it drops and lands there for good).
   Back within 2.2 tiles of where she joined (her fort), after the hero has been 3.5 tiles away, she

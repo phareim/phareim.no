@@ -92,7 +92,7 @@ blobs, fetches drops, flips crystal switches, breaks the King's shards).
 
 The Wildwood added the grappling hook (B: bites posts, pillars, lamps and
 chests and reels you over pits and water), the Arc Blade (the upgraded
-sword: 2 damage, a beam at full hearts, cuts static vines), Luna (follows;
+sword: 2 damage, cuts static vines), Luna (follows;
 slides psi blocks), letter stones, levers, crystal groups shared across
 floors, holes to the floor below, per-dungeon keyrings and room events.
 

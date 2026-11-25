@@ -1077,7 +1077,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   discHit: 'discHit', fall: 'fall', reflect: 'reflect', warp: 'stairs', text: 'text', talk: 'select',
   error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',
   hook: 'hook', hookHit: 'hookHit', pull: 'pull', psi: 'psi', glyph: 'glyph', lever: 'lever', land: 'land',
-  beam: 'beam', gust: 'gust', bark: 'bark',
+  gust: 'gust', bark: 'bark',
 }
 
 function handleEvents(events: GameEvent[]) {

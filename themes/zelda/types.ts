@@ -59,7 +59,6 @@ export const HOOK_SPEED = 17 // tiles/s, out and back
 export const HOOK_RANGE = 8
 export const HOOK_PULL_SPEED = 13
 export const ARC_REACH = 1.4 // the Arc Blade's swing
-export const BEAM_SPEED = 12
 export const PSI_SPEED = 11 // a psi block sliding, tiles/s
 export const PUSH_DELAY = 0.32 // walk into a block this long to push it
 export const PUSH_TIME = 0.28
@@ -533,7 +532,7 @@ export interface Enemy {
 
 export interface Projectile {
   id: number
-  kind: 'pellet' | 'laser' | 'spark' | 'shard' | 'wave' | 'beam' | 'spit' | 'gust'
+  kind: 'pellet' | 'laser' | 'spark' | 'shard' | 'wave' | 'spit' | 'gust'
   x: number
   y: number
   vx: number
@@ -658,7 +657,7 @@ export interface MapState {
   pending: number[]
   /** Crystal state per camera room ('pink' raises P, 'cyan' raises C). */
   crystal: Record<number, 'pink' | 'cyan'>
-  /** Seconds before a crystal switch answers again (a blade and its beam strike together). */
+  /** Seconds before a crystal switch answers again (one strike flips it once). */
   crystalCool?: number
   /** The shared state of a crystal group (MapDef.crystal); overrides `crystal`. */
   crystalAll?: 'pink' | 'cyan'
@@ -958,7 +957,6 @@ export type GameEvent =
   | { type: 'glyph'; x: number; y: number; ok: boolean }
   | { type: 'lever'; x: number; y: number }
   | { type: 'land' }
-  | { type: 'beam' }
   | { type: 'gust'; x: number; y: number }
   | { type: 'join' }
   | { type: 'wait' } // Luna sat down at her fort
