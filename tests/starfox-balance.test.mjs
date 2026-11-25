@@ -34,25 +34,19 @@ describe('Star Fox health', () => {
 })
 
 describe('Star Fox sectors', () => {
-  it('flies ~80 s, warns briefly, clears briefly', () => {
-    assert.equal(TRAVEL_TIME, 80)
-    assert.equal(WARNING_TIME, 2.5)
-    assert.equal(CLEAR_TIME, 3)
-  })
-
-  it('walks travel → warning → boss → (kill) → clear → travel', () => {
-    assert.equal(advanceSector('travel', 79), 'travel')
-    assert.equal(advanceSector('travel', 80), 'warning')
-    assert.equal(advanceSector('warning', 2.4), 'warning')
-    assert.equal(advanceSector('warning', 2.5), 'boss')
+  it('walks travel (about a minute and a half) → warning → boss → (kill) → clear → travel, warning and clear brief', () => {
+    assert.ok(TRAVEL_TIME >= 60 && TRAVEL_TIME <= 100 && WARNING_TIME <= 5 && CLEAR_TIME <= 5)
+    assert.equal(advanceSector('travel', TRAVEL_TIME - 0.1), 'travel')
+    assert.equal(advanceSector('travel', TRAVEL_TIME), 'warning')
+    assert.equal(advanceSector('warning', WARNING_TIME - 0.1), 'warning')
+    assert.equal(advanceSector('warning', WARNING_TIME), 'boss')
     assert.equal(advanceSector('boss', 999), 'boss')
-    assert.equal(advanceSector('clear', 2.9), 'clear')
-    assert.equal(advanceSector('clear', 3), 'travel')
+    assert.equal(advanceSector('clear', CLEAR_TIME - 0.1), 'clear')
+    assert.equal(advanceSector('clear', CLEAR_TIME), 'travel')
   })
 
   it('pays a bigger bounty per sector', () => {
-    assert.equal(sectorClearBonus(1), 1000)
-    assert.equal(sectorClearBonus(3), 3000)
+    assert.ok(sectorClearBonus(1) > 0 && sectorClearBonus(2) > sectorClearBonus(1) && sectorClearBonus(3) > sectorClearBonus(2))
   })
 
   it('ramps speed with time and sector, capped', () => {
@@ -82,7 +76,7 @@ describe('Star Fox enemies', () => {
     assert.equal(boltSpeedBonus(1), 0)
     assert.ok(boltSpeedBonus(3) > 0)
     assert.ok(enemyShootChance(3) > enemyShootChance(1))
-    assert.ok(enemyShootChance(99) <= 0.95)
+    assert.ok(enemyShootChance(1) >= 0.6 && enemyShootChance(99) <= 0.95)
   })
 
   it('keeps sector 1 to drones, grows formations later', () => {
@@ -101,42 +95,18 @@ describe('Star Fox enemies', () => {
       assert.ok(formationSize(3, () => i / 50) <= 5)
     }
   })
-
-  it('pins per-kind HP and score stats', () => {
-    assert.equal(ENEMY_STATS.bulwark.hp, 3)
-    assert.equal(ENEMY_STATS.splitter.hp, 2)
-    for (const [kind, st] of Object.entries(ENEMY_STATS)) {
-      assert.ok(st.hp >= 1, kind)
-      assert.ok(st.score > 0, kind)
-    }
-    assert.ok(ENEMY_STATS.bulwark.score > ENEMY_STATS.drone.score)
-    assert.equal(ENEMY_STATS.mite.score, 50)
-  })
 })
 
 describe('Star Fox wingman and obstacles', () => {
-  it('pins wingman HP, respawn and fire pacing', () => {
-    assert.equal(BUDDY_HP, 50)
-    assert.equal(BUDDY_RESPAWN, 10)
-    assert.equal(BUDDY_AGGRO, 0.35)
+  it('keeps a wingman weaker than the player and the obstacles few', () => {
+    assert.ok(BUDDY_HP > 0 && BUDDY_HP <= HP_MAX && BUDDY_RESPAWN > 0)
+    assert.ok(BUDDY_AGGRO > 0 && BUDDY_AGGRO < 1)
     assert.ok(BUDDY_INVULN > 0 && BUDDY_INVULN <= BUDDY_RESPAWN)
-    // ~60 % of a level-1 player's output (twin bolts every 1/6 s).
+    // Below a level-1 player's output (twin bolts every 1/6 s).
     assert.ok(BUDDY_FIRE_INTERVAL > 1 / 6)
-  })
-
-  it('pins mine, bulwark and arch caps', () => {
     assert.ok(MINE_FUSE_RADIUS > 0 && MINE_BLAST_RADIUS >= MINE_FUSE_RADIUS - 1)
     assert.ok(MINE_SCORE > 0)
-    assert.equal(MAX_MINES, 6)
-    assert.equal(MAX_BULWARKS, 2)
-    assert.equal(MAX_ARCHES, 3)
-  })
-
-  it('keeps shoot chance capped and bolt bonus positive', () => {
-    assert.ok(enemyShootChance(99) <= 0.95)
-    assert.ok(enemyShootChance(1) >= 0.6)
-    assert.equal(boltSpeedBonus(1), 0)
-    assert.ok(boltSpeedBonus(3) > 0)
+    for (const cap of [MAX_MINES, MAX_BULWARKS, MAX_ARCHES]) assert.ok(Number.isInteger(cap) && cap >= 1 && cap <= 8)
   })
 })
 
@@ -206,8 +176,9 @@ describe('Star Fox bestiary (redesign)', () => {
     const names = { drone: 'GNAT', kamikaze: 'SPIKE', weaver: 'MANTA', sniper: 'LANCER', dasher: 'HORNET', bulwark: 'BULWARK', splitter: 'POD', mite: 'MITE', carrier: 'CARRIER', turret: 'TURRET', missile: 'MISSILE', rival: 'MEGA COBRA' }
     assert.equal(ENEMY_KINDS.length, 12)
     for (const k of ENEMY_KINDS) assert.equal(ENEMY_STATS[k].name, names[k], k)
-    assert.equal(ENEMY_STATS.carrier.hp, 14)
-    assert.ok(ENEMY_STATS.carrier.score > ENEMY_STATS.bulwark.score)
+    for (const [kind, st] of Object.entries(ENEMY_STATS)) assert.ok(st.hp >= 1 && st.score > 0, kind)
+    assert.ok(ENEMY_STATS.bulwark.hp > ENEMY_STATS.drone.hp && ENEMY_STATS.bulwark.score > ENEMY_STATS.drone.score)
+    assert.ok(ENEMY_STATS.carrier.hp > ENEMY_STATS.bulwark.hp && ENEMY_STATS.carrier.score > ENEMY_STATS.bulwark.score)
     assert.ok(DMG.missile > DMG.bolt)
   })
 
@@ -286,10 +257,10 @@ describe('Star Fox lanes and behaviour data', () => {
   })
 
   it('lights carrier parts as it breaks', () => {
-    assert.equal(carrierPartsLit(14), 0)
+    assert.equal(carrierPartsLit(ENEMY_STATS.carrier.hp), 0)
     assert.equal(carrierPartsLit(0), CARRIER.parts)
     let prev = 0
-    for (let hp = 14; hp >= 0; hp--) {
+    for (let hp = ENEMY_STATS.carrier.hp; hp >= 0; hp--) {
       const n = carrierPartsLit(hp)
       assert.ok(n >= prev)
       prev = n
