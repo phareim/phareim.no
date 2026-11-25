@@ -176,8 +176,9 @@ export function generateRegion(ctx: RegionCtx): MapDef {
         const y = pos.y + j
         claimed[y * W + x] = 1
         const mk = site?.marks?.[ch]
-        if (mk) { own.set(y * W + x, mk); g[y * W + x] = '.'; continue }
-        g[y * W + x] = ch as TileChar // slots are resolved below
+        if (mk) { own.set(y * W + x, mk); g[y * W + x] = T.ground; continue }
+        // A place's plain ground is the realm's own (sand in the quarry and the desert). Slots are resolved below.
+        g[y * W + x] = ch === '.' ? T.ground : ch as TileChar
       }
     }
     rects.push({ x: pos.x, y: pos.y, w: sw, h: sh })
@@ -312,7 +313,9 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   let nextMark = 0xe000
   const markOf = (ent: EntDef, tile?: TileChar): string => {
     const ch = String.fromCharCode(nextMark++)
-    marks[ch] = tile ? { ent, tile } : { ent }
+    // Someone standing on the realm's own ground (sand in the quarry and the desert), not on grass.
+    const under = tile ?? (T.ground !== '.' && (ent.t === 'npc' || ent.t === 'enemy') ? T.ground : undefined)
+    marks[ch] = under ? { ent, tile: under } : { ent }
     return ch
   }
   const entries: Record<string, Spot> = {}
@@ -334,7 +337,7 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   }
   const cell = (x: number, y: number, ch: string) => { rows[y]![x] = ch }
   for (const [i, mk] of own) {
-    if (mk.ent.t === 'entry') { entries[mk.ent.id] = { x: (i % W) + 0.5, y: Math.floor(i / W) + 0.5, dir: mk.ent.dir ?? 'down' }; rows[Math.floor(i / W)]![i % W] = mk.tile ?? '.'; continue }
+    if (mk.ent.t === 'entry') { entries[mk.ent.id] = { x: (i % W) + 0.5, y: Math.floor(i / W) + 0.5, dir: mk.ent.dir ?? 'down' }; rows[Math.floor(i / W)]![i % W] = mk.tile ?? T.ground; continue }
     cell(i % W, Math.floor(i / W), markOf(mk.ent, mk.tile))
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {

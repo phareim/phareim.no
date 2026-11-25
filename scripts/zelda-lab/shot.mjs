@@ -104,6 +104,12 @@ const ev = []
 const give = () => { s.inv.sword = true; s.inv.bombBag = true; s.inv.bombs = 8; s.inv.disc = true; s.inv.selected = 'disc'; s.inv.bits = 123; s.inv.keys = 1; s.hero.maxHp = 10; s.hero.hp = 7 }
 const at = (map, x, y, dir = 'down') => { enterMap(WORLD, s, map, Object.keys({}).length ? '' : 'x', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir }
 function place(map, entryId, dx = 0, dy = 0) { enterMap(world, s, map, entryId, ev); s.hero.x += dx; s.hero.y += dy; s.hero.auto = null }
+/** A frontier map's tile with the NPC of that id, and the hero put a little south of it. */
+function near(map, id, dy = 2) {
+  place(map, 'camp')
+  const d = WORLD.generate(map)
+  d.rows.forEach((row, y) => { const x = [...row].findIndex(ch => d.marks[ch]?.ent.id === id); if (x >= 0) { s.hero.x = x + 0.5; s.hero.y = y + dy + 0.5; s.hero.dir = 'up' } })
+}
 const put = (map, x, y, dir) => { enterMap(world, s, map, Object.keys({}).length ? '' : 'door', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir; s.hero.auto = null }
 const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1', stick: null, attract: false, cam: null, banner: null, keys: q.get('touch') === '1' ? { a: 'THE SWORD BUTTON', b: 'THE ITEM BUTTON', cycle: 'THE SWAP BUTTON', touch: true } : { a: 'SPACE', b: 'K', cycle: 'Q' } }
 // Part 22: a boss room's scene + '-hit' is the same moment with every boss in it flashing (the hurt frame and the
@@ -111,11 +117,19 @@ const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1',
 const bossHit = /^(boss|l-llama|l-mistral|d-deepseek|d-gemini)-hit$/.test(scene)
 switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'start': run(30); break
-  // The frontier (world/gen/): the Landing, a meadow two regions north, the quarry in the north-west, a cave.
-  case 'f-landing': give(); place('fr:4,6', 'camp', 0, -1); run(30); break
-  case 'f-meadow': give(); place('fr:4,4', 'camp'); run(30); break
-  case 'f-quarry': give(); place('fr:1,1', 'camp'); run(30); break
-  case 'f-cave': { give(); const id = ['fr:4,4', 'fr:3,4', 'fr:5,4', 'fr:4,3', 'fr:3,3', 'fr:5,3', 'fr:2,2'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
+  // The frontier (world/gen/): the Landing, the crossroads camp north of it, a cave, and one place in each realm
+  // (beside a quest site's or a landmark's people, so the realm's own places are in the picture).
+  case 'f-landing': give(); place('fr:6,8', 'camp', 0, -1); run(30); break
+  case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
+  case 'f-quarry': case 'f-lumenby': give(); near('fr:2,3', 'q.gunn'); run(30); break
+  case 'f-underglow': give(); place('fr:0,3:deep2', 'up'); run(30); break
+  case 'f-seterfell': give(); near('fr:4,1', 'q.bell.tail'); run(30); break
+  case 'f-yulefjord': give(); near('fr:5,0', 'q.bell.ringer'); run(30); break
+  case 'f-stillsand': give(); near('fr:10,4', 'l.caravan.cook'); run(30); break
+  case 'f-sporelight': give(); near('fr:9,2', 'l.steam.clerk'); run(30); break
+  case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
+  case 'f-rerun': give(); near('fr:8,7', 'l.band'); run(30); break
+  case 'f-cave': { give(); const id = ['fr:6,7', 'fr:5,7', 'fr:6,6', 'fr:5,6', 'fr:4,6', 'fr:6,5', 'fr:5,5', 'fr:4,5', 'fr:3,4'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
   case 'market': give(); place('overworld', 'shop', 4, 4); run(20); break
@@ -130,7 +144,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'boss': give(); place('shrine', 'start', 0, -37); s.zoneIndex = 1; s.zone = { x: 16, y: 0, w: 16, h: 12 }; run(150); break
   case 'dark': give(); place('shrine', 'start', 16, -30); s.zoneIndex = 5; s.zone = { x: 32, y: 12, w: 16, h: 12 }; run(30); break
   case 'pause': give(); run(10); ui.paused = true; break
-  case 'f-pause': give(); for (const id of ['fr:4,6', 'fr:4,5', 'fr:4,4', 'fr:3,4']) place(id, 'camp'); run(10); ui.paused = true; break
+  case 'f-pause': give(); for (const id of ['fr:6,8', 'fr:6,7', 'fr:6,6', 'fr:5,6']) place(id, 'camp'); run(10); ui.paused = true; break
   case 'hut': give(); place('hut', 'door', 0, -5.5); s.hero.dir = 'up'; run(5); break
   case 'hutout': run(12); break
   case 'hutfront': give(); place('overworld', 'hut', 0, 1.5); run(10); break
@@ -519,6 +533,14 @@ const SHOTS = [
   ['q-quarry-390', 'q-quarry', 390, 844, 3, 0],
   ['q-ledge-1280', 'q-ledge', 1280, 800, 1, 0],
   ['q-hole-1280', 'q-hole', 1280, 800, 1, 0],
+  ['f-lumenby', 'f-lumenby', 1280, 800, 1, 0],
+  ['f-underglow', 'f-underglow', 1280, 800, 1, 0],
+  ['f-seterfell', 'f-seterfell', 1280, 800, 1, 0],
+  ['f-yulefjord', 'f-yulefjord', 1280, 800, 1, 0],
+  ['f-stillsand', 'f-stillsand', 1280, 800, 1, 0],
+  ['f-sporelight', 'f-sporelight', 1280, 800, 1, 0],
+  ['f-fogstage', 'f-fogstage', 1280, 800, 1, 0],
+  ['f-rerun', 'f-rerun', 1280, 800, 1, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
