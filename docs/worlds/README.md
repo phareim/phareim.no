@@ -15,9 +15,19 @@ neon ferry bobs alongside each pier (`render/iso/ferryArt.ts`, lab scenes `f-fer
 Each realm has a kit in `themes/zelda/render/iso/frontierArt/`. The authored
 solids bake into the isometric renderer's 32 px/tile grid, with hard alpha,
 surface normals and depth. The generated tables are packed losslessly for
-the build. The view adds only the current realm's kit to its prop atlas.
+the build. Each realm's kit is a chunk of its own (`frontierArt/index.ts`):
+the view fetches it when the hero enters the realm or a region next to it,
+adds only that kit to its prop atlas, and leaves the realm's landmarks out
+until it is here. A visit to the town downloads none of them
+(`tests/zelda-size.test.mjs`).
 `frontierScenery.ts` anchors scenery to generated stamps and quest
-sites. The Underglow places its landmarks by layer in `descent.ts`.
+sites. A thing with a body (a cart, a crate, a churn, a big mushroom,
+sandbags, a wagon, a mailbox, a flamingo, an island) names the tiles it
+stands on (`solid`), and they are solid to walkers in every view
+(`MapInfo.scenery`, `engine/map.ts`). A tile stays open on the run of a road,
+at the rim, under anyone or anything placed, beside an entry, warp, door or
+exit, and where a battle group's foes stand. The Underglow places its
+landmarks by layer in `descent.ts`.
 
 The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
 Their isometric frames use the same sprite names and live-sprite hash checks

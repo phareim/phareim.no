@@ -41,6 +41,8 @@ export interface MapInfo {
   levers: Map<number, string>
   /** Authored push blocks ('b') and psi blocks ('B'), per camera room: [tile index, char]. */
   blocks: Map<number, Array<[number, TileChar]>>
+  /** Tiles the landmarks stand on (`IsoLandmark.solid`, `sceneryOf`): solid to walkers, the tile itself unchanged. */
+  scenery: ReadonlySet<number>
   cw: number
   ch: number
   cols: number
@@ -102,7 +104,7 @@ function buildInfo(def: MapDef): MapInfo {
     entries: { ...(def.entries ?? {}) },
     warps: (def.warps ?? []).map(wp => ({ w: 1, h: 1, ...wp })),
     chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(),
-    glyphs: new Map(), levers: new Map(), blocks: new Map(),
+    glyphs: new Map(), levers: new Map(), blocks: new Map(), scenery: new Set(),
     cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh),
   }
   for (const m of marks) {
@@ -142,7 +144,54 @@ function buildInfo(def: MapDef): MapInfo {
     list.push([i, t])
     info.blocks.set(cell, list)
   })
+  info.scenery = sceneryOf(info)
   return info
+}
+
+/** Ground a road runs on: a tile with two road tiles beside it is on the run of one (a path's dead end is not). */
+const ROAD = new Set<TileChar>([',', '='])
+
+/**
+ * The tiles the map's landmarks stand on (`IsoLandmark.solid`), less those that must stay open: the run of a road,
+ * the rim (where the passes are), a tile anyone or anything is placed on, the ring round an entry, a warp, a door,
+ * stairs or an exit, and the ground a battle group's foes stand on. Already solid tiles are left out.
+ */
+function sceneryOf(info: MapInfo): Set<number> {
+  const out = new Set<number>()
+  const { def, w, h, base } = info
+  const lms = def.isoLandmarks
+  if (!lms?.some(lm => lm.solid)) return out
+  const marked = new Set(info.marks.map(m => m.y * w + m.x))
+  /** Points nothing may stand beside (tile centres, or a warp's rect): entries, warps, exits, doors and stairs. */
+  const keep: Rect[] = [
+    ...Object.values(info.entries).map(e => ({ x: Math.floor(e.x), y: Math.floor(e.y), w: 1, h: 1 })),
+    ...info.warps.map(wp => ({ x: wp.x, y: wp.y, w: wp.w, h: wp.h })),
+    ...[...info.exits.values()].map(e => ({ x: Math.floor(e.x), y: Math.floor(e.y), w: 1, h: 1 })),
+  ]
+  for (let i = 0; i < base.length; i++) if (base[i] === 'D' || base[i] === '>') keep.push({ x: i % w, y: Math.floor(i / w), w: 1, h: 1 })
+  const near = (x: number, y: number, r: Rect, pad: number) => x >= r.x - pad && x < r.x + r.w + pad && y >= r.y - pad && y < r.y + r.h + pad
+  const road = (x: number, y: number) => {
+    if (!ROAD.has(base[y * w + x]!)) return false
+    let n = 0
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) if (ROAD.has(base[(y + dy) * w + x + dx] ?? '#')) n++
+    return n >= 2
+  }
+  const RIM = 2
+  for (const lm of lms) {
+    const r = lm.solid
+    if (!r) continue
+    for (let y = r.y; y < r.y + r.h; y++) {
+      for (let x = r.x; x < r.x + r.w; x++) {
+        if (x < RIM || y < RIM || x >= w - RIM || y >= h - RIM) continue
+        const i = y * w + x
+        if (TILE_INFO[base[i]!].solid || marked.has(i) || road(x, y)) continue
+        if (keep.some(k => near(x, y, k, 1))) continue
+        if (def.battle?.groups.some(g => Math.abs(g.x - (x + 0.5)) < 2.5 && Math.abs(g.y - (y + 0.5)) < 2.5)) continue
+        out.add(i)
+      }
+    }
+  }
+  return out
 }
 
 function defaultTile(e: EntDef): TileChar {
@@ -274,6 +323,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     npcs, pickups, exits: [...info.exits.values()].map(x => ({ ...x })), plates: [], pending: [], crystal: {},
     crystalAll: info.def.crystal ? (flag(`crystal:${info.def.crystal}`) ? 'cyan' : 'pink') : undefined,
     spell: '', spellTiles: [], onGlyph: -1, ring: info.def.keyring ?? 'shrine',
+    ...(info.scenery.size ? { scenery: info.scenery } : {}),
   }
 }
 
@@ -314,6 +364,7 @@ export type MoveMode = 'hero' | 'enemy' | 'fly'
 export function solidTile(world: World, m: MapState, tx: number, ty: number, mode: MoveMode = 'hero'): boolean {
   const t = tileAt(m, tx, ty)
   if (mode === 'fly') return TILE_INFO[t].wall
+  if (m.scenery && tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && m.scenery.has(ty * m.w + tx)) return true
   if (t === 'P' || t === 'C') return raised(world, m, tx, ty)
   if (mode === 'enemy' && (t === 'O' || t === 'x' || t === 'D' || t === '>')) return true
   return TILE_INFO[t].solid

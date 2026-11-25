@@ -348,6 +348,90 @@ describe('the frontier', () => {
     }
   })
 
+  it('stands the isometric scenery in the hero\'s way, and never in the way of anything placed', () => {
+    // The props with a body: solid where they stand (unless kept open beside an entry, a warp or a road's run).
+    const BODIES = /^(quarry_(cart_empty|cart_full|crate|headframe)|seter_churns|sporelight_mushroom_(medium|large)_|fogstage_(sandbags|spotlight)|rerun_(station_wagon|mailbox|flamingo|lawnmower|sprinkler)|stillsand_island_)/
+    const found = new Map()
+    let solidTiles = 0
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      const info = Z.mapInfo(Z.WORLD, id)
+      const { w, h, base } = info
+      const blocked = (i, scenery) => Z.TILE_INFO[base[i]].solid || (scenery && info.scenery.has(i))
+      /** On a dig map, rock standing above the ground (the deep drift's walls round the headframe). */
+      const dug = d.dig ? Z.createGame(Z.WORLD, { seed: 1, at: { map: id, entry: 'camp' } }).map : null
+      const raised = i => !!dug && Z.heightAt(dug, i % w, Math.floor(i / w)) > dug.dig.g
+      for (const i of info.scenery) assert.ok(!Z.TILE_INFO[base[i]].solid, `${id}: ${i % w},${Math.floor(i / w)} was solid already`)
+      solidTiles += info.scenery.size
+      for (const lm of d.isoLandmarks ?? []) {
+        if (!BODIES.test(lm.art)) continue
+        assert.ok(lm.solid, `${id}: ${lm.art} has no footprint`)
+        const name = lm.art.replace(/_\d$/, '')
+        const f = found.get(name) ?? { n: 0, solid: 0 }
+        f.n++
+        const tiles = []
+        for (let y = lm.solid.y; y < lm.solid.y + lm.solid.h; y++) for (let x = lm.solid.x; x < lm.solid.x + lm.solid.w; x++) tiles.push(y * w + x)
+        // The footprint lies under the picture: the anchor within a tile of it.
+        assert.ok(lm.x >= lm.solid.x - 0.5 && lm.x <= lm.solid.x + lm.solid.w + 0.5 && lm.y >= lm.solid.y && lm.y <= lm.solid.y + lm.solid.h + 1, `${id}: ${lm.art} footprint`)
+        // Open where it must be: the stairs, anyone placed, the ground a battle group's foes stand on.
+        const open = i => base[i] === '>' || info.marks.some(m => m.y * w + m.x === i)
+          || (d.battle?.groups ?? []).some(g => Math.abs(g.x - (i % w + 0.5)) < 2.5 && Math.abs(g.y - (Math.floor(i / w) + 0.5)) < 2.5)
+        if (tiles.every(i => blocked(i, true) || raised(i) || open(i))) f.solid++
+        if (tiles.some(i => info.scenery.has(i))) f.scenery = (f.scenery ?? 0) + 1
+        found.set(name, f)
+      }
+      // Whatever the hero could reach from the camp without the scenery, they still reach with it.
+      const reach = scenery => {
+        const seen = new Uint8Array(w * h)
+        const c = info.entries.camp
+        const q = [Math.floor(c.y) * w + Math.floor(c.x)]
+        seen[q[0]] = 1
+        while (q.length) {
+          const i = q.pop()
+          const x = i % w, y = (i - x) / w
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx, ny = y + dy
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+            const j = ny * w + nx
+            if (seen[j] || blocked(j, scenery)) continue
+            seen[j] = 1
+            q.push(j)
+          }
+        }
+        return seen
+      }
+      const before = reach(false)
+      const after = reach(true)
+      /** A spot is reached when its tile is, or (a chest, a sign, a solid exit) a tile beside it. */
+      const reached = (seen, x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen[(y + dy) * w + x + dx])
+      const spots = [
+        ...Object.entries(info.entries).map(([k, e]) => [`entry ${k}`, Math.floor(e.x), Math.floor(e.y)]),
+        ...info.marks.map(m => [`${m.ent.t} ${m.ent.id ?? ''}`, m.x, m.y]),
+        ...info.warps.map(wp => [`warp to ${wp.to}`, wp.x, wp.y]),
+        ...(d.battle?.groups ?? []).map(g => [`group ${g.id}`, Math.floor(g.x), Math.floor(g.y)]),
+      ]
+      for (const [what, x, y] of spots) if (reached(before, x, y)) assert.ok(reached(after, x, y), `${id}: ${what} at ${x},${y} is shut off by scenery`)
+      // And every pass off the map's edges.
+      for (let x = 0; x < w; x++) for (const y of [0, h - 1]) if (before[y * w + x]) assert.ok(after[y * w + x], `${id}: the pass at ${x},${y}`)
+      for (let y = 0; y < h; y++) for (const x of [0, w - 1]) if (before[y * w + x]) assert.ok(after[y * w + x], `${id}: the pass at ${x},${y}`)
+    }
+    assert.ok(solidTiles > 100, `${solidTiles} tiles of scenery`)
+    for (const name of ['quarry_cart_full', 'quarry_crate', 'seter_churns', 'sporelight_mushroom_large_violet', 'fogstage_sandbags', 'rerun_station_wagon', 'rerun_mailbox', 'rerun_flamingo', 'rerun_lawnmower', 'rerun_sprinkler', 'quarry_headframe', 'stillsand_island_large']) {
+      const f = found.get(name)
+      assert.ok(f && f.n > 0, `${name} is placed somewhere`)
+      assert.equal(f.solid, f.n, `${name}: solid in ${f.solid} of ${f.n} places`)
+      // (Most stand on open ground, made solid for them; the headframe's legs are the drift's own rock.)
+      if (name !== 'quarry_headframe') assert.ok((f.scenery ?? 0) >= f.n * 0.75, `${name}: on scenery tiles in ${f.scenery} of ${f.n} places`)
+    }
+    // A solid thing stops the hero: they walk up to the mailbox and no further.
+    const id = ids().find(i => Z.mapInfo(Z.WORLD, i).scenery.size)
+    const info = Z.mapInfo(Z.WORLD, id)
+    const s = Z.createGame(Z.WORLD, { seed: 4, at: { map: id, entry: 'camp' } })
+    const i = [...info.scenery][0]
+    assert.equal(Z.solidTile(Z.WORLD, s.map, i % info.w, Math.floor(i / info.w)), true)
+    assert.equal(Z.solidTile(Z.WORLD, s.map, i % info.w, Math.floor(i / info.w), 'fly'), false)
+  })
+
   it('keeps a completionist save well under the save API\'s limit', () => {
     // Every map there is: the authored ones, every region, its caves and the Underglow's layers.
     const maps = [...Object.keys(Z.WORLD.maps)]

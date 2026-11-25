@@ -485,6 +485,12 @@ export interface IsoLandmark {
   z?: number
   /** The classic scenery the landmark replaces in the isometric view. */
   cover?: Rect
+  /**
+   * The tiles it stands on, solid to whoever walks (`MapInfo.scenery`, engine/map.ts): a cart, a crate, a mailbox
+   * is in the way in every view. A tile on the run of a road, at the map's rim, under anyone or anything placed, or
+   * beside an entry, a warp, a door or an exit stays open.
+   */
+  solid?: Rect
   /** Numbered art frames, or a one-pixel bob with the same artwork. */
   motion?: { frames: number; fps: number; bob?: boolean }
   /** A different sprite once a quest flag has been set. */
@@ -689,6 +695,8 @@ export interface MapState {
   dig?: DigState
   /** The physical puzzles' live state (`engine/puzzles/`), made on first use; absent on maps without them. */
   phys?: PhysState
+  /** Tiles the map's landmarks stand on (`MapInfo.scenery`): solid to walkers, whatever the tile is. */
+  scenery?: ReadonlySet<number>
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
