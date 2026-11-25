@@ -10,6 +10,13 @@ export const TONES: Record<Tone, string> = {
   violet: '#9a4ff0',
   gold: '#ffd23f',
   rose: '#ff5fd0',
+  teal: '#6ff6ff',
+  lilac: '#c87ae0',
+  amber: '#ffb13f',
+  fire: '#ff8a3d',
+  cream: '#fff1b0',
+  ice: '#bfefff',
+  red: '#ff3b5c',
 }
 
 /** Light-map base colour of a room that names its own light level. */

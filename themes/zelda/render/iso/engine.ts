@@ -60,6 +60,8 @@ export interface Look {
   mist: number
   mistColor: [number, number, number]
   rays: number
+  /** The shafts' colour (a realm's own, `../looks.ts`; the low sun's warm one when absent). */
+  raysColor?: [number, number, number]
   colorBits: number
   bloom: number
   vignette: number
@@ -71,6 +73,8 @@ export interface Look {
   fog?: [number, number, number, number]
 }
 
+/** The low sun's shafts. */
+const RAYS: [number, number, number] = [1, 0.72, 0.5]
 /** The coast's open water. */
 const WATER: [number, number, number] = [0.058, 0.17, 0.41]
 const NO_REFS = new Float32Array(8)
@@ -511,6 +515,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     const fog = look.fog ?? [0, 0, 0, 0]
     g.uniform4f(compP.u('uFog'), fog[0], fog[1], fog[2], fog[3])
     g.uniform1f(compP.u('uRays'), look.rays)
+    const rc = look.raysColor ?? RAYS
+    g.uniform3f(compP.u('uRaysColor'), rc[0], rc[1], rc[2])
     fullscreen()
 
     // --- 5. bloom and the finish ---------------------------------------------------------

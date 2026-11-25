@@ -35,8 +35,16 @@ export interface BackdropLayer {
   drift: number
   /** seconds per blink: shown for the first half of each cycle, hidden for the second (a mast's lamp, a lighthouse's flash, a star's twinkle); absent on a layer that is always shown */
   blink?: number
-  /** The sun or the stars: the hour moves the sun and dims the stars (`view.ts` `paintSky`). */
-  role?: 'sun' | 'stars'
+  /**
+   * The sun or the stars: the hour moves the sun and dims the stars (`view.ts` `paintSky`). The northern lights
+   * breathe, and are brighter in the dark.
+   */
+  role?: 'sun' | 'stars' | 'aurora'
+  /**
+   * A shooting star: shown for the first `on` seconds of every `every` (shifted by `phase`), starting at `x` (a
+   * share of the screen's width) and moving `dx`, `dy` px a second. Not under reduced motion.
+   */
+  streak?: { every: number; on: number; phase: number; x: number; dx: number; dy: number }
 }
 export interface Backdrop {
   /** the horizon as a fraction of the screen height */
@@ -1366,6 +1374,22 @@ function paintAurora(sc: Scene): Pix {
   return p
 }
 
+/** A shooting star: a white head and a tail that fades up and back the way it came (it moves down and left). */
+function paintStreak(sc: Scene): Pix {
+  const n = Math.round(26 * sc.u)
+  const p = pix(n + 4, Math.round(n * 0.36) + 4)
+  const tail = [ink('#fff4ff'), ink('#cfc6ff'), ink('#8f86c8'), ink('#5a4f96')]
+  const hy = p.h - 3
+  for (let i = n; i >= 1; i--) {
+    const c = tail[Math.min(3, Math.floor((i / n) * 4))]!
+    put(p, 2 + i, hy - Math.round(i * 0.36), c)
+    if (i < n / 3) put(p, 2 + i, hy - Math.round(i * 0.36) + 1, tail[Math.min(3, Math.floor((i / n) * 4) + 1)]!)
+  }
+  const white = ink('#ffffff')
+  box(p, 1, hy - 1, 2, 2, white)
+  return p
+}
+
 /** Small lights scattered low over the far wood (the spore wood's glowing caps), on a layer of their own. */
 function paintSpots(sc: Scene, colors: string[], h: number, salt: number): Pix {
   const p = pix(sc.wide, h, true)
@@ -1408,7 +1432,17 @@ function buildRealm(look: RealmLook, w: number, h: number, top: RGB, horizon: RG
     layers.push({ ...layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3), role: 'stars' })
     layers.push({ ...layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7), role: 'stars' })
   }
-  if (S.aurora) layers.push(layerOf(sc, paintAurora(sc), Math.round(sc.line * 0.04), 0.02, true, 1.5))
+  if (S.aurora) layers.push({ ...layerOf(sc, paintAurora(sc), Math.round(sc.line * 0.04), 0.02, true, 1.5), role: 'aurora' })
+  if (S.stars > 0) {
+    // Now and then a star falls, across the high sky, toward the horizon.
+    const meteor = paintStreak(sc)
+    for (const [every, phase, x, y] of [[13, 4, 0.72, 0.1], [21, 15, 0.38, 0.2]] as const) {
+      layers.push({
+        ...layerOf(sc, meteor, Math.round(sc.line * y), 0, true), role: 'stars',
+        streak: { every, on: 0.75, phase, x, dx: -150 * sc.u, dy: 52 * sc.u },
+      })
+    }
+  }
   const sun = paintSun(sc, { tones: S.sun, veil: S.veil, sea: false, glow: 0.5, slit: mix(r(0.7), [48, 20, 78], 0.6), slitFrom: 0.4 })
   layers.push({ ...layerOf(sc, sun.p, sun.top, 0, true), role: 'sun' })
   const bars = paintBars(sc, 1300 + REALM_LOOKS.indexOf(look), 4, 4, [mix(r(0.4), [40, 26, 76], 0.5), mix(r(0.62), [84, 44, 110], 0.5), mix(r(0.86), hex(S.glow), 0.35)])

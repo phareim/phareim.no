@@ -18,7 +18,7 @@
 import type { BattlePick, Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, ROLL_TIME, SPIN_TIME, TILE, WARP_TIME, WINDUP } from '../types'
 import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur } from '../engine/index'
-import { dayLook, type DayLook } from './daylight'
+import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
 import { drawMapPage } from './worldMap'
@@ -30,7 +30,8 @@ import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from 
 import { frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
 import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
-import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
+import { chestStar, createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
+import { MOOD, realmLook } from './looks'
 import { drawDigCursor } from './dig'
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, facingDir, fireflies, queueLuna, queueProps, setLunaFacing, type Item } from './wild'
@@ -1065,6 +1066,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           const py = p.y * T - cy
           if (!p.shop) shadow(g, px, py + 5, 8)
           put(g, icon, px, py + 5 - (p.shop ? 3 : 2) + bob)
+          // What lies there to be picked up glints now and then.
+          if (!p.shop && !ui.reducedMotion) chestStar(g, px + 4, py - 6 + bob, time, Math.round(p.x * 7 + p.y * 13))
           if (p.shop) {
             const t = String(p.shop.price)
             drawText(g, t, Math.round(px - textWidth(t) / 2), Math.round(py + 9), '#b6ff4a', '#0b0616')
@@ -1101,7 +1104,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       })
       if (n.look === 'bonfire') {
         const flick = ui.reducedMotion ? 1 : 0.8 + 0.2 * Math.sin(time * 7) * Math.sin(time * 2.3)
-        lights.push({ x: n.x, y: n.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.95 * flick }, { x: n.x, y: n.y - 0.6, r: 2, color: '#ffd23f', a: 0.8 * flick })
+        lights.push({ x: n.x, y: n.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.95 * flick, fire: true }, { x: n.x, y: n.y - 0.6, r: 2, color: '#ffd23f', a: 0.8 * flick })
       }
       if (n.look === 'smoker') lights.push({ x: n.x + (n.dir === 'left' ? -0.3 : 0.3), y: n.y - 0.3, r: 0.6, color: '#ff8a3d', a: 0.7 })
       if (n.look === 'barmaid') lights.push({ x: n.x, y: n.y - 0.6, r: 1.8, color: '#ffb070', a: 0.6 })
@@ -1166,7 +1169,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const day = kind === 'overworld' ? dayOf(drawing) : null
     const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : day ? day.ambient : AMBIENT[kind]
     const h = s.hero
-    if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 })
+    // Out in a dark realm, and anywhere on the frontier at night, the hero's own light is more of a lantern.
+    const realm = day ? realmLook(info.def.look) : null
+    const lantern = day ? Math.max(realm ? MOOD[realm].hero : 0, info.def.realm ? 0.6 * nightOf(day) : 0) : 0
+    if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6 + 0.9 * lantern, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 + 0.2 * lantern })
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
     for (const p of m.projectiles) {
       if (p.kind === 'gust') continue
@@ -1467,7 +1473,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.fillStyle = ground ?? (kind === 'overworld' ? '#0e2a3c' : '#07040f')
     g.fillRect(0, 0, vw, vh)
     g.drawImage(layer.canvas, -cx, -cy)
-    drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion)
+    drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion, kind === 'overworld' ? nightOf(dayOf('classic')) : 0)
     // Dig & build: the tile a tool would work (`dig.ts`; the isometric view outlines it at its height).
     drawDigCursor(g, world, s, cx, cy, ui.reducedMotion ? 0 : time)
     drawDecals(g, info.def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }, lights)
@@ -1477,6 +1483,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const it of items) it.draw()
     drawHookChain(g, s, cx, cy, lights)
     if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g, dayOf('classic')?.fireflies ?? 1)
+    const look = kind === 'overworld' && !ui.attract ? realmLook(info.def.look) : null
+    const flies = look ? MOOD[look].flies : null
+    if (flies) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g, flies.still ? 1 : dayOf('classic')?.fireflies ?? 1, flies.color, flies.light, flies.count)
     return { cx, cy, lights, items }
   }
 

@@ -381,7 +381,7 @@ export interface ExitDef {
  * A named colour of the world. World data says which; each view decides the
  * exact hue (`render/tones.ts`), so a map never carries a hex value.
  */
-export type Tone = 'pink' | 'cyan' | 'violet' | 'gold' | 'rose'
+export type Tone = 'pink' | 'cyan' | 'violet' | 'gold' | 'rose' | 'teal' | 'lilac' | 'amber' | 'fire' | 'cream' | 'ice' | 'red'
 
 /** A named light level for a room, instead of its kind's default. 'dim': a lounge whose lamps show. */
 export type Ambience = 'dim'
@@ -520,6 +520,26 @@ export interface IsoLandmark {
   /** A different sprite once a quest flag has been set. */
   lit?: { flag: string; art: string }
   shadow?: { tall: number; wide: number; deep?: number }
+  /** What the landmark shines with in the isometric view (the classic one keeps its tiles' lights). */
+  lights?: LandmarkLight[]
+}
+
+/**
+ * A light a landmark carries: its colour, its reach and strength, where it hangs (tiles off the landmark's
+ * anchor, and up from its foot), and how it moves: a fire flickers and throws embers and smoke, a pulse
+ * breathes, a blink goes on and off, a sweep turns a beam round (a lighthouse, a stage spotlight). Under
+ * reduced motion each holds still.
+ */
+export interface LandmarkLight {
+  tone: Tone
+  r: number
+  a: number
+  dx?: number
+  dy?: number
+  z?: number
+  anim?: 'fire' | 'pulse' | 'blink' | 'sweep'
+  /** Shines only once the landmark's `lit` flag is set (a lit letter, the lens). */
+  lit?: boolean
 }
 
 export interface AreaIntro {
