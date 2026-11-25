@@ -319,6 +319,19 @@ describe('out in the frontier', () => {
     }
   })
 
+  it('points a hero with a blade at the gates and the ferry until the frontier is walked into, in what the box holds', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'start' } })
+    assert.ok(!Z.objective(s).includes(Z.FRONTIER_HINT), 'not before the blade')
+    s.inv.sword = true
+    assert.ok(Z.objective(s).includes(Z.FRONTIER_HINT), 'the gates once the blade is in hand')
+    s.flags['seen:fr:7,2'] = true
+    assert.ok(!Z.objective(s).includes(Z.FRONTIER_HINT), 'and not once the frontier is found')
+    assert.ok(Z.questHint(Z.QUEST_STEPS).includes('FERRY'), 'the end points out there too')
+    // The pause box: four lines of about 37 letters.
+    const lines = t => t.split(' ').reduce((acc, w) => { const l = acc[acc.length - 1]; if (l !== undefined && (l + ' ' + w).length <= 37) acc[acc.length - 1] = l + ' ' + w; else acc.push(w); return acc }, [])
+    for (const t of [Z.questHint(Z.QUEST_STEPS), Z.questHint(1) + ' ' + Z.FRONTIER_HINT]) assert.ok(lines(t).length <= 4, `too long for the box: ${t}`)
+  })
+
   it('spells every generated map one way only', () => {
     assert.ok(Z.WORLD.generate('fr:6,8'))
     assert.equal(Z.WORLD.generate('fr:06,8'), null)

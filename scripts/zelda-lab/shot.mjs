@@ -39,6 +39,7 @@ const entry = `
 import { createRenderer } from ${JSON.stringify(join(repo, 'themes/zelda/render/renderer.ts'))}
 import { createGame, stepGame } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.ts'))}
+import { reveal } from ${JSON.stringify(join(repo, 'themes/zelda/engine/explore.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
@@ -131,6 +132,26 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     break
   }
   case 'f-landing': give(); place('fr:6,8', 'camp', 0, -1); run(30); break
+  // The gates (world/gen/gates.ts): each one's hand-made side, a short way down its road (the wardens' without a
+  // blade, so they stand in the gate), the region's side, and the MAP page on the coast with the frontier beside it.
+  case 'g-fell': give(); place('overworld', 'gate-fell', 0, 3); s.hero.dir = 'up'; run(30); break
+  case 'g-spore': place('overworld', 'gate-spore', 0, 4); s.hero.dir = 'up'; run(30); break
+  case 'g-sand': give(); place('overworld', 'gate-sand', -4, 0); s.hero.dir = 'right'; run(30); break
+  case 'g-lawns': place('overworld', 'gate-lawns', -1, 4); s.hero.dir = 'up'; run(30); break
+  case 'g-quarry': give(); place('wildwood', 'gate-quarry', 0, 2); s.hero.dir = 'up'; run(30); break
+  case 'g-fog': give(); place('wildwood', 'gate-fog', 4, 0); s.hero.dir = 'left'; run(30); break
+  case 'g-in-fell': give(); place('fr:4,1', 'gate-fell', 0, -3); s.hero.dir = 'down'; run(30); break
+  case 'g-in-sand': give(); place('fr:9,4', 'gate-sand', 3, 0); s.hero.dir = 'left'; run(30); break
+  case 'g-map': {
+    give()
+    place('overworld', 'gate-spore', 0, 2)
+    reveal(s, 'overworld', 104, 48, { x: 0, y: 0, w: 104, h: 48 })
+    for (const id of ['fr:6,8', 'fr:6,7', 'fr:7,2', 'fr:4,1']) s.flags['seen:' + id] = true
+    run(5)
+    ui.paused = true
+    ui.page = 'map'
+    break
+  }
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
   case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
@@ -587,6 +608,9 @@ const SHOTS = [
   ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
   ['f-cave', 'f-cave', 1280, 800, 1, 0],
   ['f-pause-390', 'f-pause', 390, 844, 2, 0],
+  ...['fell', 'spore', 'sand', 'lawns', 'quarry', 'fog', 'in-fell', 'in-sand'].map(g => [`g-${g}`, `g-${g}`, 1280, 800, 1, 0]),
+  ['g-map', 'g-map', 1280, 800, 1, 0],
+  ['g-map-390', 'g-map', 390, 844, 2, 0],
   // Dig & build's quarry (VIEW=iso is the one that matters).
   ['q-quarry-1280', 'q-quarry', 1280, 800, 1, 0],
   ['q-quarry-390', 'q-quarry', 390, 844, 3, 0],
