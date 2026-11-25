@@ -42,6 +42,22 @@ const tileOf = (def, x, y) => {
   return m ? (m.tile ?? (m.ent.t === 'chest' ? '$' : m.ent.t === 'sign' ? 'S' : '.')) : ch
 }
 
+/** Walk up to `id` in region `map` (from its camp) and press A. */
+function talkTo(s, map, id) {
+  if (s.map.id !== map) Z.enterMap(Z.WORLD, s, map, 'camp', [])
+  for (let i = 0; i < 30; i++) P.step(s)
+  const n = s.map.npcs.find(x => x.id === id)
+  assert.ok(n, `${id} in ${map}`)
+  const nx = Math.floor(n.x)
+  const ny = Math.floor(n.y)
+  const spots = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
+  const spot = spots.find(([dx, dy]) => P.path(s, nx + dx, ny + dy))
+  assert.ok(spot, `a way to ${id}`)
+  P.walkTo(s, nx + spot[0], ny + spot[1])
+  P.face(s, spot[2])
+  P.pressA(s)
+}
+
 describe('the frontier', () => {
   it('makes every region of the macro map, the same each time', () => {
     const all = ids()
@@ -186,20 +202,7 @@ describe('the frontier', () => {
   it('talks the clean seed through, from the crossroads to the desert and back', () => {
     const s = Z.createGame(Z.WORLD, { seed: 5, at: { map: LANDING, entry: 'camp' } })
     s.inv.sword = true
-    const talk = (map, id) => {
-      if (s.map.id !== map) Z.enterMap(Z.WORLD, s, map, 'camp', [])
-      for (let i = 0; i < 30; i++) P.step(s)
-      const n = s.map.npcs.find(x => x.id === id)
-      assert.ok(n, `${id} in ${map}`)
-      const nx = Math.floor(n.x)
-      const ny = Math.floor(n.y)
-      const spots = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
-      const spot = spots.find(([dx, dy]) => P.path(s, nx + dx, ny + dy))
-      assert.ok(spot, `a way to ${id}`)
-      P.walkTo(s, nx + spot[0], ny + spot[1])
-      P.face(s, spot[2])
-      P.pressA(s)
-    }
+    const talk = (map, id) => talkTo(s, map, id)
     const F = 'q.seed.'
     talk('fr:10,3', 'q.seed.bed')
     assert.ok(!s.flags[F + 'planted'], 'no seed, nothing to plant')
@@ -214,6 +217,17 @@ describe('the frontier', () => {
     assert.ok(s.flags['got:q.seed.bed:heartPiece'], 'a heart piece for the planting')
     talk('fr:6,7', 'q.seed.tender')
     assert.ok(s.flags['got:q.seed.tender:bits50'], 'and the walk home')
+  })
+
+  it('pays Gunn’s chrome for the bell in something a hero without a bomb bag can keep', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 5, at: { map: LANDING, entry: 'camp' } })
+    s.inv.sword = true
+    s.flags['q.bell.ore'] = true
+    const before = s.inv.bits + s.inv.bombs
+    talkTo(s, 'fr:2,3', 'q.gunn')
+    assert.ok(s.flags['q.bell.chrome'], 'the chrome is given')
+    assert.equal(s.inv.bombBag, false)
+    assert.ok(s.inv.bits + s.inv.bombs > before, 'and the reward is not lost')
   })
 
   it('switches each realm’s system on: dig in the dig realms, battles in the battle realms, puzzles in the puzzle realms', () => {

@@ -33,7 +33,7 @@ fell more trees for it.
 | 1 | Green Miles, crossroads `fr:6,7` | seter girl | The Ride dropped me here; the fjord bell would call me home; it is cracked | `heard` | |
 | 2 | Yule Fjord, the stave church `fr:5,0` | bell-ringer | A bell that cannot ring calls nobody home; take it to a great fire | `crack` | |
 | 3 | Sporelight, the Clinker `fr:8,3` | forewoman | Chrome, not more trees; the quarry west has chrome | `ore` | |
-| 4 | Lumenby, union hall `fr:2,3` | Gunn | Take a shift's worth; tell her: no trees. **[later: dig 4 chrome]** | `chrome` | bombs5 |
+| 4 | Lumenby, union hall `fr:2,3` | Gunn | Take a shift's worth; tell her: no trees. **[later: dig 4 chrome]** | `chrome` | bits20 (not bombs: the bomb bag is optional) |
 | 5 | Clinker | forewoman | Recast, still warm; now the fjord | `cast` | bits50 |
 | 6 | Stave church | bell-ringer | (DONG.) Whoever was taken hears the way home | `rung` | heartPiece |
 | 7 | Seter Fell, big seter `fr:4,1` | the girl, home; the tail-neighbour | The bell rang and here I was; now I can be wed under it (a tail swishes) | | bits50 |
