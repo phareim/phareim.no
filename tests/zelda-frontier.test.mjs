@@ -347,4 +347,63 @@ describe('the frontier', () => {
       assert.ok(Object.values(Z.WORLD.maps[map].marks).some(m => m.ent.t === 'warp' && m.ent.to === region), `${map} → ${region}`)
     }
   })
+
+  it('keeps a completionist save well under the save API\'s limit', () => {
+    // Every map there is: the authored ones, every region, its caves and the Underglow's layers.
+    const maps = [...Object.keys(Z.WORLD.maps)]
+    for (const id of ids()) {
+      maps.push(id)
+      const d = Z.WORLD.generate(id)
+      for (const e of Object.keys(d.entries)) if (/^cave\d+$/.test(e)) maps.push(`${id}:${e}`)
+      if (d.entries.deep) for (let n = 1; Z.WORLD.generate(`${id}:deep${n}`); n++) maps.push(`${id}:deep${n}`)
+    }
+    const s = Z.createGame(Z.WORLD, { seed: 9 })
+    // Every flag a map can set: chests, caches, gifts, levers, quests, intros, foes killed for good, regions seen.
+    const flags = new Set()
+    const walk = (v, key) => {
+      if (typeof v === 'string') { if (['flag', 'set', 'once'].includes(key)) flags.add(v); return }
+      if (Array.isArray(v)) { for (const x of v) walk(x, key === 'set' ? 'set' : undefined); return }
+      if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (k !== 'rows') walk(x, k)
+    }
+    for (const id of maps) {
+      const d = Z.WORLD.maps[id] ?? Z.WORLD.generate(id)
+      assert.ok(d, id)
+      walk(d)
+      const info = Z.mapInfo(Z.WORLD, id)
+      for (const c of info.chestList) flags.add(`chest:${c.id}`)
+      // (A gift is kept as `got:<npc>:<item>`, engine/hero.ts.)
+      for (const m of Object.values(d.marks)) if (m.ent.t === 'npc') JSON.stringify(m.ent, (k, v) => { if (k === 'give' && typeof v === 'string') flags.add(`got:${m.ent.id}:${v}`); return v })
+      for (const c of d.dig?.caches ?? []) flags.add(`took:${c.id}`)
+      if (d.edges) flags.add(`seen:${id}`)
+      // Every square of every map charted.
+      if (Z.charted(d)) Z.reveal(s, id, info.w, info.h, { x: 0, y: 0, w: info.w, h: info.h })
+    }
+    for (const f of flags) s.flags[f] = true
+    Object.assign(s.inv, { bits: 999, bombs: 99, arrows: 99 })
+    s.hero.maxHp = 20
+    /** `total` edits spread over `maps` maps, on the longest ids and indices a 64×44 region has. */
+    const dig = (maps, total) => {
+      const out = {}
+      for (let k = 0; k < maps; k++) {
+        const ed = (out[`fr:${10 + (k % 6)},${10 + Math.floor(k / 6)}`] = {})
+        for (let i = 0; i < Math.floor(total / maps) + (k < total % maps ? 1 : 0); i++) ed[2815 - i] = 'а4'
+      }
+      return out
+    }
+    const limit = 16_384 // themes/leaderboard/games.ts: SAVE_GAMES zelda.maxBytes
+    /** The save's size as the API counts it (the JSON string's length), and in UTF-8 (a dig edit's letter is two bytes). */
+    const sizeWith = edits => {
+      s.digEdits = edits
+      const json = JSON.stringify(Z.toSave(s))
+      return { chars: json.length, bytes: Buffer.byteLength(json) }
+    }
+    assert.ok(flags.size > 300, `${flags.size} flags`)
+    assert.ok(Object.keys(Z.toSave(s).explored).length > 100, 'charted maps')
+    // A player who has done everything and dug a good deal (a quarter of what the land holds, on six maps).
+    const done = sizeWith(dig(6, Z.DIG_TOTAL / 4))
+    assert.ok(done.bytes < limit * 0.75, `a completionist save is ${done.bytes} bytes of ${limit}`)
+    // And the land dug to its last edit (DIG_TOTAL on DIG_MAPS maps): still taken, though with little to spare.
+    const full = sizeWith(dig(Z.DIG_MAPS, Z.DIG_TOTAL))
+    assert.ok(full.chars < limit && full.bytes < limit, `with every dig edit: ${full.chars} chars, ${full.bytes} bytes of ${limit}`)
+  })
 })
