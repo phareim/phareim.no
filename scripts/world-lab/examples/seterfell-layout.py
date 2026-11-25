@@ -114,7 +114,6 @@ path([(30, 16), (30, 22), (44, 22), (44, 23), (48, 23)])
 path([(31, 16), (31, 22)])
 path([(26, 17), (30, 17)])
 path([(37, 22), (37, 31)])
-put(38, 24, 'n'); put(39, 24, 'n')   # the milk bench
 for (x, y) in [(33, 27), (43, 27), (45, 29)]:
     put(x, y, 'r')
 
@@ -142,7 +141,6 @@ path([(58, 23), (57, 30), (55, 36)])
 # Hay fields in fences, the mill on its knoll, the hay barn, the pond, a hedge with something in it.
 rect(3, 35, 12, 40, 'F'); rect(4, 36, 11, 39, ';'); put(12, 37, ',')   # the hay field
 blob(22, 36, 3.2, 2, ':', 0.1)       # the mill's knoll
-put(22, 35, '#')                     # the mill's foot
 rect(25, 41, 27, 43, 'H')            # the hay barn
 blob(20, 45, 3.6, 2.2, '~', 0.1)     # the pond the stream ends in
 rect(2, 44, 9, 48, '*')   # a hedge grown shut round something

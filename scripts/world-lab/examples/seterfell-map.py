@@ -198,7 +198,7 @@ export const SETERFELL: MapDef = {{
     prop('seter_churns', 33.5, 24.45, at(33, 24)),
     // The hay barn in the Lower Pasture, the mill on its knoll, the haystacks.
     prop('seter_byre', 26.5, 42.5, {{ cover: {{ x: 25, y: 41, w: 3, h: 3 }} }}),
-    prop('meadow_mill', 22.5, 35.5, {{ motion: cycle(4, 2), cover: {{ x: 22, y: 35, w: 1, h: 1 }}, shadow: {{ tall: 1.45, wide: 0.44 }} }}),
+    prop('meadow_mill', 22.5, 35.5, {{ ...at(22, 35), motion: cycle(4, 2), shadow: {{ tall: 1.45, wide: 0.44 }} }}),
     prop('meadow_hay_large', 6.5, 37.5, at(6, 37)),
     prop('meadow_hay_medium', 9.5, 38.5, at(9, 38)),
     prop('meadow_hay_medium', 12.5, 42.5, at(12, 42)),
