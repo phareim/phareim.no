@@ -16,12 +16,17 @@
  *    bridge water and cut through woods and cliffs.
  * 5. Who is there: folk, chests, signs and foes, only on tiles the road
  *    network reaches; no foe near the camp or a pass.
+ * 6. Settling (no more draws from the seed, so nothing above moves): a gate
+ *    from the hand-made world cut into the rim with a road to the network
+ *    (`gates.ts`), then the foes thinned: none near a place, a pass, an
+ *    entry or the gate, fewer near a way in, and never a crowd.
  */
 import type { Dir, EnemyKind, EntDef, ItemId, Mark, MapDef, Prop, Rect, Spot, TileChar } from '../../types'
 import { Rng, fbm, hash } from './rng'
 import { STAMPS, type Stamp } from './stamps'
 import { sceneryAt } from './frontierScenery'
 import type { FrontierSpec, RealmSpec, Site } from './types'
+import type { Gate } from './gates'
 import type { BattleFoeId, BattleGroupDef } from '../../battleTypes'
 import { puzzleKits, stampKit } from '../../engine/puzzles/kits'
 
@@ -37,12 +42,23 @@ export interface RegionCtx {
   id: string
   /** Map ids of the neighbours, where there is one. */
   edges: Partial<Record<'n' | 's' | 'e' | 'w', string>>
-  /** Regions (manhattan) from the Landing: foes grow with it. */
+  /** Regions (manhattan) from the Landing: what the seed draws (group sizes, how many foes are tried) counts from it. */
   depth: number
+  /** Regions from the nearest way in (the Landing, or one past a gate; default `depth`): how many foes stay. */
+  near?: number
   landing: boolean
   /** This region holds the realm's heart piece. */
   heart: boolean
+  /** A gate from the hand-made world, cut into this region's rim. */
+  gate?: Gate
 }
+
+/** Most field foes, and battle groups, a region keeps (the Green Miles are the plain between the realms: calmer). */
+const FOE_CAP = 18
+const GROUP_CAP = 8
+const CALM: Record<string, number> = { meadow: 8 }
+/** No foe this close (tiles) to a placed stamp or site: folk and chests are not a foe's den. */
+const PLACE_CLEAR = 5
 
 /** Where the passes of one edge lie: offsets along it, the same from either side. */
 export function passesOf(seed: number, key: [string, number, number], len: number): number[] {
@@ -347,13 +363,30 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   }
   /** A battle realm's foes stand in groups that fight in place (`MapDef.battle`); elsewhere they are the field's foes. */
   const groups: BattleGroupDef[] = []
+  /**
+   * Every foe set down, in order: its tile, what lay under it, whether a stamp's slot asked for it, and (a battle
+   * group) how many of its foes it keeps. Thinned in step 6, after the last draw from the seed.
+   */
+  const placedFoes: PlacedFoe[] = []
+  const near = ctx.near ?? ctx.depth
   const foeAt = (x: number, y: number) => {
-    if (realm.special !== 'battle') { cell(x, y, foeMark(rng.weighted(realm.foes))); return }
-    if (rows[y]![x] === '3') cell(x, y, T.ground)
-    const size = Math.min(4, rng.int(1, 2) + (ctx.depth > 3 ? 1 : 0) + (rng.chance(0.2) ? 1 : 0))
+    const slot = rows[y]![x] === '3'
+    if (realm.special !== 'battle') {
+      const under = slot ? T.ground : rows[y]![x]!
+      cell(x, y, foeMark(rng.weighted(realm.foes)))
+      placedFoes.push({ x, y, under, slot })
+      return
+    }
+    if (slot) cell(x, y, T.ground)
+    // (The size is drawn as far from the Landing, so every draw after it stays put; nearer a way in it keeps fewer.)
+    const base = rng.int(1, 2)
+    const more = rng.chance(0.2) ? 1 : 0
+    const size = Math.min(4, base + (ctx.depth > 3 ? 1 : 0) + more)
     const foes: BattleFoeId[] = []
     for (let k = 0; k < size; k++) foes.push(BATTLE_FOE[rng.weighted(realm.foes)] ?? 'goo')
-    groups.push({ id: `${ctx.id}.g${groups.length}`, x: x + 0.5, y: y + 0.5, foes, ...(rng.chance(0.35) ? { sight: 3 } : {}) })
+    const group: BattleGroupDef = { id: `${ctx.id}.g${groups.length}`, x: x + 0.5, y: y + 0.5, foes, ...(rng.chance(0.35) ? { sight: 3 } : {}) }
+    groups.push(group)
+    placedFoes.push({ x, y, under: T.ground, slot, group, keep: Math.min(4, base + (near > 3 ? 1 : 0) + more) })
   }
   const rows: string[][] = []
   for (let y = 0; y < H; y++) rows.push(g.slice(y * W, y * W + W) as string[])
@@ -399,8 +432,8 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   // Foes on the open land the roads reach, away from the passes and every entry (the camp, a cave's mouth, a site's
   // way back up): the hero must not arrive within a group's sight. (10 tiles, manhattan: more than sight, cluster and mill.)
   const reach = reachable(rows, W, H, entries.camp ?? { x: nodes[0]?.x ?? W / 2, y: nodes[0]?.y ?? H / 2 })
+  let open = 0
   if (!ctx.landing) {
-    let open = 0
     for (let i = 0; i < W * H; i++) if (reach[i]) open++
     // (A battle realm's foes stand in groups of one to four: fewer places for them.)
     const want = Math.round((open / 100) * realm.density * (1 + 0.2 * Math.min(ctx.depth, 6)) * (realm.special === 'battle' ? 0.4 : 1))
@@ -434,12 +467,210 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   }
   if (groups.length) def.battle = { groups }
   if (realm.special === 'dig') digOf(def, ctx, rng, reach, W, H, entries.camp)
+  // (That was the seed's last draw.)
+
+  // --- 6. settling --------------------------------------------------------------
+  const fin = def.rows.map(r => [...r])
+  const heights = def.dig?.heights.map(r => [...r])
+  /** A dig cache's tile: the road goes round it, so it stays buried in open ground. */
+  const cached = new Set((def.dig?.caches ?? []).map(c => c.y * W + c.x))
+  const foeCell = new Map<number, PlacedFoe>()
+  for (const f of placedFoes) if (!f.group) foeCell.set(f.y * W + f.x, f)
+  const isMark = (t: string) => t.charCodeAt(0) >= 0xe000
+
+  /**
+   * The gate from the hand-made world (`gates.ts`): a notch three wide cut into the rim of its side where it is
+   * cheapest to join the road network (near the gate's own `at`), and a road to the network. The rim's outer row
+   * stays (the edge leads nowhere); the row inside it is the warp home, with a lamp post either side, and a sign.
+   */
+  const cutGate = (gt: Gate) => {
+    const side = gt.side
+    const len = side === 'n' || side === 's' ? W : H
+    const xy = (along: number, dd: number): [number, number] =>
+      side === 'n' ? [along, dd] : side === 's' ? [along, H - 1 - dd] : side === 'w' ? [dd, along] : [W - 1 - dd, along]
+    const rim = (x: number, y: number) => x < RIM || y < RIM || x >= W - RIM || y >= H - RIM
+    // The cheapest way from the network to every tile, priced as the roads were (step 4), over what stands now.
+    const cost = (i: number): number => {
+      const x = i % W
+      const y = (i - x) / W
+      if (rim(x, y)) return Infinity
+      const t = fin[y]![x]!
+      if (claimed[i] === 1) return WALKABLE.has(t as TileChar) ? 1 : Infinity
+      if (isMark(t)) { const e = marks[t]?.ent.t; return e === 'enemy' || e === 'npc' ? 1 : Infinity }
+      if (t === ',' || t === '=') return 0.6
+      if (WALKABLE.has(t as TileChar)) return 1
+      if (t === '~') return 4
+      if (t === '#' || t === 'а' || t === 'е') return 6
+      return 2.5
+    }
+    const N = W * H
+    const dist = new Float64Array(N).fill(Infinity)
+    const prev = new Int32Array(N).fill(-1)
+    const heap = new MinHeap()
+    for (let i = 0; i < N; i++) {
+      const x = i % W
+      const y = (i - x) / W
+      const t = fin[y]![x]!
+      if (reach[i] && !rim(x, y) && (t === ',' || t === '=')) { dist[i] = 0; heap.push(0, i) }
+    }
+    while (heap.size) {
+      const [d, i] = heap.pop()
+      if (d > dist[i]!) continue
+      const x = i % W
+      for (const j of [x + 1 < W ? i + 1 : -1, x > 0 ? i - 1 : -1, i + W < N ? i + W : -1, i - W >= 0 ? i - W : -1]) {
+        if (j < 0) continue
+        const nd = d + cost(j)
+        if (nd < dist[j]!) { dist[j] = nd; prev[j] = i; heap.push(nd, j) }
+      }
+    }
+    // Where along the side: clear of the passes, of every place and of the caches; the cheapest join, near `at`.
+    const along = (p: { x: number; y: number }) => (side === 'n' || side === 's' ? p.x : p.y)
+    const onSide = (p: { x: number; y: number }) => (side === 'n' ? p.y === 0 : side === 's' ? p.y === H - 1 : side === 'w' ? p.x === 0 : p.x === W - 1)
+    const passes = passTiles.filter(onSide).map(along)
+    let best = -1
+    let score = Infinity
+    for (let o = RIM + 4; o <= len - RIM - 4 - PASS_W; o++) {
+      if (passes.some(p => p >= o - 4 && p <= o + PASS_W + 3)) continue
+      let clear = true
+      for (let k = 0; k < PASS_W; k++) for (let dd = 1; dd <= RIM + 2; dd++) {
+        const [x, y] = xy(o + k, dd)
+        const t = fin[y]![x]!
+        if (claimed[y * W + x] || cached.has(y * W + x) || (isMark(t) && marks[t]?.ent.t !== 'enemy')) clear = false
+      }
+      const [ix, iy] = xy(o + 1, RIM + 3)
+      const sc = dist[iy * W + ix]! + 0.5 * Math.abs(o - (gt.at ?? len / 2))
+      if (clear && sc < score) { score = sc; best = o }
+    }
+    if (best < 0) throw new Error(`${ctx.id}: no room on side ${side} for the ${gt.id} gate`)
+    /** Road over a tile (a bridge over water); under a foe, the road shows once the foe is thinned away. */
+    const pave = (x: number, y: number) => {
+      const i = y * W + x
+      const t = fin[y]![x]!
+      const f = foeCell.get(i)
+      if (f) { f.under = ','; return }
+      if (claimed[i] === 1 || cached.has(i) || isMark(t)) return
+      if (t === '~') fin[y]![x] = '='
+      else if (!WALKABLE.has(t as TileChar) || t === '.' || t === '-' || t === ';' || t === ':') fin[y]![x] = ','
+      else return
+      if (heights) heights[y]![x] = '.'
+    }
+    for (let k = 0; k < PASS_W; k++) for (let dd = 2; dd <= RIM + 2; dd++) pave(...xy(best + k, dd))
+    const [ix, iy] = xy(best + 1, RIM + 3)
+    for (let i = iy * W + ix; i !== -1; i = prev[i]!) pave(i % W, Math.floor(i / W))
+    const home = markOf({ t: 'warp', to: gt.home.map, entry: gt.home.entry }, ',')
+    for (let k = 0; k < PASS_W; k++) {
+      const [x, y] = xy(best + k, 1)
+      fin[y]![x] = home
+      if (heights) heights[y]![x] = '.'
+    }
+    // Lamp posts in the rim either side of the way home (none in water).
+    for (const a of [best - 1, best + PASS_W]) {
+      const [x, y] = xy(a, 1)
+      if (fin[y]![x] !== '~') fin[y]![x] = 't'
+    }
+    const [ex, ey] = xy(best + 1, RIM + 1)
+    entries[`gate-${gt.id}`] = { x: ex + 0.5, y: ey + 0.5, dir: ({ n: 'down', s: 'up', w: 'right', e: 'left' } as const)[side] }
+    // The sign: beside the notch, just inside the rim.
+    const spot = ([[best - 1, RIM + 1], [best + PASS_W, RIM + 1], [best - 1, RIM + 2], [best + PASS_W, RIM + 2]] as const)
+      .map(([a, dd]) => xy(a, dd))
+      .find(([x, y]) => !claimed[y * W + x] && !cached.has(y * W + x) && !isMark(fin[y]![x]!))
+    if (spot) {
+      fin[spot[1]]![spot[0]] = markOf({ t: 'sign', lines: gt.lines })
+      if (heights) heights[spot[1]]![spot[0]] = '.'
+    }
+    const [lx, ly] = xy(best + 1, 1)
+    props.push({ kind: 'glow', x: lx + 0.5, y: ly + 0.5, w: 3.5, tone: 'gold' })
+  }
+  if (ctx.gate) cutGate(ctx.gate)
+
+  // The foes, thinned: none near a placed stamp or site (a slot's own foe stays), none within sight of the gate's
+  // arrival, as many as a region this near a way in holds, and never a crowd. Group ids stay as they were drawn.
+  if (placedFoes.length) {
+    const battle = realm.special === 'battle'
+    const gateAt = ctx.gate ? entries[`gate-${ctx.gate.id}`] : undefined
+    const nearPlace = (x: number, y: number) =>
+      rects.some(r => x >= r.x - PLACE_CLEAR && x < r.x + r.w + PLACE_CLEAR && y >= r.y - PLACE_CLEAR && y < r.y + r.h + PLACE_CLEAR)
+    const seesGate = (f: PlacedFoe) => !!gateAt && (f.group
+      ? Math.hypot(f.group.x - gateAt.x, f.group.y - gateAt.y) <= (f.group.sight ?? 0) + 6
+      : Math.abs(f.x + 0.5 - gateAt.x) + Math.abs(f.y + 0.5 - gateAt.y) < 10)
+    const slots = placedFoes.filter(f => f.slot && !seesGate(f)).length
+    const want = Math.round((open / 100) * realm.density * (1 + 0.2 * Math.min(near, 6)) * (battle ? 0.4 : 1))
+    const cap = Math.max(0, Math.min(want, CALM[realm.id] ?? (battle ? GROUP_CAP : FOE_CAP)) - slots)
+    let kept = 0
+    const stays = new Set<PlacedFoe>()
+    for (const f of placedFoes) {
+      if (seesGate(f)) continue
+      if (!f.slot) {
+        if (kept >= cap || nearPlace(f.x, f.y)) continue
+        kept++
+      }
+      stays.add(f)
+    }
+    for (const f of placedFoes) {
+      if (f.group) { if (stays.has(f)) f.group.foes = f.group.foes.slice(0, f.keep); continue }
+      if (!stays.has(f)) fin[f.y]![f.x] = f.under
+    }
+    if (def.battle) def.battle.groups = groups.filter(g => placedFoes.some(f => f.group === g && stays.has(f)))
+    const used = new Set(fin.flat())
+    for (const ch of foeMarks.values()) if (!used.has(ch)) delete marks[ch]
+  }
+  def.rows = fin.map(r => r.join(''))
+  if (heights) def.dig!.heights = heights.map(r => r.join(''))
+
   if (realm.look) def.look = realm.look
   if (realm.views) def.views = realm.views
   if (props.length) def.props = props
   const isoLandmarks = placed.flatMap(p => sceneryAt(realm.id, p.name, p.x, p.y))
   if (isoLandmarks.length) def.isoLandmarks = isoLandmarks
   return def
+}
+
+/** A foe set down in step 5 (`placedFoes`). */
+interface PlacedFoe {
+  x: number
+  y: number
+  /** The tile under it: what is left when it is thinned away. */
+  under: string
+  /** A stamp's slot asked for it (a guarded place): only the gate's arrival thins it. */
+  slot: boolean
+  group?: BattleGroupDef
+  /** A battle group: how many of its foes it keeps (its size as near a way in as the region is). */
+  keep?: number
+}
+
+/** A binary heap of [distance, tile], least first. */
+class MinHeap {
+  private h: Array<[number, number]> = []
+  get size() { return this.h.length }
+  push(d: number, i: number) {
+    const h = this.h
+    const e: [number, number] = [d, i]
+    h.push(e)
+    let k = h.length - 1
+    while (k > 0) { const p = (k - 1) >> 1; if (h[p]![0] <= d) break; h[k] = h[p]!; k = p }
+    h[k] = e
+  }
+  pop(): [number, number] {
+    const h = this.h
+    const top = h[0]!
+    const last = h.pop()!
+    if (h.length) {
+      let k = 0
+      for (;;) {
+        const l = 2 * k + 1
+        const r = l + 1
+        let m = k
+        const mv = (j: number) => (j === k ? last[0] : h[j]![0])
+        if (l < h.length && h[l]![0] < mv(m)) m = l
+        if (r < h.length && h[r]![0] < mv(m)) m = r
+        if (m === k) break
+        h[k] = h[m]!
+        k = m
+      }
+      h[k] = last
+    }
+    return top
+  }
 }
 
 /** The field's foe kinds as battle foes (a battle realm's groups borrow the realm's foe table). */

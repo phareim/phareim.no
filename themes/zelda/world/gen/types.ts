@@ -5,6 +5,7 @@
  * each realm is `docs/worlds/realm-<id>.md`.
  */
 import type { EnemyKind, ItemId, MapDef, Mark, NpcLook, Prop, TileChar, TrackId } from '../../types'
+import type { Gate } from './gates'
 
 /** The drawing engines a map may be shown in (`viewParams.ts` ENGINES). */
 export type ViewEngine = 'classic' | 'iso'
@@ -114,4 +115,6 @@ export interface FrontierSpec {
   landing: { rx: number; ry: number }
   /** Hand-written places, each in its region (quests, landmarks). */
   sites?: Site[]
+  /** Ways in on foot from the hand-made world, each cut into its region's rim (`gates.ts`). */
+  gates?: Gate[]
 }
