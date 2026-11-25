@@ -179,9 +179,10 @@ export function generateRegion(ctx: RegionCtx): MapDef {
         const y = pos.y + j
         claimed[y * W + x] = 1
         const mk = site?.marks?.[ch]
-        if (mk) { own.set(y * W + x, mk); g[y * W + x] = T.ground; continue }
+        const ground = site?.ground ?? T.ground
+        if (mk) { own.set(y * W + x, mk); g[y * W + x] = ground; continue }
         // A place's plain ground is the realm's own (sand in the quarry and the desert). Slots are resolved below.
-        g[y * W + x] = ch === '.' ? T.ground : ch as TileChar
+        g[y * W + x] = ch === '.' ? ground : ch as TileChar
       }
     }
     rects.push({ x: pos.x, y: pos.y, w: sw, h: sh })
@@ -453,7 +454,8 @@ export function puzzleSite(kit: (typeof puzzleKits)[number], id: string): Site {
   const foot = [...'.'.repeat(w)]
   foot[door + 2 < w ? door + 2 : door - 2] = CHEST
   rows.push(foot.join(''), '.'.repeat(w))
-  return { id, region: '', rows, marks: { ...def.marks, [CHEST]: { ent: { t: 'chest', id: `${id}.prize`, item: 'bits50', appear: solved } } } }
+  // On the floor the kit was solved on: blocks and mirrors are not pushed over the realm's sand (`PUSH_ONTO`).
+  return { id, region: '', rows, ground: '.', marks: { ...def.marks, [CHEST]: { ent: { t: 'chest', id: `${id}.prize`, item: 'bits50', appear: solved } } } }
 }
 
 /**
