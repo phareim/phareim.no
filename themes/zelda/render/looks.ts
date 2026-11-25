@@ -166,9 +166,9 @@ export const MOOD: Record<RealmLook, Mood> = {
   },
   // A warm haze over pastel dunes, quartz glinting.
   dune: {
-    sky: ['#5a3a8a', '#ffb08a'], water: '#0e7088', haze: 1.6, hazeColor: '#ffb89a', hazeMix: 0.75,
+    sky: ['#5a3a8a', '#ffb08a'], water: '#0e7088', haze: 1.4, hazeColor: '#ffd8b0', hazeMix: 0.75,
     mist: 0, mistColor: '#ffc0a0', clear: 0, rays: 0.6,
-    ambient: [1.1, 1.06, 1.04], sun: [1.08, 1, 0.92], shadowLength: 1.3, shadowColor: '#7a4a9a',
+    ambient: [1, 1.22, 1.12], sun: [1, 1.12, 1], shadowLength: 1.3, shadowColor: '#7a4a9a',
     particles: 'dust', colors: ['#ffe0c0', '#ffc0b0'], count: 26, leaves: null,
   },
   // Always dusk under the caps: a dim green ambient, glowing spores drifting up.
@@ -189,7 +189,7 @@ export const MOOD: Record<RealmLook, Mood> = {
   quarry: {
     sky: ['#3a1a5a', '#ff8a4a'], water: '#0e4a72', haze: 1.3, hazeColor: '#ffa060', hazeMix: 0.7,
     mist: 0.3, mistColor: '#c07a5a', clear: 0, rays: 0.7,
-    ambient: [1.04, 0.98, 0.94], sun: [1.15, 0.92, 0.75], shadowLength: 1.2, shadowColor: '#4a2a6a',
+    ambient: [1, 1.16, 1.02], sun: [1.05, 1.02, 0.82], shadowLength: 1.2, shadowColor: '#4a2a6a',
     particles: 'dust', colors: ['#ffb070', '#e0905a', '#ffd0a0'], count: 40, leaves: null,
   },
   // A bright eighties afternoon: warm sun, violet shadows, cut grass on the wind.

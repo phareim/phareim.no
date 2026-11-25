@@ -615,7 +615,7 @@ function snow(seed: number): Sheet {
  * Dune sand: long soft swells, a lit slope and a rose-violet shaded one, and on them ripples wider apart
  * than the beach's, a pale crest over each.
  */
-function dunes(seed: number, colors: Rgb[] = ramp('#c8949c', '#ecb4a0', '#f6c8ac', '#ffe6c8')): Sheet {
+function dunes(seed: number, colors: Rgb[] = ramp('#d2a29c', '#f4c8a4', '#fcd8b4', '#fff0d4')): Sheet {
   const s = new Sheet()
   const [shade, body, light, crest] = colors as [Rgb, Rgb, Rgb, Rgb]
   for (let v = 0; v < MAT; v++) for (let u0 = 0; u0 < MAT; u0++) {
@@ -642,7 +642,8 @@ export const LOOK_SHEETS: Record<RealmLook, Partial<Record<Material, () => Sheet
     grass: () => snow(131),
     // Paths: stones in the violet shade with the snow lying in their joints.
     cobbles: () => paving({ ramp: ramp('#5a4a7e', '#8a7aac', '#9a8abc', '#ac9ccc', '#cabce0'), across: 8, moss: ramp('#c8d6f4', '#e8f0ff'), seed: 137 }),
-    sand: () => sand(139, ramp('#6e5a72', '#8a7488', '#a08a9a', '#bcaab8')),
+    // The shore: gravel under a crust of old snow.
+    sand: () => dunes(139, ramp('#7a7098', '#968cb4', '#aaa2c6', '#c8c4e2')),
     // Snow on the roofs, the walls red boards.
     shingles: () => shingles(149, ramp('#5a64a0', '#a8b4e0', '#c4ceee', '#dce4fa', '#f4f8ff')),
     siding: () => boards(151, ramp('#3a1020', '#6a1a2c', '#7e2234', '#922a3e', '#b04454'), true),
@@ -656,7 +657,7 @@ export const LOOK_SHEETS: Record<RealmLook, Partial<Record<Material, () => Sheet
   },
   spore: {
     // Moss full of small lights.
-    moss: () => lawn({ ramp: ramp('#0e2a40', '#123a4e', '#1a4a58', '#22665e', '#3ab89a'), blades: 9, bloom: [rgb('#e0fff8'), rgb('#3ad0d8')], blooms: 16, seed: 179 }),
+    moss: () => lawn({ ramp: ramp('#0e2a40', '#123a4e', '#1a4a58', '#22665e', '#3ab89a'), blades: 9, bloom: [rgb('#e0fff8'), rgb('#3ad0d8')], blooms: 10, seed: 179 }),
     lane: () => paving({ ramp: ramp('#1e1638', '#3e2e62', '#4a3870', '#584682', '#7462a4'), across: 8, moss: ramp('#16404c', '#2a8a7a'), seed: 181 }),
     sand: () => sand(191, ramp('#4a3a52', '#5e4a64', '#725a76', '#8a7090')),
   },
@@ -668,7 +669,7 @@ export const LOOK_SHEETS: Record<RealmLook, Partial<Record<Material, () => Sheet
   },
   quarry: {
     // The benches: dressed blocks in ochre and rust; rose topsoil; grey-violet gravel; rust blocks in the faces.
-    sand: () => blocks(211, ramp('#3e2420', '#8a5a40', '#9a6646', '#ac744e', '#c88e60')),
+    sand: () => blocks(211, ramp('#3e2a1c', '#94683e', '#a6764a', '#b88656', '#d4a46c')),
     cobbles: () => lawn({ ramp: ramp('#4a2e3e', '#5a3a4a', '#6a4656', '#9a7a5a', '#c8a070'), blades: 5, bloom: null, blooms: 0, seed: 223 }),
     lane: () => paving({ ramp: ramp('#2e2236', '#56465e', '#64546c', '#74647c', '#90809a'), across: 16, moss: null, seed: 227 }),
     rockface: () => blocks(229, ramp('#2a1420', '#6e3a30', '#804634', '#94543a', '#b0704a')),

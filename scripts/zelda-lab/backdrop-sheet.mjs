@@ -164,7 +164,7 @@ for (const look of looks) {
     let info
     try {
       // The page says how big each sheet is before the window is opened at that size.
-      const dom = execFileSync('chromium-browser', [...FLAGS, '--dump-dom', url('sizes')], { encoding: 'utf8', timeout: 60000, stdio: ['ignore', 'pipe', 'ignore'] })
+      const dom = execFileSync(process.env.CHROME_BIN || 'chromium-browser', [...FLAGS, '--dump-dom', url('sizes')], { encoding: 'utf8', timeout: 60000, stdio: ['ignore', 'pipe', 'ignore'] })
       info = JSON.parse(dom.match(/<title>(.*?)<\/title>/s)[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'))
     } catch (e) {
       console.error(`failed: ${look} ${w}x${h}: ${e.message}`)
@@ -181,7 +181,7 @@ for (const look of looks) {
     for (const [tag, mode, [sw, sh]] of shots) {
       const png = join(out, `${look}-${w}x${h}${tag}.png`)
       try {
-        execFileSync('chromium-browser', [...FLAGS, `--window-size=${sw},${sh}`, `--screenshot=${png}`, url(mode)], { stdio: 'ignore', timeout: 60000 })
+        execFileSync(process.env.CHROME_BIN || 'chromium-browser', [...FLAGS, `--window-size=${sw},${sh}`, `--screenshot=${png}`, url(mode)], { stdio: 'ignore', timeout: 60000 })
         console.log(png)
       } catch (e) {
         console.error(`failed: ${png}: ${e.message}`)
