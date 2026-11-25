@@ -10,6 +10,7 @@ import { breakShards, enemyActive } from './enemies'
 import { cutTile, throwLever, toggleCrystal } from './hero'
 import { circleBlocked, condMet, has, moveCircle, setFlag, solidTile, tileAt } from './map'
 import { nextId, rndRange } from './util'
+import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, stepPhysics } from './puzzles/index'
 
 export function stepObjects(c: Ctx, dt: number) {
   const m = c.s.map
@@ -20,6 +21,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepProjectiles(c, dt)
   stepDrops(c, dt)
   stepBlocks(c, dt)
+  stepPhysics(c, dt)
   stepPuzzles(c)
   stepNpcs(c, dt)
 }
@@ -86,8 +88,10 @@ export function explode(c: Ctx, x: number, y: number) {
         rollDrop(c, tx + 0.5, ty + 0.5, 0.5)
       } else if (t === 'c') toggleCrystal(c, tx, ty)
       else if (t === '}') throwLever(c, tx, ty)
+      else if (t === 'ξ') hitPuzzle(c, tx, ty, t)
     }
   }
+  blastPuzzle(c, x, y)
   if (secret) c.ev.push({ type: 'secret' })
 }
 
@@ -148,6 +152,7 @@ function stepDisc(c: Ctx, dt: number) {
     throwLever(c, tx, ty)
     d.returning = true
   }
+  if (!d.hit.includes(key) && hitPuzzle(c, tx, ty, tileAt(m, tx, ty))) { d.hit.push(key); d.returning = true }
   for (const q of m.drops) {
     if (!d.carrying.includes(q.id) && Math.hypot(q.x - d.x, q.y - d.y) < 0.5) d.carrying.push(q.id)
   }
@@ -171,7 +176,8 @@ function stepThrown(c: Ctx, dt: number) {
     o.dist += step
     const p = Math.min(1, o.dist / THROW_RANGE)
     o.z = 0.9 * (1 - p * p)
-    let smash = o.dist >= THROW_RANGE || solidTile(c.w, m, Math.floor(o.x), Math.floor(o.y), 'fly')
+    // (Come down on ice, it slides on until it hits something.)
+    let smash = (o.dist >= THROW_RANGE && !potSlides(c, o)) || solidTile(c.w, m, Math.floor(o.x), Math.floor(o.y), 'fly')
     for (const e of m.enemies) {
       if (!enemyActive(c, e)) continue
       if (Math.hypot(e.x - o.x, e.y - o.y) < e.r + 0.35) {
@@ -278,11 +284,13 @@ function stepPuzzles(c: Ctx) {
   // Plates: pressed by a resting block.
   const pressed: string[] = []
   c.info.plates.forEach((id, idx) => {
+    if (isWeighed(c, idx)) return // weighed plates and scales: `puzzles/`
     const tx = idx % m.w
     const ty = Math.floor(idx / m.w)
     const moving = m.moving.some(b => b.tx === tx && b.ty === ty)
     if ((m.tiles[idx] === 'b' || m.tiles[idx] === 'B') && !moving) pressed.push(id)
   })
+  pressed.push(...pressedWeights(c))
   for (const id of pressed) {
     if (!m.plates.includes(id)) {
       const idx = [...c.info.plates.entries()].find(([, v]) => v === id)![0]

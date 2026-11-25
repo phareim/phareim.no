@@ -9,6 +9,7 @@ import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral } from './bosses'
 import { type Ctx, hurtHero, hitEnemy } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
+import { knockHazard } from './puzzles/index'
 import { angleDiff, chance, clamp, dirVec, nextId, opposite, pick, rnd, rndRange, toDir, DIRS } from './util'
 
 export const SHARD_R = 0.42
@@ -88,6 +89,8 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
   if (e.invuln > 0) e.invuln -= dt
   if (e.knock) {
     walk(c, e, e.knock.vx, e.knock.vy, dt)
+    // Knocked into a pit, water or spikes (on a physical map).
+    if (knockHazard(c, e)) return
     e.knock.t -= dt
     if (e.knock.t <= 0) e.knock = null
     contact(c, e)

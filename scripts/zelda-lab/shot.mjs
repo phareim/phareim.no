@@ -309,6 +309,13 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'd-gemini': wild(true); s.inv.arc = true; go('deep2', 23.5, 10.5, 'up'); run(140); break
   // Part 22: the troll by the broken bridge (the hero just south of him).
   case 'w-troll': wild(); go('wildwood', 35.5, 38.5, 'up'); run(30); break
+  // The physical puzzles' lab (world/puzzlelab.ts, docs/games/neon-shrine-puzzles.md), one room per mechanic.
+  case 'pz-weights': give(); go('puzzlelab', 6.5, 17.5, 'up'); run(2); r.onEvents(stepGame(world, s, 1 / 60, inp({ aPress: true, a: true }))); run(20); s.hero.x = 11.5; s.hero.y = 17.5; s.hero.dir = 'down'; run(20); break
+  case 'pz-ice': give(); go('puzzlelab', 20.5, 20.5, 'up'); run(2); run(14, inp({ move: { x: 0, y: -1 } })); break
+  case 'pz-beam': give(); go('puzzlelab', 40.5, 19.5, 'up'); s.map.tiles[16 * s.map.w + 33] = 'ν'; run(30); break
+  case 'pz-boulder': give(); go('puzzlelab', 42.5, 9.5, 'up'); s.flags['lab.d.roll'] = true; run(40); break
+  case 'pz-sluice': give(); s.flags['lab.e.tide'] = true; go('puzzlelab', 24.5, 7.5, 'left'); run(30); break
+  case 'pz-final': give(); s.flags['lab.f.roll'] = true; go('puzzlelab', 7.5, 6.5, 'right'); run(90); s.map.tiles[5 * s.map.w + 10] = 'α'; s.map.tiles[3 * s.map.w + 10] = 'ν'; run(10); break
   case 'd-gate': wild(true); s.inv.arc = true; s.flags.gemini = true; s.flags.gateShut = true; go('deep2', 23.5, 8.5, 'up'); run(20); break
   // Field battles (docs/games/neon-shrine-battle.md) in the demo glade: b-field before a fight; the others in one,
   // the menu open (b-menu), a target being picked (b-target), the tech list (b-tech), a blow landing (b-hit),
@@ -508,6 +515,13 @@ const SHOTS = [
   ['b-solo-375', 'b-solo', 375, 667, 2, 0],
   ['b-menu-1280', 'b-menu', 1280, 800, 1, 0],
   ['b-hit-1280', 'b-hit', 1280, 800, 1, 0],
+  ['pz-weights-1280', 'pz-weights', 1280, 800, 1, 0],
+  ['pz-ice-1280', 'pz-ice', 1280, 800, 1, 0],
+  ['pz-beam-1280', 'pz-beam', 1280, 800, 1, 0],
+  ['pz-boulder-1280', 'pz-boulder', 1280, 800, 1, 0],
+  ['pz-sluice-1280', 'pz-sluice', 1280, 800, 1, 0],
+  ['pz-final-1280', 'pz-final', 1280, 800, 1, 0],
+  ['pz-final-390', 'pz-final', 390, 844, 3, 0],
   // The polygon view's set (tmp/poly-lab): the same places at the size the other views are judged at.
   ['shop-1280', 'shop', 1280, 800, 1, 0],
   ['shop-390', 'shop', 390, 844, 3, 0],

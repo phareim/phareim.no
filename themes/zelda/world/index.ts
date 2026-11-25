@@ -15,6 +15,7 @@ import { LUNA_TALK } from './luna'
 import { frontierMap } from './gen/frontier'
 import { ARENA } from './arena'
 import { QUARRY } from './quarry'
+import { PUZZLELAB } from './puzzlelab'
 
 export { INTRO } from './intro'
 
@@ -39,6 +40,8 @@ export const WORLD: World = {
     arena: ARENA,
     // Dig & build's demo (`MapDef.dig`), not linked from the world yet.
     quarry: QUARRY,
+    // The physical puzzles' lab (`engine/puzzles/`): not linked from the world yet.
+    puzzlelab: PUZZLELAB,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,

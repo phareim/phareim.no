@@ -163,7 +163,7 @@ describe('the 16-bit view’s standing things', () => {
         assert.ok(n[2] > -0.75, `${kind} shows a back`)
         if (a.normal[o + 3] > 0) glow++
       }
-      const lit = ['lampPink', 'lampCyan', 'pot', 'pillarStone', 'pillarShrine', 'blockPink', 'blockCyan'].includes(kind) || /chest/i.test(kind)
+      const lit = ['lampPink', 'lampCyan', 'pot', 'pillarStone', 'pillarShrine', 'blockPink', 'blockCyan'].includes(kind) || /chest/i.test(kind) || /^pz(Emitter|Mirror|Prism|ReceiverLit|Valve|Roll)/.test(kind)
       assert.equal(glow > 0, lit, `${kind}: ${glow} glowing pixels`)
     }
   })

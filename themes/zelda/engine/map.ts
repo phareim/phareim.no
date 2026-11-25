@@ -7,6 +7,8 @@ import type {
   Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, World, Enemy, Npc, Pickup,
 } from '../types'
 import { TILE_INFO, isTileChar } from '../world/tiles'
+import { puzzleMarkTile } from '../world/puzzles'
+import { loadPuzzleTiles } from './puzzles/load'
 import { spawnEnemy } from './spawn'
 import { fieldFoes } from './battle/field'
 import { digAbove, digLevel } from './digGround'
@@ -153,7 +155,7 @@ function defaultTile(e: EntDef): TileChar {
     case 'exit': return 'D'
     case 'glyph': return '{'
     case 'lever': return '}'
-    default: return '.'
+    default: return puzzleMarkTile(e) ?? '.'
   }
 }
 
@@ -239,6 +241,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     if (p[0] === 'psi' && p[1] === id) { const from = Number(p[2]); const to = Number(p[3]); if (tiles[from] === 'B') tiles[from] = '.'; tiles[to] = 'B' }
     else if (p[0] === 'drop' && p[1] === id) tiles[Number(p[2])] = 'B'
   }
+  loadPuzzleTiles(info, s, tiles)
 
   const enemies: Enemy[] = []
   const npcs: Npc[] = []

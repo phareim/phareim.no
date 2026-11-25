@@ -1,0 +1,569 @@
+// Neon Shrine's physical puzzles (engine/puzzles/, docs/games/neon-shrine-puzzles.md): each rule on a small
+// fixture map, the combinations, the generator's kits (solvable, stampable), the Puzzle Lab played through by a
+// scripted walk, and the older maps left alone.
+import { describe, it, before } from 'node:test'
+import assert from 'node:assert/strict'
+import { load } from './zelda-load.mjs'
+
+let Z
+before(async () => { Z = await load() })
+
+const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
+const DIR = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }
+
+/** A one-room world from rows (`@` is where the hero starts, facing up), with extra marks. */
+function room(rows, marks = {}, extra = {}) {
+  const def = { id: 't', name: 'T', kind: 'dungeon', track: 'dungeon', rows, marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'up' } }, ...marks }, ...extra }
+  const world = { maps: { t: def }, start: { map: 't', entry: 'start' } }
+  const s = Z.createGame(world, { seed: 3 })
+  s.inv.sword = true
+  return { world, s }
+}
+const step = (w, s, i = inp(), n = 1) => { const ev = []; for (let k = 0; k < n; k++) ev.push(...Z.stepGame(w.world ?? w, s, 1 / 60, i)); return ev }
+const at = s => [Math.floor(s.hero.x), Math.floor(s.hero.y)]
+const tile = (s, x, y) => s.map.tiles[y * s.map.w + x]
+/** Hold a way until the hero has stopped moving (a slide ends, a push is done). */
+function hold(w, s, dir, frames = 90, until = () => false) {
+  for (let k = 0; k < frames && !until(); k++) { s.hero.invuln = 1; step(w, s, inp({ move: DIR[dir] })) }
+  for (let k = 0; k < 45; k++) step(w, s)
+}
+/** Face a way and press A (talks, lifts, turns a mirror or valve, throws a lever). */
+function pressA(w, s, dir) {
+  if (dir) s.hero.dir = dir
+  step(w, s, inp({ aPress: true, a: true }))
+  for (let k = 0; k < 600 && s.mode !== 'play'; k++) step(w, s, s.mode === 'dialog' && k % 20 === 19 ? inp({ aPress: true, a: true }) : inp())
+  step(w, s, inp(), 20)
+}
+const put = (s, x, y) => { s.hero.x = x + 0.5; s.hero.y = y + 0.5 }
+
+describe('ice', () => {
+  it('the hero slides until something stops him, and walks again on the ground beyond', () => {
+    const w = room([
+      '#######',
+      '#.....#',
+      '#αααα.#',
+      '#αααα.#',
+      '#@αααα.',
+      '#######',
+    ])
+    for (let k = 0; k < 15; k++) step(w, w.s, inp({ move: DIR.right }))
+    assert.equal(w.s.map.phys.slide?.dx, 1, 'sliding east')
+    hold(w, w.s, 'up', 1)
+    // The stick does not steer a slide: he goes on east to the ground past the ice.
+    assert.deepEqual(at(w.s), [6, 4])
+    hold(w, w.s, 'left', 10)
+    // Back west over the ice to the wall.
+    assert.deepEqual(at(w.s), [1, 4])
+    hold(w, w.s, 'up', 60)
+    assert.deepEqual(at(w.s), [1, 1], 'up the ice to the floor beyond')
+  })
+
+  it('a pushed block slides on over ice, a thrown pot slides and breaks on the wall', () => {
+    const w = room([
+      '#########',
+      '#.......#',
+      '#@bααααα#',
+      '#.......#',
+      '#..o....#',
+      '#..ααααα#',
+      '#########',
+    ])
+    hold(w, w.s, 'right', 60)
+    assert.equal(tile(w.s, 7, 2), 'b', 'slid to the far wall')
+    assert.equal(tile(w.s, 2, 2), '.', 'the floor under it is back')
+    // A pot thrown onto the ice keeps going.
+    put(w.s, 3, 3)
+    pressA(w, w.s, 'down')
+    assert.equal(w.s.hero.carry, 'pot')
+    put(w.s, 2, 5); w.s.hero.dir = 'right'
+    step(w, w.s, inp({ aPress: true, a: true }))
+    let far = 0
+    let broke = false
+    for (let k = 0; k < 120; k++) {
+      for (const e of step(w, w.s)) if (e.type === 'shatter') broke = true
+      for (const o of w.s.map.thrown) far = Math.max(far, o.x)
+    }
+    assert.ok(far > 7.2, `the pot slid to ${far}`)
+    assert.ok(broke)
+  })
+})
+
+describe('beams', () => {
+  const beamRoom = () => room([
+    '#########',
+    '#E.....R#',
+    '#.......#',
+    '#.μ.....#',
+    '#....@..#',
+    '#########',
+  ], {
+    E: { ent: { t: 'emitter', dir: 'down' } },
+    R: { ent: { t: 'receiver', flag: 'lit' } },
+  })
+
+  it('run from the emitter to a solid, turn at mirrors, and light a receiver for good', () => {
+    const w = beamRoom()
+    step(w, w.s)
+    assert.ok(!w.s.flags.lit)
+    // Straight down to the floor's edge (the mirror is off the beam's line).
+    assert.deepEqual(w.s.map.phys.beams, [{ x0: 1.5, y0: 1.5, x1: 1.5, y1: 5 }])
+    // Push the mirror west into the beam: it turns the light east, along row 3, to the wall.
+    put(w.s, 3, 3)
+    hold(w, w.s, 'left', 40)
+    assert.equal(tile(w.s, 1, 3), 'μ')
+    // The mirror sends a southbound beam west: into the wall. Turn it: now east.
+    put(w.s, 2, 3)
+    pressA(w, w.s, 'left')
+    assert.equal(tile(w.s, 1, 3), 'ν')
+    assert.deepEqual(w.s.map.phys.beams.at(-1), { x0: 1.5, y0: 3.5, x1: 8, y1: 3.5 })
+    assert.ok(!w.s.flags.lit)
+  })
+
+  it('a prism splits the beam, a block stops it, and receivers latch', () => {
+    const w = room([
+      '#########',
+      '#...E...#',
+      '#.@b....#',
+      '#A..π..B#',
+      '#.......#',
+      '#########',
+    ], {
+      E: { ent: { t: 'emitter', dir: 'down' } },
+      A: { ent: { t: 'receiver', flag: 'a' } },
+      B: { ent: { t: 'receiver', flag: 'b' } },
+    })
+    step(w, w.s)
+    assert.ok(w.s.flags.a && w.s.flags.b, 'both arms lit')
+    assert.equal(w.s.map.phys.lit.length, 2)
+    // A block pushed into the beam's way stops it, but what was lit stays solved.
+    hold(w, w.s, 'right', 40)
+    assert.equal(tile(w.s, 4, 2), 'b')
+    assert.equal(w.s.map.phys.lit.length, 0)
+    assert.ok(w.s.flags.a && w.s.flags.b)
+  })
+
+  it('burn the foes they cross', () => {
+    const w = room([
+      '#######',
+      '#E....#',
+      '#.....#',
+      '#..m..#',
+      '#.....#',
+      '#..@..#',
+      '#######',
+    ], { E: { ent: { t: 'emitter', dir: 'down' } }, m: { ent: { t: 'enemy', kind: 'blob' } } })
+    const blob = w.s.map.enemies[0]
+    blob.x = 1.5; blob.y = 3.5
+    blob.ai.mode = 'wait'; blob.ai.t = 99
+    step(w, w.s, inp(), 30)
+    assert.ok(blob.dead, 'the blob burned')
+  })
+})
+
+describe('weights', () => {
+  const plates = () => room([
+    '##########',
+    '#.H..o...#',
+    '#.....b..#',
+    '#.s..s...#',
+    '#....@...#',
+    '##########',
+  ], {
+    H: { ent: { t: 'plate', id: 'heavy' }, tile: 'η' },
+    s: { ent: { t: 'plate', id: 'scale' }, tile: 'σ' },
+  })
+
+  it('the heavy plate does not feel the hero alone, but does when he carries a pot', () => {
+    const w = plates()
+    put(w.s, 2, 1)
+    step(w, w.s, inp(), 2)
+    assert.equal(Z.weightOn(Z.ctx(w.world, w.s, []), 1 * 10 + 2), 1)
+    assert.ok(!w.s.map.plates.includes('heavy'))
+    put(w.s, 5, 2)
+    pressA(w, w.s, 'up')
+    assert.equal(w.s.hero.carry, 'pot')
+    put(w.s, 2, 1)
+    const ev = step(w, w.s, inp(), 2)
+    assert.ok(w.s.map.plates.includes('heavy'))
+    assert.ok(ev.some(e => e.type === 'plate'))
+  })
+
+  it('a scale is down only while its pans carry equal weight', () => {
+    const w = plates()
+    // The block onto the east pan: 2 against nothing.
+    put(w.s, 6, 1)
+    hold(w, w.s, 'down', 40)
+    assert.equal(tile(w.s, 6, 3), 'b')
+    hold(w, w.s, 'left', 3)
+    put(w.s, 7, 3)
+    hold(w, w.s, 'left', 40)
+    assert.equal(tile(w.s, 5, 3), 'b')
+    assert.ok(!w.s.map.plates.includes('scale'))
+    // The hero alone on the west pan: 1 against 2.
+    put(w.s, 2, 3)
+    step(w, w.s, inp(), 2)
+    assert.ok(!w.s.map.plates.includes('scale'))
+    // With a pot in his arms: 2 against 2.
+    put(w.s, 5, 2); w.s.map.tiles[1 * 10 + 5] = 'o'
+    pressA(w, w.s, 'up')
+    put(w.s, 2, 3)
+    step(w, w.s, inp(), 2)
+    assert.ok(w.s.map.plates.includes('scale'))
+  })
+})
+
+describe('rolling stones', () => {
+  const quarry = () => room([
+    '###########',
+    '#κ....m.%.#',
+    '#.........#',
+    '#..L......#',
+    '#.....O...#',
+    '#....@....#',
+    '###########',
+  ], {
+    κ: { ent: { t: 'boulder', dir: 'right', flag: 'go' }, tile: 'κ' },
+    L: { ent: { t: 'lever', flag: 'go' } },
+    m: { ent: { t: 'enemy', kind: 'sentry' } },
+  })
+
+  it('a lever lets the boulder go: it crushes a foe, breaks a cracked wall, rolls on and rests', () => {
+    const w = quarry()
+    const foe = w.s.map.enemies[0]
+    foe.ai.mode = 'idle'; foe.stun = 99
+    put(w.s, 3, 4)
+    pressA(w, w.s, 'up')
+    assert.ok(w.s.flags.go)
+    step(w, w.s, inp(), 120)
+    assert.ok(foe.dead, 'crushed')
+    assert.equal(tile(w.s, 8, 1), '.', 'the cracked wall is broken')
+    assert.equal(tile(w.s, 9, 1), 'κ', 'at rest against the wall')
+    assert.equal(tile(w.s, 1, 1), '.')
+    assert.ok(w.s.flags['boulder:t:12:20'])
+    // The save keeps it where it lies.
+    const again = Z.createGame(w.world, { save: Z.toSave(w.s) })
+    assert.equal(again.map.tiles[20], 'κ')
+    assert.equal(again.map.tiles[12], '.')
+    assert.equal(again.map.tiles[19], '.', 'and the wall stays broken')
+  })
+
+  it('a bomb kicks a boulder rolling; into a pit it fills it; in its road the hero is thrown aside', () => {
+    const w = quarry()
+    w.s.map.tiles[5 * 11 + 6] = 'κ' // a second boulder below the pit (row 5 is the floor)
+    w.s.map.tiles[1 * 11 + 1] = '.'
+    const c = Z.ctx(w.world, w.s, [])
+    // Rolls north from (6,5): straight into the pit at (6,4).
+    put(w.s, 2, 5)
+    assert.ok(Z.startRoll(c, 5 * 11 + 6, 0, -1))
+    step(w, w.s, inp(), 30)
+    assert.equal(tile(w.s, 6, 4), '.', 'the pit is filled')
+    assert.ok(w.s.flags['fill:t:50'])
+    // A boulder rolling at the hero hurts and shoves him off its road.
+    w.s.map.tiles[2 * 11 + 1] = 'κ'
+    put(w.s, 5, 2)
+    w.s.hero.invuln = 0
+    const hp = w.s.hero.hp
+    assert.ok(Z.startRoll(c, 2 * 11 + 1, 1, 0))
+    step(w, w.s, inp(), 40)
+    assert.equal(w.s.hero.hp, hp - 2)
+    assert.notEqual(Math.floor(w.s.hero.y), 2, 'thrown off the row')
+  })
+})
+
+describe('sluices', () => {
+  const basin = () => room([
+    '#########',
+    '#.WWWW..#',
+    '#.WWWWv.#',
+    '#.AAAA..#',
+    '#@......#',
+    '#########',
+  ], {
+    W: { ent: { t: 'sluice', flag: 'tide' } },
+    A: { ent: { t: 'sluice', flag: 'tide', invert: true } },
+    v: { ent: { t: 'valve', flag: 'tide' } },
+  })
+
+  it('a valve drains one basin as the other floods; the water waits for the hero to step out', () => {
+    const w = basin()
+    assert.equal(tile(w.s, 3, 1), 'ω')
+    assert.equal(tile(w.s, 3, 3), 'ψ')
+    put(w.s, 3, 3)
+    put(w.s, 6, 3)
+    pressA(w, w.s, 'up')
+    assert.ok(w.s.flags.tide)
+    assert.equal(tile(w.s, 3, 1), 'ψ', 'drained: floor')
+    assert.equal(tile(w.s, 3, 3), 'ω', 'flooded')
+    // Turn it back while standing in the drained basin's way: his tile stays dry until he leaves it.
+    put(w.s, 5, 2)
+    pressA(w, w.s, 'right')
+    assert.ok(!w.s.flags.tide)
+    assert.equal(tile(w.s, 5, 2), 'ψ')
+    assert.equal(tile(w.s, 4, 2), 'ω')
+    put(w.s, 7, 2)
+    step(w, w.s, inp(), 2)
+    assert.equal(tile(w.s, 5, 2), 'ω')
+    // A save loads the basins as they were left.
+    pressA(w, w.s, 'left')
+    const again = Z.createGame(w.world, { save: Z.toSave(w.s) })
+    assert.equal(again.map.tiles[1 * 9 + 3], 'ψ')
+    assert.equal(again.map.tiles[3 * 9 + 3], 'ω')
+  })
+
+  it('flooding drowns the foes that walk', () => {
+    const w = basin()
+    w.s.map.enemies.push({ id: 'x', kind: 'blob', x: 3.5, y: 3.5, r: 0.38, hp: 2, maxHp: 2, dir: 'down', cell: 0, invuln: 0, stun: 99, knock: null, ai: { mode: 'wait', t: 9, tell: 0 }, home: { x: 3.5, y: 3.5 }, dead: false, flash: 0 })
+    put(w.s, 6, 3)
+    pressA(w, w.s, 'up')
+    assert.ok(w.s.map.enemies[0].dead)
+  })
+})
+
+describe('physical combat', () => {
+  const pitRoom = physics => room([
+    '#######',
+    '#.....#',
+    '#.mO..#',
+    '#.@...#',
+    '#.....#',
+    '#######',
+  ], { m: { ent: { t: 'enemy', kind: 'sentry' } } }, physics ? { physics: true } : {})
+
+  for (const physics of [true, false]) {
+    it(physics ? 'a foe knocked into a pit falls (MapDef.physics)' : 'without physics a knocked foe stops at the pit\'s edge, as before', () => {
+      const w = pitRoom(physics)
+      const e = w.s.map.enemies[0]
+      e.stun = 99
+      const c = Z.ctx(w.world, w.s, [])
+      Z.hitEnemy(c, e, 1, e.x - 1, e.y)
+      step(w, w.s, inp(), 20)
+      assert.equal(e.dead, physics)
+    })
+  }
+
+  it('a bomb shoves a block beside it, and on ice it slides', () => {
+    const w = room([
+      '#########',
+      '#.......#',
+      '#..bαααα#',
+      '#.......#',
+      '#@......#',
+      '#########',
+    ])
+    w.s.map.bombs.push({ id: 99, x: 2.5, y: 2.5, t: 1.69 })
+    step(w, w.s, inp(), 40)
+    assert.equal(tile(w.s, 7, 2), 'b')
+  })
+})
+
+describe('combinations', () => {
+  it('a block slid over ice comes to rest on a heavy plate; a boulder opens a beam\'s road to a receiver', () => {
+    // (The Puzzle Lab's rooms B and F play these through; here the rules alone.)
+    const w = room([
+      '##########',
+      '#...κ....#',
+      '#E..%...u#',
+      '#........#',
+      '#........#',
+      '#.bααααH.#',
+      '#@.......#',
+      '##########',
+    ], {
+      E: { ent: { t: 'emitter', dir: 'right' } },
+      κ: { ent: { t: 'boulder', dir: 'down', flag: 'go' }, tile: 'κ' },
+      H: { ent: { t: 'plate', id: 'h' }, tile: 'η' },
+      u: { ent: { t: 'receiver', flag: 'lit' } },
+    })
+    put(w.s, 1, 5)
+    hold(w, w.s, 'right', 60)
+    assert.equal(tile(w.s, 7, 5), 'b')
+    assert.ok(w.s.map.plates.includes('h'))
+    assert.ok(!w.s.map.phys.lit.length)
+    w.s.flags.go = true
+    step(w, w.s, inp(), 60)
+    assert.equal(tile(w.s, 4, 2), '.', 'the wall in front of the beam is gone')
+    assert.equal(tile(w.s, 4, 6), 'κ', 'the stone rolled on, out of the beam')
+    assert.deepEqual(w.s.map.phys.lit, [28])
+    assert.ok(w.s.flags.lit)
+  })
+})
+
+describe('kits for the generator', () => {
+  it('every kit is solvable from its entry, and not solved before it is played', () => {
+    assert.ok(Z.puzzleKits.length >= 6)
+    for (const k of Z.puzzleKits) {
+      const r = Z.solveKit(k)
+      assert.ok(r.ok, `${k.id} has no solution (${r.states} states)`)
+      assert.ok(r.moves.length >= 2, `${k.id} is solved in ${r.moves.length} moves`)
+      assert.equal(k.rows.length, k.h)
+      assert.ok(k.rows.every(row => [...row].length === k.w), `${k.id}: ragged rows`)
+    }
+  })
+
+  it('the solver says no to a kit that cannot be done', () => {
+    const k = Z.puzzleKits.find(q => q.id === 'ice-block')
+    // A wall under the plate: nothing can slide onto it.
+    const stuck = { ...k, rows: k.rows.map((r, y) => (y === 1 ? '.αααα#α' : r)) }
+    assert.equal(Z.solveKit(stuck).ok, false)
+  })
+
+  it('stamp into an ordinary map, which loads, validates, and plays by the kit\'s rules', () => {
+    const base = {
+      id: 'g', name: 'G', kind: 'dungeon', track: 'dungeon',
+      rows: ['############', ...Array.from({ length: 8 }, () => '#..........#'), '############'],
+      marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'up' } } },
+    }
+    base.rows[8] = '#....@.....#'
+    let def = base
+    const conds = []
+    for (const [id, x, y] of [['beam-mirrors', 1, 1], ['sluice', 6, 4]]) {
+      const r = Z.stampKit(def, Z.puzzleKits.find(k => k.id === id), x, y, `r1.${id}`)
+      def = r.def
+      conds.push(r.solved)
+    }
+    assert.deepEqual(conds, [{ flag: 'r1.beam-mirrors.lit' }, { plates: ['r1.sluice.goal'] }])
+    const world = { maps: { g: def }, start: { map: 'g', entry: 'start' } }
+    assert.deepEqual(Z.validateWorld(world), [])
+    const s = Z.createGame(world, { seed: 1 })
+    const p = Z.puzzleInfo(Z.mapInfo(world, 'g'))
+    assert.ok(p.on)
+    assert.equal(p.emitters.length, 1)
+    assert.equal(p.sluices[0].flag, 'r1.sluice.drain')
+    assert.equal(s.map.tiles[5 * 12 + 6], 'ω')
+  })
+})
+
+describe('the Puzzle Lab', () => {
+  /** BFS over the floor tiles of the room (no ice, no pits, no water), then steer there. */
+  function walkTo(s, tx, ty, budget = 1500) {
+    const m = s.map
+    const ok = (x, y) => !Z.solidTile(Z.WORLD, m, x, y, 'hero') && !['O', 'α', 'x'].includes(m.tiles[y * m.w + x])
+    const prev = new Map([[Math.floor(s.hero.y) * m.w + Math.floor(s.hero.x), -1]])
+    const q = [Math.floor(s.hero.y) * m.w + Math.floor(s.hero.x)]
+    for (let i = 0; i < q.length; i++) {
+      const x = q[i] % m.w
+      const y = Math.floor(q[i] / m.w)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const j = (y + dy) * m.w + x + dx
+        if (prev.has(j) || !ok(x + dx, y + dy)) continue
+        prev.set(j, q[i])
+        q.push(j)
+      }
+    }
+    const goal = ty * m.w + tx
+    assert.ok(prev.has(goal), `no floor path to ${tx},${ty} from ${at(s)}`)
+    const route = []
+    for (let j = goal; j !== -1; j = prev.get(j)) route.unshift(j)
+    let i = 0
+    for (let n = 0; n < budget; n++) {
+      s.hero.hp = s.hero.maxHp
+      s.hero.invuln = 1
+      if (s.mode !== 'play') { step(Z.WORLD, s); continue }
+      const h = s.hero
+      const cur = Math.floor(h.y) * m.w + Math.floor(h.x)
+      while (i < route.length - 1 && cur === route[i] && Math.hypot(h.x - (route[i] % m.w) - 0.5, h.y - Math.floor(route[i] / m.w) - 0.5) < 0.25) i++
+      const gx = (route[i] % m.w) + 0.5
+      const gy = Math.floor(route[i] / m.w) + 0.5
+      if (cur === goal && Math.hypot(h.x - gx, h.y - gy) < 0.12) { step(Z.WORLD, s, inp(), 2); return }
+      const d = Math.hypot(gx - h.x, gy - h.y) || 1
+      step(Z.WORLD, s, inp({ move: { x: (gx - h.x) / d, y: (gy - h.y) / d } }))
+    }
+    assert.fail(`walkTo ${tx},${ty} timed out at ${s.hero.x.toFixed(2)},${s.hero.y.toFixed(2)}`)
+  }
+  const W = { world: null }
+
+  it('is played through by a scripted walk: weights, ice, beams, the stone, the sluices, all together, the chest', () => {
+    W.world = Z.WORLD
+    const s = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'puzzlelab', entry: 'start' } })
+    s.inv.sword = true
+    const g = Z.WORLD
+    // A: a pot carried onto the heavy plate.
+    walkTo(s, 6, 17)
+    pressA(g, s, 'up')
+    assert.equal(s.hero.carry, 'pot')
+    walkTo(s, 11, 17)
+    assert.ok(s.flags['gate:puzzlelab.15,17'], 'A\'s gate is open')
+    pressA(g, s, 'right') // put the pot down the hard way
+    walkTo(s, 17, 17)
+    assert.equal(s.zoneIndex, 4, 'in B')
+    // B: the block up the ice, then east onto the plate.
+    walkTo(s, 20, 20)
+    hold(g, s, 'up', 60)
+    assert.equal(tile(s, 20, 14), 'b', 'the block slid up to the stone')
+    hold(g, s, 'left', 30)
+    assert.deepEqual(at(s), [17, 15])
+    walkTo(s, 17, 14)
+    hold(g, s, 'right', 120, () => !!s.flags['gate:puzzlelab.31,17'])
+    assert.equal(tile(s, 28, 14), 'b', 'on the heavy plate')
+    assert.ok(s.flags['gate:puzzlelab.31,17'])
+    hold(g, s, 'down', 40)
+    walkTo(s, 33, 17)
+    assert.equal(s.zoneIndex, 5, 'in C')
+    // C: both mirrors turned toward the receivers.
+    walkTo(s, 33, 17)
+    pressA(g, s, 'up')
+    walkTo(s, 46, 17)
+    pressA(g, s, 'up')
+    assert.ok(s.flags['lab.c.a'] && s.flags['lab.c.b'], 'both eyes lit')
+    walkTo(s, 39, 11)
+    assert.equal(s.zoneIndex, 2, 'in D')
+    // D: the lever; the stone breaks the wall and fills the pit.
+    walkTo(s, 42, 9)
+    pressA(g, s, 'up')
+    step(g, s, inp(), 120)
+    assert.equal(tile(s, 36, 2), '.')
+    assert.equal(tile(s, 35, 2), '.')
+    walkTo(s, 33, 2)
+    walkTo(s, 31, 2)
+    assert.equal(s.zoneIndex, 1, 'in E')
+    // E: the east valve drains the near basin (and floods the far one), the middle valve the other way round.
+    walkTo(s, 29, 7)
+    pressA(g, s, 'up')
+    walkTo(s, 24, 8)
+    pressA(g, s, 'left')
+    walkTo(s, 17, 4)
+    walkTo(s, 15, 5)
+    assert.equal(s.zoneIndex, 0, 'in F')
+    // F: the lever, the mirror up the ice and turned, the receiver, the gate, the chest.
+    walkTo(s, 2, 3)
+    pressA(g, s, 'up')
+    step(g, s, inp(), 120)
+    assert.equal(tile(s, 4, 3), '.', 'the stone broke the wall in the beam\'s road')
+    walkTo(s, 10, 6)
+    hold(g, s, 'up', 60)
+    assert.equal(tile(s, 10, 3), 'μ', 'the mirror slid up into the beam')
+    assert.deepEqual(at(s), [10, 4])
+    pressA(g, s, 'up')
+    assert.ok(s.flags['lab.f.lit'], 'the receiver is lit')
+    hold(g, s, 'down', 30)
+    walkTo(s, 13, 9)
+    pressA(g, s, 'up')
+    assert.ok(s.flags['chest:puzzlelab.prize'])
+  })
+
+  it('each room is solvable by the kit solver too', () => {
+    const def = Z.WORLD.maps.puzzlelab
+    const cut = (cx, cy) => def.rows.slice(cy * 12 + 1, cy * 12 + 11).map(r => [...r].slice(cx * 16 + 1, cx * 16 + 15).join(''))
+    const cases = [
+      [1, 1, { x: 0, y: 4 }, { plates: ['lab.b.heavy'] }],
+      [2, 1, { x: 0, y: 4 }, { flags: ['lab.c.a', 'lab.c.b'] }],
+      [0, 0, { x: 13, y: 3 }, { flag: 'lab.f.lit' }],
+    ]
+    for (const [cx, cy, start, goal] of cases) {
+      const r = Z.solveGrid({ rows: cut(cx, cy), marks: def.marks }, start, goal, 200000)
+      assert.ok(r.ok, `room ${cx},${cy}: ${r.states} states`)
+    }
+  })
+})
+
+describe('the older maps', () => {
+  it('have no puzzle tiles and no physics: every puzzle rule stays off there', () => {
+    for (const [id, def] of Object.entries(Z.WORLD.maps)) {
+      if (id === 'puzzlelab') continue
+      const p = Z.puzzleInfo(Z.mapInfo(Z.WORLD, id))
+      assert.equal(p.on, false, id)
+      assert.equal(p.physical, false, id)
+      assert.equal(def.physics, undefined, id)
+    }
+  })
+})

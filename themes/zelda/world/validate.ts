@@ -8,9 +8,10 @@
  */
 import type { Dir, EntDef, ExitTarget, MapDef, TileChar, World } from '../types'
 import { TILE_INFO, isTileChar } from './tiles'
+import { puzzleMarkTile } from './puzzles'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к'])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ'])
 // On a dig map (`MapDef.dig`) the axe fells trees and the hammer lays planks over water.
 const DIG_FELLED = new Set<TileChar>(['T', '~'])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
@@ -26,7 +27,7 @@ function markTile(e: EntDef): TileChar {
     case 'exit': return 'D'
     case 'glyph': return '{'
     case 'lever': return '}'
-    default: return '.'
+    default: return puzzleMarkTile(e) ?? '.'
   }
 }
 
@@ -134,7 +135,21 @@ function reachability(id: string, world: World): string[] {
   const def = world.maps[id]!
   const h = def.rows.length
   const w = def.rows[0]!.length
-  const tile = (x: number, y: number) => tileOf(def, x, y)
+  // A pit on a boulder's road is filled once it rolls (`engine/puzzles/`): floor.
+  const filled = new Set<number>()
+  def.rows.forEach((r, y) => {
+    for (let x = 0; x < w; x++) {
+      const e = def.marks[r[x]!]?.ent
+      if (e?.t !== 'boulder') continue
+      const [dx, dy] = STEP[e.dir]
+      for (let k = 1, bx = x + dx, by = y + dy; k < 64 && bx >= 0 && by >= 0 && bx < w && by < h; k++, bx += dx, by += dy) {
+        const t = tileOf(def, bx, by)
+        if (t === 'O') { filled.add(by * w + bx); break }
+        if (t !== '%' && t !== 'R' && TILE_INFO[t].solid) break
+      }
+    }
+  })
+  const tile = (x: number, y: number): TileChar => (filled.has(y * w + x) ? '.' : tileOf(def, x, y))
   const seen = new Uint8Array(w * h)
   const stack: number[] = []
   const seed = (x: number, y: number) => {
@@ -204,6 +219,8 @@ function reachability(id: string, world: World): string[] {
       const m = def.marks[r[x]!]
       if (!m || m.ent.t === 'entry') continue
       if (m.ent.t === 'enemy' || m.ent.t === 'plate' || m.ent.t === 'gate') continue
+      // Puzzle parts work from afar (a beam, a lever's flag, a sluice); their kits are checked by `engine/puzzles/kits.ts`.
+      if (m.ent.t === 'emitter' || m.ent.t === 'receiver' || m.ent.t === 'boulder' || m.ent.t === 'sluice') continue
       if (m.ent.t === 'exit') {
         // Walk-on exits need their own tile reached; face-and-press ones the tile in front.
         const walk = !TILE_INFO[tile(x, y)].solid

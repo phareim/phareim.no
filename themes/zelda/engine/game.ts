@@ -20,6 +20,7 @@ import { stepHook } from './hook'
 import { dirVec } from './util'
 import { battleFocus, stepBattle, stepField } from './battle/index'
 import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
+import { resetPuzzleRoom } from './puzzles/index'
 
 function freshInv(): Inventory {
   return {
@@ -180,6 +181,7 @@ function enterCell(c: Ctx, index: number) {
       m.version++
     }
   }
+  resetPuzzleRoom(c, index)
   s.hero.safe = { x: s.hero.x, y: s.hero.y }
   placeLuna(s)
   const area = areaAt(c.w, s)
