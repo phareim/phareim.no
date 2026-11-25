@@ -15,6 +15,7 @@ import { hash } from './rng'
 import { generateCave } from './cave'
 import { DEEP_LAYERS, generateLayer } from './descent'
 import { SITES } from './quests'
+import { DEMO_SITES } from './demos'
 import { generateRegion } from './region'
 import { REALMS } from './realms'
 import type { FrontierSpec, RealmSpec } from './types'
@@ -43,7 +44,7 @@ export const FRONTIER: FrontierSpec = {
   ],
   realms: { L: 'landing', G: 'meadow', Q: 'lumenby', S: 'seterfell', Y: 'yulefjord', D: 'stillsand', P: 'sporelight', F: 'fogstage', R: 'rerun' },
   landing: { rx: 6, ry: 8 },
-  sites: SITES,
+  sites: [...SITES, ...DEMO_SITES],
 }
 
 export const FRONTIER_PREFIX = 'fr:'

@@ -18,6 +18,7 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { dirVec } from './util'
+import { TILE_INFO } from '../world/tiles'
 import { battleFocus, stepBattle, stepField } from './battle/index'
 import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
 import { resetPuzzleRoom } from './puzzles/index'
@@ -328,6 +329,14 @@ function edgeOut(c: Ctx, inp: Input): boolean {
   const nh = next.rows.length
   const IN = 1.1
   const at = side === 'w' ? { x: nw - IN, y: h.y } : side === 'e' ? { x: IN, y: h.y } : side === 'n' ? { x: h.x, y: nh - IN } : { x: h.x, y: IN }
+  // Only into open ground: a way dug or built to the edge off a pass meets the neighbour's rim, and stays here.
+  const land = mapInfo(c.w, to)
+  const edgeTile = (x: number, y: number) => land.base[Math.floor(y) * land.w + Math.floor(x)]
+  const back = side === 'w' ? { x: nw - 0.5, y: h.y } : side === 'e' ? { x: 0.5, y: h.y } : side === 'n' ? { x: h.x, y: nh - 0.5 } : { x: h.x, y: 0.5 }
+  for (const p of [at, back]) {
+    const t = edgeTile(p.x, p.y)
+    if (!t || TILE_INFO[t].solid) return false
+  }
   s.mode = 'warp'
   s.warp = { t: 0, to, entry: '', swapped: false, at }
   h.act = 'walk'

@@ -2,7 +2,7 @@
  * The one world: the town (phareim.no's front door) and Neon Shrine's coast,
  * shrine and rooms. A visitor starts in the town square facing Petter's name.
  */
-import type { ExitDef, World } from '../types'
+import type { ExitDef, MapDef, World } from '../types'
 import { hasEntry } from '../engine/game'
 import { OVERWORLD } from './overworld'
 import { SHRINE } from './shrine'
@@ -16,6 +16,9 @@ import { frontierMap } from './gen/frontier'
 import { ARENA } from './arena'
 import { QUARRY } from './quarry'
 import { PUZZLELAB } from './puzzlelab'
+import { DEMOS, linkBack } from './gen/demos'
+
+const demo = (def: MapDef) => linkBack(def, DEMOS.find(d => d.map === def.id)!)
 
 export { INTRO } from './intro'
 
@@ -36,12 +39,12 @@ export const WORLD: World = {
     lab1b: LAB1B,
     deep1: DEEP1,
     deep2: DEEP2,
-    // Field battles' demo glade: not linked from the world yet.
-    arena: ARENA,
-    // Dig & build's demo (`MapDef.dig`), not linked from the world yet.
-    quarry: QUARRY,
-    // The physical puzzles' lab (`engine/puzzles/`): not linked from the world yet.
-    puzzlelab: PUZZLELAB,
+    // Field battles' demo glade, down from Sporelight (gen/demos.ts).
+    arena: demo(ARENA),
+    // Dig & build's first map (`MapDef.dig`), down from Lumenby: the tools are here.
+    quarry: demo(QUARRY),
+    // The physical puzzles' lab (`engine/puzzles/`), down from Stillsand.
+    puzzlelab: demo(PUZZLELAB),
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,

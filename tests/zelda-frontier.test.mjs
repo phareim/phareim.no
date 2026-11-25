@@ -215,4 +215,28 @@ describe('the frontier', () => {
     talk('fr:6,7', 'q.seed.tender')
     assert.ok(s.flags['got:q.seed.tender:bits50'], 'and the walk home')
   })
+
+  it('switches each realm’s system on: dig in the dig realms, battles in the battle realms, puzzles in the puzzle realms', () => {
+    const seen = { dig: 0, battle: 0, puzzles: 0 }
+    for (let ry = 0; ry < 12; ry++) for (let rx = 0; rx < 14; rx++) {
+      const d = Z.WORLD.generate(`fr:${rx},${ry}`)
+      if (!d) continue
+      const special = { lumenby: 'dig', seterfell: 'dig', sporelight: 'battle', fogstage: 'battle', rerun: 'battle', yulefjord: 'puzzles', stillsand: 'puzzles' }[d.realm]
+      if (special === 'dig') { assert.ok(d.dig?.heights?.length === d.rows.length, `${d.id} dig`); seen.dig++ }
+      else assert.equal(d.dig, undefined, `${d.id} has no dig`)
+      if (special === 'battle') { assert.ok(d.battle?.groups.length, `${d.id} battle groups`); assert.ok(!Object.values(d.marks).some(m => m.ent.t === 'enemy'), `${d.id} has field foes`); seen.battle++ }
+      else assert.equal(d.battle, undefined, `${d.id} has no battles`)
+      if (special === 'puzzles') { assert.ok(Object.values(d.marks).some(m => m.ent.t === 'chest' && m.ent.appear), `${d.id} puzzle chest`); seen.puzzles++ }
+    }
+    assert.ok(seen.dig && seen.battle && seen.puzzles)
+  })
+
+  it('leads down into the three first maps and back up', () => {
+    for (const [map, region] of [['quarry', 'fr:2,2'], ['arena', 'fr:7,2'], ['puzzlelab', 'fr:9,4']]) {
+      const r = Z.WORLD.generate(region)
+      assert.ok(Object.values(r.marks).some(m => m.ent.t === 'warp' && m.ent.to === map), `${region} → ${map}`)
+      assert.ok(r.entries[`from-${map}`], `${region} has from-${map}`)
+      assert.ok(Object.values(Z.WORLD.maps[map].marks).some(m => m.ent.t === 'warp' && m.ent.to === region), `${map} → ${region}`)
+    }
+  })
 })

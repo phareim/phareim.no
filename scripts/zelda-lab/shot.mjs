@@ -119,6 +119,20 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'start': run(30); break
   // The frontier (world/gen/): the Landing, the crossroads camp north of it, a cave, and one place in each realm
   // (beside a quest site's or a landmark's people, so the realm's own places are in the picture).
+  // The systems in the frontier: a puzzle realm's walled puzzle, a battle realm's group, a dig realm's stone columns.
+  case 'f-puzzle': case 'f-battle': case 'f-dig': {
+    give()
+    const want = { 'f-puzzle': 'stillsand', 'f-battle': 'sporelight', 'f-dig': 'lumenby' }[scene]
+    let id = null
+    for (let ry = 0; ry < 9 && !id; ry++) for (let rx = 0; rx < 12 && !id; rx++) { const d = WORLD.generate('fr:' + rx + ',' + ry); if (d?.realm === want && !(want === 'lumenby' && !d.rows.join('').includes('а'))) id = d.id }
+    const d = WORLD.generate(id)
+    let spot = d.entries.camp
+    if (scene === 'f-puzzle') { const ch = Object.keys(d.marks).find(c => d.marks[c].ent.t === 'chest' && d.marks[c].ent.appear); const y = d.rows.findIndex(r => r.includes(ch)); spot = { x: d.rows[y].indexOf(ch) - 1.5, y: y + 1.5 } }
+    if (scene === 'f-battle') { const g = d.battle.groups[0]; spot = { x: g.x, y: g.y + 3.5 } }
+    if (scene === 'f-dig') { const y = d.rows.findIndex(r => r.includes('а')); spot = { x: d.rows[y].indexOf('а') + 0.5, y: y + 2.5 }; for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true; s.inv.selected = 'dig' }
+    go(id, spot.x, spot.y, 'up'); run(20)
+    break
+  }
   case 'f-landing': give(); place('fr:6,8', 'camp', 0, -1); run(30); break
   case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
   case 'f-quarry': case 'f-lumenby': give(); near('fr:2,3', 'q.gunn'); run(30); break
@@ -536,6 +550,9 @@ const SHOTS = [
   ['graves-1280', 'graves', 1280, 800, 1, 0],
   ['lake-1280', 'lake', 1280, 800, 1, 0],
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
+  ['f-puzzle', 'f-puzzle', 1280, 800, 1, 0],
+  ['f-battle', 'f-battle', 1280, 800, 1, 0],
+  ['f-dig', 'f-dig', 1280, 800, 1, 0],
   ['f-landing', 'f-landing', 1280, 800, 1, 0],
   ['f-landing-390', 'f-landing', 390, 844, 2, 0],
   ['f-meadow', 'f-meadow', 1280, 800, 1, 0],

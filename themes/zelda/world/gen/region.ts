@@ -21,6 +21,8 @@ import type { Dir, EnemyKind, EntDef, ItemId, Mark, MapDef, Prop, Rect, Spot, Ti
 import { Rng, fbm, hash } from './rng'
 import { STAMPS, type Stamp } from './stamps'
 import type { FrontierSpec, RealmSpec, Site } from './types'
+import type { BattleFoeId, BattleGroupDef } from '../../battleTypes'
+import { puzzleKits, stampKit } from '../../engine/puzzles/kits'
 
 /** Rim thickness, in tiles. */
 export const RIM = 2
@@ -106,7 +108,8 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   const rimTile = (x: number, y: number): TileChar => {
     const t = at(x, y)
     if (t === '~') return '~'
-    return T.cliff < 0.7 ? '#' : 'T'
+    // (Where the axe fells trees, the rim is cliff: dig & build must not open a way off the map's edge.)
+    return T.cliff < 0.7 || realm.special === 'dig' ? '#' : 'T'
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (x < RIM || y < RIM || x >= W - RIM || y >= H - RIM) set(x, y, rimTile(x, y))
@@ -200,6 +203,15 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   for (const site of F.sites ?? []) {
     if (site.region !== ctx.id) continue
     if (!put(site.id, site.at, site)) put(site.id, undefined, site)
+  }
+  // A puzzle realm's regions each hold a walled puzzle or two (the puzzles' kits) with a chest that appears when it is solved.
+  if (realm.special === 'puzzles' && !ctx.landing) {
+    const n = rng.chance(0.4) ? 2 : 1
+    // (A kit that finds no room tries the others, smallest last: a fjord region is mostly water.)
+    for (let i = 0; i < n; i++) {
+      const order = rng.shuffle([...puzzleKits]).sort((a, b) => (i === 0 ? 0 : b.w * b.h - a.w * a.h))
+      for (const k of order) { const site = puzzleSite(k, `${ctx.id}.pz${i}`); if (put(site.id, undefined, site)) break }
+    }
   }
   for (const poi of realm.pois) {
     if (poi.chance !== undefined && !rng.chance(poi.chance)) continue
@@ -325,6 +337,16 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     if (!ch) { ch = markOf({ t: 'enemy', kind: k }); foeMarks.set(k, ch) }
     return ch
   }
+  /** A battle realm's foes stand in groups that fight in place (`MapDef.battle`); elsewhere they are the field's foes. */
+  const groups: BattleGroupDef[] = []
+  const foeAt = (x: number, y: number) => {
+    if (realm.special !== 'battle') { cell(x, y, foeMark(rng.weighted(realm.foes))); return }
+    if (rows[y]![x] === '3') cell(x, y, T.ground)
+    const size = Math.min(4, rng.int(1, 2) + (ctx.depth > 3 ? 1 : 0) + (rng.chance(0.2) ? 1 : 0))
+    const foes: BattleFoeId[] = []
+    for (let k = 0; k < size; k++) foes.push(BATTLE_FOE[rng.weighted(realm.foes)] ?? 'goo')
+    groups.push({ id: `${ctx.id}.g${groups.length}`, x: x + 0.5, y: y + 0.5, foes, ...(rng.chance(0.35) ? { sight: 3 } : {}) })
+  }
   const rows: string[][] = []
   for (let y = 0; y < H; y++) rows.push(g.slice(y * W, y * W + W) as string[])
   let chests = 0
@@ -352,7 +374,7 @@ export function generateRegion(ctx: RegionCtx): MapDef {
       }
       case '2': cell(x, y, markOf({ t: 'chest', id: `${ctx.id}.c${chests++}`, item: loot() })); break
       case '7': cell(x, y, markOf({ t: 'chest', id: `${ctx.id}.heart`, item: 'heartPiece', big: true })); break
-      case '3': cell(x, y, ctx.landing ? '.' : foeMark(rng.weighted(realm.foes))); break
+      case '3': if (ctx.landing) cell(x, y, '.'); else foeAt(x, y); break
       case '4': entries.camp = { x: x + 0.5, y: y + 0.5, dir: 'down' }; cell(x, y, ','); break
       case '5': {
         const n = caves++
@@ -379,7 +401,7 @@ export function generateRegion(ctx: RegionCtx): MapDef {
       const i = y * W + x
       if (!reach[i] || claimed[i] || !OPEN_GROUND.has(rows[y]![x]! as TileChar) || rows[y]![x] === '=') continue
       if (keepOff.some(p => Math.abs(p.x - x) + Math.abs(p.y - y) < 10)) continue
-      cell(x, y, foeMark(rng.weighted(realm.foes)))
+      foeAt(x, y)
       n++
     }
   }
@@ -400,10 +422,61 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     edges: ctx.edges,
     realm: realm.id,
   }
+  if (groups.length) def.battle = { groups }
+  if (realm.special === 'dig') digOf(def, ctx, rng, reach, W, H, entries.camp)
   if (realm.look) def.look = realm.look
   if (realm.views) def.views = realm.views
   if (props.length) def.props = props
   return def
+}
+
+/** The field's foe kinds as battle foes (a battle realm's groups borrow the realm's foe table). */
+const BATTLE_FOE: Partial<Record<EnemyKind, BattleFoeId>> = {
+  blob: 'goo', bat: 'flitter', hound: 'hound', zapper: 'zapper', drone: 'drone', skull: 'skull', spitter: 'spitter', knight: 'knight',
+  sentry: 'hound', dasher: 'hound', eye: 'drone', blade: 'skull',
+}
+
+/**
+ * A puzzle kit as a place: walled in, its way in at the foot of the wall under the kit's entry, and a chest
+ * beside the way in that appears once the puzzle holds (`chest.appear`). The kit's flags and plates are
+ * prefixed with the place's id, so two of the same kit never share them.
+ */
+export function puzzleSite(kit: (typeof puzzleKits)[number], id: string): Site {
+  const blank = { id, name: '', kind: 'overworld' as const, track: 'overworld' as const, rows: kit.rows.map(r => '.'.repeat(r.length)), marks: {} }
+  const { def, solved } = stampKit(blank, kit, 0, 0, id)
+  const w = kit.w + 2
+  const door = kit.entry.x + 1
+  const CHEST = '\uF8F0'
+  const rows = ['#'.repeat(w), ...def.rows.map(r => `#${r}#`)]
+  rows.push([...'#'.repeat(w)].map((c, i) => (i === door ? '.' : c)).join(''))
+  const foot = [...'.'.repeat(w)]
+  foot[door + 2 < w ? door + 2 : door - 2] = CHEST
+  rows.push(foot.join(''), '.'.repeat(w))
+  return { id, region: '', rows, marks: { ...def.marks, [CHEST]: { ent: { t: 'chest', id: `${id}.prize`, item: 'bits50', appear: solved } } } }
+}
+
+/**
+ * Dig & build in a generated region (`MapDef.dig`): its cliffs inside the rim stand as stone columns two or three
+ * high that the pickaxe takes down, a few rocks are lumen ore, and two caches lie buried on open ground.
+ */
+function digOf(def: MapDef, ctx: RegionCtx, rng: Rng, reach: Uint8Array, W: number, H: number, camp: Spot | undefined) {
+  const rows = def.rows.map(r => [...r])
+  const heights = rows.map(r => r.map(() => '.'))
+  for (let y = RIM; y < H - RIM; y++) for (let x = RIM; x < W - RIM; x++) {
+    const t = rows[y]![x]
+    if (t === '#') { rows[y]![x] = 'а'; heights[y]![x] = hash(ctx.F.seed + 71, ctx.rx * W + x, ctx.ry * H + y) % 3 === 0 ? '3' : '2' }
+    else if (t === 'r' && rng.chance(0.35)) { rows[y]![x] = 'е'; heights[y]![x] = '2' }
+  }
+  const caches: NonNullable<NonNullable<MapDef['dig']>['caches']> = []
+  for (let tries = 0; caches.length < 2 && tries < 200; tries++) {
+    const x = rng.int(RIM + 2, W - RIM - 3)
+    const y = rng.int(RIM + 2, H - RIM - 3)
+    if (!reach[y * W + x] || rows[y]![x] !== '.' && rows[y]![x] !== '-' && rows[y]![x] !== ';') continue
+    if (camp && Math.abs(camp.x - x) + Math.abs(camp.y - y) < 6) continue
+    caches.push({ x, y, id: `${ctx.id}.cache${caches.length}`, item: rng.weighted<ItemId>([['bits50', 3], ['bombs5', 2], ['heart', 1]]) })
+  }
+  def.rows = rows.map(r => r.join(''))
+  def.dig = { build: true, heights: heights.map(r => r.join('')), caches }
 }
 
 function signLines(realm: RealmSpec, rng: Rng): string[] {

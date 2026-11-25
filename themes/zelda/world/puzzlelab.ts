@@ -113,6 +113,7 @@ export const PUZZLELAB: MapDef = {
   name: 'PUZZLE LAB',
   kind: 'dungeon',
   track: 'dungeon',
+  views: ['iso', 'classic'],
   keyring: 'puzzlelab',
   cell: { w: 16, h: 12 },
   rows: joinCells([[F, E, D], [A, B, C]]),
