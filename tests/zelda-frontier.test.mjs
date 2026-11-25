@@ -247,6 +247,28 @@ describe('the frontier', () => {
     }
   })
 
+  it('keeps every heart the world holds through a save and a reload', () => {
+    // Every map, the generated ones with their caves and the Underglow's layers; talk gives and prizes count too.
+    const maps = { ...Z.WORLD.maps }
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      maps[id] = d
+      for (const k of Object.keys(d.entries)) {
+        const m = /^cave(\d+)$/.exec(k)
+        if (m) maps[`${id}:cave${m[1]}`] = Z.WORLD.generate(`${id}:cave${m[1]}`)
+        if (k === 'deep') for (let n = 1; n <= 6; n++) maps[`${id}:deep${n}`] = Z.WORLD.generate(`${id}:deep${n}`)
+      }
+    }
+    const json = JSON.stringify(maps)
+    const pieces = json.match(/"heartPiece"/g).length
+    const containers = json.match(/"heartContainer"/g).length
+    const most = Z.START_HP + 2 * containers + 2 * Math.floor(pieces / 4)
+    assert.ok(most <= Z.MAX_HP, `${pieces} pieces and ${containers} containers make ${most} half-hearts, the save keeps ${Z.MAX_HP}`)
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: LANDING, entry: 'camp' } })
+    s.hero.maxHp = most
+    assert.equal(Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))).maxHp, most)
+  })
+
   it('keeps every battle group out of sight of the entries the hero arrives at', () => {
     // A group sees `sight` tiles; its foes stand up to ~1.2 off its spot and mill ~0.9 further.
     for (const id of ids()) {

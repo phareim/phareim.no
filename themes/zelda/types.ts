@@ -65,6 +65,8 @@ export const PUSH_DELAY = 0.32 // walk into a block this long to push it
 export const PUSH_TIME = 0.28
 export const MAX_BITS = 9999
 export const START_HP = 6 // half-hearts
+/** The most a save keeps (half-hearts): above every heart the world holds (22 now; tests/zelda-frontier.test.mjs counts them). */
+export const MAX_HP = 30
 export const SAVE_KEY = 'zeldaSave'
 export const BEST_KEY = 'zeldaBest'
 /** When this browser last cleared its save (new game, win), in ms — see progress.ts reconcile. */

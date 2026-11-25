@@ -7,7 +7,7 @@
  * hero left through an exit, the shell navigates) are terminal.
  */
 import type { AreaIntro, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
-import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
+import { HERO_R, MAX_HP, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
@@ -556,7 +556,7 @@ export function parseSave(raw: unknown): SaveData | null {
     if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
   }
-  const maxHp = Math.max(START_HP, Math.min(20, Math.round(r.maxHp as number)))
+  const maxHp = Math.max(START_HP, Math.min(MAX_HP, Math.round(r.maxHp as number)))
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
     inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanDigInv(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
