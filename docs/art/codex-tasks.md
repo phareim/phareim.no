@@ -179,7 +179,7 @@ as art only: the game keeps drawing today's `atk`.
 `tests/zelda-hero-art.test.mjs` keeps `HERO_ART_NAMES` equal to the classic frame
 names. `heroArtCovers` turns the whole hero classic if a pose in `ART_POSES`
 (`render/iso/hero.ts:30`) lacks a body. So new poses go in a separate list
-(`ART_EXTRA_POSES`, which comes with the rework), and a missing body falls back
+(`ART_EXTRA_POSES`), and a missing body falls back
 to `atk` or `0`.
 
 **Size.** Frames 16–44 px wide and 26–46 high (the test's bounds), about twice
@@ -189,16 +189,16 @@ the classic sprite. Every pose in all three bottoms, front and back.
 (the last three come with the rework). They step 0.1, 0.25 and 0.4 s into a
 chain with a blob in front.
 
-- [ ] **H1 · Combo swing bodies (P1).**
+- [x] **H1 · Combo swing bodies (P1, `e9196a5`).**
   `atk_wind` (blade arm drawn back across the body, weight on the back foot) and
   `atk_back` (the backhand: arm across the chest the other way, shoulders turned).
   Front/back × 3 bottoms = 12 bodies, plus `HERO_ARMS` where the arm rises over the head.
   Classic `hero_*_atk_wind`, `hero_*_atk_back`. Today's `atk` stays the forehand.
-- [ ] **H2 · Finisher (P1).**
+- [x] **H2 · Finisher (P1, `e9196a5`).**
   `atk_lunge` (deep forward step, body low, blade arm fully out) and `atk_land`
   (recovery, front knee bent), 12 bodies. Classic `hero_*_atk_lunge`, `hero_*_atk_land`.
   It must read as a different, heavier move than the forehand, even at 390 px wide.
-- [ ] **H3 · Roll (P1).**
+- [x] **H3 · Roll (P1, `e9196a5`).**
   - Poses: `roll_0` (tuck), `roll_1` and `roll_2` (a ball, a quarter turn apart),
     `roll_3` (uncurl to a crouch). Front/back × 3 bottoms = 24 bodies.
   - The head may be partly hidden: use the neck point, or bake the head into
@@ -211,16 +211,16 @@ chain with a blob in front.
   - Classic: 13×10 equivalents in `render/sprites.ts`, beside `sword_v/_h/_d`.
     Then `bladeSprite1` (`render/renderer.ts`) moves from 8 to 16 steps, so a sweep
     shows twice as many blade positions.
-- [ ] **H5 · Run cycle (P2).**
+- [x] **H5 · Run cycle (P2, `e9196a5`).**
   - Poses: `run_0..run_5`, six frames, arms pumping, one frame with both feet off
     the ground. Front/back × 3 bottoms = 36 bodies.
   - Classic `hero_*_run_0..5`. The walk's `1`/`2` stay for slow walking and carrying.
   - Played at 12 fps from 4.5 tiles/s. Today's three-pose walk reads as skating.
-- [ ] **H6 · Idle breath and the held charge (P2).**
+- [x] **H6 · Idle breath and the held charge (P2, `e9196a5`).**
   `idle_1` (chest and shoulders up 1 px; `0` is the other half of the breath) and
   `charge` (crouched, blade low behind, back foot braced), 12 bodies.
   Classic `hero_*_idle_1`, `hero_*_charge`.
-- [ ] **H7 · Hurt from every side (P3).**
+- [x] **H7 · Hurt from every side (P3, `e9196a5`).**
   `hurt/back/*` (3 bodies; hurt is front only today), and a `stagger` pose (knees
   buckled, front/back) for the shield bounce and the hard knock.
 - [x] **H8 · Foes reeling (P2, `ba5847a`).**
@@ -237,7 +237,7 @@ chain with a blob in front.
   - `hitfx_gold_0..3`: for the Arc Blade and crits.
   - In `render/sprites.ts` next to `poof_*`. The fx layer draws them at classic px in
     both views; until then the rework draws its sparks procedurally.
-- [ ] **H10 · Modelled hero (P3).**
+- [x] **H10 · Modelled hero (P3, `e9196a5`).**
   `render/iso/figure.ts` acts `roll`, `lunge` and the backhand (`FigureAct`) for the
   `figure: 'modelled'` option, so it is not left behind.
 
