@@ -471,7 +471,7 @@ export function generateRegion(ctx: RegionCtx): MapDef {
 
   // --- 6. settling --------------------------------------------------------------
   const fin = def.rows.map(r => [...r])
-  const heights = def.dig?.heights.map(r => [...r])
+  const heights = def.dig?.heights?.map(r => [...r])
   /** A dig cache's tile: the road goes round it, so it stays buried in open ground. */
   const cached = new Set((def.dig?.caches ?? []).map(c => c.y * W + c.x))
   const foeCell = new Map<number, PlacedFoe>()

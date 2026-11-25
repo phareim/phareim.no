@@ -53,8 +53,3 @@ export function gateWarp(id: string): Mark {
   if (!g) throw new Error(`no gate ${id}`)
   return { ent: { t: 'warp', to: g.region, entry: `gate-${g.id}` }, tile: ',' }
 }
-
-/** The gate cut into a region, if there is one. */
-export function gateOf(region: string): Gate | undefined {
-  return GATES.find(g => g.region === region)
-}
