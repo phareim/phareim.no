@@ -70,3 +70,6 @@ export const LUMENBY: MapDef = {
     '2': { ent: { t: 'entry', id: 'from-quarry', dir: 'down' }, tile: ',' },
   },
 }
+
+/** This land's maps by id (`lands.ts` collects them into the world). */
+export const MAPS: Record<string, MapDef> = { lumenby: LUMENBY }

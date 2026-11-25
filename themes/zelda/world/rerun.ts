@@ -66,3 +66,6 @@ export const RERUN: MapDef = {
     'A': gateHome('lawns'),
   },
 }
+
+/** This land's maps by id (`lands.ts` collects them into the world). */
+export const MAPS: Record<string, MapDef> = { rerun: RERUN }

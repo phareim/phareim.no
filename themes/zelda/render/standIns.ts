@@ -1,5 +1,5 @@
 /**
- * The frontier's solid scenery as the classic painters show it. A cart, a crate or a mailbox with a footprint
+ * The lands' solid scenery as the classic painters show it. A cart, a crate or a mailbox with a footprint
  * (`IsoLandmark.solid`) is solid to walkers in every view (`MapInfo.scenery`, engine/map.ts), but its picture is
  * the isometric view's own (`iso/frontierArt/`). Wherever that picture is not drawn (the classic view, the view
  * without WebGL2, the isometric view while the realm's chunk is on its way or after it failed) a plain stand-in
@@ -13,7 +13,7 @@ export type StandIn = 'crate' | 'post' | 'cap' | 'stone'
 
 const KINDS: Array<[RegExp, StandIn]> = [
   [/mushroom/, 'cap'],
-  [/island|grazer/, 'stone'],
+  [/island|grazer|troll/, 'stone'],
   [/mailbox|flamingo|sprinkler|spotlight|headframe/, 'post'],
 ]
 

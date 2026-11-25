@@ -60,3 +60,6 @@ export const STILLSAND: MapDef = {
     '2': { ent: { t: 'entry', id: 'from-puzzlelab', dir: 'down' }, tile: ',' },
   },
 }
+
+/** This land's maps by id (`lands.ts` collects them into the world). */
+export const MAPS: Record<string, MapDef> = { stillsand: STILLSAND }

@@ -80,3 +80,6 @@ export const SPORELIGHT: MapDef = {
     '2': { ent: { t: 'entry', id: 'from-arena', dir: 'down' }, tile: ',' },
   },
 }
+
+/** This land's maps by id (`lands.ts` collects them into the world). */
+export const MAPS: Record<string, MapDef> = { sporelight: SPORELIGHT }

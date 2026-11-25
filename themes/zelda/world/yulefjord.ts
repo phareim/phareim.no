@@ -77,3 +77,6 @@ export const YULEFJORD: MapDef = {
     '3': { ent: { t: 'warp', to: 'overworld', entry: 'ferry' }, tile: '=' },
   },
 }
+
+/** This land's maps by id (`lands.ts` collects them into the world). */
+export const MAPS: Record<string, MapDef> = { yulefjord: YULEFJORD }

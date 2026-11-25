@@ -78,3 +78,6 @@ export const FOGSTAGE: MapDef = {
     'A': gateHome('fog'),
   },
 }
+
+/** This land's maps by id (`lands.ts` collects them into the world). */
+export const MAPS: Record<string, MapDef> = { fogstage: FOGSTAGE }
