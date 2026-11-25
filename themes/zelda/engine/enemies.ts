@@ -36,7 +36,7 @@ export function stepEnemies(c: Ctx, dt: number) {
   const list = c.s.map.enemies
   for (let i = 0; i < list.length; i++) {
     const e = list[i]!
-    if (!enemyActive(c, e)) continue
+    if (!enemyActive(c, e) || e.group) continue
     stepEnemy(c, e, dt)
   }
 }

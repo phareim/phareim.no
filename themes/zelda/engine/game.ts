@@ -18,11 +18,12 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { dirVec } from './util'
+import { battleFocus, stepBattle, stepField } from './battle/index'
 
 function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
-    hook: false, arc: false, bigBag: false, shrooms: 0, keyrings: {},
+    hook: false, arc: false, bigBag: false, shrooms: 0, keyrings: {}, tonics: 0,
   }
 }
 
@@ -107,6 +108,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   } else h.auto = null
   s.disc = null
   s.hook = null
+  s.battle = null
   if (!at) s.entry = { map: mapId, entry: entryId }
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
@@ -207,6 +209,7 @@ function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEve
     case 'dialog': return dialog(c, dt, inp)
     case 'get': return getItem(c, dt, inp)
     case 'dying': return dying(c, dt)
+    case 'battle': return stepBattle(c, dt, inp)
     case 'won': case 'exit': return
   }
 }
@@ -226,6 +229,7 @@ function play(c: Ctx, dt: number, inp: Input) {
   if (s.mode !== 'play') return
   stepEnemies(c, dt)
   stepObjects(c, dt)
+  if (c.info.def.battle) stepField(c, dt)
   if (s.mode !== 'play' || s.demo) return
   stepHook(c, dt)
   stepLuna(c, dt)
@@ -512,7 +516,7 @@ export function parseSave(raw: unknown): SaveData | null {
 
 /** Where the camera wants to be (tile units, top-left) for a view of vw×vh tiles. */
 export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y: number } {
-  const h = s.hero
+  const h = battleFocus(s)
   const clampTo = (z: { x: number; y: number; w: number; h: number }) => {
     const cx = z.w <= vw ? z.x + (z.w - vw) / 2 : Math.max(z.x, Math.min(z.x + z.w - vw, h.x - vw / 2))
     const cy = z.h <= vh ? z.y + (z.h - vh) / 2 : Math.max(z.y, Math.min(z.y + z.h - vh, h.y - vh / 2))

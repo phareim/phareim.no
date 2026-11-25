@@ -8,6 +8,7 @@ import type {
 } from '../types'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { spawnEnemy } from './spawn'
+import { fieldFoes } from './battle/field'
 import { dirVec, opposite } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
@@ -252,6 +253,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       pickups.push({ id: e.id, item: e.item, x: cx, y: cy, shop: { price: e.price, once: !!e.once }, hidden: false })
     }
   }
+  if (info.def.battle) enemies.push(...fieldFoes(world, s, info, info.def.battle))
   return {
     id, w: info.w, h: info.h, tiles, version: 1,
     enemies, projectiles: [], drops: [], bombs: [], blasts: [], thrown: [], moving: [],

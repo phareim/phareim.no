@@ -7,6 +7,7 @@ import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS } from '../types'
 import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
+import { startBattle } from './battle/fight'
 
 export interface Ctx {
   w: World
@@ -76,6 +77,8 @@ const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === '
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource): boolean {
   if (e.dead || e.invuln > 0) return false
+  // A field battle's foe struck in the field: the fight starts, the party first.
+  if (e.group) { startBattle(c, e.group, 'party'); return c.s.mode === 'battle' }
   const st = STATS[e.kind]
   if (st.invulnerable) {
     if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
@@ -314,6 +317,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'tube': return ['A VACUUM TUBE, STILL GOOD.', "SOMEBODY'S RADIO NEEDS ONE OF THESE."]
     case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
     case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
+    case 'tonic3': return ['THREE NEON TONICS!', 'IN A FIGHT, ITEM GIVES ONE TO YOU OR A FRIEND: TWO HEARTS BACK.']
   }
 }
 
@@ -342,6 +346,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'arc': inv.arc = true; inv.sword = true; break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
+    case 'tonic3': inv.tonics = Math.min(9, inv.tonics + 3); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
   }
   setFlag(s, `item:${item}`)
