@@ -330,8 +330,8 @@ classic picture. `/?view=<id>` asks for one.
     step of shade under what stands in front) and carry a normal for every
     pixel, so the lamps and the sun light them like the figure (picture 4 in
     the geometry pass). `view.ts` stands one where the classic art has that
-    card (`stand`); a torch on the beach, a brazier and everything else are
-    still the classic card. A counter is one part to the tile, each running
+    card (`stand`); a brazier and everything not built or drawn for this view
+    (*Things drawn by hand* below) is still the classic card. A counter is one part to the tile, each running
     to the tile's edge where the counter goes on, so a long one stands as
     one piece, and a fence is a post with rails out to wherever it goes on
     (sixteen parts, `fence0`–`fence15`), so one that runs north stands
@@ -344,6 +344,29 @@ classic picture. `/?view=<id>` asks for one.
     floor and behind whoever stands in front of it. Only they use that
     program, because one that writes its depth cannot be culled early. `node scripts/zelda-lab/props-sheet.mjs <outDir>`
     draws them all.
+  - *Things drawn by hand* (`things`, on by default; `iso/things.ts`, `iso/thingArt.ts`; part 23,
+    2026-11-25). The things of the world that were flat cards or drawn side-on are drawn in the round as
+    hand-made pixel art, as the people are: the Horizon van, the tents, Luna's fort, the campfire, the
+    beach bonfire, the bikes, the radio mast (its lamp lit in turn), the labs' specimen tanks (in the
+    Wildwood and on the lab tiles `I`), the tiki torches on the beach (the flame leaning with the breeze in
+    three frames), the DJ booths (a speaker each side, the table with the DJ's kit, the poles and the
+    fairy lights, whose bulbs dim in turn; the DJ stays a figure, a card stood a little back along the line
+    of sight so it is behind the table), the furniture (bookshelves, the sofa, the desk, the glass table,
+    the potted plants, the screen machines `M` in a room, and the hut's two boxes as a bed and a table,
+    `FURNISHED`), the labs' consoles, terminals and workbenches, and a fountain standing in the square's
+    pool (`LANDMARKS`; the pool is still the square classic water). Each was built as a guide from a few
+    solids seen exactly as this view sees the world, and Codex `image_gen` drew it over the guide at ten
+    sheet px to a scene px; the drawing is cut at the grid it was drawn on and every colour is the
+    drawing's (frames are drawn on one sheet or are pixel edits of one drawing). From the guide each px
+    takes its normal (the lamps and the sun light it) and its depth (`depthCode`), so they are packed under
+    the built things in the same atlas (`withThings`) and stood the same way (`stand`, `thing:<id>`): the
+    van and the booths stand in the floor, the hero walks behind and in front of them. Where the classic
+    painter queues an item the item names its pieces (`Item.things`, with `bare` for what stays a card,
+    and `shade` for the blob shadow); furniture is found from the tiles (`furnitureAt`: a run of shelves,
+    a sofa three long, a desk two long, a bench two at a time in a lab). A thing drawn from a classic
+    sprite the studio has changed since is its classic card again (`src`, `thingFresh`). Off, every one is
+    the classic card again, pixel for pixel. The job's tools, sheets and archive are in
+    `tmp/iso-figures-23/` on the Mac (`REPORT.md`).
   - *Cabinets and booths with a body.* An item whose drawing is the front
     of a box says so (`Item.box` in `wild.ts`: the front's width and height
     in the drawing, and how deep the body is; the arcade's cabinets, the
@@ -759,7 +782,15 @@ classic picture. `/?view=<id>` asks for one.
   do not reach it, and its sword arm has no elbow and its tails no memory;
   dungeon rooms are wider
   than the screen, so the camera follows the hero instead of showing the
-  whole room; furniture is flat cards; the eight keyboard directions are the
+  whole room; furniture a room has in another length than was drawn (a sofa of one tile, a bench of
+  three) and the pictures on the walls are still flat cards; the things drawn by hand (part 23) are a
+  little off their classic size where Codex drew on a coarser or finer grid than the guide (the DJ tables
+  and the hut's table smaller, the van and the speakers larger), the fountain stands in a square pool
+  (round water would need the water pass changed), the booths' speakers no longer pump on the beat
+  (the cone is drawn still), the desk's screen and lamp and the consoles' lights are drawn frames rather
+  than the classic live pixels, and the art adds about 490 KB to the view’s lazy chunk (148 KB gzipped together); the built things (lamps,
+  counters, chests: *Standing things in the round*) are crisp flat-stepped solids, which reads as pixel art
+  beside the drawn things but plainer; the eight keyboard directions are the
   eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>

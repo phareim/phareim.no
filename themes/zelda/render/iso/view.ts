@@ -3,8 +3,10 @@
  * same world turned 45° and tipped back, at twice the pixel density, with
  * real depth and real light.
  *
- * People, things and everything with a meaning of its own are still the
- * classic painters' art; the ground, the walls and the roofs are this view's
+ * People, things and everything with a meaning of its own start as the
+ * classic painters' art (the people, the hero and the bosses in this view's
+ * own drawn art, `folk.ts`; standing things built as solids, `props.ts`, or
+ * drawn by hand in the round, `things.ts`); the ground, the walls and the roofs are this view's
  * own materials (`materials.ts`), laid where the classic art has that
  * surface's colours. Each frame the painters draw the map round
  * the camera into top-down pictures (ground, and what stands on it), every
@@ -39,6 +41,7 @@ import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camer
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
+import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
@@ -46,7 +49,7 @@ import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { buildMaterials, materialId, stepMaterials, type Material } from './materials'
-import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind } from './props'
+import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind, type PropSprite } from './props'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
@@ -136,7 +139,8 @@ export default function isoView(kit: Kit): View {
   let propAtlas: PropAtlas | null = null
   const sendMaterials = () => {
     const mats = buildMaterials()
-    propAtlas = buildProps()
+    // (With the things drawn by hand packed under the built ones: part 23, `things.ts`.)
+    propAtlas = withThings(buildProps())
     engine.materials(mats.data, mats.w, mats.h)
     engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
   }
@@ -529,16 +533,19 @@ export default function isoView(kit: Kit): View {
   }
 
   /** The things standing this frame (kind, x, y, px each): their quads end the list, drawn with a depth of their own. */
-  const stood: Array<[PropKind, number, number, number, number]> = []
-  /** A thing built for this view (`props.ts`), standing at a ground point: a pixel of it is a pixel of the scene. */
-  function stand(kind: PropKind, x: number, y: number, px: number, rise = 1) {
+  const stood: Array<[PropKind | `thing:${string}`, number, number, number, number]> = []
+  /**
+   * A thing built for this view (`props.ts`), or drawn by hand for it (`things.ts`, `thing:<id>`), standing at a
+   * ground point: a pixel of it is a pixel of the scene.
+   */
+  function stand(kind: PropKind | `thing:${string}`, x: number, y: number, px: number, rise = 1) {
     stood.push([kind, x, y, px, rise])
   }
   function standAll(): { start: number; count: number } | null {
     if (!stood.length) return null
     const start = nv
     for (const [kind, x, y, px, rise] of stood) {
-      const sp = propAtlas!.sprites[kind]
+      const sp = (propAtlas!.sprites as Record<string, PropSprite>)[kind]!
       // (Rising out of the ground as the turn ends: so many rows of the picture from its first one down, the last
       // of them on the ground. Whole rows, so every pixel stays a pixel.)
       const up = Math.round((sp.h - sp.top) * rise)
@@ -890,6 +897,10 @@ export default function isoView(kit: Kit): View {
     const green = outdoors && !!flora && grow > 0 && (par.plants as boolean)
     const px = zoom / DENSITY
     const solid = rise > 0 && !!par.props
+    /** Are the things drawn by hand for this view (`things.ts`) standing in place of their classic cards. */
+    const drawn = rise > 0 && par.things !== false
+    /** Where this room is, for the furniture drawn by hand (`furnitureAt`): a lab's consoles blink at 2 a second, as the classic ones. */
+    const room = { map: m.id, lab: def.look === 'lab', tick: reduced ? 0 : Math.floor(time * 2) }
     /** How much of a classic stand-in still stands (it sinks as this view's own thing rises in its place). */
     let sunk = 1
     const tileOf = (x: number, y: number): TileChar => tileAt(m, kind, x, y)
@@ -914,7 +925,9 @@ export default function isoView(kit: Kit): View {
       const t = tileAt(m, kind, tx, ty)
       // (A counter or a fence that runs north lies flat as a card, and stands as a thing of this view's own.)
       const ownThing = solid && ((t === 'n' && def.look !== 'lab') || (t === 'F' && outdoors))
-      if (shp.k === 'flat' && !ownThing && !(green && (t === '.' || t === ';' || t === ':'))) continue
+      /** Furniture drawn by hand for this view stands for this tile (part 23, `furnitureAt`). */
+      const piece = drawn && (kind === 'interior' || def.look === 'lab') && !(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && exitTiles(world, m.id).has(ty * m.w + tx)) ? furnitureAt(tileOf, tx, ty, room) : null
+      if (shp.k === 'flat' && !ownThing && !piece && !(green && (t === '.' || t === ';' || t === ':'))) continue
       // The ground rectangle is the box round a diamond: about half of it is off the screen.
       const midX = cam.ox + (tx + 0.5) * cam.ex.x + (ty + 0.5) * cam.ey.x
       const midY = cam.oy + (tx + 0.5) * cam.ex.y + (ty + 0.5) * cam.ey.y
@@ -922,6 +935,19 @@ export default function isoView(kit: Kit): View {
       // Where the tile's picture is in the top-down pictures.
       const sx = (tx - R.x) * T
       const sy = (ty - R.y) * T
+      if (piece) {
+        // A piece of furniture drawn by hand (part 23): it stands once for its run of tiles, and their pictures
+        // (a card, a box, a strip on the ground) go.
+        if (piece !== 'part') {
+          stand(thingKey(piece.id), piece.x, piece.y, px, rise)
+          cards.push({ x: piece.x, y: piece.y, tall: 0.7 * rise, wide: 0.45, dark: 0.8 })
+        }
+        if (rise >= 0.5) {
+          const up = shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
+          bare(sx, sy - up, T, T + up)
+          continue
+        }
+      }
       if (green) {
         const h1 = hash2(tx, ty, 21)
         const h2 = hash2(tx, ty, 22)
@@ -1051,6 +1077,15 @@ export default function isoView(kit: Kit): View {
         continue
       }
       const up = shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
+      if (drawn && t === 'I' && def.look === 'lab') {
+        // A lab's specimen tank, drawn by hand in the round (part 23, `things.ts`); its bubbles as the classic tile's.
+        const id = `tank_${Math.floor((reduced ? 0 : time) * 3 + tx) % 2}`
+        if (hasThing(id)) {
+          stand(thingKey(id), tx + 0.5, ty + 0.55, px, rise)
+          cards.push({ x: tx + 0.5, y: ty + 0.6, tall: 1.3 * rise, wide: 0.3 })
+          if (rise >= 0.5) { bare(sx, sy - up, T, T + up); continue }
+        }
+      }
       if (solid) {
         // The things this view builds itself, in the round, where the classic art has a card.
         let prop: PropKind | null = null
@@ -1072,6 +1107,15 @@ export default function isoView(kit: Kit): View {
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
           const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
           if (!(outdoors && sandy)) prop = hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
+          else if (drawn) {
+            // The tiki torch drawn by hand, its flame leaning with the breeze as the classic one's (part 23).
+            const id = `torch_${1 + (reduced ? 0 : Math.round(Math.sin(time * 5 + tx * 1.7)))}`
+            if (hasThing(id)) {
+              stand(thingKey(id), tx + 0.5, ty + 0.62, px, rise)
+              cards.push({ x: tx + 0.5, y: ty + 0.66, tall: 1.1 * rise, wide: 0.12 })
+              if (rise >= 0.5) { bare(sx, sy - up, T, T + up); continue }
+            }
+          }
         }
         if (prop) {
           stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' ? ty + 0.5 : ty + 0.62, px, rise)
@@ -1133,6 +1177,20 @@ export default function isoView(kit: Kit): View {
         cards.push({ x: it.x, y: ay + 0.1, tall: 1.5 * grow, wide: 0.6, dark: 0.85 })
         if (grow >= 1) continue
       }
+      // Things drawn by hand for this view (part 23, `things.ts`; value `things`) stand where the item does, in the
+      // ground like the built things; the classic card goes once they are halfway up. A booth's DJ stays a card (`bare`).
+      let draw = it.draw
+      /** How far back along the line of sight the card stands (a DJ behind the table): the same place on the screen. */
+      let back = 0
+      if (drawn && it.things?.every(p => hasThing(p.id))) {
+        for (const p of it.things) stand(thingKey(p.id), it.x + (p.dx ?? 0), ay + (p.dy ?? 0), px, rise)
+        if (it.shade) cards.push({ x: it.x + it.shade.dx, y: ay + it.shade.dy, tall: it.shade.tall * rise, wide: it.shade.wide, deep: it.shade.deep, dark: 0.9 })
+        if (rise >= 0.5) {
+          if (!it.bare) continue
+          draw = it.bare
+          back = it.bareBack ?? 0
+        }
+      }
       // The item draws itself the classic way; its anchor lands on the cell's.
       ag.save()
       ag.beginPath()
@@ -1141,7 +1199,7 @@ export default function isoView(kit: Kit): View {
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
       // (The hero too, in its own art (`hero.ts`, part 21), unless the modelled hero is drawn instead.)
       if (folk > 0 && cellY + C.h <= FOLK_ROWS && !(it.hero && modelled)) router.begin(cellX, cellY, C.w, C.h, folk)
-      it.draw()
+      draw()
       const folkHit = router.end()
       if (folkHit) folkUsed = Math.max(folkUsed, (cellY + C.h) * DENSITY)
       ag.restore()
@@ -1190,6 +1248,9 @@ export default function isoView(kit: Kit): View {
         const p = world3(it.x, ay - 0.01)
         if (p[2] > 0 || shapeAt(Math.floor(it.x), Math.floor(ay - 0.01)).k !== 'flat') { fx0 = p[0]; fy0 = p[1]; z0 = p[2] + 0.04 }
       } else if (!it.hero || s.hero.act !== 'fall') standing.push(it.x, ay)
+      fx0 -= back
+      fy0 -= back
+      z0 -= back
       const l = -C.ax * zoom
       const r = (C.w - C.ax) * zoom
       quad(fx0, fy0, z0 + top, l, fx0, fy0, z0 + top, r, fx0, fy0, z0 + foot, r, fx0, fy0, z0 + foot, l, cellX, cellY, u1, v1, 3, 1, 0, 0, 0, z0 > 0 ? 0.04 * cam.zs : 0)
@@ -1225,6 +1286,11 @@ export default function isoView(kit: Kit): View {
     }
 
     atlasUsed = used
+    // Landmarks drawn by hand (part 23, `LANDMARKS`): the fountain in the square's pool.
+    if (drawn) for (const lm of LANDMARKS[m.id] ?? []) {
+      const id = `${lm.id}_${Math.floor((reduced ? 0 : time) * lm.fps) % lm.frames}`
+      if (hasThing(id)) stand(thingKey(id), lm.x, lm.y, px, rise)
+    }
     const deep = standAll()
     // --- the ground picture's last layers ------------------------------------------------
     if (rooms.length) {

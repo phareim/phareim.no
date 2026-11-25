@@ -909,6 +909,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         y: n.y,
         big: n.look === 'tree',
         ...(n.look === 'tree' ? { tree: true } : {}),
+        // The bonfire drawn by hand in the round for the isometric view (part 23, `iso/things.ts`).
+        ...(n.look === 'bonfire' ? { things: [{ id: `bonfire_${f}`, dy: -0.3 }] } : {}),
         draw: () => {
           const x = n.x * T - cx
           const y = n.y * T - cy + 6

@@ -5,6 +5,8 @@
  * reads its neighbours and paints as one piece. Tall pieces (shelves, the
  * desk's monitor, plant leaves) reach up over the tile above, like trees.
  * The desk's monitor screen and lamp are drawn live (`drawFurnitureLive`).
+ * The isometric view stands pieces drawn by hand in the round in their place
+ * (`iso/things.ts`, `furnitureAt`; part 23); the classic view is this.
  */
 import type { TileChar } from '../types'
 import { TILE } from '../types'

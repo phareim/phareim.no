@@ -18,6 +18,7 @@ import { lookCanvases, makeCanvas, sprite } from './sheet'
 import { DRAWN_LOOK, GIRL_LOOK, type HeroLook } from './heroLook'
 import { PAL } from './sprites'
 import type { Light } from './tiles'
+import type { ThingPart, ThingShade } from './wild'
 import { hudFont, NEON_SKIN, type HudSkin } from './hud'
 
 type G = CanvasRenderingContext2D
@@ -1411,7 +1412,7 @@ function lookTop(look: ExitLook): number {
 // Drawing
 // ---------------------------------------------------------------------------
 
-interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number; px?: readonly [number, number] } }
+interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number; px?: readonly [number, number] }; things?: readonly ThingPart[]; bare?: () => void; bareBack?: number; shade?: ThingShade }
 
 /**
  * Queue every visible exit's sprite into the y-sorted list and collect its
@@ -1633,15 +1634,29 @@ export function queueExits(
         const beat = reduced ? 0 : Math.floor(t * BEACH_BEAT) % 2
         const pump = reduced ? 0 : Math.max(0, 1 - Math.floor((t * BEACH_BEAT % 1) * 4))
         const breathe = reduced ? 1 : 0.8 + 0.2 * Math.sin(t * 0.8 + e.x)
+        // The DJ stands behind the table, feet hidden by it.
+        const drawDj = () => {
+          const dj = sprite(`${st.dj}_${beat}`)
+          g.drawImage(dj, px - dj.width / 2, bottom - 8 - dj.height)
+        }
+        // A turned view may stand the booth in the round, drawn by hand (part 23, `iso/things.ts`): a speaker each
+        // side, the table with its kit, the poles and the fairy lights (which bulbs are dim moves on, as here).
+        const twinkle = reduced ? 0 : Math.floor(t * 1.3) % 4
         items.push({
           x: e.x,
           y: e.y + 0.5,
+          things: [
+            // (The speakers under the poles as drawn; the lights a little back, so the poles rise from the speakers' tops.)
+            { id: 'speaker', dx: -32.5 / 32, dy: -10 / 32 }, { id: `table_${e.art === 'mixer' ? 'mixer' : 'records'}`, dy: -6 / 32 },
+            { id: 'speaker', dx: 30.5 / 32, dy: -10 / 32 }, { id: `lights_${twinkle}`, dx: -0.35, dy: -10 / 32 - 0.35 },
+          ],
+          shade: { dx: 0, dy: -10 / 32, tall: 1.2, wide: 1.45, deep: 0.32 },
+          bare: drawDj,
+          bareBack: 0.12,
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 2, bottom - 1, BOOTH_W - 4, 2)
-            // The DJ stands behind the table, feet hidden by it.
-            const dj = sprite(`${st.dj}_${beat}`)
-            g.drawImage(dj, px - dj.width / 2, bottom - 8 - dj.height)
+            drawDj()
             drawTable(g, st, e.art, px - 12, bottom, t, reduced)
             drawSpeaker(g, left + 1, bottom, pump)
             drawSpeaker(g, left + BOOTH_W - 13, bottom, pump)

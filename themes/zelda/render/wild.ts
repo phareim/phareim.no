@@ -22,7 +22,12 @@ const T = TILE
  * the ground; `ay` when the anchor is not the sort row) say where it stands,
  * so a view with another projection can move the whole drawing there.
  */
-export interface Item { y: number; draw: () => void; x: number; foot?: number; ay?: number; /** Hangs on a wall facing south (a board): a turned view leans it along the wall. */ wall?: boolean; /** Is part of its tile's picture, or lies on it (a sign's neon frame, goods on a counter): a turned view keeps it on that picture and in front of it. */ tile?: boolean; /** Is larger than a person (a cabinet, a tent, a boss): a view that gives each thing a cell of its own gives it a large one. */ big?: boolean; /** Its drawing is the front of a box (a cabinet, a booth): the front's width and height in the drawing and how deep the body stands behind it, classic px. A turned view may stand the front along the wall it faces and close the body behind it. */ box?: { w: number; h: number; d: number; /** The pixel of the front whose colour the body takes, from the front's top-left (none: its left edge, halfway up). */ px?: readonly [number, number] } }
+export interface Item { y: number; draw: () => void; x: number; foot?: number; ay?: number; /** Hangs on a wall facing south (a board): a turned view leans it along the wall. */ wall?: boolean; /** Is part of its tile's picture, or lies on it (a sign's neon frame, goods on a counter): a turned view keeps it on that picture and in front of it. */ tile?: boolean; /** Is larger than a person (a cabinet, a tent, a boss): a view that gives each thing a cell of its own gives it a large one. */ big?: boolean; /** Its drawing is the front of a box (a cabinet, a booth): the front's width and height in the drawing and how deep the body stands behind it, classic px. A turned view may stand the front along the wall it faces and close the body behind it. */ box?: { w: number; h: number; d: number; /** The pixel of the front whose colour the body takes, from the front's top-left (none: its left edge, halfway up). */ px?: readonly [number, number] }; /** Things drawn by hand that a turned view may stand in its place (part 23, `iso/things.ts`): each an id and where it stands from the item's (x, ay + foot), in tiles. The classic view ignores them. */ things?: readonly ThingPart[]; /** What the classic painter still draws as a card while those things stand (a DJ behind the table); none: nothing. */ bare?: () => void; /** How far back along the line of sight that card stands, in tiles (the DJ behind the table): the same place on the screen. */ bareBack?: number; /** The shadow those things throw (from the item's point, in tiles: how tall, half wide, half deep). */ shade?: ThingShade }
+
+/** One drawn thing standing for an item (part 23). */
+export interface ThingPart { id: string; dx?: number; dy?: number }
+/** The blob shadow of an item's drawn things. */
+export interface ThingShade { dx: number; dy: number; tall: number; wide: number; deep?: number }
 
 function put(g: G, name: string, x: number, y: number, flip = false) {
   const c = sprite(name, flip)
@@ -79,28 +84,28 @@ export function queueProps(
     const y = p.y * T - cy
     if (x < -80 || x > vw + 80 || y < -80 || y > vh + 120) continue
     switch (p.kind) {
-      case 'tent': items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_tent', x, y + 2) }); break
-      case 'bike': items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_bike', x, y) }); break
-      case 'van': items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_van', x, y) }); break
+      case 'tent': items.push({ x: p.x, y: p.y, things: [{ id: 'tent', dy: -0.62 }], shade: { dx: 0, dy: -0.62, tall: 0.9, wide: 0.75, deep: 0.6 }, draw: () => put(g, 'prop_tent', x, y + 2) }); break
+      case 'bike': items.push({ x: p.x, y: p.y, things: [{ id: 'bike', dy: -0.2 }], shade: { dx: 0, dy: -0.2, tall: 0.5, wide: 0.35, deep: 0.1 }, draw: () => put(g, 'prop_bike', x, y) }); break
+      case 'van': items.push({ x: p.x, y: p.y, things: [{ id: 'van', dy: -0.6 }], shade: { dx: 0, dy: -0.6, tall: 1.1, wide: 1.25, deep: 0.55 }, draw: () => put(g, 'prop_van', x, y) }); break
       case 'fort':
-        items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_fort', x, y) })
+        items.push({ x: p.x, y: p.y, things: [{ id: 'fort', dy: -0.6 }], shade: { dx: 0, dy: -0.6, tall: 1, wide: 0.75, deep: 0.55 }, draw: () => put(g, 'prop_fort', x, y) })
         lights.push({ x: p.x, y: p.y - 1, r: 2.4, color: '#ffd23f', a: 0.45 + 0.1 * Math.sin(tm * 2) })
         break
       case 'campfire': {
         const f = Math.floor(tm * 8) % frameCount('prop_campfire', 3)
-        items.push({ x: p.x, y: p.y, draw: () => put(g, `prop_campfire_${f}`, x, y) })
+        items.push({ x: p.x, y: p.y, things: [{ id: `campfire_${f}`, dy: -0.4 }], draw: () => put(g, `prop_campfire_${f}`, x, y) })
         lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13) })
         break
       }
       case 'mast': {
         const on = Math.floor(tm * 1.5) % 2 === 0
-        items.push({ x: p.x, y: p.y, draw: () => put(g, on ? 'prop_mast_on' : 'prop_mast', x, y) })
+        items.push({ x: p.x, y: p.y, things: [{ id: on ? 'mast_on' : 'mast', dy: -0.5 }], shade: { dx: 0, dy: -0.5, tall: 2.6, wide: 0.45, deep: 0.45 }, draw: () => put(g, on ? 'prop_mast_on' : 'prop_mast', x, y) })
         if (on) lights.push({ x: p.x, y: p.y - 3.4, r: 1.6, color: '#ff3b5c', a: 1 })
         break
       }
       case 'tank': {
         const f = Math.floor(tm * 3 + p.x) % frameCount('prop_tank', 2)
-        items.push({ x: p.x, y: p.y, draw: () => put(g, `prop_tank_${f}`, x, y) })
+        items.push({ x: p.x, y: p.y, things: [{ id: `tank_${f}`, dy: -0.4 }], shade: { dx: 0, dy: -0.4, tall: 1.3, wide: 0.38 }, draw: () => put(g, `prop_tank_${f}`, x, y) })
         lights.push({ x: p.x, y: p.y - 0.8, r: 2, color: '#3fd8b0', a: 0.6 })
         break
       }

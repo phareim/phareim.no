@@ -4,7 +4,9 @@
  * letter stones '{' and levers '}'. The painter in tiles.ts asks here first;
  * `false` means "not mine, paint it the usual way". Live parts (tank
  * bubbles, blinking consoles, fluorescent tubes, vines pulsing, the letters
- * on the stones, the levers) are drawn per frame by `drawLabLive`.
+ * on the stones, the levers) are drawn per frame by `drawLabLive`. The
+ * isometric view stands the tanks, consoles, terminals and benches drawn by
+ * hand in the round in their place (`iso/things.ts`; part 23).
  */
 import type { GameState, MapKind, TileChar, World } from '../types'
 import { TILE } from '../types'

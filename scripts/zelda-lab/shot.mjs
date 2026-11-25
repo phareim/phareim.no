@@ -254,6 +254,20 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'w-shore': wild(); go('wildwood', 76.5, 38.5, 'left'); run(30); break
   case 'w-camp': wild(true); go('wildwood', 50.5, 38.5, 'up'); run(60, inp({ move: { x: 0.01, y: 0 } })); run(30); break
   case 'w-lab': wild(true); go('wildwood', 52.5, 24.5, 'up'); run(30); break
+  // Part 23's sorting stills: the hero behind and in front of the drawn van, a DJ booth and a lab tank.
+  case 'w-van-back': wild(); go('wildwood', 50.2, 22.55, 'down'); run(4); break
+  case 'w-van-front': wild(); go('wildwood', 50.2, 24.45, 'up'); run(4); break
+  case 'r-sofa-back': place('home', 'door'); s.hero.x = 7.5; s.hero.y = 2.62; s.hero.dir = 'down'; run(4); break
+  case 'r-sofa-front': place('home', 'door'); s.hero.x = 7.5; s.hero.y = 4.3; s.hero.dir = 'up'; run(4); break
+  case 'r-booth-back': s.hero.x = 25.4; s.hero.y = 29.45; s.hero.dir = 'down'; run(4); break
+  case 'r-booth-front': s.hero.x = 25.4; s.hero.y = 31.25; s.hero.dir = 'up'; run(4); break
+  case 'l-tank-back': case 'l-tank-front': {
+    // The lab tank nearest the llama room's door, from the map's own tiles: the hero just north of it, or just south.
+    wild(true); go('lab1', 40.5, 9.5, 'up'); run(2)
+    const m = s.map; let best = null
+    for (let i = 0; i < m.tiles.length; i++) if (m.tiles[i] === 'I') { const x = i % m.w, y = Math.floor(i / m.w); const d = Math.hypot(x - 40, y - 9); if (!best || d < best.d) best = { x, y, d } }
+    s.hero.x = best.x + 0.5; s.hero.y = scene === 'l-tank-back' ? best.y - 0.05 : best.y + 1.25; s.hero.dir = scene === 'l-tank-back' ? 'down' : 'up'; run(4); break
+  }
   case 'w-grove': wild(true); go('wildwood', 39.5, 9.5, 'up'); run(30); break
   case 'w-brambles': wild(); go('wildwood', 37.5, 36.5, 'up'); run(30); break
   case 'w-ravine': wild(true); s.inv.hook = true; s.inv.selected = 'hook'; go('wildwood', 32.5, 37.5, 'left'); run(10); r.onEvents(stepGame(world, s, 1 / 60, inp({ bPress: true }))); run(12); break
@@ -397,6 +411,14 @@ const SHOTS = [
   ['w-shore-1280', 'w-shore', 1280, 800, 1, 0],
   ['w-camp-1280', 'w-camp', 1280, 800, 1, 0],
   ['w-lab-1280', 'w-lab', 1280, 800, 1, 0],
+  ['w-van-back-1280', 'w-van-back', 1280, 800, 1, 0],
+  ['w-van-front-1280', 'w-van-front', 1280, 800, 1, 0],
+  ['r-sofa-back-1280', 'r-sofa-back', 1280, 800, 1, 0],
+  ['r-sofa-front-1280', 'r-sofa-front', 1280, 800, 1, 0],
+  ['r-booth-back-1280', 'r-booth-back', 1280, 800, 1, 0],
+  ['r-booth-front-1280', 'r-booth-front', 1280, 800, 1, 0],
+  ['l-tank-back-1280', 'l-tank-back', 1280, 800, 1, 0],
+  ['l-tank-front-1280', 'l-tank-front', 1280, 800, 1, 0],
   ['w-radio-1280', 'w-radio', 1280, 800, 1, 0],
   ['w-grove-1280', 'w-grove', 1280, 800, 1, 0],
   ['w-brambles-1280', 'w-brambles', 1280, 800, 1, 0],

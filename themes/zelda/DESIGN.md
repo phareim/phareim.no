@@ -146,9 +146,11 @@ classic sprites (its own ramps; the shared `PAL` stays as the classic and the ot
 thing is naturally a body (a van, a tent, a boss, the hero) it may be pixel art rotoscoped from a 3D model, as the
 standing things (`iso/props.ts`) and the modelled hero (`iso/figure.ts`) already are. Since part 19 the people
 are redrawn for it as isometric pixel art at its own density (`iso/folk.ts`: since part 20 everyone but the bosses, the hero since part 21 composed and
-recoloured by roles in `iso/hero.ts`, the bosses since part 22 rotoscoped in `iso/bossArt.ts`; the studio's newer edit of a classic sprite wins until the art is redrawn). What still waits for its
-isometric art (the mistral, the cards drawn head-on, the furniture, the square fountain, the effects) is in the journal
-thread `neon-shrine-isometric-art`.
+recoloured by roles in `iso/hero.ts`, the bosses since part 22 rotoscoped in `iso/bossArt.ts`; the studio's newer edit of a classic sprite wins until the art is redrawn). Since part 23
+the things of the world (the van, tents, fires, torches, the mast, tanks, the DJ booths, the furniture, the labs'
+consoles and benches, a fountain in the square's pool) are rotoscoped too, from guides built of solids (`iso/things.ts`).
+What still waits for its isometric art (the mistral, the pictures on the walls, the pool's square water, the effects) is
+in the journal thread `neon-shrine-isometric-art`.
 
 **Rotoscoped pixel art** (Petter, 2026-11-25: «Alt vi legger ut skal ha en håndtegnet piksel-art følelse … Vi tåler
 veldig godt å bruke mange farger.»). A 3D model is only ever the guide: it gives the angle (the view's own projection:
@@ -159,7 +161,9 @@ only what is one colour under the image's noise is merged. Pixels are one scale:
 drawn on, never resampled, and a figure must be guided large enough on the sheet for the drawing's own pixel to be one
 px of the view (Codex draws about 10 px of a 1536-px sheet to a pixel; smaller, and its pixels come out doubled).
 Whatever makes the classic figure readable is protected in the prompt and checked after: a glowing eye that goes dull
-is a redraw.
+is a redraw. A thing with a body also takes from its guide what the drawing cannot say: which way each px
+faces and how near it lies, so the view lights it and sorts the hero against it per px; frames are drawn on one sheet
+with what does not move the same, or are pixel edits of one drawing, so the animation does not shimmer.
 
 Other views draw the same
 state another way: an isometric one, where a visit starts, with a sun of its own and its
