@@ -158,3 +158,171 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
 - [x] **R3 · Foes (P2, `62ad0c9`).**
   Mower, flamingo flock and biting mailbox use existing field behaviours. COPILOT has honk,
   neon and rust boss poses.
+
+## THE HERO IN A FIGHT (iso and classic, every realm)
+
+The real-time fight is being reworked to feel quicker and lighter on its feet:
+three swings in a chain (forehand, backhand, a lunging finisher), a dodge roll,
+foes that reel when hit. The engine side lives on branch
+`claude/trusting-gauss-rmqin0` until it is merged. Until then, add the frames
+as art only: the game keeps drawing today's `atk`.
+
+**Where it lands.** The iso hero is built from parts in `render/iso/heroArt.ts`:
+- bodies `HERO_BODIES['<pose>/<front|back>/<trousers|shorts|skirt>']`, with the foot
+  point at the art's origin and the neck point at `nx, ny`; the dress is the skirt
+  in the shirt's colours;
+- arms over the head `HERO_ARMS['<pose>/<facing>']`;
+- heads `HERO_HEADS` (reused) and role letters `HERO_LETTERS` (no new colours).
+
+**Classic first.** Each pose needs its classic frames first:
+`hero_<down|up|side>_<pose>` (16×16) in `render/heroFrames.ts`.
+`tests/zelda-hero-art.test.mjs` keeps `HERO_ART_NAMES` equal to the classic frame
+names. `heroArtCovers` turns the whole hero classic if a pose in `ART_POSES`
+(`render/iso/hero.ts:30`) lacks a body. So new poses go in a separate list
+(`ART_EXTRA_POSES`, which comes with the rework), and a missing body falls back
+to `atk` or `0`.
+
+**Size.** Frames 16–44 px wide and 26–46 high (the test's bounds), about twice
+the classic sprite. Every pose in all three bottoms, front and back.
+
+**Check.** Scenes `swing`, `swing2`, `swing3`, `roll` in `scripts/zelda-lab/shot.mjs`
+(the last three come with the rework). They step 0.1, 0.25 and 0.4 s into a
+chain with a blob in front.
+
+- [ ] **H1 · Combo swing bodies (P1).**
+  `atk_wind` (blade arm drawn back across the body, weight on the back foot) and
+  `atk_back` (the backhand: arm across the chest the other way, shoulders turned).
+  Front/back × 3 bottoms = 12 bodies, plus `HERO_ARMS` where the arm rises over the head.
+  Classic `hero_*_atk_wind`, `hero_*_atk_back`. Today's `atk` stays the forehand.
+- [ ] **H2 · Finisher (P1).**
+  `atk_lunge` (deep forward step, body low, blade arm fully out) and `atk_land`
+  (recovery, front knee bent), 12 bodies. Classic `hero_*_atk_lunge`, `hero_*_atk_land`.
+  It must read as a different, heavier move than the forehand, even at 390 px wide.
+- [ ] **H3 · Roll (P1).**
+  - Poses: `roll_0` (tuck), `roll_1` and `roll_2` (a ball, a quarter turn apart),
+    `roll_3` (uncurl to a crouch). Front/back × 3 bottoms = 24 bodies.
+  - The head may be partly hidden: use the neck point, or bake the head into
+    `roll_1/2` and leave `nx` unset.
+  - Classic `hero_*_roll_0..3` replace the rotated stand-ins the rework ships with.
+- [ ] **H4 · Blade at 16 directions (P1).**
+  - Iso: `sword_e1` (22.5° off horizontal) and `sword_e2` (67.5°), plus the Arc
+    Blade's `sword2_e1`, `sword2_e2`, in `BLADE_ART`/`BLADE_PAL` (`heroArt.ts`).
+    About 26×20 px, same grip and guard as today.
+  - Classic: 13×10 equivalents in `render/sprites.ts`, beside `sword_v/_h/_d`.
+    Then `bladeSprite1` (`render/renderer.ts`) moves from 8 to 16 steps, so a sweep
+    shows twice as many blade positions.
+- [ ] **H5 · Run cycle (P2).**
+  - Poses: `run_0..run_5`, six frames, arms pumping, one frame with both feet off
+    the ground. Front/back × 3 bottoms = 36 bodies.
+  - Classic `hero_*_run_0..5`. The walk's `1`/`2` stay for slow walking and carrying.
+  - Played at 12 fps from 4.5 tiles/s. Today's three-pose walk reads as skating.
+- [ ] **H6 · Idle breath and the held charge (P2).**
+  `idle_1` (chest and shoulders up 1 px; `0` is the other half of the breath) and
+  `charge` (crouched, blade low behind, back foot braced), 12 bodies.
+  Classic `hero_*_idle_1`, `hero_*_charge`.
+- [ ] **H7 · Hurt from every side (P3).**
+  `hurt/back/*` (3 bodies; hurt is front only today), and a `stagger` pose (knees
+  buckled, front/back) for the shield bounce and the hard knock.
+- [ ] **H8 · Foes reeling (P2).**
+  - A `front_hurt` frame (squashed, eyes shut or X'd, recoiling) for each small foe
+    family in `FOLK_ART` (`render/iso/folkArt.ts`): `blob`, `spitter`, `hound`,
+    `drone`, `sentry`, `bat`, `dasher`, `zapper` and `skull`; `knight` front and back.
+  - Draw the classic `<kind>_hurt` sprite each is drawn over first (`render/sprites*.ts`).
+    `facingOf` maps `<family>_hurt` to `front_hurt`, as `king_hurt` already does.
+    Add the `src` hash with the classic rows so `familyFresh` holds.
+  - The rework shows it while a foe is staggered.
+- [ ] **H9 · Impact and slash marks (P2).**
+  - `hitfx_0..3`: a 4-ray impact star, white core, cyan rim; 16×16 classic, a 4-frame fx.
+  - `slash_0..2`: a straight slash line across a foe, 24×8, fading.
+  - `hitfx_gold_0..3`: for the Arc Blade and crits.
+  - In `render/sprites.ts` next to `poof_*`. The fx layer draws them at classic px in
+    both views; until then the rework draws its sparks procedurally.
+- [ ] **H10 · Modelled hero (P3).**
+  `render/iso/figure.ts` acts `roll`, `lunge` and the backhand (`FigureAct`) for the
+  `figure: 'modelled'` option, so it is not left behind.
+
+## THE WAYS IN (gates from the coast and the Wildwood)
+
+The realms get walking roads from the hand-made world, in addition to the ferry:
+- north out of Whisper Woods to SETER FELL;
+- the Night Market's north wall to the SPORELIGHT;
+- east past the Hollow Graves to STILLSAND;
+- Mirror Lake's east shore to RERUN ESTATES;
+- the Wildwood's Riddle Grove north to LUMENBY;
+- the Deep Woods west to FOGSTAGE.
+
+Each realm's side of a road has a gate notch in the region's rim. This work
+also lives on branch `claude/trusting-gauss-rmqin0` until merged. The gate
+data is in `world/gen/gates.ts`.
+
+- [ ] **W1 · Gate arches, one per realm (P1).**
+  - Size: a three-tile-wide arch the road runs under, about 2.5 tiles tall.
+  - Each in the realm's own material:
+    - LUMENBY: timber headframe with a cyan lumen lamp.
+    - SETER FELL: two turf-roofed gateposts with a pole across, birch bark.
+    - SPORELIGHT: two mushroom stems bending into one cap.
+    - STILLSAND: two quartz pillars with a sun disc.
+    - FOGSTAGE: a proscenium of painted flats with a lit marquee.
+    - RERUN ESTATES: a suburban welcome sign on two brick posts, with a neon "WELCOME".
+  - Where it lands: `THING_ART` (`render/iso/thingArt.ts`) or the realm's kit in
+    `render/iso/frontierArt/`, placed through `frontierScenery.ts`/`isoLandmarks`
+    keyed `'gate'`. Give each arch a lit variant (neon on) and declare its glow pixels.
+- [ ] **W2 · The coast side of the gates (P2).**
+  - One shared waymark for the hand-made maps: a neon arrow post that names the realm
+    in the pixel font's letters. Two frames, the arrow lit and dim, for a slow blink.
+  - Plus a small "BORDER" barrier arm for the wardens' gates (blade-locked), up and down.
+
+## LIGHT AND LIFE (every realm)
+
+The light work in the same branch is procedural: lamps lighting the mist, lights
+on the landmarks, embers, fireflies, lanterns over the fjord, sweeping beams.
+These are the pieces it cannot draw by itself.
+
+- [ ] **L1 · Lit windows at night (P2).**
+  Night variants of `fjord_cottage`, `seter_hut`, the Rerun garage houses and the
+  bathhouse: warm window panes with a 1-px glow rim, plus one "TV" pane in blue.
+  Declare the glow pixels in `ThingArt.glow`, so the panes bloom in the iso view.
+- [ ] **L2 · Lighthouse lens and stage spotlight heads (P2).**
+  Brighter lens frames for `fjord_lighthouse` (four directions, the lit side white-gold)
+  and a spotlight head for `fogstage_spotlight` in eight directions. The beam itself is
+  procedural; it needs a source that points where it shines.
+- [ ] **L3 · Camp neon boards (P2).**
+  - A small two-post board with neon letters, in four colourways (pink, cyan, gold,
+    violet), and a blank board the game writes a short word on: `CAMP`, `OPEN`, `INN`.
+  - It stands upright, because decals lie flat on the ground in the iso view.
+  - Lands in `THING_ART`.
+- [ ] **L4 · Small life (P3).**
+  - Classic-palette sprites, two to four frames each, at 5 sheet px to a scene px:
+    - a fish jumping out of water and back (3 frames + splash);
+    - a gull and a crow in flight (2 frames);
+    - a moth for lamps (2 frames);
+    - a butterfly (2 frames);
+    - a frog on a lily pad (2 frames).
+  - The procedural stand-ins are dots and flecks. These replace them where the
+    camera is close.
+
+## THE GREEN MILES AND THE LANDING (`meadow`, `landing`)
+
+The plain between the realms has no scenery of its own, and the Landing is a
+dock in a pool.
+
+- [ ] **M1 · Meadow landmarks (P1).**
+  A windmill with turning sails (four frames), a waystone with a glowing rune, three
+  haystack sizes, a rusted bus stop with a timetable board, and a hand cart. Anchored
+  by `frontierScenery.ts` to the meadow's stamps (camp, hamlet, grove, stones).
+- [ ] **M2 · Road lanterns (P1).**
+  - A lantern post for the frontier roads, in five tones (pink, cyan, violet, gold,
+    rose), lit and unlit.
+  - The game places them along roads by hash, so they must tile next to the road's
+    stones without covering them.
+- [ ] **M3 · Coast set for the Landing (P2).**
+  - Pieces:
+    - a breakwater (straight and end pieces);
+    - a pier that runs out into deep water;
+    - mooring bollards, a stack of crates and a net rack;
+    - a harbour light on a post.
+  - The generator is to give the Landing a real shoreline; until then these sit on its
+    sand.
+- [ ] **M4 · Campfire set (P2).**
+  - Pieces: logs to sit on, a kettle on a tripod, a lean-to.
+  - Fire frames to match the bonfire's, lit by the light work.
