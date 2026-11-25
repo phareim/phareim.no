@@ -221,6 +221,14 @@ function seterFarm(fenceY: number): IsoLandmark[] {
   ]
 }
 
+/** Every preset there is, as [realm, place] (the gate arches as `gate` and `gate:ew` of each realm that has them). */
+export function sceneryPlaces(): Array<[string, string]> {
+  const out: Array<[string, string]> = []
+  for (const [realm, places] of Object.entries(SCENERY)) for (const place of Object.keys(places)) out.push([realm, place])
+  for (const realm of GATE_REALMS) out.push([realm, 'gate'], [realm, 'gate:ew'])
+  return out
+}
+
 export function sceneryAt(realm: string, stamp: string, x: number, y: number): IsoLandmark[] {
   if (GATE_REALMS.has(realm) && (stamp === 'gate' || stamp === 'gate:ew')) {
     const road = stamp === 'gate' ? 'ns' : 'ew'

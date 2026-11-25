@@ -6,7 +6,6 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readFileSync } from 'node:fs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -15,7 +14,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export { sceneryAt } from './world/scenery'
+      contents: `export { sceneryAt, sceneryPlaces } from './world/scenery'
 export { TONES } from './render/tones'
 export { MOOD, REALM_LOOKS, realmLook } from './render/looks'
 export { nightOf } from './render/daylight'
@@ -41,27 +40,11 @@ function counter() {
   return g
 }
 
-/** The realms and place presets `sceneryAt` knows, read from its source (the table is not exported). */
-function presets() {
-  const src = readFileSync(resolve(root, 'world/scenery.ts'), 'utf8')
-  const body = src.slice(src.indexOf('const SCENERY'), src.indexOf('export function sceneryAt'))
-  const out = []
-  let realm = null
-  for (const line of body.split('\n')) {
-    const r = /^  (\w+): \{/.exec(line)
-    if (r) { realm = r[1]; continue }
-    const p = /^    '?([\w.:]+)'?: /.exec(line)
-    if (p && realm) out.push([realm, p[1]])
-  }
-  for (const realm of ['lumenby', 'seterfell', 'sporelight', 'stillsand', 'fogstage', 'rerun']) out.push([realm, 'gate'], [realm, 'gate:ew'])
-  return out
-}
-
 /** Every landmark the world's maps place now, and every place preset the lands will be drawn with. */
 function landmarks() {
   const all = []
   for (const d of Object.values(L.WORLD.maps)) for (const lm of d.isoLandmarks ?? []) all.push(lm)
-  const ps = presets()
+  const ps = L.sceneryPlaces()
   assert.ok(ps.length > 30, `${ps.length} presets found in world/scenery.ts`)
   for (const [realm, place] of ps) for (const lm of L.sceneryAt(realm, place, 0, 0)) all.push(lm)
   return all
