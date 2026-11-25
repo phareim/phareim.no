@@ -1761,6 +1761,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function drawSmear(g: G, s: GameState, place: Place) {
     const h = s.hero
     let head: number, tail: number, rOut: number, fade = 1
+    // The finisher's linger keeps only the rim, narrowing as it fades: a thin crescent, not the swept wedge.
+    let rim = 0
     let hx = h.x, hy = h.y
     if (h.swing) {
       const sw = h.swing
@@ -1788,6 +1790,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       head = swingAngle(sw, 1)
       tail = swingAngle(sw, 0.5)
       rOut = (arc ? 18 : 16) * 1.15
+      rim = rOut * (0.6 + 0.3 * (1 - fade))
       hx = lastSwing.x
       hy = lastSwing.y
     } else return
@@ -1829,7 +1832,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         // 0 at the blade, 1 at the end of the trail.
         const age = 1 - off / span0
         // A crescent: the trail thins toward the blade's tip as it ages.
-        if (r < 5 + rOut * 0.45 * age) continue
+        if (r < Math.max(5 + rOut * 0.45 * age, rim)) continue
         const ix = Math.round(x / cell)
         const iy = Math.round(y / cell)
         // Fading out (the finisher's linger): fewer and fewer cells.

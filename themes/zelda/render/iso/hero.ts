@@ -37,9 +37,10 @@ export const ART_FRONT_POSES = ['get', 'hurt'] as const
  * bodies are drawn (`HERO_BODIES['roll_1/front/trousers']` …) they are used instead.
  */
 export const ART_EXTRA_POSES: Readonly<Record<string, { from: string; turn?: number; scale?: number }>> = {
+  // As the classic frames (`ROLL_TUCKS`): tucked, a quarter forward, tucked smaller, a quarter back; never upside down.
   roll_0: { from: '0', scale: 0.75 },
   roll_1: { from: '0', turn: 1, scale: 0.75 },
-  roll_2: { from: '0', turn: 2, scale: 0.75 },
+  roll_2: { from: '0', scale: 0.6 },
   roll_3: { from: '0', turn: 3, scale: 0.75 },
 }
 

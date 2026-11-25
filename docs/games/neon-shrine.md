@@ -650,7 +650,8 @@ classic picture. `/?view=<id>` asks for one.
     (`WINDUP`, it cuts nothing there), then cuts fast and settles
     (`swingAngle`), and steps forward (`LUNGE_TIME` 0.07 s: 0.22 tiles,
     the finisher 0.5) unless a foe is already within half the reach ahead
-    or a pit or spikes are. A press within `COMBO_WINDOW` (0.32 s) of a
+    or a pit or spikes are, or the hero is on ice or about to step onto it
+    (there the hit lands in place and only a slide moves him). A press within `COMBO_WINDOW` (0.32 s) of a
     hit's end goes on with the chain; later, it starts over. A swing outside
     the chain (a field battle's) has no `n` and is the plain 171° sweep of
     `SWING_TIME`; `swingDur(swing)` is either length.
@@ -665,7 +666,10 @@ classic picture. `/?view=<id>` asks for one.
     pit on a `MapDef.physics` map). A struck small foe reels (`stagger`:
     0.22 s from a chain hit, 0.4 from the finisher, 0.12 from anything
     else): it does nothing, and neither reeling nor being shoved does it
-    harm the hero. The finisher on a reeling foe is critical (+1, `crit`).
+    harm the hero. A plain chain deals 1 + 1 + 2 (twice that with the Arc
+    Blade). The finisher is critical (+1, `crit`) on a foe stunned (the
+    disc, the hook) or reeling from some other blow (a pot, a bomb, the
+    spin), not on one reeling only from the chain's own hits (`reelChain`).
     Bosses and the knight (`BIG`) neither reel nor stop harming.
   - *Hitstop* (the shell's freeze, none under reduced motion): chain hit 35
     ms, finisher 85, spin 55, any other hit 40, a boss hit 60, a kill 90,
@@ -677,8 +681,9 @@ classic picture. `/?view=<id>` asks for one.
     way the hero faces), slowing as it goes, a little steering; nothing
     harms the hero for its first 0.2 s (`ROLL_IFRAMES`); 0.15 s of rest
     after it. It may cut a swing from 35 % in, a press of it in the last
-    moments of a shove waits, a pit still takes the hero, and it never
-    starts on ice. A press of A in its last moments strikes as it ends.
+    moments of a shove waits, a pit still takes the hero. It never starts
+    on ice, sliding or standing (`iceUnder`), and a roll onto ice ends at
+    its edge, so the ice's lanes hold. A press of A in its last moments strikes as it ends.
   - *Moving.* Up to speed in about 0.07 s from a stand (`HERO_ACCEL`);
     turning keeps the pace and stopping is at once, so nothing slides past
     a ledge. The walk steps at 8.5 a second.
@@ -686,8 +691,8 @@ classic picture. `/?view=<id>` asks for one.
     both turned views have it alike). The blade's smear is a crescent of
     hard pixels over the arc just swept, on the circle the blade's sprite
     goes round the hand (white at the head, then cyan, gold for the Arc
-    Blade, then a dithered tail); the finisher's is wider and stays 60 ms,
-    the spin's goes round. The hero squashes into a windup and stretches
+    Blade, then a dithered tail); the finisher's is wider and stays 60 ms
+    as a thinning rim, the spin's goes round. The hero squashes into a windup and stretches
     into the blow, crouches into a roll and leaves three cyan shapes of
     itself behind it; the backhand shows the swing frame mirrored. Foes
     squash flat under a blow and spring back; a fallen foe bursts white and
@@ -701,7 +706,9 @@ classic picture. `/?view=<id>` asks for one.
     lunge and a run turned round. The chain's hits sound a step higher each,
     the finisher heavy (`sword`, `sword2`, `swordHeavy`; `hitHeavy`, `roll`).
   - *Art to come.* Until the roll is drawn, `hero_*_roll_0..3` are the
-    standing frame tucked and turned (`heroFrames.ts`), and the isometric
+    standing frame tucked, turned a quarter forward, tucked smaller, turned
+    a quarter back (`ROLL_TUCKS` in `heroFrames.ts`; never upside down, and
+    mirrored for the left it still turns forward), and the isometric
     art makes the same of its own standing body (`ART_EXTRA_POSES` in
     `iso/hero.ts`: a pose the art does not draw yet falls back to a drawn
     one, so it never turns the hero classic). The lab's `swing1`, `swing2`,
@@ -979,8 +986,10 @@ letters: A always (a sword), the roll (the hero curled up, a small green
 ring over B, beside A while there is no item) once there is the blade, B
 (the chosen item) and swap (two arrows) once there is an item, and the
 lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
-SWAP BUTTON (`keys.ts`, `{ROLL}` in a line); on a phone lying on its side
-they sit lower and more side by side, the roll left of B; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the other page; on ITEMS SOUND ON/OFF and TO TOWN; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
+the chain and the roll); on a phone lying on its side
+they sit lower and more side by side, the roll a size smaller over B, so
+the row stays out of the stick's 60 %; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the other page; on ITEMS SOUND ON/OFF and TO TOWN; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status

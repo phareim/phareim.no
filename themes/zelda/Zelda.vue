@@ -1919,10 +1919,9 @@ onBeforeUnmount(() => {
 @media (orientation: landscape) and (max-height: 500px) {
   .zelda-deck:not(.zelda-deck--paused) { padding-bottom: calc(4px + var(--app-safe-bottom, 0px)); }
   .zelda-deck-btns:not(.zelda-deck-btns--solo) { height: 104px; }
-  /* No room over B here: the roll goes left of it. */
-  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) { width: 232px; }
-  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) .zelda-pad-b { left: 64px; }
-  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) .zelda-pad-roll { top: auto; left: 0; bottom: 8px; }
+  /* The roll stays over B, a size smaller, and the row no wider: left of it the stick's 60 % is free. */
+  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) { height: 128px; }
+  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) .zelda-pad-roll { left: 12px; width: 48px; height: 48px; }
 }
 
 /* Two wide buttons across a 375 px phone. */
