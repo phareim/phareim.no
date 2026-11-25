@@ -1,0 +1,123 @@
+// The map (M) and the corner map: where the hero has been (engine/explore.ts), how it is kept in the save,
+// and how the shell reaches the menu's two pages (Zelda.vue).
+import { describe, it, before } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { load } from './zelda-load.mjs'
+
+let Z
+before(async () => { Z = await load() })
+
+const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
+const walk = (s, x, y, frames) => { for (let i = 0; i < frames; i++) Z.stepGame(Z.WORLD, s, 1 / 60, inp({ move: { x, y } })) }
+const seenCount = (s, id) => {
+  const info = Z.mapInfo(Z.WORLD, id)
+  let n = 0
+  for (let y = 0; y < info.h; y += Z.CHUNK) for (let x = 0; x < info.w; x += Z.CHUNK) if (Z.seenTile(s, id, info.w, x, y)) n++
+  return n
+}
+
+describe('where the hero has been', () => {
+  it('sees round the hero outdoors, and more as they walk', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
+    walk(s, 0, 0, 2)
+    const first = seenCount(s, 'overworld')
+    assert.ok(first > 0, 'the start is seen')
+    assert.ok(Z.seenTile(s, 'overworld', s.map.w, Math.floor(s.hero.x), Math.floor(s.hero.y)), 'where the hero stands')
+    assert.ok(!Z.seenTile(s, 'overworld', s.map.w, 0, 0) || Math.hypot(s.hero.x, s.hero.y) < Z.SIGHT + Z.CHUNK * 1.5, 'not the far corner')
+    walk(s, 1, 0, 240)
+    assert.ok(seenCount(s, 'overworld') > first, 'walking sees more')
+  })
+
+  it('sees a dungeon room whole on walking in', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'shrine', entry: 'start' } })
+    walk(s, 0, 0, 2)
+    const z = s.zone
+    for (const [x, y] of [[z.x, z.y], [z.x + z.w - 1, z.y], [z.x, z.y + z.h - 1], [z.x + z.w - 1, z.y + z.h - 1]]) {
+      assert.ok(Z.seenTile(s, 'shrine', s.map.w, x, y), `room corner ${x},${y}`)
+    }
+  })
+
+  it('keeps nothing for rooms indoors', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'hut', entry: Object.keys(Z.mapInfo(Z.WORLD, 'hut').entries)[0] } })
+    walk(s, 0, 1, 30)
+    assert.equal(s.explored?.hut, undefined)
+    assert.equal(Z.charted(Z.WORLD.maps.hut), false)
+    assert.equal(Z.charted(Z.WORLD.maps.overworld), true)
+  })
+
+  it('goes into the save and comes back, and the save refuses what it cannot read', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
+    s.inv.sword = true
+    walk(s, 1, 0, 120)
+    const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+    assert.deepEqual(save.explored, s.explored)
+    const again = Z.createGame(Z.WORLD, { save, at: { map: 'overworld', entry: 'hut' } })
+    assert.deepEqual(again.explored, s.explored)
+    assert.equal(Z.cleanExplored(null), null)
+    assert.equal(Z.cleanExplored([1, 2]), null)
+    assert.deepEqual(Z.cleanExplored({ overworld: 'AB_', bad: '<script>', n: 3, ['x'.repeat(41)]: 'A' }), { overworld: 'AB_' })
+    // An old save without it still loads.
+    const old = JSON.parse(JSON.stringify(Z.toSave(s)))
+    delete old.explored
+    assert.ok(Z.parseSave(old))
+  })
+
+  it('keeps at most EXPLORE_MAPS maps, the first written making room', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
+    s.explored = {}
+    for (let i = 0; i < Z.EXPLORE_MAPS + 5; i++) Z.reveal(s, `m${i}`, 16, 16, { x: 0, y: 0, w: 1, h: 1 })
+    const ids = Object.keys(s.explored)
+    assert.equal(ids.length, Z.EXPLORE_MAPS)
+    assert.ok(!ids.includes('m0') && ids.includes(`m${Z.EXPLORE_MAPS + 4}`))
+  })
+
+  it('fits in the save with the whole frontier seen, its caves too', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
+    s.inv.sword = true
+    const ids = Object.keys(Z.WORLD.maps).filter(id => Z.charted(Z.WORLD.maps[id]))
+    for (let ry = 0; ry < 12; ry++) for (let rx = 0; rx < 16; rx++) {
+      const id = `fr:${rx},${ry}`
+      if (!Z.WORLD.generate(id)) continue
+      ids.push(id)
+      for (let n = 1; n <= 4; n++) if (Z.WORLD.generate(`${id}:cave${n}`)) ids.push(`${id}:cave${n}`)
+      for (let n = 1; n <= 6; n++) if (Z.WORLD.generate(`${id}:deep${n}`)) ids.push(`${id}:deep${n}`)
+    }
+    for (const id of ids) {
+      const def = Z.WORLD.maps[id] ?? Z.WORLD.generate(id)
+      const w = def.rows[0].length
+      const h = def.rows.length
+      Z.reveal(s, id, w, h, { x: 0, y: 0, w, h })
+    }
+    const bytes = JSON.stringify(Z.toSave(s).explored).length
+    assert.ok(bytes < 6000, `${bytes} bytes for ${Object.keys(s.explored).length} maps`)
+    assert.ok(Object.keys(s.explored).length > 100, 'the frontier counted')
+  })
+})
+
+describe('the menu: ITEMS and MAP', () => {
+  const shell = readFileSync(new URL('../themes/zelda/Zelda.vue', import.meta.url), 'utf8')
+  const keys = shell.slice(shell.indexOf('function shellKey'), shell.indexOf('function backsOut'))
+
+  it('opens on its MAP page with M and its ITEMS page with P, in play and in the menu', () => {
+    assert.match(keys, /e\.code === 'KeyP'\)[^\n]*openPage\('items'\)/)
+    assert.match(keys, /e\.code === 'KeyM' && !confirmReset\.value\)[^\n]*openPage\('map'\)/)
+    assert.equal(keys.split("'KeyM'").length - 1, 1, 'M has one meaning')
+    // In the menu O is the sound and C the corner map (on the MAP page).
+    assert.match(keys, /'KeyO'\) \{[^\n]*toggleSound\(\)/)
+    assert.match(keys, /'KeyC' && menuPage\.value === 'map'\) \{[^\n]*toggleCorner\(\)/)
+  })
+
+  it('closes on the open page\'s own key and turns the page on the other', () => {
+    const fn = shell.slice(shell.indexOf('function openPage'), shell.indexOf('function toggleCorner'))
+    assert.match(fn, /if \(!paused\.value\) \{ togglePause\(page\); return \}/)
+    assert.match(fn, /if \(menuPage\.value === page\) \{ togglePause\(\); return \}/)
+    assert.match(fn, /menuPage\.value = page/)
+  })
+
+  it('draws the page the shell has open', () => {
+    const r = readFileSync(new URL('../themes/zelda/render/renderer.ts', import.meta.url), 'utf8')
+    assert.match(r, /ui\.paused && ui\.page === 'map' && !ui\.confirmReset\) drawMapPage/)
+    assert.match(shell, /ui\.page = menuPage\.value/)
+  })
+})

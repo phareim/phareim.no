@@ -872,6 +872,10 @@ export interface GameState {
   }
   /** Dig & build edits per map id: tile index → tile char + height digit (`engine/dig.ts`). */
   digEdits?: Record<string, Record<number, string>>
+  /** Where the hero has been, per map (`engine/explore.ts`): what the map (M) shows. */
+  explored?: Record<string, string>
+  /** The hero's last place as explore.ts noted it (map and 2-tile square); nothing is looked at again until it changes. */
+  exploreAt?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -984,4 +988,6 @@ export interface SaveData {
   day?: number
   /** Dig & build edits, per map id (`engine/dig.ts` encodeDig). */
   dig?: Record<string, string>
+  /** Where the hero has been, per map (`engine/explore.ts`). */
+  explored?: Record<string, string>
 }

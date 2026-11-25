@@ -185,7 +185,7 @@ describe('the shell in the 16-bit dress', () => {
     for (const root of [
       /<canvas ref="canvas" class="zelda-canvas" :class="\{ px16: dress16, 'zelda-canvas--paused': paused \}"/,
       /<EscHold :class="\{ px16: dress16 \}"/,
-      /class="zelda-deck-top" :class="\{ px16: dress16 \}"/,
+      /class="zelda-corner"\s+:class="\{ px16: dress16,/,
       /:class="\{ 'zelda-deck--paused': paused, px16: dress16 \}"/,
       /<AccountConsole v-if="panel === 'account'" :class="\{ px16: dress16 \}"/,
       /<LookBooth v-if="panel === 'look'" :class="\{ px16: dress16 \}"/,
@@ -201,7 +201,7 @@ describe('the shell in the 16-bit dress', () => {
     assert.match(shell, /stepDress\(renderer\.viewState\(\)\)\s*syncUnit\(\)/, 'each frame: a map may change the scale')
     assert.match(shell, /style\.removeProperty\('--px16-fine'\)/, 'taken back when the shell goes')
     // The chips, the pause buttons, the Escape pill and the page's hint take it as their unit, 1px until it is known.
-    assert.match(shell, /\.px16\.zelda-deck-top,\s*\.px16\.zelda-deck,\s*\.px16\.esc-hold-layer,\s*\.zelda-canvas\.px16 ~ \.portal-hint \{\s*--px16-u: var\(--px16-fine, 1px\);/)
+    assert.match(shell, /\.px16\.zelda-corner,\s*\.px16\.zelda-deck,\s*\.px16\.esc-hold-layer,\s*\.zelda-canvas\.px16 ~ \.portal-hint \{\s*--px16-u: var\(--px16-fine, 1px\);/)
     // A selector's own rule: the one where it stands alone, right after another rule or a comment.
     const rule = sel => {
       const at = Math.max(shell.indexOf(`}\n${sel} {`), shell.indexOf(`*/\n${sel} {`))

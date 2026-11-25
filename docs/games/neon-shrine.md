@@ -69,8 +69,8 @@ first view, and one failed fetch of a view's code does not pin it to the
 classic picture. `/?view=<id>` asks for one.
 
 - **Finding them.** The **turn switch** (`render/turnSwitch.ts`, drawn into
-  a button of `Zelda.vue`) stands in the top-right corner, under the pause
-  chip on touch: `[ carriage ]`, with a notch for each view (a studio view whose tag is `N-BIT` puts its numeral at its end of a two-stop slot). A press turns to the next view, as V
+  a button of `Zelda.vue`) stands in the top-right corner, beside the pause
+  chip and under the corner map (see "The map"): `[ carriage ]`, with a notch for each view (a studio view whose tag is `N-BIT` puts its numeral at its end of a two-stop slot). A press turns to the next view, as V
   does. The carriage carries one ground tile, drawn with the picture's own
   `projection`: a square in the classic view, the 2:1 diamond in the turned
   one. Where the carriage stands, the tile's shape and the seam between the
@@ -96,12 +96,12 @@ classic picture. `/?view=<id>` asks for one.
     an item; the switch is then reached by V and a screen reader's own
     navigation.) Its name says which view is on and which a press gives, and
     a live region says the view after every change.
-  - *What changes dress beside the canvas* (the pause chip, the pad icons,
+  - *What changes dress beside the canvas* (the pause chip, the corner map, the pad icons,
     the page's hint) fades out before the flip at k = 0.5 and in after it
     (`--zelda-chrome-a`), as the canvas HUD cross-fades between its skins.
   - V turns to the next view in play and on the pause screen alike (the
-    pause screen names the one that is on), and on touch the pause buttons
-    have VIEW beside RESUME, SOUND and TO TOWN. The page's first hint names
+    pause screen names the one that is on), and on touch the MAP page's
+    buttons have VIEW beside RESUME, ITEMS and CORNER MAP. The page's first hint names
     no view key. In the world itself there is the **viewfinder** east of the
     fountain (exit `view`, look `scope`, panel `view`, which opens nothing):
     A turns to the next view. The **view strip** (`drawViewStrip` in
@@ -1405,17 +1405,50 @@ Before the blade there is no HUD, no swing, no B buzz, and the play clock
 last used) with the save's items; a save's own continue point only matters
 for death during a session.
 
+**The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25). Every
+map but the rooms indoors is cut into squares of 8 × 8 tiles, and a square
+is seen once the hero has been within 10 tiles of it; a dungeon room is seen
+whole on walking in. What is seen is kept per map as a string of six-bit
+digits, one bit a square (`SaveData.explored`, at most 200 maps; the whole
+frontier with its caves is about 2 KB). The map shows only that, as a plan
+in a few flat colours (floor, road, sand, water, ice, trees, walls, houses,
+pits; doors and stairs lit), and it turns with the world: north up in the
+classic view, a diamond lying as the ground does in the isometric one
+(`projection(turn)`), so up the screen is up the map. Two of it:
+
+- **The corner map**: a window round the hero in the top-right corner, in
+  the view's own dress (its panel, the HUD's pixel), the hero a blinking
+  mark with a pixel the way they face; its dress changes with the canvas
+  HUD's, half way through a turn. Not indoors, not in a field battle.
+  A press opens the MAP page, as M does. C on the MAP page (or its button
+  on touch) turns it off and on, kept in localStorage `zelda.cornerMap`.
+- **The MAP page** of the menu (M): the name of the place, what has been
+  seen of the map fitted to the panel, the names of the areas seen, and out
+  in the frontier its regions beside it (walked into lit, the Landing in the
+  prize colour, here in the hot one). The menu's two pages stand as tabs
+  over it: `P ITEMS` and `M MAP`.
+
+The corner is one cluster: the pause chip and the turn switch, and under
+them, right edges in line, the map (it comes and goes with nothing under it
+to move, so the chip stays put), sized in the HUD's fine pixel
+(`--zelda-turn-u`). All three hand the game its keys back once reached by
+Tab (`data-game-keys`). It steps away while the menu, a dialog, a panel or a way
+out has the screen.
+
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; hold after a swing, release to spin);
 K/X/Shift = B (item); Q, or Tab when there is an item, swaps; P or an
-Escape tap pauses (items, heart pieces, the current quest); on the pause
-screen M turns the sound on or off, T goes to town and V turns to the next
-view (see "Views"). Holding Escape saves and goes to town. Starting over
+Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
+current quest), M on its MAP page (see "The map"); the key of the open page
+or Escape closes it, the other key turns the page. In the menu O turns the
+sound on or off, T goes to town, C (on the MAP page) the corner map; V
+turns to the next view anywhere (see "Views"). Holding Escape saves and
+goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %; three round buttons with pictures and no
 letters: A always (a sword), B (the chosen item) and swap (two arrows) once
 there is an item, and the lines call them THE SWORD BUTTON, THE ITEM BUTTON
-and THE SWAP BUTTON (`keys.ts`); on a phone lying on its side they sit lower and more side by side; a pause chip in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+and THE SWAP BUTTON (`keys.ts`); on a phone lying on its side they sit lower and more side by side; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the other page; on ITEMS SOUND ON/OFF and TO TOWN; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status

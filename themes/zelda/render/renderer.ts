@@ -21,6 +21,7 @@ import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapDef, mapInfo, shar
 import { dayLook, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
+import { drawMapPage } from './worldMap'
 import { drawBattle, pickAt, type BattleBox } from './battle'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
@@ -66,6 +67,12 @@ export interface FrameUI {
   keys: HudKeys
   /** The current view's name, for the pause screen. */
   view?: string
+  /** The menu's page while paused: ITEMS (the default) or MAP (`worldMap.ts`). */
+  page?: 'items' | 'map'
+  /** The corner map is on (said on the MAP page). */
+  corner?: boolean
+  /** The view's turn for the map (0 classic, 1 isometric): `viewState().turn`. */
+  turn?: number
   /** The view strip: every view in the round and which one is on, shown for a moment after a change. */
   strip?: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number } | null
 }
@@ -1242,7 +1249,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin)
         g.restore()
       }
-      if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
+      if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, corner: ui.corner ?? true, view: ui.view ?? '' }, skin)
+      else if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }
     if (alpha < 1) screen.globalAlpha = alpha

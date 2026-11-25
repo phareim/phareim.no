@@ -5,16 +5,41 @@
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
   <EscHold :class="{ px16: dress16 }" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
-  <!-- The turn switch (`render/turnSwitch.ts`): 8 [ carriage ] 16, in the top-right corner (under the pause chip
-    on touch). A press turns the world to the next view, as V does, and the carriage rides the turn. It steps
-    away, by class and never by v-if, while something else has the screen: the pause screen (which has its own
-    VIEW button), a dialog (its box may lie across the corner), a panel, the dark of a way out. No `.stop` on
-    the press: a first touch must still reach input.ts, which is where the touch deck is turned on. -->
+  <!-- The corner: pause and the turn switch, and the map under them: the three ways into the menu and the views.
+    (The map comes and goes, indoors and in a fight, with nothing under it to move: the chip stays where the thumb knows it.)
+    All three hand the game its keys back when they have been reached by Tab (`data-game-keys`, input.ts).
+    It steps away, by class and never by v-if, while something else has the screen: the menu (which has its own
+    buttons), a dialog (its box may lie across the corner), a panel, the dark of a way out.
+    The corner map (`render/worldMap.ts`) is a window round the hero that turns with the world; a press opens the
+    menu's MAP page, as M does. The pause chip opens its ITEMS page, as P and an Escape tap do.
+    The turn switch (`render/turnSwitch.ts`): 8 [ carriage ] 16. A press turns the world to the next view, as V
+    does, and the carriage rides the turn. No `.stop` on its press: a first touch must still reach input.ts, which
+    is where the touch deck is turned on. -->
   <div
-    v-if="phase === 'play' && viewCount > 1"
+    v-if="phase === 'play'"
+    ref="corner"
+    class="zelda-corner"
+    :class="{ px16: dress16, 'zelda-corner--touch': touchUI, 'zelda-corner--away': paused || !!panel || talking || leaving, 'zelda-corner--night': turnStage === 'night', 'zelda-corner--dawn': turnStage === 'dawn' }"
+  >
+    <div class="zelda-corner-row">
+    <button
+      type="button"
+      class="zelda-chip"
+      data-game-keys
+      :disabled="paused || !!panel || talking || leaving"
+      aria-label="Pause"
+      aria-keyshortcuts="P"
+      :title="touchUI ? undefined : 'Pause (P)'"
+      @pointerdown.prevent.stop="openPage('items')"
+      @click="$event.detail === 0 && openPage('items')"
+      @mousedown.prevent
+      @contextmenu.prevent
+    >II</button>
+  <div
+    v-if="viewCount > 1"
     ref="turnWrap"
     class="zelda-turn-wrap"
-    :class="{ px16: dress16, 'zelda-turn-wrap--touch': touchUI, 'zelda-turn-wrap--away': paused || !!panel || talking || leaving, 'zelda-turn-wrap--night': turnStage === 'night', 'zelda-turn-wrap--dawn': turnStage === 'dawn' }"
+    :class="{ px16: dress16, 'zelda-turn-wrap--touch': touchUI }"
   >
     <button
       ref="turnBtn"
@@ -37,16 +62,31 @@
       @pointerleave="turnHover($event, false)"
     ><canvas ref="turnCanvas" class="zelda-turn-canvas" aria-hidden="true" /></button>
   </div>
+    </div>
+    <button
+      v-if="miniShown"
+      type="button"
+      class="zelda-mini"
+      data-game-keys
+      :disabled="paused || !!panel || talking || leaving"
+      aria-label="Map"
+      aria-keyshortcuts="M"
+      :title="touchUI ? undefined : 'Map (M)'"
+      @pointerdown.prevent.stop="openPage('map')"
+      @click="$event.detail === 0 && openPage('map')"
+      @mousedown.prevent
+      @contextmenu.prevent
+    ><canvas ref="miniCanvas" class="zelda-mini-canvas" aria-hidden="true" /></button>
+  </div>
   <span class="zelda-turn-said" role="status" aria-live="polite">{{ turnSaid }}</span>
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
-    the left 60 % that isn't a button. Pause sits apart, in the top-right
-    corner, where no thumb rests; a keyboard has P and Escape. The views are
-    on the turn switch under it, on V, and on the pause screen's VIEW button. -->
-  <div v-if="touchUI && phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ px16: dress16 }">
-    <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
-  </div>
+    the left 60 % that isn't a button. Pause, the map and the views sit apart,
+    in the top-right corner, where no thumb rests. While the game stands
+    still the deck holds the menu's buttons: its two pages, and what each
+    switches, four to a page (the views are on the MAP page, and in the
+    corner in play). -->
   <div
     v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
     class="zelda-deck"
@@ -76,10 +116,17 @@
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cancelReset" @contextmenu.prevent>NO</button>
     </div>
     <div v-else class="zelda-deck-paused">
-      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>RESUME</button>
-      <button class="zelda-pad zelda-pad-wide" :aria-pressed="!sound.muted.value" @pointerdown.prevent.stop="toggleSound" @contextmenu.prevent>{{ sound.muted.value ? 'SOUND OFF' : 'SOUND ON' }}</button>
-      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>VIEW: {{ viewLabel }}</button>
-      <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
+      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause()" @contextmenu.prevent>RESUME</button>
+      <button v-if="menuPage === 'items'" class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage('map')" @contextmenu.prevent>MAP</button>
+      <button v-else class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage('items')" @contextmenu.prevent>ITEMS</button>
+      <template v-if="menuPage === 'items'">
+        <button class="zelda-pad zelda-pad-wide" :aria-pressed="!sound.muted.value" @pointerdown.prevent.stop="toggleSound" @contextmenu.prevent>{{ sound.muted.value ? 'SOUND OFF' : 'SOUND ON' }}</button>
+        <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
+      </template>
+      <template v-else>
+        <button class="zelda-pad zelda-pad-wide" :aria-pressed="cornerMap" @pointerdown.prevent.stop="toggleCorner" @contextmenu.prevent>{{ cornerMap ? 'CORNER MAP ON' : 'CORNER MAP OFF' }}</button>
+        <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>VIEW: {{ viewLabel }}</button>
+      </template>
     </div>
   </div>
   <!-- The login console in Petter's house: the world stands still behind it. -->
@@ -108,14 +155,16 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
  * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
- * P or an Escape tap pause; on the pause screen T goes to town, M turns the
- * sound on or off and V turns to the next view (`views.ts`: the classic one a
- * visit starts in, the 16-bit one, and the studio's own); holding Escape
- * saves and goes back to town.
+ * P or an Escape tap open the menu on its ITEMS page, M on its MAP page
+ * (`render/worldMap.ts`); there the key of the open page (or Escape) closes
+ * it, the other key turns the page. In the menu T goes to town, O turns the
+ * sound on or off, C the corner map; V turns to the next view anywhere
+ * (`views.ts`: the classic one a visit starts in, the 16-bit one, and the
+ * studio's own); holding Escape saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
  * pictures, no letters: A (the sword), and with an item B (the item) and
- * swap; a pause chip in the top-right corner. The input itself is
- * `input.ts`.
+ * swap. The top-right corner holds the map, the pause chip and the turn
+ * switch. The input itself is `input.ts`.
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL. Installed as a web app, a game on another address
@@ -149,6 +198,7 @@ import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from '.
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
 import { GLASS_SKIN, HIRES_WINDOW_SKIN, NEON_SKIN, ROUND_SKIN, type HudSkin } from './render/hud'
+import { drawMiniMap, hasMiniMap, MINI_H, MINI_W } from './render/worldMap'
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
@@ -196,6 +246,12 @@ const RESET_GRACE_MS = 600
 const canvas = ref<HTMLCanvasElement | null>(null)
 const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
+/** The menu's page while paused: ITEMS (P, Escape, the pause chip) or MAP (M, the corner map). */
+const menuPage = ref<'items' | 'map'>('items')
+/** The corner map is wanted (C on the MAP page; kept in this browser), and where the hero is it has something to show. */
+const CORNER_KEY = 'zelda.cornerMap'
+const cornerMap = ref(true)
+const miniShown = ref(false)
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
 /** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror, the newsstand's reader); the hero stands still while it is open. */
@@ -588,6 +644,53 @@ function turnRefuse() {
   audio?.sfx('error')
 }
 
+/** The HUD skin a view wears on this screen (`fine`: the screen has a finer pixel than the HUD's). */
+function hudSkinOf(id: ViewId, fine: boolean): HudSkin {
+  return wearsRound(id) ? ROUND_SKIN : wearsGlass(id) ? GLASS_SKIN : !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+}
+
+/** The corner's unit: one fine px of the canvas HUD, a whole number of device px and never under one CSS px. */
+function cornerUnit(): { uDev: number; css: string } {
+  const dpr = window.devicePixelRatio || 1
+  const uDev = Math.max(Math.round((renderer?.fineUnit() ?? 1) * dpr), Math.ceil(dpr))
+  return { uDev, css: `${uDev / dpr}px` }
+}
+
+const corner = ref<HTMLElement | null>(null)
+const miniCanvas = ref<HTMLCanvasElement | null>(null)
+const mini = { sig: '', unit: '', wrap: null as HTMLElement | null, cv: null as HTMLCanvasElement | null }
+
+/** Each frame, after the switch: the corner map round the hero, drawn when what it shows has changed. */
+function stepMiniMap(nowMs: number) {
+  if (!renderer) return
+  const shown = cornerMap.value && hasMiniMap(WORLD, state)
+  if (shown !== miniShown.value) miniShown.value = shown
+  const wrap = corner.value
+  const { uDev, css } = cornerUnit()
+  // (A corner or a canvas made anew, after the ending or a fight, has neither the unit nor the picture yet.)
+  if (wrap !== mini.wrap) { mini.wrap = wrap; mini.unit = '' }
+  if (wrap && css !== mini.unit) { mini.unit = css; wrap.style.setProperty('--zelda-turn-u', css) }
+  const cv = miniCanvas.value
+  if (cv !== mini.cv) { mini.cv = cv; mini.sig = '' }
+  if (!shown || !cv) return
+  const vs = renderer.viewState()
+  const e = Math.max(0, Math.min(1, vs.turn))
+  const reduced = reducedMotion.value
+  // The dress changes where the canvas HUD's does, half way through a turn.
+  const skin = hudSkinOf((vs.k >= 0.5 ? turnAt.b : turnAt.a) || viewId.value, renderer.fineUnit() > 0)
+  const s = state
+  const key = touchUI.value ? null : 'M'
+  const blink = reduced ? 0 : Math.floor(nowMs / 400) % 2
+  const sig = [uDev, skin === NEON_SKIN ? 0 : skin === ROUND_SKIN ? 1 : skin === GLASS_SKIN ? 2 : 3, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.round(s.hero.x * 8), Math.round(s.hero.y * 8), s.hero.dir, Math.round(e * 200), viewId.value, key, blink].join('|')
+  if (sig === mini.sig) return
+  mini.sig = sig
+  if (cv.width !== MINI_W * 2 * uDev || cv.height !== MINI_H * 2 * uDev) { cv.width = MINI_W * 2 * uDev; cv.height = MINI_H * 2 * uDev }
+  const g = cv.getContext('2d')!
+  g.setTransform(uDev * 2, 0, 0, uDev * 2, 0, 0)
+  g.imageSmoothingEnabled = false
+  drawMiniMap(g, WORLD, s, e, skin, key, nowMs / 1000, reduced)
+}
+
 /** Each frame, after the dress: the switch as the renderer's turn has it. Draws only when something changed. */
 function stepTurnSwitch(nowMs: number) {
   if (!renderer) return
@@ -607,7 +710,7 @@ function stepTurnSwitch(nowMs: number) {
 
   const round = viewList()
   const n = round.length
-  const skinOf = (id: ViewId): HudSkin => wearsRound(id) ? ROUND_SKIN : wearsGlass(id) ? GLASS_SKIN : !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+  const skinOf = (id: ViewId) => hudSkinOf(id, fine)
   const stops = round.map(v => ({ label: n === 2 ? shortTag(v.tag) : '', skin: skinOf(v.id) }))
   const stopOf = (id: ViewId, classic: boolean) => {
     let i = round.findIndex(v => v.id === id)
@@ -736,13 +839,15 @@ function shellKey(e: KeyboardEvent): boolean {
       if (e.code === 'KeyY') { e.preventDefault(); resetRun(); return true }
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
     } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
-    else if (e.code === 'KeyM') { e.preventDefault(); toggleSound(); return true }
+    else if (e.code === 'KeyO') { e.preventDefault(); toggleSound(); return true }
+    else if (e.code === 'KeyC' && menuPage.value === 'map') { e.preventDefault(); toggleCorner(); return true }
   }
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
   // V is the quick way to the next view, in play and on the pause screen (which also has it as a button).
   if (e.code === 'KeyV' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) cycleView(); return true }
-  if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
+  if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) openPage('items'); return true }
+  if (e.code === 'KeyM' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('map'); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
   if (e.code === 'Tab' && !hasItem.value) return true
   return false
@@ -982,10 +1087,34 @@ function escTap() {
   togglePause()
 }
 
-function togglePause() {
+/**
+ * P, M, the pause chip, the corner map: the menu on that page. The key of the page already open closes the menu;
+ * the other one turns the page.
+ */
+function openPage(page: 'items' | 'map') {
+  if (phase.value !== 'play') return
+  if (confirmReset.value) { cancelReset(); return }
+  if (!paused.value) { togglePause(page); return }
+  if (menuPage.value === page) { togglePause(); return }
+  menuPage.value = page
+  pausedDrawn = false
+  audio?.sfx('select')
+}
+
+/** The corner map on or off, kept in this browser. */
+function toggleCorner() {
+  cornerMap.value = !cornerMap.value
+  try { localStorage.setItem(CORNER_KEY, cornerMap.value ? 'on' : 'off') } catch { /* private mode: this visit only */ }
+  pausedDrawn = false
+  audio?.sfx('select')
+}
+
+/** Stops the world on the menu's `page`, or sets it going again. */
+function togglePause(page: 'items' | 'map' = 'items') {
   if (phase.value !== 'play') return
   // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
+  if (!paused.value) menuPage.value = page
   paused.value = !paused.value
   pausedDrawn = false
   slowT = 0
@@ -1190,8 +1319,12 @@ function frame(nowMs: number) {
   stepDress(renderer.viewState())
   syncUnit()
   stepTurnSwitch(nowMs)
+  stepMiniMap(nowMs)
 
   ui.paused = paused.value
+  ui.page = menuPage.value
+  ui.corner = cornerMap.value
+  ui.turn = renderer.viewState().turn
   ui.confirmReset = confirmReset.value
   ui.muted = sound.muted.value
   ui.reducedMotion = reducedMotion.value
@@ -1356,6 +1489,7 @@ onMounted(() => {
   // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the 16-bit one.
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
+  try { cornerMap.value = localStorage.getItem(CORNER_KEY) !== 'off' } catch { /* private mode: on */ }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
   // The dress of the view the visit starts in, before its first frame: nothing of the other look flashes by either.
   dressWanted = wears16(firstView)
@@ -1481,47 +1615,94 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-/* Pause: top-right, clear of the notch and the status bar. */
-.zelda-deck-top {
-  position: absolute;
-  top: calc(14px + env(safe-area-inset-top, 0px));
-  right: calc(14px + env(safe-area-inset-right, 0px));
-  z-index: 5;
-  display: flex;
-  gap: 10px;
-}
-
 /*
- * The turn switch: in the corner beside a keyboard, under the pause chip on touch (right edges in line). Its
- * unit is one fine px of the canvas HUD (`--zelda-turn-u`, written with its width by `stepTurnSwitch`), so its
- * pixels are the HUD's. The picture is a canvas inside a real button; it hangs out under the button (the
- * caption's line) and to its left, where nothing is pressed.
+ * The corner: top-right, clear of the notch and the status bar. The pause chip and the turn switch, and under
+ * them, right edges in line, the map. Its unit is one fine px of the canvas HUD (`--zelda-turn-u`, written by
+ * `stepMiniMap` here and by `stepTurnSwitch` on the switch), so the map's pixels and the switch's are the HUD's.
  */
-.zelda-turn-wrap {
+.zelda-corner {
   --zelda-turn-u: 1px;
   position: absolute;
   top: calc(14px + env(safe-area-inset-top, 0px));
   right: calc(14px + env(safe-area-inset-right, 0px));
   z-index: 5;
-  transition: opacity 120ms steps(3), visibility 0s, top 160ms steps(4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  /* (Room under the switch for the name it shows after a turn.) */
+  gap: calc(16 * var(--zelda-turn-u));
+  transition: opacity 120ms steps(3), visibility 0s;
 }
-.zelda-turn-wrap--touch {
-  top: calc(14px + env(safe-area-inset-top, 0px) + max(44px, calc(28 * var(--px16-fine, 1px))) + 8px);
+.zelda-corner-row {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(6 * var(--zelda-turn-u));
 }
-/* Away (pause, a dialog, a panel, a way out): it steps out, and is not there to be pressed or read. */
-.zelda-turn-wrap--away {
+/* Away (the menu, a dialog, a panel, a way out): it steps out, and is not there to be pressed or read. */
+.zelda-corner--away {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition: opacity 120ms steps(3), visibility 0s 120ms;
 }
 /* A visit's dark first moments, and the first picture coming up out of them (the renderer's dawn is the same curve). */
-.zelda-turn-wrap--night {
+.zelda-corner--night {
   opacity: 0;
   transition: none;
 }
-.zelda-turn-wrap--dawn {
+.zelda-corner--dawn {
   transition: opacity 320ms cubic-bezier(0.5, 1, 0.89, 1);
+}
+/* The corner map: a canvas in a real button, the HUD's pixels. */
+.zelda-mini {
+  position: relative;
+  display: block;
+  width: calc(112 * var(--zelda-turn-u));
+  height: calc(80 * var(--zelda-turn-u));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  opacity: var(--zelda-chrome-a, 1);
+}
+.zelda-mini:focus { outline: none; }
+.zelda-mini:focus-visible {
+  outline: calc(2 * var(--zelda-turn-u)) solid #ffd23f;
+  outline-offset: calc(2 * var(--zelda-turn-u));
+}
+.zelda-mini-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+/* Beside a keyboard the chip is the switch's height; on touch never smaller than a thumb. */
+.zelda-corner .zelda-chip {
+  min-width: calc(28 * var(--zelda-turn-u));
+  min-height: calc(28 * var(--zelda-turn-u));
+  font-size: calc(10 * var(--zelda-turn-u));
+  cursor: pointer;
+  opacity: var(--zelda-chrome-a, 1);
+}
+.zelda-corner--touch .zelda-chip {
+  min-width: max(52px, calc(40 * var(--px16-fine, 1px)));
+  min-height: max(44px, calc(28 * var(--px16-fine, 1px)));
+  font-size: 16px;
+}
+
+/*
+ * The turn switch, beside the pause chip. The picture is a canvas inside a real button; it hangs out under the
+ * button (the caption's line) and to its left, where nothing is pressed.
+ */
+.zelda-turn-wrap {
+  position: relative;
 }
 .zelda-turn {
   position: relative;
@@ -1545,11 +1726,11 @@ onBeforeUnmount(() => {
   outline-offset: calc(2 * var(--zelda-turn-u));
   box-shadow: 0 0 0 calc(6 * var(--zelda-turn-u)) #0b0616;
 }
-/* A thumb's slop, left and down only: never toward the pause chip. */
+/* A thumb's slop, down only: the pause chip stands left of it. */
 .zelda-turn-wrap--touch .zelda-turn::before {
   content: '';
   position: absolute;
-  inset: 0 0 -8px -6px;
+  inset: 0 0 -8px 0;
 }
 .zelda-turn-canvas {
   position: absolute;
@@ -1572,7 +1753,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 /* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepTurnSwitch`). */
-.zelda-deck-top .zelda-chip { opacity: var(--zelda-chrome-a, 1); }
 .zelda-canvas ~ .portal-hint {
   filter: opacity(var(--zelda-chrome-a, 1));
   /* The hint waits for the page to know its view and its unit (set at mount): before that it would come up in a
@@ -1580,9 +1760,9 @@ onBeforeUnmount(() => {
   animation-play-state: var(--zelda-hint-play, paused);
 }
 @media (prefers-reduced-motion: reduce) {
-  .zelda-turn-wrap,
-  .zelda-turn-wrap--away,
-  .zelda-turn-wrap--dawn { transition: none; }
+  .zelda-corner,
+  .zelda-corner--away,
+  .zelda-corner--dawn { transition: none; }
 }
 
 .zelda-chip {
@@ -1682,7 +1862,10 @@ onBeforeUnmount(() => {
 
 .zelda-deck-paused {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 14px;
+  max-width: 820px;
   margin: 0 auto;
   pointer-events: auto;
 }
@@ -1714,7 +1897,7 @@ onBeforeUnmount(() => {
 /* Two wide buttons across a 375 px phone. */
 @media (max-width: 440px) {
   .zelda-deck-paused { gap: 6px; }
-  .zelda-pad-wide { min-width: 0; flex: 1 1 0; font-size: 13px; }
+  .zelda-pad-wide { min-width: 0; flex: 1 1 40%; font-size: 13px; }
   .zelda-pad-wide { min-width: 0; padding: 0 12px; }
 }
 
@@ -1732,7 +1915,7 @@ onBeforeUnmount(() => {
  * so many units. The panels and the ending keep 1 CSS px: they are pages of
  * their own over a dimmed world and must fit a phone.
  */
-.px16.zelda-deck-top,
+.px16.zelda-corner,
 .px16.zelda-deck,
 .px16.esc-hold-layer,
 .zelda-canvas.px16 ~ .portal-hint {
@@ -1752,6 +1935,13 @@ onBeforeUnmount(() => {
   text-shadow: var(--px16-drop);
   font-size: calc(16 * var(--px16-u));
   line-height: calc(16 * var(--px16-u));
+}
+/* Beside a keyboard, in either dress, the chip stays the switch's height. */
+.px16.zelda-corner:not(.zelda-corner--touch) .zelda-chip {
+  min-width: calc(28 * var(--zelda-turn-u));
+  min-height: calc(28 * var(--zelda-turn-u));
+  font-size: calc(10 * var(--zelda-turn-u));
+  line-height: calc(10 * var(--zelda-turn-u));
 }
 .px16 .zelda-chip:active {
   border-image: var(--px16-frame-cool-in) var(--px16-cut);

@@ -44,7 +44,7 @@ item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
 floating stick. The world fills the whole screen and the buttons float
 half see-through over it, bottom right: round, with pictures for letters:
-A (a sword), with B (the item) and swap once there is an item; the pause chip sits in the top-right corner, with the turn switch between the 8-bit and the isometric view under it (beside a keyboard the switch has the corner; V turns the view too, the pause screen has it as a button, and the viewfinder east of the fountain turns it on A: `docs/games/neon-shrine.md`, "Views"). Any tap moves a dialog
+A (a sword), with B (the item) and swap once there is an item; the top-right corner holds the pause chip and the turn switch, with the corner map under them between the 8-bit and the isometric view (M opens the map, P pauses; V turns the view too, the pause screen has it as a button, and the viewfinder east of the fountain turns it on A: `docs/games/neon-shrine.md`, "Views"). Any tap moves a dialog
 on; a thumb that lands on the stick's side for that and stays down is the
 stick once the lines close. After lines close A rests for a third of a
 second before it talks again, and every press in that time starts the rest
@@ -194,7 +194,7 @@ NPC talk and hide. **The games themselves still open without a login**
 (`?theme=miniworld|figur` by URL; Norway-only stays as before): login on the
 games is the next round.
 
-**Pause menu.** RESUME · SOUND ON/OFF (M; the game's sound, the same flag as the arcade ♪ toggle, 2026-09-30) · TO TOWN (T): saves and puts the hero on the plaza
+**Pause menu.** Two pages, ITEMS (P) and MAP (M; `docs/games/neon-shrine.md`, "The map"). RESUME · SOUND ON/OFF (O; the game's sound, the same flag as the arcade ♪ toggle, 2026-09-30) · TO TOWN (T): saves and puts the hero on the plaza
 start, hearts full. Holding Escape for 3 s does the same (pill: HOLD ESC
 FOR TOWN). A hidden tab saves, and pauses once the hero has the blade.
 

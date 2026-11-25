@@ -10,7 +10,6 @@ import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
-import { FRONTIER, realmAt } from '../world/gen/frontier'
 import { buildKind, DIG_MATS, isDigItem, matCount } from '../engine/dig'
 import { digIcon } from './dig'
 
@@ -445,6 +444,22 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys, skin: Hud
   F.draw(g, hint, Math.round((vw - F.width(hint)) / 2), y + h + 8, skin.dim)
 }
 
+/** The menu's two pages, side by side over it, the one open lit: ITEMS (P, Escape) and MAP (M). Returns the y under them. */
+export function drawMenuTabs(g: G, page: 'items' | 'map', vw: number, y: number, keys: HudKeys, skin: HudSkin): number {
+  const F = hudFont(skin)
+  const tabs: Array<['items' | 'map', string]> = [['items', keys.touch ? 'ITEMS' : 'P ITEMS'], ['map', keys.touch ? 'MAP' : 'M MAP']]
+  const gap = 18
+  const total = tabs.reduce((a, [, t]) => a + F.width(t), 0) + gap
+  let x = Math.round((vw - total) / 2)
+  for (const [id, label] of tabs) {
+    const on = id === page
+    F.draw(g, label, x, y, on ? skin.hot : skin.faint, on ? skin.outline : undefined)
+    if (on) { g.fillStyle = skin.hot; g.fillRect(x, y + GLYPH_H + 2, Math.ceil(F.width(label)), 1) }
+    x += Math.ceil(F.width(label)) + gap
+  }
+  return y + 14
+}
+
 export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false, muted = false, view = '', skin: HudSkin = NEON_SKIN) {
   g.fillStyle = skin.veil
   g.fillRect(0, 0, vw, vh)
@@ -452,9 +467,7 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const F = hudFont(skin)
   const w = Math.min(vw - 16, 240)
   const x = Math.round((vw - w) / 2)
-  let y = Math.max(8, Math.round(vh / 2 - 70))
-  F.draw(g, 'PAUSED', Math.round((vw - F.width('PAUSED')) / 2), y, skin.hot, skin.outline)
-  y += 14
+  let y = drawMenuTabs(g, 'items', vw, Math.max(8, Math.round(vh / 2 - 70)), keys, skin)
   skin.panel(g, x, y, w, 118, 'cool')
   // Items
   const items: Array<[string, boolean, string]> = [
@@ -501,54 +514,24 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
     if (fine) icon(g, skin, name, ex, py - 5)
     else g.drawImage(sprite(name), ex, py - 5, 12, 12)
   })
-  // Objective (in the frontier the map of its regions stands at the right of it)
-  const map = frontierMapSize(s)
-  const lines = F.wrap(objective(s), w - 16 - (map ? map.w + 8 : 0))
+  // Objective
+  const lines = F.wrap(objective(s), w - 16)
   F.draw(g, 'QUEST', x + 8, y + 62, skin.prize)
   lines.slice(0, 4).forEach((l, i) => F.draw(g, l, x + 8, y + 74 + i * 10, skin.text))
-  if (map) drawFrontierMap(g, s, x + w - 8 - map.w, y + 62, map.cell, skin)
-  const hint = keys.touch ? 'TAP RESUME' : 'P RESUME   T TOWN'
-  F.draw(g, hint, Math.round((vw - F.width(hint)) / 2), y + 126, skin.dim)
-  const sound = `${keys.touch ? 'SOUND' : 'M SOUND'} ${muted ? 'OFF' : 'ON'}`
+  y += 126
+  if (!keys.touch) {
+    const hint = 'ESC RESUME   T TOWN'
+    F.draw(g, hint, Math.round((vw - F.width(hint)) / 2), y, skin.dim)
+    y += 12
+  }
+  const sound = `${keys.touch ? 'SOUND' : 'O SOUND'} ${muted ? 'OFF' : 'ON'}`
   // Sound and the view share the line: both are things to switch from here.
-  const look = view ? `${keys.touch ? 'VIEW' : 'V VIEW'} ${view}` : ''
+  // (On touch the views are on the MAP page's buttons.)
+  const look = view && !keys.touch ? `V VIEW ${view}` : ''
   const gap = look ? 12 : 0
   const sx = Math.round((vw - F.width(sound) - gap - F.width(look)) / 2)
-  F.draw(g, sound, sx, y + 138, muted ? skin.hot : skin.cool)
-  if (look) F.draw(g, look, sx + F.width(sound) + gap, y + 138, skin.prize)
-}
-
-/** The region the hero is in, when it is one of the frontier's (a cave counts as its region). */
-function frontierAt(s: GameState): { rx: number; ry: number } | null {
-  const m = /^fr:(\d+),(\d+)/.exec(s.map.id)
-  return m ? { rx: Number(m[1]), ry: Number(m[2]) } : null
-}
-
-/** The pause screen's map of the frontier: its size, or null away from it. Cells shrink to keep it within 72 × 50. */
-function frontierMapSize(s: GameState): { w: number; h: number; cell: number } | null {
-  if (!frontierAt(s)) return null
-  const cols = Math.max(...FRONTIER.layout.map(r => r.length))
-  const rows = FRONTIER.layout.length
-  const cell = Math.max(3, Math.min(6, Math.floor(72 / cols), Math.floor(50 / rows)))
-  return { w: cols * cell, h: rows * cell, cell }
-}
-
-/**
- * The frontier's regions as a grid of small squares: the ones walked into lit (`seen:<id>`), the Landing in the
- * prize colour, the hero's own in the hot one. No names, no legend: where you have been and where you are.
- */
-function drawFrontierMap(g: G, s: GameState, x: number, y: number, cell: number, skin: HudSkin) {
-  const here = frontierAt(s)!
-  FRONTIER.layout.forEach((row, ry) => {
-    for (let rx = 0; rx < row.length; rx++) {
-      if (!realmAt(rx, ry)) continue
-      const id = `fr:${rx},${ry}`
-      const isHere = here.rx === rx && here.ry === ry
-      const landing = FRONTIER.landing.rx === rx && FRONTIER.landing.ry === ry
-      g.fillStyle = isHere ? skin.hot : landing ? skin.prize : s.flags[`seen:${id}`] ? skin.cool : skin.slot
-      g.fillRect(x + rx * cell, y + ry * cell, cell - 1, cell - 1)
-    }
-  })
+  F.draw(g, sound, sx, y, muted ? skin.hot : skin.cool)
+  if (look) F.draw(g, look, sx + F.width(sound) + gap, y, skin.prize)
 }
 
 /** How long the view strip stays up after a change (seconds). */

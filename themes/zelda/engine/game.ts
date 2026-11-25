@@ -23,6 +23,7 @@ import { battleFocus, stepBattle, stepField } from './battle/index'
 import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
 import { digLevel } from './digGround'
 import { resetPuzzleRoom } from './puzzles/index'
+import { cleanExplored, revealAround, reveal } from './explore'
 
 function freshInv(): Inventory {
   return {
@@ -76,6 +77,8 @@ export function createGame(
   }
   const edits = save ? decodeDig(save.dig) : undefined
   if (edits) s.digEdits = edits
+  const seen = save ? cleanExplored(save.explored) : null
+  if (seen) s.explored = seen
   if (save) for (const f of save.flags) s.flags[f] = true
   const ev: GameEvent[] = []
   enterMap(world, s, map, entry, ev)
@@ -124,7 +127,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.hook = null
   s.battle = null
   if (!at) s.entry = { map: mapId, entry: entryId }
-  // A frontier region walked into shows on the pause screen's map.
+  // A frontier region walked into is lit on the MAP page's grid of regions.
   if (info.def.edges) s.flags[`seen:${mapId}`] = true
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
@@ -138,6 +141,9 @@ function setZone(world: World, s: GameState, index: number) {
   const info = mapInfo(world, s.map.id)
   s.zoneIndex = index
   s.zone = info.def.kind === 'dungeon' ? cellRect(info, index) : { x: 0, y: 0, w: info.w, h: info.h }
+  // A dungeon room is seen whole as soon as the hero is in it.
+  if (info.def.kind === 'dungeon' && !s.demo) reveal(s, s.map.id, info.w, info.h, s.zone)
+  revealAround(s, info.def, info.w, info.h)
 }
 
 function areaAt(world: World, s: GameState): { name: string; track: TrackId; entry?: string; intro?: AreaIntro } {
@@ -243,6 +249,7 @@ function play(c: Ctx, dt: number, inp: Input) {
     }
     if (s.map.dig) stepDig(c, dt)
     stepHero(c, inp, dt)
+    revealAround(s, c.info.def, c.info.w, c.info.h)
   }
   if (s.mode !== 'play') return
   stepEnemies(c, dt)
@@ -531,6 +538,7 @@ export function toSave(s: GameState): SaveData | null {
     elapsed: s.elapsed,
     ...(s.daytime !== null ? { day: Math.round(s.daytime * 10) / 10 } : {}),
     ...(s.digEdits && encodeDig(s.digEdits) ? { dig: encodeDig(s.digEdits) } : {}),
+    ...(s.explored && cleanExplored(s.explored) ? { explored: cleanExplored(s.explored)! } : {}),
   }
 }
 
@@ -572,6 +580,7 @@ export function parseSave(raw: unknown): SaveData | null {
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
     ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
     ...(decodeDig(r.dig) ? { dig: encodeDig(decodeDig(r.dig)) } : {}),
+    ...(cleanExplored(r.explored) ? { explored: cleanExplored(r.explored)! } : {}),
   }
 }
 

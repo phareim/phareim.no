@@ -150,16 +150,25 @@ describe('the view registry', () => {
 describe('where the views are found', () => {
   const shell = readFileSync(resolve(root, 'Zelda.vue'), 'utf8')
   it('has the turn switch beside the world, the button on the pause screen and V as the quick key', () => {
-    // The touch corner holds the pause chip alone; the switch is a root of its own, so it is there beside a keyboard too.
-    const corner = shell.slice(shell.indexOf('class="zelda-deck-top"'), shell.indexOf('class="zelda-deck"'))
-    assert.match(corner, /togglePause/)
-    assert.doesNotMatch(corner, /cycleView|turnPress/)
-    const wrap = shell.slice(shell.indexOf('class="zelda-turn-wrap"') - 200, shell.indexOf('class="zelda-turn-said"'))
-    assert.match(wrap, /v-if="phase === 'play' && viewCount > 1"/, 'only where there is a view to turn to')
-    assert.doesNotMatch(wrap.split('class="zelda-turn-wrap"')[0], /touchUI/, 'not on touch alone')
+    // The corner holds the map, the pause chip and the switch, beside a keyboard and on touch alike.
+    const corner = shell.slice(shell.indexOf('class="zelda-corner"') - 200, shell.indexOf('class="zelda-turn-said"'))
+    assert.match(corner, /v-if="phase === 'play'"/)
+    assert.doesNotMatch(corner.split('class="zelda-corner"')[0], /touchUI/, 'not on touch alone')
     // It steps away by class (never by v-if, which would pop) while something else has the screen.
-    const away = wrap.match(/'zelda-turn-wrap--away': ([^,}]+)/)[1]
+    const away = corner.match(/'zelda-corner--away': ([^,}]+)/)[1]
     for (const what of ['paused', 'panel', 'talking', 'leaving']) assert.match(away, new RegExp(what), `away while ${what}`)
+    // The map opens the menu's MAP page, the chip its ITEMS page; neither turns the view.
+    const mini = corner.slice(corner.indexOf('class="zelda-mini"'))
+    assert.match(mini, /openPage\('map'\)/)
+    assert.match(mini, /aria-keyshortcuts="M"/)
+    const chip = corner.slice(corner.indexOf('class="zelda-chip"'), corner.indexOf('class="zelda-turn-wrap"'))
+    assert.match(chip, /openPage\('items'\)/)
+    // Reached by Tab, each hands the game its keys back (input.ts); the map comes last, so nothing moves when it goes.
+    for (const b of [mini, chip]) assert.match(b, /data-game-keys/)
+    assert.ok(corner.indexOf('class="zelda-mini"') > corner.indexOf('class="zelda-turn-wrap"'))
+    assert.doesNotMatch(mini + chip, /cycleView|turnPress/)
+    const wrap = corner.slice(corner.indexOf('class="zelda-turn-wrap"') - 60, corner.indexOf('class="zelda-mini"'))
+    assert.match(wrap, /v-if="viewCount > 1"/, 'only where there is a view to turn to')
     assert.match(wrap, /class="zelda-turn"\s+data-game-keys/, 'a focused switch gives the game its keys back (input.ts)')
     assert.match(wrap, /aria-keyshortcuts="V"/)
     assert.match(wrap, /:aria-label="turnLabel"/)
