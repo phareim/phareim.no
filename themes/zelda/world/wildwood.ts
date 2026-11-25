@@ -66,7 +66,7 @@ export const WILDWOOD: MapDef = {
     'T...;.T.......,T...........OOOOO.*...j...*..................TTT..F:::.HHHHH:....T..T',
     'T.T...........,.........TT.OOOOO.*.......*..................TTT..F:::.HHmHH........T',
     'TT....T..z....,.........T..OOOOO.*......J*....ZZ.....ZZ.....TTT.TF:::...,......:...T',
-    'T;..;........T,..T..;T...;.OOOOO.*.......*..................TTT..FFFF.;.,;.........T',
+    'T;..;........T,..T..;T...;.OOOOO.*.......*..................TTT..FFFF.;.,;...Ǩ.....T',
     'T....;.......T,............OOOOO.*********........Z.........TTT.....:...,:.......T.T',
     'T.......;..T.T,.T;.......T.OOOOO.;.q...;;....;;.y...p;..ZZ..TTT...e.....,:....:.!..T',
     'TTTTTTTTT.....,,,,,,,,,,,|.OOOOO......................;.....TTT...;.....,;...;;...:T',
@@ -133,6 +133,11 @@ export const WILDWOOD: MapDef = {
     { word: 'STEPS', flag: 'riddle2' },
   ],
   marks: {
+    // KNUT, an old miner from Lumenby, by Mossa's cottage: Bror's lamp (`q.lamp.*`, docs/worlds/atlas.md).
+    'Ǩ': { ent: { t: 'npc', id: 'q.lamp.miner', look: 'foreman', talk: [
+      { when: { flag: 'q.lamp.done' }, lines: ["KNUT: BROR'S LAMP CAME UP? THEN HE'S FINE. HE WAS ALWAYS STUBBORN."] },
+      { lines: ['KNUT: MY MATE BROR WENT DOWN THE DEEP DRIFT AND NEVER CAME UP.', 'KNUT: HIS SISTER GUNN STILL WAITS AT THE UNION HALL IN LUMENBY QUARRY.', 'KNUT: LUMENBY IS NORTH-WEST, UP PAST THE RIDDLE GROVE.'], set: 'q.lamp.heard' },
+    ] } },
     // ---- Coming and going ----
     '@': { ent: { t: 'entry', id: 'town', dir: 'left' } },
     '<': { tile: ',', ent: { t: 'warp', to: 'overworld', entry: 'wildwood' } },

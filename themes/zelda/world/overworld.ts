@@ -45,7 +45,7 @@ export const OVERWORLD: MapDef = {
     'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t.ZZķZZ..TTTTT:.....TTTTTTT;;..TTTT.TTT#.....E....:.,Ȣ........##.Gz.G..G..#',
     'TTHHHHßHHHH..HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##..........#',
     'TTTT,¤¤¤Ð,,,,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
-    'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##z.........#',
+    'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,Ǩ.##z.........#',
     'TT..HHHHHHHHH:,,,,,,,,,,,,,:.T...:..T.TTTTT;..;..TTTTTTT..d.....;......,,,,,,~~~~,,,,y,,,..##.G..G..G..#',
     'TT..HHHHHHHHH,,,,,t~~~~t,,,t..:...T...TTTTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:........t#',
     'TT..HHHHHHHHH,,,,,,~~~~,,Ω,,..ZZZ...:.TTTTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,....,,,,,,,,Ƕ%Ɋ',
@@ -58,17 +58,17 @@ export const OVERWORLD: MapDef = {
     'TT...:T....t.......,,,.......t...:T...TTTTTTTT..TTTTTTTTTTTTTTTTTTTT#TTTTTTTTTT,,TTTTTTTTTT##TT..*..*.T#',
     'TT.............::..,,,0.::............TTTTTTTT..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTT#TTT..z..TT#',
     'TTTTTTTTTTTTTTTTTT.,,,.TTTTTTTTTTTTTTTTTTTTTT....TTTTTTTTTT:.:TTTTTTTTTTTT:....,,.....:...TT#TT;;..;;TT#',
-    'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
+    'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*.Ǫ.T#T;;;...;TT#',
     'TT..T:......T.HHH::,,,:.:......T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
     'TT.*..;;.:*...HHH..,,,...*...*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
     'TTT.)........tnmnt.,,,t:ë..:..t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
     '<,**,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
     '<,**,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
-    'TT.T...............t,t----------------TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
+    'TT.T...............t,t-Ǯ--------------TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
     'TT~~~~~~~~~~~~~~~~~~=Ŋ--ZZZ-----ZZZ---TTTT,,t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
     'TT~~~~~~~~~~~~~~~~~~=---ZØZ--ü--Z]Z---TTTT,,,,1....,............e......TT.....,,,.......*...........:TTT',
     'TT~~~~~~~~~~~~~~~~~~=-t--------------tTTTT:?.o.....,.......:...........TT...,,...~~~~~~~~~~~~~~~~~.....T',
-    'TT~~~~~~~~~~~~~~~~~~=------Æ-å-Å------TTTT....,,,,,,.....;;;;.....*....TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
+    'TT~~~~~~~~~~~~~~~~~~=------Æ-å-Å---Ș--TTTT....,,,,,,.....;;;;.....*....TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
     'TT~~~~~~~~~~~~~~~~~~Ƥ--é----æ-ø-------TTTTT..,.................;;......TT..,..~~~~~~~~~~~~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTTT.,..:.....*.............:..TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTT..,.....*..*..e.............TT..,.~~~~~~~~~...~~~~~~~~~~~~..T',
@@ -153,6 +153,27 @@ export const OVERWORLD: MapDef = {
     'Ŧ': { ent: { t: 'warp', to: 'yulefjord', entry: 'ferry' }, tile: '=' },
     'Ƒ': { ent: { t: 'entry', id: 'ferry', dir: 'up' }, tile: '=' },
     'Ŋ': { ent: { t: 'sign', lines: ['THE FERRY: NORTH TO YULE FJORD.', 'IT BRINGS YOU BACK ANY TIME.'] } },
+    // ---- The stories that lead out into the lands start here (docs/worlds/atlas.md) ----
+    // SIGRID, carried off in the night from Seter Fell: the cracked bell (`q.bell.*`).
+    'Ǩ': { ent: { t: 'npc', id: 'q.bell.girl', look: 'dairymaid', hide: { flag: 'q.bell.rung' }, talk: [
+      { when: { flag: 'q.bell.crack' }, lines: ['SIGRID: YOU HAVE THE CHURCH BELL? CAREFUL WITH IT. IT SULKS.'] },
+      { lines: ['SIGRID: I WOKE UP IN THE MARKET WITH HAY IN MY HAIR. SOMETHING CARRIED ME OFF.', 'SIGRID: MY COWS ARE ON SETER FELL, UP THE ROAD NORTH OF WHISPER WOODS.', 'SIGRID: THE CHURCH BELL ON YULE FJORD WOULD CALL ME HOME. BUT IT IS CRACKED.', 'SIGRID: THE CHURCH IS FAR NORTH, OVER THE TOPS OF THE FELL.'], set: 'q.bell.heard' },
+    ] } },
+    // The TENDER, watering a patch where nothing grows: the clean seed (`q.seed.*`).
+    'Ǫ': { ent: { t: 'npc', id: 'q.seed.tender', look: 'robot', talk: [
+      { when: { flag: 'q.seed.planted' }, lines: ['TENDER: THE SEED TOOK? GOOD. I WILL WALK HOME NOW. SLOWLY.'], give: 'bits50' },
+      { lines: ['TENDER: WATER. WATER. NOTHING GROWS IN THIS PATCH. I HAVE WATERED IT FOR NINE YEARS.', 'TENDER: MY LAST BED IS IN STILLSAND. IT WANTS A CLEAN SEED, AND NOTHING HERE IS CLEAN.', 'TENDER: THE WINDMILL KEEPER IN THE SPORELIGHT KNOWS WHERE CLEAN SOIL IS.', 'TENDER: THE SPORELIGHT IS NORTH, PAST THE NIGHT MARKET.'], set: 'q.seed.heard' },
+    ] } },
+    // TUVA, with a map page the wind blew in: the surveyor's pages (`q.map.*`).
+    'Ǯ': { ent: { t: 'npc', id: 'q.map.kid', look: 'kid', talk: [
+      { when: { flag: 'q.map.p1' }, lines: ['TUVA: THE MAP MAN MUST BE IN STILLSAND. EAST, PAST THE HOLLOW GRAVES.'] },
+      { lines: ['TUVA: A PAGE OF A MAP BLEW IN ON THE WIND. IT SAYS STILLSAND IN THE CORNER.', 'TUVA: SOMEONE OUT THERE IS MISSING IT. TAKE IT. IT TICKLES.'], set: 'q.map.p1' },
+    ] }, tile: '-' },
+    // BO, who plays in the RAINCHECK's show: the stolen last act (`q.act.*`).
+    'Ș': { ent: { t: 'npc', id: 'q.act.busker', look: 'guitar', talk: [
+      { when: { flag: 'q.act.done' }, lines: ['BO: THE SHOW HAS AN ENDING NOW. IT IS VERY SAD. GO AND SEE IT TWICE.'] },
+      { lines: ["BO: I PLAY IN THE RAINCHECK'S SHOW. THE RAINCHECK IS A BLIMP, A FLYING THEATRE.", 'BO: OUR SHOW HAS NO ENDING. SOMEONE STOLE ACT THREE, SO I HUM THE GAP.', "BO: SHE IS MOORED IN FOGSTAGE, FAR WEST, PAST THE WILDWOOD'S DEEP WOODS.", 'BO: OUR OLD PROMPTER SAW EVERYTHING.'], set: 'q.act.heard' },
+    ] }, tile: '-' },
     'Ƥ': { ent: { t: 'npc', id: 'ferryman', look: 'guard', hide: { item: 'sword' }, talk: [{ lines: ['NO BLADE, NO BOAT.', 'YULE FJORD BITES.', 'THE KEEPER EAST OF TOWN HAS ONE.'] }] }, tile: '=' },
     // ---- The gates into the lands (gates.ts): each warp's entry over there is `gate-<id>` ----
     'Ƨ': gateWarp('fell'),
