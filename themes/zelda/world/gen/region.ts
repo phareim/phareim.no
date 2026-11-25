@@ -393,7 +393,8 @@ export function generateRegion(ctx: RegionCtx): MapDef {
   if (!ctx.landing) {
     let open = 0
     for (let i = 0; i < W * H; i++) if (reach[i]) open++
-    const want = Math.round((open / 100) * realm.density * (1 + 0.2 * Math.min(ctx.depth, 6)))
+    // (A battle realm's foes stand in groups of one to four: fewer places for them.)
+    const want = Math.round((open / 100) * realm.density * (1 + 0.2 * Math.min(ctx.depth, 6)) * (realm.special === 'battle' ? 0.4 : 1))
     const keepOff = [...passTiles, ...(entries.camp ? [entries.camp] : [])]
     for (let n = 0, tries = 0; n < want && tries < want * 30; tries++) {
       const x = rng.int(RIM + 1, W - RIM - 2)
