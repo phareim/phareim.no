@@ -263,12 +263,14 @@ export function digPlan(world: World, s: GameState, item: UseItem | null = s.inv
 
   // The hammer.
   if (def.dig?.build === false) return none('nothing', 'hammer')
-  // What was built comes back whole.
+  // What was built comes back whole, and what it stood on stays: a block built under it (under a ramp: stone),
+  // or the stone or timber the map has there.
+  const under = (h: number, ch: TileChar): TileChar => (h > bh ? ch : h === bh && (bc === 'а' || bc === 'б') ? bc : after(h, 'д'))
   if (edited) {
-    if (isRamp(t)) return plan({ verb: 'take', tool: 'hammer', ch: after(th - 1, 'д'), h: th - 1, gain: { stone: 1 } })
+    if (isRamp(t)) return plan({ verb: 'take', tool: 'hammer', ch: under(th - 1, 'а'), h: th - 1, gain: { stone: 1 } })
     if (t === 't' && bc !== 't') return plan({ verb: 'take', tool: 'hammer', ch: after(th, 'д'), h: th, gain: { lumen: 1, wood: 1 } })
     if (t === '=' && bc !== '=') return plan({ verb: 'take', tool: 'hammer', ch: bc, h: bh, gain: { wood: 1 } })
-    if ((t === 'а' || t === 'б') && th > bh && th > z) return plan({ verb: 'take', tool: 'hammer', ch: after(th - 1, 'д'), h: th - 1, gain: t === 'а' ? { stone: 1 } : { wood: 1 } })
+    if ((t === 'а' || t === 'б') && th > bh && th > z) return plan({ verb: 'take', tool: 'hammer', ch: under(th - 1, t), h: th - 1, gain: t === 'а' ? { stone: 1 } : { wood: 1 } })
   }
   if (t === '~') return plan({ verb: 'build', tool: 'hammer', ch: '=', h: g, cost: { wood: 1 } })
   if (!(SOFT.has(t) || t === 'а' || t === 'б' || t === 'к')) return none('nothing', 'hammer', 'build')

@@ -186,6 +186,31 @@ describe('Neon Shrine dig & build', () => {
     assert.equal(s.inv.build, 'lamp')
   })
 
+  it('takes back the top block of a stack and leaves the one under it as built', () => {
+    for (const [kind, ch] of [['stone', 'а'], ['wood', 'б']]) {
+      const s = quarry(['hammer'])
+      s.inv.mats = { [kind]: 2 }
+      s.inv.build = kind
+      // From the plateau (h 2), two blocks on the ground east of it: 1 → 2 → 3.
+      stand(s, 20, 6, 'right')
+      use(s, 'build')
+      use(s, 'build')
+      assert.equal(height(s, 21, 6), 3)
+      assert.equal(Z.matCount(s, kind), 0)
+      use(s, 'build') // the top one back
+      assert.equal(tile(s, 21, 6), ch, `${kind}: the block under it`)
+      assert.equal(height(s, 21, 6), 2)
+      assert.equal(Z.matCount(s, kind), 1)
+      // From the ground, the last one back: the map as it was.
+      stand(s, 21, 7, 'up')
+      use(s, 'build')
+      assert.equal(tile(s, 21, 6), '.')
+      assert.equal(height(s, 21, 6), 1)
+      assert.equal(Z.matCount(s, kind), 2)
+      assert.equal(s.digEdits?.quarry, undefined)
+    }
+  })
+
   it('keeps a ledge chest out of reach until the hero stands as high', () => {
     const s = quarry()
     stand(s, 16, 5, 'up') // on the plateau (h 2), the chest north of the hero
