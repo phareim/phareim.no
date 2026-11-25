@@ -233,7 +233,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
     give()
     place('overworld', 'gate-spore', 0, 2)
     reveal(s, 'overworld', 104, 48, { x: 0, y: 0, w: 104, h: 48 })
-    for (const id of ['fr:6,8', 'fr:6,7', 'fr:7,2', 'fr:4,1']) s.flags['seen:' + id] = true
+    for (const id of ['seterfell', 'sporelight', 'stillsand']) s.flags['seen:' + id] = true
     run(5)
     ui.paused = true
     ui.page = 'map'
