@@ -130,6 +130,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'boss': give(); place('shrine', 'start', 0, -37); s.zoneIndex = 1; s.zone = { x: 16, y: 0, w: 16, h: 12 }; run(150); break
   case 'dark': give(); place('shrine', 'start', 16, -30); s.zoneIndex = 5; s.zone = { x: 32, y: 12, w: 16, h: 12 }; run(30); break
   case 'pause': give(); run(10); ui.paused = true; break
+  case 'f-pause': give(); for (const id of ['fr:4,6', 'fr:4,5', 'fr:4,4', 'fr:3,4']) place(id, 'camp'); run(10); ui.paused = true; break
   case 'hut': give(); place('hut', 'door', 0, -5.5); s.hero.dir = 'up'; run(5); break
   case 'hutout': run(12); break
   case 'hutfront': give(); place('overworld', 'hut', 0, 1.5); run(10); break
@@ -471,6 +472,7 @@ const SHOTS = [
   ['f-meadow', 'f-meadow', 1280, 800, 1, 0],
   ['f-quarry', 'f-quarry', 1280, 800, 1, 0],
   ['f-cave', 'f-cave', 1280, 800, 1, 0],
+  ['f-pause-390', 'f-pause', 390, 844, 2, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')

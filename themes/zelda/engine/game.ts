@@ -108,6 +108,8 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.disc = null
   s.hook = null
   if (!at) s.entry = { map: mapId, entry: entryId }
+  // A frontier region walked into shows on the pause screen's map.
+  if (info.def.edges) s.flags[`seen:${mapId}`] = true
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
   settleFoes(world, s)

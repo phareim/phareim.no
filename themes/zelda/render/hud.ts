@@ -10,6 +10,7 @@ import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
+import { FRONTIER, realmAt } from '../world/gen/frontier'
 
 type G = CanvasRenderingContext2D
 
@@ -493,10 +494,12 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
     if (fine) icon(g, skin, name, ex, py - 5)
     else g.drawImage(sprite(name), ex, py - 5, 12, 12)
   })
-  // Objective
-  const lines = F.wrap(objective(s), w - 16)
+  // Objective (in the frontier the map of its regions stands at the right of it)
+  const map = frontierMapSize(s)
+  const lines = F.wrap(objective(s), w - 16 - (map ? map.w + 8 : 0))
   F.draw(g, 'QUEST', x + 8, y + 62, skin.prize)
   lines.slice(0, 4).forEach((l, i) => F.draw(g, l, x + 8, y + 74 + i * 10, skin.text))
+  if (map) drawFrontierMap(g, s, x + w - 8 - map.w, y + 62, map.cell, skin)
   const hint = keys.touch ? 'TAP RESUME' : 'P RESUME   T TOWN'
   F.draw(g, hint, Math.round((vw - F.width(hint)) / 2), y + 126, skin.dim)
   const sound = `${keys.touch ? 'SOUND' : 'M SOUND'} ${muted ? 'OFF' : 'ON'}`
@@ -506,6 +509,39 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const sx = Math.round((vw - F.width(sound) - gap - F.width(look)) / 2)
   F.draw(g, sound, sx, y + 138, muted ? skin.hot : skin.cool)
   if (look) F.draw(g, look, sx + F.width(sound) + gap, y + 138, skin.prize)
+}
+
+/** The region the hero is in, when it is one of the frontier's (a cave counts as its region). */
+function frontierAt(s: GameState): { rx: number; ry: number } | null {
+  const m = /^fr:(\d+),(\d+)/.exec(s.map.id)
+  return m ? { rx: Number(m[1]), ry: Number(m[2]) } : null
+}
+
+/** The pause screen's map of the frontier: its size, or null away from it. Cells shrink to keep it within 72 × 50. */
+function frontierMapSize(s: GameState): { w: number; h: number; cell: number } | null {
+  if (!frontierAt(s)) return null
+  const cols = Math.max(...FRONTIER.layout.map(r => r.length))
+  const rows = FRONTIER.layout.length
+  const cell = Math.max(3, Math.min(6, Math.floor(72 / cols), Math.floor(50 / rows)))
+  return { w: cols * cell, h: rows * cell, cell }
+}
+
+/**
+ * The frontier's regions as a grid of small squares: the ones walked into lit (`seen:<id>`), the Landing in the
+ * prize colour, the hero's own in the hot one. No names, no legend: where you have been and where you are.
+ */
+function drawFrontierMap(g: G, s: GameState, x: number, y: number, cell: number, skin: HudSkin) {
+  const here = frontierAt(s)!
+  FRONTIER.layout.forEach((row, ry) => {
+    for (let rx = 0; rx < row.length; rx++) {
+      if (!realmAt(rx, ry)) continue
+      const id = `fr:${rx},${ry}`
+      const isHere = here.rx === rx && here.ry === ry
+      const landing = FRONTIER.landing.rx === rx && FRONTIER.landing.ry === ry
+      g.fillStyle = isHere ? skin.hot : landing ? skin.prize : s.flags[`seen:${id}`] ? skin.cool : skin.slot
+      g.fillRect(x + rx * cell, y + ry * cell, cell - 1, cell - 1)
+    }
+  })
 }
 
 /** How long the view strip stays up after a change (seconds). */
