@@ -4,11 +4,36 @@ Across the bay from the town lies the **frontier**: a world made from a seed
 instead of drawn by hand, many times the size of the hand-made maps. The town,
 the coast, the Shrine and the Wildwood stay as they are.
 
-**Getting there.** The ferry at the end of the town's pier (overworld 20,38)
-goes to THE LANDING (`fr:6,8`); the dock there brings you back (entry
-`ferry`). The ferryman stands on the pier until the hero has a blade. In the isometric view the
-neon ferry bobs alongside each pier (`render/iso/ferryArt.ts`, lab scenes `f-ferry-town` and
-`f-ferry-landing`).
+**Getting there.** Two ways: by boat to the Landing, or on foot through a gate
+straight into a realm.
+
+- The ferry at the end of the town's pier (overworld 20,38) goes to THE
+  LANDING (`fr:6,8`); the dock there brings you back (entry `ferry`). The
+  ferryman stands on the pier until the hero has a blade. In the isometric view
+  the neon ferry bobs alongside each pier (`render/iso/ferryArt.ts`, lab scenes
+  `f-ferry-town` and `f-ferry-landing`).
+- Six **gates** (`gen/gates.ts`) lead from the edges of the hand-made maps into
+  a region of a realm. Each sits at the end of a short road between two lamp
+  posts, with a sign at the junction; the region side has a notch in its rim
+  with lamp posts, a sign and a road to the region's network. Both ends name
+  the entry `gate-<id>`.
+
+| Gate | From (hand-made) | Lock | Into | Then |
+|---|---|---|---|---|
+| `fell` | Whisper Woods, north (overworld 45,0) | a boulder (bombs; the bomb bag is the chest beside it) | SETER FELL `fr:4,1` | Yule Fjord north of it |
+| `spore` | Night Market, north wall (81,0) | a warden, until the blade | THE SPORELIGHT `fr:7,2` | the Battle Glade's stairs |
+| `sand` | Hollow Graves, east wall (103,12) | a cracked wall (bombs) | STILLSAND `fr:9,4` | the Puzzle Lab's stairs, the pyramid next door |
+| `lawns` | Mirror Lake, east shore (103,37) | a warden, until the blade | RERUN ESTATES `fr:8,6` | |
+| `quarry` | the Wildwood's Riddle Grove, north (39,0) | the Wildwood's own boulders | LUMENBY QUARRY `fr:2,2` | the Old Quarry's stairs, the deep drift |
+| `fog` | the Wildwood's Deep Woods, west (0,20) | the ravine (the hook) | FOGSTAGE `fr:2,6` | |
+
+So every realm but Fogstage is within about 200 tiles of the start on foot
+(Seter Fell about 80, Yule Fjord about 135); the Wildwood, the quarry, the
+fell and Whisper Woods make a loop. On the MAP page the gates and the ferry
+are lit squares on the coast's map, and the frontier's grid stands beside it
+(once the blade is in hand) with a bar on each gate region's gate side. Until
+the hero has walked into the frontier, the pause screen's QUEST line points at
+the gates and the ferry when it has room (`progress.ts`).
 
 ## Frontier art
 
@@ -36,9 +61,10 @@ for those systems. See the [art checklist](../art/codex-tasks.md).
 
 | File | What |
 |---|---|
-| `frontier.ts` | `FRONTIER`: seed, region size (64×44), the macro map (one char per region → a realm), the Landing, hand-written `sites`. `frontierMap(id)` makes a map on first ask and keeps it. Ids: `fr:<rx>,<ry>`, caves `fr:<rx>,<ry>:cave<n>`, the Underglow's layers `fr:<rx>,<ry>:deep<n>` |
+| `frontier.ts` | `FRONTIER`: seed, region size (64×44), the macro map (one char per region → a realm), the Landing, hand-written `sites`, the `gates`. `frontierMap(id)` makes a map on first ask and keeps it. Ids, one spelling each (`fr:06,8` and `cave00` are no map): `fr:<rx>,<ry>`, caves `fr:<rx>,<ry>:cave<n>`, the Underglow's layers `fr:<rx>,<ry>:deep<n>` |
+| `gates.ts` | The gates from the hand-made world (data only): id, region, the rim side and a preferred place along it, the hand-made map and entry it leads back to, the region-side sign. `gateWarp(id)` is the hand-made side's warp tile |
 | `realms.ts` | The realms as data (`RealmSpec`, `types.ts`): terrain mix, foes by weight, density, places, folk and what they say, lore, loot, allowed views, `special` (dig / battle / puzzles) |
-| `region.ts` | One region: noise in world coordinates → land; a rim with passes where a neighbour is (the pass offsets are a hash of the edge, so both sides cut the same gap); places (`stamps.ts`, sites); roads (cheapest paths joining passes and places); folk, chests, signs and foes on what the roads reach |
+| `region.ts` | One region: noise in world coordinates → land; a rim with passes where a neighbour is (the pass offsets are a hash of the edge, so both sides cut the same gap); places (`stamps.ts`, sites); roads (cheapest paths joining passes and places); folk, chests, signs and foes on what the roads reach; then, with no more draws from the seed, a gate cut into the rim (`cutGate`) and the foes thinned |
 | `stamps.ts` | The places: camp, house, hamlet, shrine, relic (a realm's heart piece), graves, cave, pond, market, ruin, grove, stones, the Landing's dock; per realm: lots, truck, whistle (Lumenby); seter, trollhump, mound, cairns (Seter Fell); stilts, boathouse, racks, lighthouse (Yule Fjord); island, ribs, oasis, warden, caravan (Stillsand); well (stairs to THE UNDER), clickers, shellyard, windmill (Sporelight); hilltown, ghostlight, flats, reeds (Fogstage); culdesac, lot, booth, hedgemaze, garagesale (Rerun) |
 | `cave.ts` | A cave: 2–3 × 2 rooms of 16×12 joined by a random spanning tree (`carveRooms`), the stairs up in the first, a chest in the furthest; a realm may name its caves and their foes (`RealmSpec.cave`) |
 | `descent.ts` | THE UNDERGLOW under Lumenby: six layers of 3×2 rooms (Echo Ledges, the Upside Grove, the Glass Sea, Broadcast, the Fossil Arcade, the Core), stairs up and down, a person of the deep on each, heart pieces on 2 and 4; the Core's Geyser goes home. Reached by the deep drift at `fr:0,3` |
@@ -52,23 +78,57 @@ there is open ground fades into the neighbour at the same place along the
 edge), `realm`, and `views` (the shell turns to an allowed view while the hero
 is there, the isometric one first, and back to the visitor's own after; V skips
 the others). Saves just name the map (`fr:6,8`), so a save made out there loads
-out there; death puts you at the region's camp.
+out there. The continue point (death, a reload, a closed tab) is the way you
+came into the region: its camp when you walked in over an edge or came by the
+ferry, the gate or the stairs when you came through one. A save whose entry has
+gone continues at that map's camp, its region's camp, or the ferry's pier, and
+never as a new game (`createGame`). A region is one area edge to edge, so its
+realm's first-visit intro (`realm:<id>`) opens when the arrival's fade is
+over, and the banner shows only when the area's name changes.
+
+**How hard a region is.** What the seed draws counts from the Landing
+(`RegionCtx.depth`: battle group sizes, how many foes are tried, cave foes and
+loot). How many foes *stay* counts from the nearest way in, `near` = min(the
+Landing distance, 1 + the distance to the nearest gate region): a battle group
+keeps the size it would have had at `near`, a region keeps as many as its
+density at `near` gives, at most 18 field foes and 8 battle groups (8 field
+foes in the Green Miles), none within 5 tiles of a placed stamp or site (a
+stamp's own foe slot stays), none within sight of a gate's arrival. The heart
+piece still stands in each realm's region furthest from the Landing.
 
 Same seed, same world: everything is a pure function of the seed and the
 region's place, on every device. Things saved against the world (chest flags
-`chest:fr:<rx>,<ry>.c<n>`, a realm's first-visit flag `realm:<id>`, dig edits)
-point into it — **changing the seed, the region size or a realm's recipe moves
-everything already saved**. Add realms and regions at the macro map's edges
-instead, or bump the frontier's seed only with a save migration.
+`chest:fr:<rx>,<ry>.c<n>`, dig caches `took:…cache<n>`, a realm's first-visit
+flag `realm:<id>`, dig edits) point into it — **changing the seed, the region
+size or a realm's recipe moves everything already saved**. Add realms and
+regions at the macro map's edges instead, or bump the frontier's seed only with
+a save migration.
+
+**The save-safe way to change a region** is after the seed's last draw, as the
+gates do: `cutGate` and the foe thinning run once everything the seed places
+is placed, use no random numbers, and route round chests, folk and buried
+caches. A new gate is one more row in `gates.ts` (its id is never renamed or
+removed afterwards: saves continue at `gate-<id>`). The fingerprint fixture
+`tests/zelda-frontier-fingerprint.json` (`tests/zelda-fingerprint.mjs`, taken
+before the gates) holds every map's chest ids, places and contents, folk,
+entries, caves and caches; `tests/zelda-gates.test.mjs` fails if any of them
+moves. Regenerate it only for a change that is meant to move saved things.
 
 Checks: `tests/zelda-frontier.test.mjs` (every region made and kept; both sides
 of every edge open at the same tiles; the world checks pass with every region
 and cave and layer of the deep in; the ferry; walking off an edge; every realm
 on the macro map; every site in its region and realm; every line in the pixel
-font; the clean seed talked through end to end). Pictures:
+font; the clean seed talked through end to end) and `tests/zelda-gates.test.mjs`
+(every gate walked through both ways, saved at and reloaded, calm on arrival;
+each lock; every gate reached on foot from the start; every realm but Fogstage
+within 200 tiles; the fingerprint; the foe caps; the continue point, the realm
+intro, old saves and one spelling per map). Pictures:
 `VIEW=iso node scripts/zelda-lab/shot.mjs <dir> f-landing,f-meadow,f-cave` and
 one per realm: `f-lumenby`, `f-underglow`, `f-seterfell`, `f-yulefjord`,
-`f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`.
+`f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`; the gates: `g-fell`,
+`g-spore`, `g-sand`, `g-lawns`, `g-quarry`, `g-fog` (the hand-made side),
+`g-in-fell`, `g-in-sand` (the region side), `g-map` and `g-map-390` (the MAP
+page on the coast).
 
 ## The macro map
 
