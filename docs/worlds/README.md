@@ -87,6 +87,19 @@ its region furthest from the Landing.
 realm, so camera and density match; prompts in `img/concept-prompts.json`. The
 art still to draw is in `docs/art/codex-tasks.md` (for Codex, on the Mac).
 
+**How each realm's system is switched on** (`region.ts`, by `RealmSpec.special`):
+battle realms place their foes as `MapDef.battle` groups (one to four foes,
+some that spot you) instead of field foes; dig realms get `MapDef.dig` (their
+inner cliffs as stone columns two or three high, some rocks as lumen ore, two
+buried caches, and a cliff rim so nothing can be dug or built off the map);
+puzzle realms get one or two walled puzzle kits (`engine/puzzles/kits.ts`) per
+region, with a chest beside the way in that appears once the kit is solved.
+The systems' first maps are reached by stairs from the frontier
+(`gen/demos.ts`): THE OLD QUARRY under `fr:2,2` (Lumenby; the four tools are
+there), THE BATTLE GLADE under `fr:7,2` (Sporelight) and THE PUZZLE LAB under
+`fr:9,4` (Stillsand), each with a way back up. An edge leads on only where the
+neighbour's tile is open ground.
+
 `battle-notes.md` and `dig-notes.md` are the designs for the two new systems;
 `SOURCES.md` lists the research; `quests.md` the five questlines across the
 realms. Every realm is in `realms.ts`: its land, folk, foes (today's kinds
