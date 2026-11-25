@@ -17,7 +17,9 @@ solids bake into the isometric renderer's 32 px/tile grid, with hard alpha,
 surface normals and depth. The generated tables are packed losslessly for
 the build. The view adds only the current realm's kit to its prop atlas.
 `frontierScenery.ts` anchors scenery to generated stamps and quest
-sites. The Underglow places its landmarks by layer in `descent.ts`.
+sites, with the lights each piece carries (named by tone; how they shine:
+`docs/games/neon-shrine-looks.md`, "Light and life"). The Underglow places
+its landmarks by layer in `descent.ts`.
 
 The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
 Their isometric frames use the same sprite names and live-sprite hash checks
