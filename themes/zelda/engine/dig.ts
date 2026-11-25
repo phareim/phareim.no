@@ -15,7 +15,7 @@ import { HERO_R } from '../types'
 import { isTileChar } from '../world/tiles'
 import type { Ctx } from './combat'
 import { acquire } from './combat'
-import { has, mapInfo, moveCircle, setFlag } from './map'
+import { has, mapInfo, moveCircle, setFlag, type MapInfo } from './map'
 import { openDialog } from './hero'
 import { baseHeights, digLevel, groundOf, isRamp, MAX_HEIGHT, RAMPS } from './digGround'
 import { dirVec } from './util'
@@ -238,8 +238,10 @@ export function digPlan(world: World, s: GameState, item: UseItem | null = s.inv
     const out: DigPlan = { tx, ty, ok: true, ...p }
     if (out.tool && !hasTool(s, out.tool)) return { ...out, ok: false, why: 'tool' }
     for (const [k, n] of Object.entries(out.cost ?? {}) as Array<[DigMat, number]>) if (matCount(s, k) < n) return { ...out, ok: false, why: 'stock' }
-    // Nothing rises where someone stands.
+    // Nothing rises where someone stands, nor above the ground as the map has it where someone arrives (a lamp,
+    // a block or water there would stand the next one to come in inside it).
     if (out.h !== undefined && (out.h > th || out.ch === 't') && occupied(s, tx, ty)) return { ...out, ok: false, why: 'busy' }
+    if (out.h !== undefined && (out.h > bh || out.ch === 't' || out.ch === '~') && arrival(info, tx, ty)) return { ...out, ok: false, why: 'busy' }
     return out
   }
   /** After a dig or a take: the tile as authored when the height is back, else bare earth (or a hole). */
@@ -297,6 +299,20 @@ export function digPlan(world: World, s: GameState, item: UseItem | null = s.inv
   }
   if (th + 1 > MAX_HEIGHT) return none('high', 'hammer', 'build')
   return plan({ verb: 'build', tool: 'hammer', ch: kind === 'stone' ? 'а' : 'б', h: th + 1, cost: { [kind]: 1 } })
+}
+
+const arrivals = new WeakMap<MapInfo, Set<number>>()
+
+/** Does the hero come into this map on tile (tx, ty): an entry, or the ground along an edge that leads on (two deep)? */
+function arrival(info: MapInfo, tx: number, ty: number): boolean {
+  let at = arrivals.get(info)
+  if (!at) {
+    at = new Set(Object.values(info.entries).map(e => Math.floor(e.y) * info.w + Math.floor(e.x)))
+    arrivals.set(info, at)
+  }
+  if (at.has(ty * info.w + tx)) return true
+  const ed = info.def.edges
+  return !!ed && (!!(ed.w && tx < 2) || !!(ed.e && tx >= info.w - 2) || !!(ed.n && ty < 2) || !!(ed.s && ty >= info.h - 2))
 }
 
 /** Is anyone standing on tile (tx, ty): the hero, a foe, a person? */

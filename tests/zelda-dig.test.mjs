@@ -142,6 +142,63 @@ describe('Neon Shrine dig & build', () => {
     assert.ok(s.hero.y > 7.3, `climbed two: y ${s.hero.y}`)
   })
 
+  it('keeps the ways in clear: nothing rises on an entry or a pass, and an arrival on one built over steps aside', () => {
+    const moves = s => {
+      const [x0, y0] = [s.hero.x, s.hero.y]
+      for (const dir of ['up', 'left', 'right', 'down']) { walk(s, dir, 30); if (Math.hypot(s.hero.x - x0, s.hero.y - y0) > 0.6) return true }
+      return false
+    }
+    // The quarry's start (15, 20): no lamp, block or ramp on it; a hole is fine (and no trap).
+    const s = quarry(['hammer', 'shovel'])
+    s.inv.mats = { stone: 2, wood: 2, lumen: 1 }
+    stand(s, 15, 19, 'down')
+    for (const kind of ['lamp', 'stone', 'wood']) {
+      s.inv.build = kind
+      const ev = use(s, 'build')
+      assert.ok(ev.some(e => e.type === 'error'), kind)
+      assert.equal(tile(s, 15, 20), ',', kind)
+    }
+    use(s, 'dig')
+    assert.equal(height(s, 15, 20), 0)
+    const t = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))) })
+    assert.equal(t.map.id, 'quarry')
+    assert.ok(moves(t), 'stuck in the hole at the start')
+    // An older save with a lamp on the start: the hero comes in beside it, free.
+    const old = Z.toSave(quarry())
+    old.dig = { quarry: (20 * 32 + 15).toString(36) + 't1' }
+    const u = Z.createGame(Z.WORLD, { save: Z.parseSave(old) })
+    assert.equal(tile(u, 15, 20), 't')
+    assert.ok(moves(u), `stuck in the lamp: ${u.hero.x}, ${u.hero.y}`)
+    // A generated dig region: its way up from the quarry, and the ground along an edge that leads on.
+    const g = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'fr:2,2', entry: 'from-quarry' } })
+    g.inv.sword = true
+    g.flags['item:hammer'] = true
+    g.inv.mats = { lumen: 1, wood: 1 }
+    g.inv.build = 'lamp'
+    for (const e of g.map.enemies) { e.dead = true; e.x = -9; e.y = -9 }
+    const info = Z.mapInfo(Z.WORLD, 'fr:2,2')
+    const e = info.entries['from-quarry']
+    const [ex, ey] = [Math.floor(e.x), Math.floor(e.y)]
+    stand(g, ex, ey + 1, 'up')
+    use(g, 'build')
+    assert.notEqual(g.map.tiles[ey * g.map.w + ex], 't', 'a lamp on the way in')
+    assert.equal(Z.matCount(g, 'lumen'), 1)
+    assert.ok(info.def.edges.w, 'fr:2,2 leads on west')
+    const py = g.map.tiles.findIndex((c, i) => i % g.map.w === 1 && Math.floor(i / g.map.w) > 2 && c !== '#' && c !== 'а' && !Z.TILE_INFO[c].solid && !Z.TILE_INFO[g.map.tiles[i + 1]].solid)
+    assert.ok(py > 0, 'a pass west')
+    const [px, pyy] = [py % g.map.w, Math.floor(py / g.map.w)]
+    stand(g, px + 1, pyy, 'left')
+    use(g, 'build')
+    assert.notEqual(g.map.tiles[py], 't', 'a lamp on the pass')
+    // An arrival across an edge onto a lamp built there before (an older save): beside it, free.
+    const n = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'fr:2,2', entry: 'from-quarry' } })
+    n.digEdits = { 'fr:2,2': { [py]: 't1' } }
+    Z.enterMap(Z.WORLD, n, 'fr:2,2', '', [], { x: px + 0.5, y: pyy + 0.5 })
+    assert.equal(n.map.tiles[py], 't')
+    for (const f of n.map.enemies) { f.dead = true; f.x = -9; f.y = -9 }
+    assert.ok(moves(n), `stuck in the lamp on the pass: ${n.hero.x}, ${n.hero.y}`)
+  })
+
   it('builds blocks, planks and lamps, spends their materials, and takes them back whole', () => {
     const s = quarry(['hammer'])
     s.inv.mats = { stone: 1, wood: 3, lumen: 1 }

@@ -39,6 +39,10 @@ dig map they add two B items to the cycle (`UseItem`):
 - Materials: `Inventory.mats` (dirt, stone, wood, lumen; up to 99 each). The HUD shows them in the counter
   row only while DIG or BUILD is out (the hammer's kind lit); the B box shows the tool for the tile in front.
 - Lamps keep foes out of their light (2.6 tiles, `stepDig`).
+- The ways in stay clear: on an entry's tile, and on the two rows of ground along an edge that leads on, nothing
+  rises above the map's own ground and no lamp or water goes (a hole is fine: it is no trap). Nothing rises
+  where someone stands. An arrival that still finds its spot built over or flooded (an older save) steps to the
+  nearest clear ground (`enterMap`).
 - The outline on the target tile: cyan to dig or take back, pink to build, rose when it cannot. The classic
   view draws it on the tile; the isometric view at the tile's height, over the lit scene.
 

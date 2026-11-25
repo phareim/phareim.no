@@ -21,6 +21,7 @@ import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { battleFocus, stepBattle, stepField } from './battle/index'
 import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
+import { digLevel } from './digGround'
 import { resetPuzzleRoom } from './puzzles/index'
 
 function freshInv(): Inventory {
@@ -111,6 +112,13 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
     const v = dirVec(spot.dir)
     h.auto = { dir: spot.dir, t: WALK_OUT_TIME + 0.1, x: spot.x + v.x, y: spot.y + v.y }
   } else h.auto = null
+  if (s.map.dig) {
+    // A dig map's way in may have been built on or flooded since (an older save, a pass): step off onto clear ground.
+    const m = s.map
+    m.dig!.z = digLevel(m, h.x, h.y, HERO_R)
+    if (circleBlocked(world, { ...m, npcs: [] }, h.x, h.y, HERO_R) && stepClear(world, s)) h.auto = null
+    m.dig!.z = digLevel(m, h.x, h.y, HERO_R)
+  }
   s.disc = null
   s.hook = null
   s.battle = null
@@ -594,14 +602,19 @@ function cleanRings(raw: unknown): Record<string, number> {
 
 /** Landing from a hole on something solid (a block dropped earlier): step to the nearest free spot. */
 function landClear(c: Ctx) {
-  const s = c.s
+  stepClear(c.w, c.s)
+}
+
+/** The hero stands in something solid: step to the nearest free spot within three tiles; true if moved. */
+function stepClear(world: World, s: GameState): boolean {
   const h = s.hero
-  if (!circleBlocked(c.w, s.map, h.x, h.y, HERO_R)) return
+  if (!circleBlocked(world, s.map, h.x, h.y, HERO_R)) return false
   for (let r = 1; r <= 3; r++) {
     for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
       const x = Math.floor(h.x) + dx * r + 0.5
       const y = Math.floor(h.y) + dy * r + 0.5
-      if (!circleBlocked(c.w, s.map, x, y, HERO_R) && tileAt(s.map, Math.floor(x), Math.floor(y)) !== 'O') { h.x = x; h.y = y; h.safe = { x, y }; return }
+      if (!circleBlocked(world, s.map, x, y, HERO_R) && tileAt(s.map, Math.floor(x), Math.floor(y)) !== 'O') { h.x = x; h.y = y; h.safe = { x, y }; return true }
     }
   }
+  return false
 }
