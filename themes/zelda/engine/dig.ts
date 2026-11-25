@@ -374,7 +374,7 @@ export function useDigTool(c: Ctx) {
     // The first time a tool is missing, a line says which.
     if (p.why === 'tool' && p.tool && !has(s, `dighint:${p.tool}`)) {
       setFlag(s, `dighint:${p.tool}`)
-      openDialog(c, [`THIS WANTS ${TOOL_NAME[p.tool]}.`], null)
+      openDialog(c, [`BARE HANDS WON'T DO. THIS WANTS ${TOOL_NAME[p.tool]}.`], null)
     }
     return
   }
@@ -383,8 +383,8 @@ export function useDigTool(c: Ctx) {
   if (full) {
     c.ev.push({ type: 'error' })
     openDialog(c, [full === 'map'
-      ? 'THE GROUND HERE WILL TAKE NO MORE CHANGES. TAKE SOMETHING BACK FIRST.'
-      : 'THE LAND WILL TAKE NO MORE CHANGES. FILL A HOLE OR TAKE BACK SOMETHING YOU BUILT, HERE OR IN ANOTHER PLACE.'], null)
+      ? 'THIS GROUND HAS BEEN DUG AND BUILT ON ALL IT CAN TAKE. TAKE SOMETHING BACK FIRST.'
+      : 'THE LAND CAN HOLD NO MORE OF YOUR CHANGES. FILL A HOLE OR TAKE SOMETHING BACK, HERE OR IN ANOTHER PLACE.'], null)
     return
   }
   const m = s.map

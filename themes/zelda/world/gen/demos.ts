@@ -12,9 +12,9 @@ import type { Site } from './types'
 export interface Demo { map: string; region: string; name: string; lines: string[] }
 
 export const DEMOS: Demo[] = [
-  { map: 'quarry', region: 'fr:2,2', name: 'THE OLD QUARRY', lines: ['THE OLD QUARRY.', 'THE TOOLS ARE STILL DOWN THERE.'] },
-  { map: 'arena', region: 'fr:7,2', name: 'THE BATTLE GLADE', lines: ['THE BATTLE GLADE.', 'THEY FIGHT FAIR DOWN THERE. MOSTLY.'] },
-  { map: 'puzzlelab', region: 'fr:9,4', name: 'THE PUZZLE LAB', lines: ['THE PUZZLE LAB.', 'ICE, LIGHT, WEIGHT, STONE, WATER.'] },
+  { map: 'quarry', region: 'fr:2,2', name: 'THE OLD QUARRY', lines: ['THE OLD QUARRY. STAIRS DOWN.', 'WHEN THE SHIFT WHISTLE STOPPED, THE MINERS WENT HOME. THEIR TOOLS STAYED DOWN THERE.'] },
+  { map: 'arena', region: 'fr:7,2', name: 'THE BATTLE GLADE', lines: ['THE BATTLE GLADE. STAIRS DOWN.', 'THEY FIGHT FAIR DOWN THERE, AND IN TURNS. MOSTLY.'] },
+  { map: 'puzzlelab', region: 'fr:9,4', name: 'THE PUZZLE LAB', lines: ['THE PUZZLE LAB. STAIRS DOWN.', 'SOMEONE BUILT SIX ROOMS DOWN THERE AND LEFT THEM RUNNING. THE LIGHTS ARE STILL ON.'] },
 ]
 
 /** The way down: stairs in a little rock, a sign beside them, and where you come back up. */

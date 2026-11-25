@@ -76,7 +76,7 @@ for the planned deep-quarry reward.
 - Classic: the tiles' own pictures, with lit and dark edges where the height changes. Readable, but the heights
   are an isometric thing: once `MapDef.views` lands the quarry should say `views: ['iso']`.
 
-## The demo: Lumenby Quarry (`quarry`, not linked from the world yet)
+## The demo: THE OLD QUARRY (`quarry`, down the stairs at `fr:2,2` in Lumenby, `gen/demos.ts`)
 
 Entry `start` at the south. The shovel by the road; the pickaxe inside a ring of turf (dig through); the axe
 behind a stone wall with ore in it (pickaxe); the hammer in a grove (axe). With the hammer: a ramp up the

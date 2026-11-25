@@ -55,7 +55,7 @@ beams, weights; pots and foes left out). Past a kit's edge is wall. A frontier p
 `world/gen/region.ts`) keeps the kit's `.` floor (`Site.ground`), not the realm's ground: nothing is pushed or
 rolled over Stillsand's sand (`-`).
 
-**The Puzzle Lab** (`puzzlelab`, entry `start`, registered in `WORLD.maps`, not linked yet). Six rooms, 3×2:
+**THE PUZZLE LAB** (`puzzlelab`, entry `start`, down the stairs at `fr:9,4` in Stillsand, `gen/demos.ts`). Six rooms, 3×2 (their banners: THE WEIGH HOUSE, THE COLD ROOM, THE MIRROR ROOM, THE STONE RUN, THE SLUICE HALL, THE LAST ROOM; each sign says what is wrong in it, never how):
 A weights (carry a pot onto the heavy plate) → B ice (slide the block onto the plate) → C beams (prism, two
 mirrors, two receivers) → D rolling stone (lever, cracked wall, pit filled) → E sluices (two valves, two basins)
 → F all together (the stone clears the beam's road, the mirror slides up the ice into it and is turned, the

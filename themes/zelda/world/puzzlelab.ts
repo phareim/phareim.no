@@ -110,7 +110,7 @@ const F = [
 
 export const PUZZLELAB: MapDef = {
   id: 'puzzlelab',
-  name: 'PUZZLE LAB',
+  name: 'THE PUZZLE LAB',
   kind: 'dungeon',
   track: 'dungeon',
   views: ['iso', 'classic'],
@@ -118,41 +118,41 @@ export const PUZZLELAB: MapDef = {
   cell: { w: 16, h: 12 },
   rows: joinCells([[F, E, D], [A, B, C]]),
   cells: {
-    '0,1': { name: 'WEIGHTS' },
-    '1,1': { name: 'ICE' },
-    '2,1': { name: 'BEAMS' },
-    '2,0': { name: 'ROLLING STONE' },
-    '1,0': { name: 'SLUICES' },
-    '0,0': { name: 'ALL TOGETHER' },
+    '0,1': { name: 'THE WEIGH HOUSE' },
+    '1,1': { name: 'THE COLD ROOM' },
+    '2,1': { name: 'THE MIRROR ROOM' },
+    '2,0': { name: 'THE STONE RUN' },
+    '1,0': { name: 'THE SLUICE HALL' },
+    '0,0': { name: 'THE LAST ROOM' },
   },
   marks: {
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
     // A: weights
-    a: { ent: { t: 'sign', lines: ['THE HEAVY PLATE DOES NOT FEEL YOU ALONE.', 'LIFT A POT AND STAND ON IT: TWO WEIGH MORE THAN ONE.'] } },
+    a: { ent: { t: 'sign', lines: ['THE WEIGH HOUSE. THE HEAVY PLATE HAS NOT MOVED IN YEARS. ONE VISITOR DOES NOT IMPRESS IT.'] } },
     H: { ent: { t: 'plate', id: 'lab.a.heavy' }, tile: 'η' },
     '1': { ent: { t: 'gate', open: { plates: ['lab.a.heavy'] } } },
     // B: ice
-    g: { ent: { t: 'sign', lines: ['ICE. WHAT MOVES ON IT DOES NOT STOP UNTIL SOMETHING STOPS IT.', 'THE BLOCK TOO.'] } },
+    g: { ent: { t: 'sign', lines: ['THE COLD ROOM. MIND THE FLOOR. IT HAS NO BRAKES.'] } },
     J: { ent: { t: 'plate', id: 'lab.b.heavy' }, tile: 'η' },
     '2': { ent: { t: 'gate', open: { plates: ['lab.b.heavy'] } } },
     // C: beams
-    h: { ent: { t: 'sign', lines: ['THE PRISM SPLITS THE LIGHT. STRIKE A MIRROR TO TURN IT.', 'LIGHT BOTH EYES.'] } },
+    h: { ent: { t: 'sign', lines: ['THE MIRROR ROOM. TWO EYES IN THE WALL HAVE BEEN WAITING A LONG TIME FOR THE LIGHT.'] } },
     k: { ent: { t: 'emitter', dir: 'down' } },
     u: { ent: { t: 'receiver', flag: 'lab.c.a' } },
     v: { ent: { t: 'receiver', flag: 'lab.c.b' } },
     '3': { ent: { t: 'gate', open: { flags: ['lab.c.a', 'lab.c.b'] } } },
     E: { ent: { t: 'enemy', kind: 'blob' } },
     // D: the rolling stone
-    d: { ent: { t: 'sign', lines: ['THE LEVER LETS THE STONE GO. STAND CLEAR OF ITS ROAD.'] } },
+    d: { ent: { t: 'sign', lines: ['THE STONE RUN. DANGER: ROLLING STONE. DO NOT STAND IN ITS ROAD.'] } },
     z: { ent: { t: 'boulder', dir: 'left', flag: 'lab.d.roll' } },
     N: { ent: { t: 'lever', flag: 'lab.d.roll' } },
     // E: sluices
-    e: { ent: { t: 'sign', lines: ['TWO BASINS, ONE TIDE: AS ONE DRAINS, THE OTHER FILLS.'] } },
+    e: { ent: { t: 'sign', lines: ['THE SLUICE HALL. TWO BASINS SHARE ONE TIDE, AND NEITHER SHARES NICELY.'] } },
     W: { ent: { t: 'sluice', flag: 'lab.e.tide' } },
     A: { ent: { t: 'sluice', flag: 'lab.e.tide', invert: true } },
     m: { ent: { t: 'valve', flag: 'lab.e.tide' } },
     // F: all together
-    j: { ent: { t: 'sign', lines: ['THE STONE OPENS THE LIGHT\'S ROAD. THE ICE CARRIES THE MIRROR.'] } },
+    j: { ent: { t: 'sign', lines: ['THE LAST ROOM. THE PRIZE IS BEHIND THE GATE, AND THE GATE WANTS LIGHT.'] } },
     Q: { ent: { t: 'boulder', dir: 'down', flag: 'lab.f.roll' } },
     U: { ent: { t: 'lever', flag: 'lab.f.roll' } },
     p: { ent: { t: 'emitter', dir: 'right' } },
