@@ -223,17 +223,20 @@ describe('old saves', () => {
     assert.deepEqual(w.ops, [])
   })
 
-  it('knows the one-time bits of the frontier (made on demand), its dig caches and battle prizes', () => {
+  it('knows the one-time bits of every map, its dig caches and battle prizes', () => {
     const rewards = W.bitRewards(W.WORLD)
-    let found = null
-    for (let ry = 0; ry < 9 && !found; ry++) for (let rx = 0; rx < 12 && !found; rx++) {
-      const d = W.WORLD.generate(`fr:${rx},${ry}`)
-      const m = d && Object.values(d.marks).find(m => m.ent.t === 'chest' && /^bits/.test(m.ent.item))
-      if (m) found = m.ent
+    const value = { bits5: 5, bits20: 20, bits50: 50 }
+    let chests = 0, caches = 0, prizes = 0
+    for (const def of Object.values(W.WORLD.maps)) {
+      for (const m of Object.values(def.marks)) {
+        if (m.ent.t === 'chest' && value[m.ent.item]) { chests++; assert.equal(rewards.get(`chest:${m.ent.id}`), value[m.ent.item], m.ent.id) }
+      }
+      for (const c of def.dig?.caches ?? []) if (value[c.item]) { caches++; assert.equal(rewards.get(`took:${c.id}`), value[c.item], c.id) }
+      for (const g of def.battle?.groups ?? []) if (g.prize && value[g.prize]) { prizes++; assert.equal(rewards.get(`battle:${g.id}:prize`), value[g.prize], g.id) }
     }
-    assert.ok(found, 'a frontier chest with bits')
-    assert.equal(rewards.get(`chest:${found.id}`), { bits5: 5, bits20: 20, bits50: 50 }[found.item])
+    assert.ok(chests > 0, 'a chest with bits (the quarry\'s or another authored map\'s)')
+    assert.ok(caches >= 3, 'the quarry\'s dig caches')
+    assert.ok(prizes > 0, 'the arena\'s battle prize')
     assert.equal(rewards.get('chest:fr:99,99.c0'), undefined)
-    for (const g of W.WORLD.maps.arena.battle.groups) if (g.prize === 'bits50') assert.equal(rewards.get(`battle:${g.id}:prize`), 50)
   })
 })

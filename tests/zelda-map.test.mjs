@@ -72,26 +72,21 @@ describe('where the hero has been', () => {
     assert.ok(!ids.includes('m0') && ids.includes(`m${Z.EXPLORE_MAPS + 4}`))
   })
 
-  it('fits in the save with the whole frontier seen, its caves too', () => {
+  it('fits in the save with the whole world seen, every map of it', () => {
     const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
     s.inv.sword = true
-    const ids = Object.keys(Z.WORLD.maps).filter(id => Z.charted(Z.WORLD.maps[id]))
-    for (let ry = 0; ry < 12; ry++) for (let rx = 0; rx < 16; rx++) {
-      const id = `fr:${rx},${ry}`
-      if (!Z.WORLD.generate(id)) continue
-      ids.push(id)
-      for (let n = 1; n <= 4; n++) if (Z.WORLD.generate(`${id}:cave${n}`)) ids.push(`${id}:cave${n}`)
-      for (let n = 1; n <= 6; n++) if (Z.WORLD.generate(`${id}:deep${n}`)) ids.push(`${id}:deep${n}`)
-    }
+    const ids = Object.keys(Z.WORLD.maps)
     for (const id of ids) {
-      const def = Z.WORLD.maps[id] ?? Z.WORLD.generate(id)
+      const def = Z.WORLD.maps[id]
       const w = def.rows[0].length
       const h = def.rows.length
       Z.reveal(s, id, w, h, { x: 0, y: 0, w, h })
     }
     const bytes = JSON.stringify(Z.toSave(s).explored).length
     assert.ok(bytes < 6000, `${bytes} bytes for ${Object.keys(s.explored).length} maps`)
-    assert.ok(Object.keys(s.explored).length > 100, 'the frontier counted')
+    const charted = ids.filter(id => Z.charted(Z.WORLD.maps[id]))
+    assert.ok(charted.length > 0)
+    for (const id of charted) assert.ok(s.explored[id], `${id} is in the explored data`)
   })
 })
 

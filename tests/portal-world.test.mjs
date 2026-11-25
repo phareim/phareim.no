@@ -938,7 +938,7 @@ function isWall(def, x, y) {
 describe('world data and the look', () => {
   it('names tones and light levels, never a hex colour', async () => {
     const { readdirSync } = await import('node:fs')
-    for (const part of ['world', 'world/gen']) {
+    for (const part of ['world']) {
       const dir = new URL(`../themes/zelda/${part}/`, import.meta.url)
       for (const f of readdirSync(dir)) {
         if (!f.endsWith('.ts')) continue
@@ -948,7 +948,7 @@ describe('world data and the look', () => {
   })
   it('keeps the engine and the world free of the renderer', async () => {
     const { readdirSync } = await import('node:fs')
-    for (const part of ['engine', 'world', 'world/gen']) {
+    for (const part of ['engine', 'world']) {
       const dir = new URL(`../themes/zelda/${part}/`, import.meta.url)
       for (const f of readdirSync(dir)) {
         if (!f.endsWith('.ts')) continue

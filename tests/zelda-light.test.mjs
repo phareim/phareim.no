@@ -1,4 +1,4 @@
-// Neon Shrine's light and life on the frontier (docs/games/neon-shrine-looks.md, "Light and life"): the
+// Neon Shrine's light and life in the lands (docs/games/neon-shrine-looks.md, "Light and life"): the
 // landmarks' lights name tones the render side knows, a lit letter shines only with its flag, the night
 // factor runs from the dusk to the moon's hours, and the life in the air holds still under reduced motion.
 import { describe, it, before } from 'node:test'
@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -14,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export { sceneryAt } from './world/gen/frontierScenery'
+      contents: `export { sceneryAt } from './world/scenery'
 export { TONES } from './render/tones'
 export { MOOD, REALM_LOOKS, realmLook } from './render/looks'
 export { nightOf } from './render/daylight'
@@ -40,18 +41,33 @@ function counter() {
   return g
 }
 
-/** Every landmark the frontier's first regions place. */
+/** The realms and place presets `sceneryAt` knows, read from its source (the table is not exported). */
+function presets() {
+  const src = readFileSync(resolve(root, 'world/scenery.ts'), 'utf8')
+  const body = src.slice(src.indexOf('const SCENERY'), src.indexOf('export function sceneryAt'))
+  const out = []
+  let realm = null
+  for (const line of body.split('\n')) {
+    const r = /^  (\w+): \{/.exec(line)
+    if (r) { realm = r[1]; continue }
+    const p = /^    '?([\w.:]+)'?: /.exec(line)
+    if (p && realm) out.push([realm, p[1]])
+  }
+  for (const realm of ['lumenby', 'seterfell', 'sporelight', 'stillsand', 'fogstage', 'rerun']) out.push([realm, 'gate'], [realm, 'gate:ew'])
+  return out
+}
+
+/** Every landmark the world's maps place now, and every place preset the lands will be drawn with. */
 function landmarks() {
   const all = []
-  for (let y = 0; y < 10; y++) for (let x = 0; x < 12; x++) {
-    let d = null
-    try { d = L.WORLD.generate(`fr:${x},${y}`) } catch { d = null }
-    for (const lm of d?.isoLandmarks ?? []) all.push(lm)
-  }
+  for (const d of Object.values(L.WORLD.maps)) for (const lm of d.isoLandmarks ?? []) all.push(lm)
+  const ps = presets()
+  assert.ok(ps.length > 30, `${ps.length} presets found in world/scenery.ts`)
+  for (const [realm, place] of ps) for (const lm of L.sceneryAt(realm, place, 0, 0)) all.push(lm)
   return all
 }
 
-describe('the frontier’s light', () => {
+describe('the lands’ light', () => {
   it('lands its landmarks’ lights in tones the render side has, and lit-only lights on lit landmarks', () => {
     const lms = landmarks()
     const lit = lms.filter(lm => lm.lights?.length)
@@ -63,7 +79,7 @@ describe('the frontier’s light', () => {
         if (l.lit) assert.ok(lm.lit, `${lm.art} shines only when lit, but has no lit flag`)
       }
     }
-    // The beams: the lighthouse turns one, the stage spotlights swing theirs.
+    // The beams: the stage spotlights swing theirs (a preset until the fog stage is drawn).
     const sweeps = new Set(lit.filter(lm => lm.lights.some(l => l.anim === 'sweep')).map(lm => lm.art.replace(/_\d+$/, '')))
     assert.ok(sweeps.has('fogstage_spotlight'), [...sweeps].join(','))
   })
@@ -85,15 +101,7 @@ describe('the frontier’s light', () => {
     globalThis.document = { createElement: () => ({ width: 16, height: 16, getContext: () => any }) }
     try {
       let seen = 0
-      let regions = 0
-      for (let y = 0; y < 10 && regions < 3; y++) for (let x = 0; x < 12 && regions < 3; x++) {
-        const id = `fr:${x},${y}`
-        let def = null
-        try { def = L.WORLD.generate(id) } catch { def = null }
-        if (!def || L.realmLook(def.look) !== 'spore') continue
-        regions++
-        const s = L.createGame(L.WORLD, { seed: 1 })
-        L.enterMap(L.WORLD, s, id, '', [], { x: 1.5, y: 1.5 })
+      const check = (id, s) => {
         const m = s.map
         // Every window of the view across the map: no frame pushes more than a score of the caps' pools.
         for (let cy = 0; cy + 20 <= m.h; cy += 10) for (let cx = 0; cx + 30 <= m.w; cx += 15) {
@@ -110,7 +118,22 @@ describe('the frontier’s light', () => {
           seen += pools.length
         }
       }
-      assert.ok(seen > 0, 'no spore region lit by its caps')
+      let spores = 0
+      for (const [id, def] of Object.entries(L.WORLD.maps)) {
+        if (L.realmLook(def.look) !== 'spore') continue
+        spores++
+        const s = L.createGame(L.WORLD, { seed: 1 })
+        L.enterMap(L.WORLD, s, id, '', [], { x: 1.5, y: 1.5 })
+        check(id, s)
+      }
+      assert.ok(spores > 0, 'no map with the spore look')
+      // A wood laid over a spore land (the authored lands may have none yet): a thick stand with clearings.
+      const w = L.createGame(L.WORLD, { seed: 1 })
+      const sid = Object.keys(L.WORLD.maps).find(id => L.realmLook(L.WORLD.maps[id].look) === 'spore')
+      L.enterMap(L.WORLD, w, sid, '', [], { x: 1.5, y: 1.5 })
+      for (let y = 4; y < 36; y++) for (let x = 4; x < 80; x++) w.map.tiles[y * w.map.w + x] = (x % 9 < 4 || y % 7 < 3) ? 'T' : '.'
+      check(`${sid} (wooded)`, w)
+      assert.ok(seen > 0, 'no cap lit the moss in a wood')
     } finally { globalThis.document = had }
   })
 

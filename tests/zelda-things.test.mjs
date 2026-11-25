@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -14,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_ART_LOADERS, loadRealmArt, realmArt, hasRealmArt } from './render/iso/frontierArt'; export { FRONTIER } from './world/gen/frontier'; export { WORLD } from './world'; export { sceneryAt } from './world/gen/frontierScenery'`,
+      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_ART_LOADERS, loadRealmArt, realmArt, hasRealmArt, kitsFor } from './render/iso/frontierArt'; export { WORLD } from './world'; export { sceneryAt } from './world/scenery'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -102,7 +103,7 @@ describe('things drawn by hand', () => {
     assert.equal(M.withThings(props), a)
   })
 
-  it('packs each frontier kit separately and supplies every generated landmark frame', () => {
+  it('packs each realm kit separately and supplies every landmark frame of every map', () => {
     const props = M.buildProps()
     const base = M.withThings(props)
     for (const [realm, art] of Object.entries(REALM_THING_ART)) {
@@ -116,17 +117,15 @@ describe('things drawn by hand', () => {
         assert.equal(bytes(t.deep).length, t.w * t.h, id)
       }
     }
-    const ids = M.FRONTIER.layout.flatMap((row, y) => [...row].flatMap((r, x) => r === ' ' ? [] : [`fr:${x},${y}`]))
-    ids.push(...Array.from({ length: 6 }, (_, i) => `fr:0,3:deep${i + 1}`))
-    for (const id of ids) {
-      const def = M.WORLD.generate(id)
-      for (const lm of def?.isoLandmarks ?? []) {
+    for (const [id, def] of Object.entries(M.WORLD.maps)) {
+      const kits = M.kitsFor(def).map(k => REALM_THING_ART[k])
+      for (const lm of def.isoLandmarks ?? []) {
         const variants = [lm.art, lm.night, lm.lit?.art].filter(Boolean)
         for (const variant of variants) {
           const names = lm.motion && !lm.motion.bob
             ? Array.from({ length: lm.motion.frames }, (_, i) => `${variant}_${i}`)
             : [variant]
-          for (const name of names) assert.ok(M.THING_ART[name] || REALM_THING_ART[def.realm]?.[name], `${id}: ${name}`)
+          for (const name of names) assert.ok(M.THING_ART[name] || kits.some(k => k?.[name]), `${id}: ${name}`)
         }
         if (lm.art.startsWith('road_lantern_')) {
           const x = Math.floor(lm.x), y = Math.floor(lm.y)
@@ -135,6 +134,22 @@ describe('things drawn by hand', () => {
         }
       }
     }
+    // The presets the lands will be drawn with have their art in their realm's kit too.
+    const src = readFileSync(resolve(root, 'world/scenery.ts'), 'utf8')
+    let realm = null
+    let found = 0
+    for (const line of src.slice(src.indexOf('const SCENERY'), src.indexOf('export function sceneryAt')).split('\n')) {
+      const r = /^  (\w+): \{/.exec(line)
+      if (r) { realm = r[1]; continue }
+      const p = /^    '?([\w.:]+)'?: /.exec(line)
+      if (!p || !realm) continue
+      for (const lm of M.sceneryAt(realm, p[1], 0, 0)) {
+        found++
+        const names = lm.motion && !lm.motion.bob ? Array.from({ length: lm.motion.frames }, (_, i) => `${lm.art}_${i}`) : [lm.art]
+        for (const name of names) assert.ok(M.THING_ART[name] || REALM_THING_ART[realm]?.[name] || REALM_THING_ART.coast?.[name], `${realm}/${p[1]}: ${name}`)
+      }
+    }
+    assert.ok(found > 30, `${found} preset landmarks`)
     assert.equal(M.withThings(props), base)
   })
 

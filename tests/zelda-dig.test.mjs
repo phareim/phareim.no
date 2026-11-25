@@ -48,7 +48,8 @@ describe('Neon Shrine dig & build', () => {
   it('is on only where a map says so', () => {
     const s = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'overworld', entry: 'hut' } })
     assert.equal(s.map.dig, undefined)
-    for (const [id, def] of Object.entries(Z.WORLD.maps)) if (id !== 'quarry') assert.equal(def.dig, undefined, id)
+    // The quarry and the lands that say so (`dig: {}`); every other map has none.
+    for (const [id, def] of Object.entries(Z.WORLD.maps)) if (id !== 'quarry' && !(def.away && def.dig)) assert.equal(def.dig, undefined, id)
     const q = quarry()
     assert.equal(q.map.dig.g, 1)
     assert.equal(height(q, 5, 13), 2) // the turf ring
@@ -180,31 +181,34 @@ describe('Neon Shrine dig & build', () => {
     const u = Z.createGame(Z.WORLD, { save: Z.parseSave(old) })
     assert.equal(tile(u, 15, 20), 't')
     assert.ok(moves(u), `stuck in the lamp: ${u.hero.x}, ${u.hero.y}`)
-    // A generated dig region: its way up from the quarry, and the ground along an edge that leads on.
-    const g = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'fr:2,2', entry: 'from-quarry' } })
+    // A dig land (lumenby): its way up from the quarry, and the rim of the passes that lead on.
+    const land = 'lumenby'
+    const g = Z.createGame(Z.WORLD, { seed: 3, at: { map: land, entry: 'from-quarry' } })
     g.inv.sword = true
     g.flags['item:hammer'] = true
     g.inv.mats = { lumen: 1, wood: 1 }
     g.inv.build = 'lamp'
     for (const e of g.map.enemies) { e.dead = true; e.x = -9; e.y = -9 }
-    const info = Z.mapInfo(Z.WORLD, 'fr:2,2')
+    const info = Z.mapInfo(Z.WORLD, land)
+    assert.ok(info.def.away, 'a land')
     const e = info.entries['from-quarry']
     const [ex, ey] = [Math.floor(e.x), Math.floor(e.y)]
     stand(g, ex, ey + 1, 'up')
     use(g, 'build')
     assert.notEqual(g.map.tiles[ey * g.map.w + ex], 't', 'a lamp on the way in')
     assert.equal(Z.matCount(g, 'lumen'), 1)
-    assert.ok(info.def.edges.w, 'fr:2,2 leads on west')
-    const py = g.map.tiles.findIndex((c, i) => i % g.map.w === 1 && Math.floor(i / g.map.w) > 2 && c !== '#' && c !== 'а' && !Z.TILE_INFO[c].solid && !Z.TILE_INFO[g.map.tiles[i + 1]].solid)
-    assert.ok(py > 0, 'a pass west')
+    // A pass on the east rim (two deep): open ground with open ground inside it.
+    const free = i => !Z.TILE_INFO[g.map.tiles[i]].solid
+    const py = g.map.tiles.findIndex((c, i) => i % g.map.w === g.map.w - 2 && Math.floor(i / g.map.w) > 2 && free(i) && free(i - 1) && free(i + 1))
+    assert.ok(py > 0, 'a pass east')
     const [px, pyy] = [py % g.map.w, Math.floor(py / g.map.w)]
-    stand(g, px + 1, pyy, 'left')
+    stand(g, px - 1, pyy, 'right')
     use(g, 'build')
     assert.notEqual(g.map.tiles[py], 't', 'a lamp on the pass')
-    // An arrival across an edge onto a lamp built there before (an older save): beside it, free.
-    const n = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'fr:2,2', entry: 'from-quarry' } })
-    n.digEdits = { 'fr:2,2': { [py]: 't1' } }
-    Z.enterMap(Z.WORLD, n, 'fr:2,2', '', [], { x: px + 0.5, y: pyy + 0.5 })
+    // An arrival across the rim onto a lamp built there before (an older save): beside it, free.
+    const n = Z.createGame(Z.WORLD, { seed: 3, at: { map: land, entry: 'from-quarry' } })
+    n.digEdits = { [land]: { [py]: 't1' } }
+    Z.enterMap(Z.WORLD, n, land, '', [], { x: px + 0.5, y: pyy + 0.5 })
     assert.equal(n.map.tiles[py], 't')
     for (const f of n.map.enemies) { f.dead = true; f.x = -9; f.y = -9 }
     assert.ok(moves(n), `stuck in the lamp on the pass: ${n.hero.x}, ${n.hero.y}`)
@@ -355,7 +359,7 @@ describe('Neon Shrine dig & build', () => {
     assert.equal(height(s, 5, 13), 1)
     // Maps: at most DIG_MAPS hold edits.
     const many = {}
-    for (let k = 0; k < Z.DIG_MAPS + 3; k++) many[`fr:${k},0`] = '1д1,2д1'
+    for (let k = 0; k < Z.DIG_MAPS + 3; k++) many[`land${k}`] = '1д1,2д1'
     const dec = Z.decodeDig(many)
     assert.equal(Object.keys(dec).length, Z.DIG_MAPS)
     // A save's long list is cut at the cap; junk is dropped.
@@ -367,8 +371,7 @@ describe('Neon Shrine dig & build', () => {
 
   it('has room for edits on every dig map of the world, in a save that stays small', () => {
     const digMaps = Object.entries(Z.WORLD.maps).filter(([, d]) => d.dig).map(([id]) => id)
-    for (let ry = 0; ry < 16; ry++) for (let rx = 0; rx < 16; rx++) if (Z.WORLD.generate(`fr:${rx},${ry}`)?.dig) digMaps.push(`fr:${rx},${ry}`)
-    assert.ok(digMaps.length > 8, `${digMaps.length} dig maps`)
+    assert.ok(digMaps.includes('quarry') && digMaps.includes('lumenby'), 'the quarry and lumenby dig')
     assert.ok(digMaps.length <= Z.DIG_MAPS, `${digMaps.length} dig maps, room on ${Z.DIG_MAPS}`)
     // An edit (a felled tree) on every other dig map: the quarry still takes one.
     const s = quarry(['shovel'])
@@ -384,7 +387,7 @@ describe('Neon Shrine dig & build', () => {
     const spread = (maps, total) => {
       const out = {}
       for (let k = 0; k < maps; k++) {
-        const ed = (out[`fr:${10 + (k % 6)},${10 + Math.floor(k / 6)}`] = {})
+        const ed = (out[`dig${10 + (k % 6)}-${10 + Math.floor(k / 6)}`] = {})
         for (let i = 0; i < Math.floor(total / maps) + (k < total % maps ? 1 : 0); i++) ed[2815 - i] = 'а4'
       }
       return out
@@ -573,8 +576,9 @@ describe('Neon Shrine dig & build', () => {
     const s = quarry(['shovel'])
     const all = {}
     let n = 0
-    const regions = []
-    for (let ry = 0; ry < 9; ry++) for (let rx = 0; rx < 12; rx++) { const d = Z.WORLD.generate(`fr:${rx},${ry}`); if (d?.dig) regions.push(d.id) }
+    // The real dig maps first, then stand-ins (a world may have fewer dig maps than the land has room for).
+    const regions = Object.entries(Z.WORLD.maps).filter(([id, d]) => d.dig && id !== 'quarry').map(([id]) => id)
+    for (let k = 0; regions.length < 6; k++) regions.push(`stand-in${k}`)
     // Fill the land: felled ground on the first region, built stone on the second, the rest with holes.
     for (const id of regions) {
       const ed = {}
