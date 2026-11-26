@@ -20,8 +20,6 @@
  * rim the view looks down on Whisper Woods and the town, not on made-up woods.
  */
 import type { TileChar, World } from '../types'
-import { atlasAt } from '../engine/game'
-import { mapInfo } from '../engine/map'
 
 /** How many tiles of land a view may draw outside an outdoor map. */
 export const BEYOND = 24
@@ -96,19 +94,52 @@ const ROCK = new Set<TileChar>(['%', '^', 'R', 'G', 'I', 'M', 'q', '['])
 
 const nears = new WeakMap<World, Map<string, Beyond | null>>()
 
-/** The grid's neighbours of `mapId` as a `Beyond` (kept per world and map), or null for a map off the grid. */
+/**
+ * The grid's neighbours of `mapId` as a `Beyond` (kept per world and map), or null for a map off the grid or with no
+ * map within `BEYOND` tiles of it. The neighbours' rows are read once into a grid over that ring, so a lookup is one
+ * read and nothing else of theirs is built (a visit to the town never makes the lands' map data).
+ */
 export function atlasBeyond(world: World, mapId: string): Beyond | null {
   let per = nears.get(world)
   if (!per) nears.set(world, (per = new Map()))
   if (per.has(mapId)) return per.get(mapId)!
   const o = world.atlas?.[mapId]
-  const near: Beyond | null = o ? (x, y) => {
-    const n = atlasAt(world, o.x + x, o.y + y, mapId)
-    if (!n) return null
-    const info = mapInfo(world, n.map)
-    const t = info.base[n.y * info.w + n.x]!
-    return SHOWN.has(t) ? t : ROCK.has(t) ? '#' : '.'
-  } : null
+  const def = world.maps[mapId]
+  let near: Beyond | null = null
+  if (o && def) {
+    const w = def.rows[0]!.length
+    const h = def.rows.length
+    const R = BEYOND
+    const W = w + R * 2
+    const H = h + R * 2
+    let grid: Array<TileChar | undefined> | null = null
+    for (const [id, p] of Object.entries(world.atlas!)) {
+      const n = world.maps[id]
+      if (id === mapId || !n) continue
+      const nw = n.rows[0]!.length
+      const nh = n.rows.length
+      // The part of the neighbour inside the ring, in this map's tiles.
+      const x0 = Math.max(-R, p.x - o.x)
+      const y0 = Math.max(-R, p.y - o.y)
+      const x1 = Math.min(w + R, p.x - o.x + nw)
+      const y1 = Math.min(h + R, p.y - o.y + nh)
+      if (x0 >= x1 || y0 >= y1) continue
+      grid ??= new Array<TileChar | undefined>(W * H)
+      for (let y = y0; y < y1; y++) {
+        const row = n.rows[y + o.y - p.y]!
+        for (let x = x0; x < x1; x++) {
+          if (x >= 0 && y >= 0 && x < w && y < h) continue
+          const ch = row[x + o.x - p.x]!
+          const t = (n.marks[ch] ? n.marks[ch]!.tile ?? '.' : ch) as TileChar
+          grid[(y + R) * W + x + R] = SHOWN.has(t) ? t : ROCK.has(t) ? '#' : '.'
+        }
+      }
+    }
+    if (grid) {
+      const g = grid
+      near = (x, y) => (x < -R || y < -R || x >= w + R || y >= h + R ? null : g[(y + R) * W + x + R] ?? null)
+    }
+  }
   per.set(mapId, near)
   return near
 }
