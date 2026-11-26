@@ -1,4 +1,4 @@
-# Rerun Estates' kit (frontierArt/rerun.ts -> rerunData.ts): one suburban house per era on the same footprint, drawn
+# Rerun Estates' kit (frontierArt/rerun.ts -> the rerun art pack): one suburban house per era on the same footprint, drawn
 # by day with its windows UNLIT (the `_night` house is the same drawing with the windows lit: lamplight, the west front
 # window a TV's cold blue, a line of light under the garage door), and the lawn things: mailbox, phone booth (ice-blue
 # light), station wagon, flamingo, the sprinkler's two frames, the lawnmower.

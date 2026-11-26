@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { load } from './zelda-load.mjs'
 import { walker } from './zelda-walk.mjs'
+import { installArtFetch } from './helpers/art.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const zelda = join(here, '..', 'themes', 'zelda')
@@ -20,9 +21,10 @@ let Z
 let P
 /** The font, the touch deck's key names, the name plate, the pickups' words, and the gates and lands as data. */
 let X
-/** Every art kit, loaded from its own chunk as the view does. */
+/** Every art kit, loaded from its own art pack as the view does (the packs from the .art-cache, tests/helpers/art.mjs). */
 let KITS
 before(async () => {
+  installArtFetch()
   Z = await load()
   P = walker(Z)
   const out = esbuild.buildSync({

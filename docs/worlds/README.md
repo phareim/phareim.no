@@ -37,8 +37,8 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
 
 - `away: true`: a land past the coast. A reload of the tab out there continues there (the per-tab flag `zelda.out`,
   `awayMap`, `loadSpot`); arriving by a gate, the ferry or a seam opens the arrival area's first-visit words.
-- `realm`: the land's identity: its art kit (`render/iso/frontierArt/`, fetched as a chunk of its own when the hero
-  is there), its light and air (`render/looks.ts`, `MOOD`), its people's and foes' looks, the critters that live
+- `realm`: the land's identity: its art kit (`render/iso/frontierArt/`, an art pack fetched when the hero is there;
+  docs/games/neon-shrine.md, "The art packs"), its light and air (`render/looks.ts`, `MOOD`), its people's and foes' looks, the critters that live
   there (`render/life/`). `kits` names more kits the map draws from (Seter Fell's hay and mill are the `meadow` kit's);
   the view merges them (`kitsFor`). Every piece in a kit is drawn by Codex over a guide built from solids
   (`scripts/zelda-lab/codex/README.md`; `kit-check.mjs` fails on a piece that is not); a new landmark gets its guide in

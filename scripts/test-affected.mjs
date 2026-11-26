@@ -10,7 +10,7 @@
 // file runs itself, a theme runs its area and the areas that import it, and a path the table does not know runs
 // everything. --list prints the test files instead of running them; why each path runs what it does goes to stderr.
 import { spawnSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AREAS, affected, testsOf } from '../tests/areas.mjs'
@@ -70,5 +70,11 @@ if (!tests.length) {
   process.exit(0)
 }
 console.error(`running ${tests.length === files.length ? 'every test file' : `${tests.length} of ${files.length} test files`}`)
+// `npm run test:changed` skips the pretest hook, so fill the art cache once here, before the test processes start
+// (a cold cache would make each of them fetch the packs, at the same time).
+if (existsSync(join(repo, 'tests/helpers/art.mjs'))) {
+  const pull = spawnSync(process.execPath, ['tests/helpers/art.mjs'], { cwd: repo, stdio: 'inherit' })
+  if (pull.status !== 0) process.exit(pull.status ?? 1)
+}
 const run = spawnSync(process.execPath, ['--test', ...pass, ...tests.map(t => `tests/${t}`)], { cwd: repo, stdio: 'inherit' })
 process.exit(run.status ?? 1)

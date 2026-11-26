@@ -1,4 +1,4 @@
-# Sporelight's kit (frontierArt/sporelight.ts -> sporelightData.ts): the giant caps (two colours, three sizes), the
+# Sporelight's kit (frontierArt/sporelight.ts -> the sporelight art pack): the giant caps (two colours, three sizes), the
 # glow moss, the spore puffs (three frames), the spirits' bathhouse (its night is a lamp edit of the day drawing) and
 # the grazer (two walk frames drawn calm; the angry frames are the same drawing with the eyes turned pink).
 from head import HEAD  # noqa: F401

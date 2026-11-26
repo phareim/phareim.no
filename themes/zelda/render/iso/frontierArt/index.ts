@@ -1,30 +1,27 @@
-import type { ThingArt } from '../thingArt'
+import { loadKit, type PackedKit } from '../artPack'
 
-type Kit = Record<string, ThingArt>
-
-/** A realm's kit with its gate arch (`gatesData.ts`: `gate_<realm>_<road>_<off|on>`), fetched alongside it. */
-const withGate = (realm: string, kit: Promise<Kit>): Promise<Kit> =>
-  Promise.all([kit, import('./gatesData').then(m => m.GATES_ART)]).then(([art, gates]) =>
-    ({ ...art, ...Object.fromEntries(Object.entries(gates).filter(([id]) => id.startsWith(`gate_${realm}_`))) }))
+type Kit = PackedKit
 
 /**
- * Each realm's scenery is a chunk of its own, fetched the first time the view needs it, so a visit to the town
- * never downloads the lands' art. The isometric renderer puts the current map's kits on the GPU (`view.ts`,
- * `kitsFor`); until they are here their landmarks are not drawn.
- * `coast` is the hand-made maps' waymarks and barriers by the gates.
+ * Each realm's scenery is an art pack of its own (`../artPack.ts`, pinned in `../artIndex.ts`), fetched the first time
+ * the view needs it, so a visit to the town never downloads the lands' art. A realm with a gate arch has its arches
+ * (`gate_<realm>_<road>_<off|on>`, `gates.ts`) in its own pack. The isometric renderer puts the current map's kits on
+ * the GPU (`view.ts`, `kitsFor`); until they are here their landmarks are not drawn.
+ * `coast` is the hand-made maps' waymarks and barriers by the gates. The packs are baked by
+ * `scripts/zelda-lab/art-pack.mjs` (docs/games/neon-shrine.md, "The art packs").
  */
 export const REALM_ART_LOADERS: Record<string, () => Promise<Kit>> = {
-  fogstage: () => withGate('fogstage', import('./fogstageData').then(m => m.FOGSTAGE_ART)),
-  rerun: () => withGate('rerun', import('./rerunData').then(m => m.RERUN_ART)),
-  sporelight: () => withGate('sporelight', import('./sporelightData').then(m => m.SPORELIGHT_ART)),
-  stillsand: () => withGate('stillsand', import('./stillsandData').then(m => m.STILLSAND_ART)),
-  lumenby: () => withGate('lumenby', import('./quarryData').then(m => m.QUARRY_ART)),
-  underglow: () => import('./underglowData').then(m => m.UNDERGLOW_ART),
-  seterfell: () => withGate('seterfell', import('./seterData').then(m => m.SETER_ART)),
-  yulefjord: () => import('./fjordData').then(m => m.FJORD_ART),
-  meadow: () => import('./meadowData').then(m => m.MEADOW_ART),
-  landing: () => import('./landingData').then(m => m.LANDING_ART),
-  coast: () => import('./coastData').then(m => m.COAST_ART),
+  fogstage: () => loadKit('fogstage'),
+  rerun: () => loadKit('rerun'),
+  sporelight: () => loadKit('sporelight'),
+  stillsand: () => loadKit('stillsand'),
+  lumenby: () => loadKit('quarry'),
+  underglow: () => loadKit('underglow'),
+  seterfell: () => loadKit('seter'),
+  yulefjord: () => loadKit('fjord'),
+  meadow: () => loadKit('meadow'),
+  landing: () => loadKit('landing'),
+  coast: () => loadKit('coast'),
 }
 
 /** A fetch that failed (offline) is tried again after this long, not every frame. */

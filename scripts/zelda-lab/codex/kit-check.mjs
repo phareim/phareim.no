@@ -2,21 +2,44 @@
 // The realm-kit checks of tests/zelda-things.test.mjs, standing on their own (no generated world needed), for a kit
 // just baked: every id the kit had keeps its box, every record is whole (rows, nrows, deep for each px), each kit's
 // atlas stays <= 2048 px tall, night/day and off/on pairs keep one box, lit variants glow and unlit arches do not,
-// and a drawn piece glows only where the bake marked light.
-//   node scripts/zelda-lab/codex/kit-check.mjs [<before-data-dir>]   (before: the kits' *Data.ts as they were, for the boxes)
+// and a drawn piece glows only where the bake marked light. The kits are the pinned art packs (themes/zelda/render/iso/
+// artIndex.ts, from the .art-cache: `npm run art:pull`), loaded by the game's loader and read back as tables.
+//   node scripts/zelda-lab/codex/kit-check.mjs [<before-dir>]   (before: the kits as they were, for the boxes: per kit
+//   module a <kit>.json table, `art-pack.mjs unpack --kit <kit> <before-dir>/<kit>.json`, or an old <kit>Data.ts)
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import { buildSync } from 'esbuild'
+import { installArtFetch } from '../../../tests/helpers/art.mjs'
+import { pinnedTable } from '../lib/artcache.mjs'
+import { kitParts } from '../lib/artgroups.mjs'
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const out = buildSync({
   stdin: { contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { buildProps } from './render/iso/props'; export { REALM_ART_LOADERS, loadRealmArt } from './render/iso/frontierArt'`, resolveDir: resolve(repo, 'themes/zelda'), loader: 'ts' },
   bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
 })
+installArtFetch()
 const M = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+/** A realm's kit as a table (rows, pal, nrows, deep), from the pack the game loads for it. */
+const tables = new Map()
+async function tableOf(realm) {
+  if (!tables.has(realm)) {
+    const live = await M.loadRealmArt(realm)
+    tables.set(realm, await pinnedTable(Object.values(live)[0].pack))
+  }
+  return tables.get(realm)
+}
+/** A kit module's pieces now: its part of the packs, or (roadside, still TS) its data file. */
+async function currentKit(f) {
+  const parts = kitParts(f)
+  if (!parts) return unpack(resolve(repo, `themes/zelda/render/iso/frontierArt/${f}Data.ts`))
+  const out = {}
+  for (const p of parts) for (const [id, t] of Object.entries(await pinnedTable(p.group))) if (p.has(id)) out[id] = t
+  return out
+}
 const bytes = b64 => Buffer.from(b64, 'base64')
 const before = process.argv[2]
 const unpack = f => JSON.parse(gunzipSync(Buffer.from(readFileSync(f, 'utf8').match(/unpackArt<[^>]*>>\("([^"]+)"\)/)[1], 'base64')))
@@ -24,9 +47,10 @@ const props = M.buildProps()
 const base = M.withThings(props)
 let n = 0, drawn = 0
 for (const realm of Object.keys(M.REALM_ART_LOADERS)) {
-  const art = await M.loadRealmArt(realm)
-  const atlas = M.withThings(props, art)
+  const live = await M.loadRealmArt(realm)
+  const atlas = M.withThings(props, live)
   assert.ok(atlas.h <= 2048, `${realm} atlas: ${atlas.h}px tall`)
+  const art = await tableOf(realm)
   for (const [id, t] of Object.entries(art)) {
     const box = atlas.sprites[M.thingKey(id)]
     assert.ok(box && box.y >= base.h, id)
@@ -51,14 +75,17 @@ for (const realm of Object.keys(M.REALM_ART_LOADERS)) {
 const ADDED = new Set(['stillsand_pyramid', 'seter_varde', 'fogstage_house', 'fogstage_house_night', 'rerun_screen',
   'stillsand_ribs', 'stillsand_ribs_small', 'sporelight_rootstair', 'harbour_boat_0', 'harbour_boat_1'])
 if (before) for (const f of ['seter', 'meadow', 'gates', 'fjord', 'sporelight', 'quarry', 'stillsand', 'roadside', 'rerun', 'fogstage', 'underglow', 'coast', 'landing']) {
-  const was = resolve(before, `${f}Data.ts`); if (!existsSync(was)) continue
-  const a = unpack(was), b = unpack(resolve(repo, `themes/zelda/render/iso/frontierArt/${f}Data.ts`))
-  assert.deepEqual(Object.keys(b).filter(id => !ADDED.has(id) || id in a), Object.keys(a), `${f}: ids`)
+  const json = resolve(before, `${f}.json`), ts = resolve(before, `${f}Data.ts`)
+  if (!existsSync(json) && !existsSync(ts)) continue
+  const a = existsSync(json) ? JSON.parse(readFileSync(json, 'utf8')) : unpack(ts), b = await currentKit(f)
+  // (The arches of the old gatesData.ts held the coast's waymarks too; those are the coast's now.)
+  if (f === 'gates') for (const id of Object.keys(a)) if (!id.startsWith('gate_')) delete a[id]
+  assert.deepEqual(Object.keys(b).filter(id => !ADDED.has(id) || id in a).sort(), Object.keys(a).sort(), `${f}: ids`)
   for (const id of Object.keys(a)) assert.deepEqual([b[id].w, b[id].h, b[id].ax, b[id].ay], [a[id].w, a[id].h, a[id].ax, a[id].ay], `${f}: ${id} box`)
   console.log(`${f}: all ${Object.keys(a).length} ids kept with their w, h, ax, ay`)
 }
 // Pairs (as the things test pairs them).
-const kit = async r => M.loadRealmArt(r)
+const kit = tableOf
 const glow = t => t.rows.reduce((s, row) => s + [...row].reduce((q, p) => q + (t.glow[p] ?? 0), 0), 0)
 const seter = await kit('seterfell')
 for (const [d, nn] of [['seter_hut_0', 'seter_hut_night_0'], ['seter_hut_1', 'seter_hut_night_1']]) {

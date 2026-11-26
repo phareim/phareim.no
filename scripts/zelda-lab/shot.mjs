@@ -643,7 +643,7 @@ function wild(luna = false) {
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
 ;(async () => {
-  // (A realm's scenery is a chunk of its own, fetched when the view first needs it: the lab waits for it.)
+  // (A realm's scenery is an art pack of its own, fetched when the view first needs it: the lab waits for it.)
   await Promise.all(kitsFor(mapDef(world, s.map.id)).map(loadRealmArt))
   // (So are the machines drawn by hand, part 25.)
   await loadMachineArt()

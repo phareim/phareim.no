@@ -210,7 +210,7 @@ export default function isoView(kit: Kit): View {
     sendProps(realmArt)
   }
   /**
-   * Puts the map's kits on the GPU once their chunks are here (`frontierArt/index.ts`); until then the atlas has
+   * Puts the map's kits on the GPU once their art packs are here (`frontierArt/index.ts`); until then the atlas has
    * none of them, and their landmarks are left out (the classic scenery under them stays). False while one is
    * still on its way.
    */

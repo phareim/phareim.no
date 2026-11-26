@@ -1,13 +1,13 @@
 # kitbeam.py: the lighthouse's turning beam (fjord_lighthouse_0..3) drawn over the tower Codex already drew.
 #   kitbeam.py guide   -> guides/fjord_lighthouse_beam_<k>.png: in frame k's box, the drawn lens tower
-#                         (fjord_lighthouse_lens_<k> as baked in fjordData.ts, placed by the anchors) and, where the
+#                         (fjord_lighthouse_lens_<k> as baked in the fjord art pack, placed by the anchors) and, where the
 #                         solids' beam is, its cone filled with one flat cream placeholder (sheet.py lays these out)
 #   kitbeam.py build   -> build/fjord_lighthouse_<k>.json: the baked lens tower's own px (colours, glow, normals,
 #                         depth), and around it only Codex's beam px (from kitbuild.py's placing of the sheet's drawing,
 #                         build/fjord_lighthouse_<k>.png), inside the cone grown by 3 px; every beam px glows and takes
 #                         the beam solids' normal and depth (nearest guide px), as kitbuild.py gives any drawn px.
 # Every px that ships is Codex-drawn: the tower from the first round's lens sheet, the beam from this sheet.
-import base64, gzip, json, os, re, sys
+import base64, json, os, subprocess, sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage
@@ -19,9 +19,11 @@ BEAM_MATS = ['core', 'glassCyan']
 CREAM = (232, 216, 160)
 
 
-def baked(kit_file='fjordData.ts'):
-    src = open(os.path.join(ISO, 'frontierArt', kit_file)).read()
-    return json.loads(gzip.decompress(base64.b64decode(re.search(r'unpackArt<[^>]*>>\("([^"]+)"\)', src).group(1))))
+def baked(group='fjord'):
+    """The kit as the game has it: its pinned art pack read back as ThingArt records (art-pack.mjs unpack)."""
+    repo = os.path.abspath(os.path.join(ISO, '..', '..', '..', '..'))  # (kitlib's REPO)
+    out = subprocess.run(['node', os.path.join(repo, 'scripts', 'zelda-lab', 'art-pack.mjs'), 'unpack', group], check=True, capture_output=True, text=True)
+    return json.loads(out.stdout)
 
 
 def unrec(r):

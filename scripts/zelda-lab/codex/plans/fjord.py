@@ -1,4 +1,4 @@
-# Yule Fjord's kit (frontierArt/fjord.ts -> fjordData.ts). The lighthouse's beam frames (fjord_lighthouse_0..3) were
+# Yule Fjord's kit (frontierArt/fjord.ts -> the fjord art pack). The lighthouse's beam frames (fjord_lighthouse_0..3) were
 # held back in round 1; round 2 draws their beams over the drawn lens tower (sheets beam0..3 below, kitbeam.py).
 from head import HEAD  # noqa: F401
 

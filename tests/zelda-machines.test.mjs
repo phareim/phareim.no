@@ -1,16 +1,18 @@
-// Neon Shrine's machines drawn by hand for the isometric view (part 25: render/iso/machines.ts, its art machineArt.ts a
-// chunk of its own, packed beside a realm's kit by things.ts): the arcade cabinets, Petter's terminals and the LOGIN console. Which placed machines have a drawing, that a style
+// Neon Shrine's machines drawn by hand for the isometric view (part 25: render/iso/machines.ts, its art the `machines`
+// art pack, artPack.ts, packed beside a realm's kit by things.ts): the arcade cabinets, Petter's terminals and the LOGIN console. Which placed machines have a drawing, that a style
 // with none keeps the classic box, that every cabinet style is an edit on the master's silhouette, that each live screen
 // stands inside its drawing's glass, and that each cabinet was drawn from the style the classic painter still paints.
-// Part 26 (stallArt.ts, a second chunk): the square's newsstand, NEW LOOK stall and KODING KATA stand, each standing from
+// Part 26 (the `stalls` pack, a second one): the square's newsstand, NEW LOOK stall and KODING KATA stand, each standing from
 // several drawings; their lit signs, screens and mirror stand in their key areas in front of every px of their own drawings,
 // their people behind the counter, and a map packs only the drawings its looks bring.
-// Bundled with esbuild like the other zelda tests; no canvas is made here.
+// Bundled with esbuild like the other zelda tests; no canvas is made here. The packs come from the .art-cache
+// (tests/helpers/art.mjs, `npm run art:pull`), the checks on palettes and silhouettes read them unpacked.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { installArtFetch, kitTable } from './helpers/art.mjs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -30,14 +32,31 @@ async function load() {
 
 let M
 before(async () => {
+  installArtFetch()
   const mod = await load()
-  // (The art is fetched as the view does; its entries stand in for THING_ART below.)
-  const art = await mod.loadMachineArt()
-  // (Part 25's machines, and part 26's newsstand and stalls, a chunk of their own.)
+  // (The art is fetched as the view does: `kit` is the game's, its pieces rects of the decoded packs. The same packs
+  // unpacked to rows and palettes stand in for THING_ART below.)
+  const kit = await mod.loadMachineArt()
+  const table = { ...(await kitTable('machines')), ...(await kitTable('stalls')) }
+  assert.deepEqual(Object.keys(kit).sort(), Object.keys(table).sort())
+  // (Part 25's machines, and part 26's newsstand and stalls, a pack of their own.)
   const part25 = id => id.startsWith('cab_') || id === 'home_terminal' || id === 'login_console'
-  const pick = f => Object.fromEntries(Object.entries(art).filter(([id]) => f(id)))
-  M = { ...mod, MACHINE_ART: pick(part25), STALL_ART: pick(id => !part25(id)), THING_ART: art, hasThing: id => Object.prototype.hasOwnProperty.call(art, id) }
+  const pick = (from, f) => Object.fromEntries(Object.entries(from).filter(([id]) => f(id)))
+  M = { ...mod, KIT: kit, MACHINE_KIT: pick(kit, part25), MACHINE_ART: pick(table, part25), STALL_ART: pick(table, id => !part25(id)), THING_ART: table, hasThing: id => Object.prototype.hasOwnProperty.call(kit, id) }
 })
+
+/** A drawn px's normal (rgb hex) and depth, as the pack holds them. */
+const normalAt = (t, x, y) => t.npal[t.nrows[y].charCodeAt(x) - 48]
+const deepAt = (t, x, y) => Buffer.from(t.deep, 'base64')[y * t.w + x]
+/** Does b have a's normals and depth at every px a draws (a `like` frame of a's drawing)? */
+function sameGeometry(a, b) {
+  const da = Buffer.from(a.deep, 'base64'), db = Buffer.from(b.deep, 'base64')
+  for (let y = 0; y < a.h; y++) for (let x = 0; x < a.w; x++) {
+    if (a.rows[y][x] === '.') continue
+    if (normalAt(a, x, y) !== normalAt(b, x, y) || da[y * a.w + x] !== db[y * a.w + x]) return false
+  }
+  return true
+}
 
 /** Every cabinet placed in the world (the arcade, the VIP hall, Petter's house), by its art. */
 const PLACED = ['newgame', 'anotherworld', 'voyagers2', 'breakout', 'rtype', 'invaders', 'invasive', 'starfox', 'outrun', 'russian',
@@ -91,11 +110,11 @@ describe('zelda machines drawn by hand (part 25)', () => {
 
   it('every cabinet style is an edit of the master on its silhouette, sharing its normals and depth', () => {
     const master = M.THING_ART.cab_newgame
-    assert.ok(master.nrows && master.deep && !master.like)
+    assert.ok(master.nrows && master.deep)
     const shape = t => t.rows.map(r => r.replace(/[^.]/g, '#')).join('\n')
     for (const art of PLACED.slice(1)) {
       const t = M.THING_ART[`cab_${art}`]
-      assert.equal(t.like, 'cab_newgame', art)
+      assert.ok(sameGeometry(master, t), `${art}: the master's normals and depth at every px`)
       assert.equal(t.w, master.w); assert.equal(t.h, master.h); assert.equal(t.ax, master.ax); assert.equal(t.ay, master.ay)
       assert.equal(shape(t), shape(master), `${art}: the master's silhouette`)
       assert.deepEqual(M.MACHINE_SCREENS[`cab_${art}`], M.MACHINE_SCREENS.cab_newgame, `${art}: the master's glass`)
@@ -140,7 +159,7 @@ describe('zelda machines drawn by hand (part 25)', () => {
 
   it('packs beside a realm\'s kit, each style painted from the master\'s normals and depth, in the rooms that have machines', () => {
     const props = M.buildProps()
-    const atlas = M.withThings(props, M.withMachines(undefined, M.MACHINE_ART))
+    const atlas = M.withThings(props, M.withMachines(undefined, M.MACHINE_KIT))
     for (const [id, t] of Object.entries(M.MACHINE_ART)) {
       const box = atlas.sprites[M.thingKey(id)]
       assert.ok(box && box.w === t.w && box.h === t.h, id)
@@ -152,8 +171,8 @@ describe('zelda machines drawn by hand (part 25)', () => {
       // The anchor is the ground under the body's middle.
       assert.ok(t.ax > t.w / 3 && t.ax < (t.w * 2) / 3, `${id} ax ${t.ax}`)
     }
-    const kit = { other: M.MACHINE_ART.cab_newgame }
-    assert.equal(M.withMachines(kit, M.MACHINE_ART), M.withMachines(kit, M.MACHINE_ART), 'the same merged kit, so the atlas is packed once')
+    const kit = { other: M.MACHINE_KIT.cab_newgame }
+    assert.equal(M.withMachines(kit, M.MACHINE_KIT), M.withMachines(kit, M.MACHINE_KIT), 'the same merged kit, so the atlas is packed once')
     for (const id of ['arcade', 'vip', 'home', 'overworld']) assert.equal(M.hasMachines(M.WORLD.maps[id]), true, id)
     assert.equal(M.hasMachines(M.WORLD.maps.hut), false, 'hut')
   })
@@ -162,7 +181,7 @@ describe('zelda machines drawn by hand (part 25)', () => {
     for (const id of Object.keys(M.MACHINE_ART)) {
       const t = M.THING_ART[id]
       assert.ok(Object.keys(t.glow).length > 0, `${id} glows somewhere`)
-      const geo = t.like ? M.THING_ART[t.like] : t
+      const geo = t
       const deep = Buffer.from(geo.deep, 'base64')
       assert.equal(deep.length, t.w * t.h)
       for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) {
@@ -177,7 +196,7 @@ describe('zelda machines drawn by hand (part 25)', () => {
   const STALLS = [['kiosk', undefined], ['stall', undefined], ['stall', 'kata']]
   /** The key areas' colour per drawing (build.py's KEY_RGB): the classic painter's live picture stands over them. */
   const KEY = { kiosk: '#12081e', look_roof: '#12081e', look_wall: '#1a2f78', kata_board: '#12081e', kata_pc: '#0b1a10', kata_junkl_0: '#1a1206', kata_junkl_1: '#1a1206' }
-  const geoOf = t => (t.like ? M.THING_ART[t.like] : t)
+  const geoOf = t => t
   const qOf = (t, x, y) => { const a = Buffer.from(geoOf(t).deep, 'base64')[y * t.w + x]; return a ? (a - 128) / 4 : 4.8 }
 
   it('the newsstand and the two stalls name their drawings, their live regions and their people', () => {
@@ -198,7 +217,7 @@ describe('zelda machines drawn by hand (part 25)', () => {
     }
     // The disk light: a lit and an unlit drawing, one px apart, the lit one sharing the other's normals and depth.
     const [d0, d1] = [M.THING_ART.kata_junkl_0, M.THING_ART.kata_junkl_1]
-    assert.equal(d1.like, 'kata_junkl_0')
+    assert.ok(sameGeometry(d0, d1), 'the lit one has the unlit one\'s normals and depth')
     let diff = 0
     for (let y = 0; y < d0.h; y++) for (let x = 0; x < d0.w; x++) if (d0.pal[d0.rows[y][x]] !== d1.pal[d1.rows[y][x]]) diff++
     assert.equal(diff, 1, 'the disk light is one px of the drawing')
@@ -282,7 +301,8 @@ describe('zelda machines drawn by hand (part 25)', () => {
     assert.ok(Object.keys(M.machineKit('cabinet')).every(id => id.startsWith('cab_')))
     assert.equal(M.machineKit('kiosk+stall'), square, 'the same object, so the atlas is packed once')
     const atlas = M.withThings(M.buildProps(), M.withMachines(undefined, square))
-    for (const [id, t] of Object.entries(square)) {
+    for (const id of Object.keys(square)) {
+      const t = M.THING_ART[id]
       const box = atlas.sprites[M.thingKey(id)]
       assert.ok(box && box.w === t.w && box.h === t.h, id)
       for (let y = 0; y < t.h; y += 5) for (let x = 0; x < t.w; x++) {

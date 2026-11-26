@@ -398,7 +398,7 @@ classic picture. `/?view=<id>` asks for one.
     the classic card again, pixel for pixel. The job's tools, sheets and archive are in
     `tmp/iso-figures-23/` on the Mac (`REPORT.md`).
   - *Machines drawn by hand* (`machines`, on by default, needs `things`; `iso/machines.ts`,
-    `iso/machineArt.ts`, `iso/machineGlass.ts`; part 25, 2026-11-26). The arcade cabinets (all nineteen
+    the `machines` art pack, `iso/machineGlass.ts`; part 25, 2026-11-26). The arcade cabinets (all nineteen
     placed: fourteen in the arcade, four in the VIP hall, NEW GAME in Petter's house), Petter's three
     terminals and the LOGIN console stand in the round as hand-made pixel art. The NEW GAME cabinet is the
     master, drawn by Codex over a guide from solids (a tall box, a marquee hood, the screen set back between
@@ -417,15 +417,15 @@ classic picture. `/?view=<id>` asks for one.
     nearer than the glass behind it, its depth read from the drawing at that column (one depth for the whole
     card left the nearer, right-hand side of the glass over the screen). It glows as the box's front did
     (picture 1's neon), and the drawn marquee, buttons and coin slots glow by their own (`glow`); the lights
-    and the CRT flicker are the classic painter's, as before. The art (about 190 KB) is a chunk of its own,
-    fetched the first time the view is in a room with a machine (`hasMachines`, `machineArt`) and packed
+    and the CRT flicker are the classic painter's, as before. The art (the `machines` art pack, about 92 KB of
+    PNG; *The art packs* below) is fetched the first time the view is in a room with a machine (`hasMachines`, `machineArt`) and packed
     beside the realm's kit, and kept packed while no realm's kit comes in (a door out of the arcade does not
     pack the atlas again); until it is here, with the value off, and for a cabinet whose style has no
     drawing (`galaga`, `default`, a new game's cabinet), the box below stands. Each cabinet records the
     hash of the classic style it was drawn from (`MACHINE_FROM`, against `CAB_STYLES` in `exits.ts`):
     `tests/zelda-machines.test.mjs` fails when a style changes, so it is redrawn. The job's tools, sheets
     and archive are in `tmp/iso-figures-25/` on the Mac (`REPORT.md`).
-    **The square's stalls** (part 26, 2026-11-26; `iso/stallArt.ts`, behind the same value): the SLEEPER
+    **The square's stalls** (part 26, 2026-11-26; the `stalls` art pack, behind the same value): the SLEEPER
     NEWS newsstand, the NEW LOOK stall and the KODING KATA stand are drawn the same way, each by Codex over
     its own guide from solids. Codex draws about 150 × 100 art px on a sheet, so a stall is several
     drawings that stand together, each piece a thing of the item with its own anchor (`things`): NEW LOOK
@@ -440,7 +440,7 @@ classic picture. `/?view=<id>` asks for one.
     its changing look, Linus and Ada with their glasses) are the classic painter's too, each a card of its
     own (`ThingScreen.stand`) standing behind the drawn counter with its foot just under the counter's top,
     so they show waist up and bob and hop as before; for such an item the cell holds only what lives
-    (`Item.bare`). Their art (about 340 KB raw) is a second chunk, so the town fetches only it, and a map
+    (`Item.bare`). Their art (about 60 KB of PNG) is a second pack, so the town fetches only it, and a map
     packs only the drawings its looks bring (`machineLooks`, `machineKit`): the square's atlas holds no
     cabinet. The tools, sheets and archive: `tmp/iso-figures-26/` on the Mac (`REPORT.md`).
   - *Cabinets and booths with a body.* An item whose drawing is the front
@@ -1064,9 +1064,47 @@ classic picture. `/?view=<id>` asks for one.
   drawings each (a sheet holds no more), so their pieces were drawn apart and meet where the guide put
   them, the people behind their counters are the classic cards (head and shoulders over the counter, as in
   the classic), the long boards' and awnings' far ends are a few px nearer in depth than they are (the
-  depth byte holds ±32 px), and the town now fetches their chunk (about 340 KB raw); the eight keyboard directions are the
+  depth byte holds ±32 px), and the town now fetches their pack (about 60 KB); the eight keyboard directions are the
   eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
+- **The art packs** (`iso/artPack.ts`, `iso/artPng.ts`, `iso/artIndex.ts`; ART-PLAN phase 3b, 2026-11-26).
+  The stalls, the machines and every realm's kit (with its realm's gate arches) are not TS: each is an art
+  pack in the fixer art library (project `neon-shrine`, asset `neon-shrine-pack-<group>`), thirteen in all
+  (`stalls`, `machines`, `coast`, `fjord`, `fogstage`, `landing`, `meadow`, `quarry` for Lumenby, `rerun`,
+  `seter`, `sporelight`, `stillsand`, `underglow`). A pack is two RGBA8 PNGs: `albedo.png` (the colour, and
+  the px's depth in the alpha: at least 1 where drawn, 0 where clear) and `normal.png` (which way the px
+  faces, and its glow in the alpha), pieces shelf-packed in sorted-id order, a `like` frame expanded to its
+  own px; and an index file (rects, anchors, `src`, `drawn`) for the tools. The files are named by their
+  content (`https://media.fixer.ink/art/neon-shrine/neon-shrine-pack-<group>/<role>-<sha8>.png`,
+  immutable, CORS `*`), and `iso/artIndex.ts` pins each pack's URLs with their sha256 (`PACKS`) and every
+  piece's rect and anchor (`ART_INDEX`), so the geometry is in the bundle and only the pixels are fetched.
+  `loadPack` fetches a pack the first time the view needs it, checks both hashes, and decodes the PNGs
+  itself (`artPng.ts`: fflate and the five row filters, 8-bit RGBA only), never through a canvas or
+  `createImageBitmap`, which would premultiply the colour by the depth; a failed fetch is tried again after
+  10 s (`RETRY_MS`). `things.ts` copies each piece's rect into the atlas (`paintPacked`); the classic view
+  fetches none. All thirteen are 1.58 MB of PNG, against 1.68 MB for the gzip of the TS tables they replace
+  (0.94×). Still TS, each until its phase moves it: the base things (`thingArt.ts`, `ferryArt.ts`,
+  `roadsideData.ts`), the folk, the bosses, the frontier people and the foes' hurt frames, and the hero.
+  **The bake step is `scripts/zelda-lab/art-pack.mjs`**; nothing writes art TS for these any more
+  (`tests/zelda-no-art-ts.test.mjs` fails on a restored or new table):
+  - a realm kit or the arches: `node scripts/zelda-lab/frontier-art.mjs <kit>` (re-bake from the solids,
+    the drawn pieces kept) or `node scripts/zelda-lab/codex/kit-bake.mjs <kit>` (Codex's drawings in); both
+    read the kit back from its pinned pack (`art-pack.mjs unpack --kit <kit>`) and hand the new table to
+    `art-pack.mjs --kit <kit> --from-json`, which packs, uploads and rewrites `artIndex.ts`. `gates` goes
+    into the six realms' packs. `--check` writes nothing and says which pieces would change; `--no-upload`
+    writes the pack to `tmp/art-packs/<group>/` only.
+  - a redrawn stall or machine piece: `node scripts/zelda-lab/art-pack.mjs --splice stalls <id>.json
+    [--upload]` (each file a `ThingArt` record named by its id): the pinned pack is unpacked, the piece
+    replaced or added, and every other piece keeps its px.
+  - any pack whole from a table: `art-pack.mjs <group> --from-json <table.json> --upload`; a pack back to a
+    table: `art-pack.mjs unpack <group> [out.json]`.
+  `--upload` needs `FIXER_ART_KEY` (the environment or `~/.config/fixer-art/env`, on Sleeper and the Mac).
+  Commit the rewritten `artIndex.ts` with the change: an old commit keeps loading its own pinned packs, and a
+  bad pack is undone by the next pin. The tests read the packs from `.art-cache/` (git-ignored, every file
+  hash-checked; `npm run art:pull`, also run before `npm test`), so they run offline once it is filled:
+  `tests/zelda-artpack-parity.test.mjs` (the packs pinned at the move hold the TS tables' px, from git
+  `c41be83`; the game's loader paints each pinned pack as `paintThing` paints it unpacked) and
+  `tests/zelda-artpack-roundtrip.test.mjs` (the PNG writer and decoder).
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
   [scenes]` renders the isometric view (`LIVE=<pack.json>` applies the
   studio's live sprites first, as the site does; `DAY=sun` a solved save's

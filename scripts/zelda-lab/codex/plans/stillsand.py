@@ -1,4 +1,4 @@
-# Stillsand's kit (frontierArt/stillsand.ts -> stillsandData.ts): the gold pyramid (new in round 3; too big for one
+# Stillsand's kit (frontierArt/stillsand.ts -> the stillsand art pack): the gold pyramid (new in round 3; too big for one
 # sheet at the game's px, so drawn on a half-size guide and built at 2 x 2 game px per art px), the quartz islands that
 # hang over the dunes (the lowered one is the medium island's drawing, its box anchored 13 px lower), and the
 # sunstone's lens turning on its post (four frames).

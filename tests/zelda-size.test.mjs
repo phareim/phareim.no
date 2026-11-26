@@ -1,7 +1,8 @@
 // What the isometric view costs a visitor of `/` (docs/site.md → "What `/` costs"): the view's chunk and what it
 // pulls in statically, minified and gzipped, as esbuild splits it (close to the site build's own chunk). Each realm's
-// scenery is a chunk of its own (render/iso/frontierArt/index.ts), fetched only in that realm; this keeps it that way
-// and keeps the view from growing back silently. Measured 2026-11-25: about 1.18 MB minified, 386 KB gzip (with every
+// scenery, the machines and the stalls are art packs (render/iso/artPack.ts), PNGs fetched only where they stand, and
+// only their geometry (artIndex.ts) rides in the view; this keeps it that way and keeps the view from growing back
+// silently. Measured 2026-11-25: about 1.18 MB minified, 386 KB gzip (with every
 // realm's art inside it, before, 1.98 MB and 990 KB). Raise a ceiling only on purpose, and say so in docs/site.md.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -42,14 +43,15 @@ function staticClosure() {
 }
 
 describe('the isometric view\'s size', () => {
-  it('leaves every realm\'s scenery out of the view\'s chunk', () => {
-    const inputs = staticClosure().flatMap(k => Object.keys(out.metafile.outputs[k].inputs))
-    const realmData = inputs.filter(p => /frontierArt\/(fogstage|rerun|sporelight|stillsand|quarry|underglow|seter|fjord|meadow|landing|gates|coast)Data\.ts$/.test(p))
-    assert.deepEqual(realmData, [])
-    // Each is fetched on its own instead: the eight realms, the Green Miles, the Landing, the gates' arches and the coast's waymarks. (The
-    // road lanterns, `roadsideData`, stand on every frontier road and ride in the view with the people and buildings.)
-    const lazy = Object.values(out.metafile.outputs).filter(o => Object.keys(o.inputs).some(p => /frontierArt\/\w+Data\.ts$/.test(p) && !/(people|building|roadside)Data/.test(p)))
-    assert.equal(lazy.length, 12)
+  it('leaves every realm\'s scenery, the machines and the stalls out of the bundle: art packs, fetched where they stand', () => {
+    const inputs = Object.values(out.metafile.outputs).flatMap(o => Object.keys(o.inputs))
+    // (No TS table of theirs is left to bundle, statically or as a chunk. The road lanterns, `roadsideData`, stand on
+    // every frontier road and ride in the view with the people and buildings.)
+    const tables = inputs.filter(p => /frontierArt\/(fogstage|rerun|sporelight|stillsand|quarry|underglow|seter|fjord|meadow|landing|gates|coast)Data\.ts$|iso\/(machine|stall)Art\.ts$/.test(p))
+    assert.deepEqual(tables, [])
+    // Their geometry rides in the view (artIndex.ts), and their pixels are fetched by URL (artPack.ts).
+    const closure = staticClosure().flatMap(k => Object.keys(out.metafile.outputs[k].inputs))
+    assert.ok(closure.some(p => p.endsWith('iso/artIndex.ts')) && closure.some(p => p.endsWith('iso/artPack.ts')))
   })
 
   it('stays under its ceiling, minified and gzipped', () => {

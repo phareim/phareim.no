@@ -1,4 +1,4 @@
-# The coast's kit (frontierArt/coast.ts -> coastData.ts): the hand-made maps' neon waymarks by the gates (six, each a
+# The coast's kit (frontierArt/coast.ts -> the coast art pack): the hand-made maps' neon waymarks by the gates (six, each a
 # sign naming a land with a neon arrow; frame _0 drawn with the arrow lit, frame _1 the same drawing with the arrow
 # out: the blink) and the BORDER arms, down and up.
 from head import HEAD  # noqa: F401

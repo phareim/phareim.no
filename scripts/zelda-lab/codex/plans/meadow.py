@@ -1,4 +1,4 @@
-# The meadow kit (frontierArt/meadow.ts -> meadowData.ts): the mill (its sails turn: one drawing, the tower drawn
+# The meadow kit (frontierArt/meadow.ts -> the meadow art pack): the mill (its sails turn: one drawing, the tower drawn
 # alone behind them), the waystone, the haystacks, the bus stop and the cart.
 from head import HEAD  # noqa: F401
 

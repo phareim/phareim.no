@@ -1,4 +1,4 @@
-# Fogstage's kit (frontierArt/fogstage.ts -> fogstageData.ts): the spotlight and its eight head directions, the
+# Fogstage's kit (frontierArt/fogstage.ts -> the fogstage art pack): the spotlight and its eight head directions, the
 # painted flat (a stage castle flat on struts), sandbags, eight theatre posters (7 = THE END, lit), the RAINCHECK blimp
 # (a striped touring blimp with a gondola stage and a red belly light) and the gangway.
 from head import HEAD  # noqa: F401

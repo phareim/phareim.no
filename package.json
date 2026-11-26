@@ -8,6 +8,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxi typecheck",
+    "art:pull": "node tests/helpers/art.mjs",
+    "pretest": "node tests/helpers/art.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:changed": "node scripts/test-affected.mjs --worktree",
     "test:portal": "node scripts/test-affected.mjs --area portal",

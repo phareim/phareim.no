@@ -1,4 +1,4 @@
-# Lumenby quarry's kit (frontierArt/quarry.ts -> quarryData.ts): the seven hill letters L U M E N B Y (drawn unlit;
+# Lumenby quarry's kit (frontierArt/quarry.ts -> the quarry art pack): the seven hill letters L U M E N B Y (drawn unlit;
 # the lit letters are the same drawings with their neon tubes lit), the mine carts, the haul ramps, the headframe,
 # the lumen vein and the crate of glass tubes.
 from head import HEAD  # noqa: F401

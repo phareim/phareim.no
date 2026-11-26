@@ -1,4 +1,4 @@
-# Seter Fell's kit (frontierArt/seter.ts -> seterData.ts): the sheets Codex draws, and what each piece is.
+# Seter Fell's kit (frontierArt/seter.ts -> the seter art pack): the sheets Codex draws, and what each piece is.
 # sheet: size (an image_gen size), pitch (sheet px to an art px), key, ids (guides, left to right), and the words.
 from head import HEAD  # noqa: F401  (sheet.py reads HEAD from here)
 

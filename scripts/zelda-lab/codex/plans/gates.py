@@ -1,4 +1,4 @@
-# The seterfell pair of the realm arches (frontierArt/gates.ts -> gatesData.ts: gate_seterfell_<ns|ew>_<off|on>).
+# The seterfell pair of the realm arches (frontierArt/gates.ts -> the seter art pack: gate_seterfell_<ns|ew>_<off|on>).
 from head import HEAD  # noqa: F401
 
 REFS = {'concept.png': 'docs/worlds/img/concept-seterfell.jpg', 'style.png': 'scripts/zelda-lab/codex/style.png'}

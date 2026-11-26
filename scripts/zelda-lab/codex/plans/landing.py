@@ -1,4 +1,4 @@
-# The landing's kit (frontierArt/landing.ts -> landingData.ts): Yule Fjord's harbour (pier, bollards, crates, net rack,
+# The landing's kit (frontierArt/landing.ts -> the landing art pack): Yule Fjord's harbour (pier, bollards, crates, net rack,
 # harbour light) and the breakwater's stones.
 from head import HEAD  # noqa: F401
 

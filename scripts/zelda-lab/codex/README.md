@@ -6,7 +6,8 @@ tegnes med codex. Vi tåler veldig godt å bruke mange farger.» Everything that
 limit the number of colours.
 
 This folder holds the tools that turn a realm kit's solids (`themes/zelda/render/iso/frontierArt/<kit>.ts`) into
-Codex-drawn pixel art, packed into the kit's data file (`<kit>Data.ts`). Each drawn pixel gets the normal and depth
+Codex-drawn pixel art, baked into the kit's art pack (`../art-pack.mjs`, docs/games/neon-shrine.md "The art packs";
+the `roadside` kit, still TS, into `roadsideData.ts`). Each drawn pixel gets the normal and depth
 of the guide pixel at the same place, so the engine lights and sorts the drawing as it did the solids.
 `things/` holds the Part 23 tools for `render/iso/thingArt.ts` (how they were used: `git log` of thingArt.ts, 2026-11-25).
 
@@ -28,8 +29,8 @@ python scripts/zelda-lab/codex/cut2.py $S/raw/out-1.png $S/cells.json $S/cut [pi
 python scripts/zelda-lab/codex/parity.py $S/cut/*.png                                  #    and check it
 python scripts/zelda-lab/codex/kitbuild.py $K seter_hut_0 hut [--cut $S/cut] [--edit ...]  # 5. one piece, fitted
 python scripts/zelda-lab/codex/kitlineup.py $K tmp/world-art/lineup.png                # 6. guide above drawing
-node scripts/zelda-lab/codex/kit-bake.mjs $K [--drop id,...]  # 7. pack into frontierArt/${K}Data.ts
-node scripts/zelda-lab/codex/kit-check.mjs [before-data-dir]  # 8. the kits whole, boxes kept, pairs right
+node scripts/zelda-lab/codex/kit-bake.mjs $K [--drop id,...]  # 7. into the kit's art pack, uploaded and pinned
+node scripts/zelda-lab/codex/kit-check.mjs [before-dir]       # 8. the kits whole, boxes kept, pairs right
 ```
 
 ### 1. Guides: `kit-guides.mjs <kit> [--only prefix,...] [--part id=name:from-to]`
@@ -164,7 +165,7 @@ Build commands: `tmp/art3/build-<kit>.sh` (Mac job, git-ignored; copied in its r
 - `kittext.py <kit> <id> <mats> <ramp>`: if Codex misspells a sign, lay the guide's letters again as neon on the drawn
   board. Not needed in round 3: every word came out right (CAMP, OPEN, INN, PHONE, THE END, RAINCHECK, the six land
   names, BORDER).
-- `kit-check.mjs`: boxes of all 13 kits against before-data (new ids allowed: `stillsand_pyramid`), the road lanterns'
+- `kit-check.mjs`: boxes of all 13 kits against the kits as they were (new ids allowed: `stillsand_pyramid`), the road lanterns'
   off/on, Rerun's houses by night, the waymarks' blink frames.
 - Lab scenes: `kit-roadside`, `kit-rerun`, `kit-fogstage`, `kit-underglow`, `kit-coast`, `kit-landing` (seterfell stub,
   the kit named in the map's `kits`).
@@ -174,8 +175,9 @@ Pieces no kit had, each a guide of new solids in its kit's `*_THINGS`, drawn, ba
 (Cairn Ridge), `fogstage_house` + `_night` (the Ticket Hill's five houses), `rerun_screen` (the drive-in), `stillsand_ribs`
 + `_small` (the Ribs over the Bone Road), `sporelight_rootstair` (the Battle Glade's stair), `harbour_boat_0`/`_1` (landing
 kit; Yule Fjord's piers). Build commands: `tmp/art4/build-<kit>.sh` (Mac job, git-ignored; copied in its report).
-- A new id must be in the kit's data before `kit-bake.mjs` bakes its drawing: `node scripts/zelda-lab/frontier-art.mjs <kit>`
-  re-bakes the solids, keeping every drawn record, and adds the new ids; `kit-check.mjs`'s ADDED names the new ids.
+- A new id must be in the kit's pack before `kit-bake.mjs` bakes its drawing: `node scripts/zelda-lab/frontier-art.mjs <kit>`
+  re-bakes the solids, keeping every drawn record, adds the new ids and pins the pack; `kit-check.mjs`'s ADDED names the
+  new ids.
 - `kitlift.py <kit> <id> <a-b>`: a piece that goes down into the ground (the root stair's steps and pit, below z 0) is
   hidden by the ground the engine draws. The tool fits the ground's depth (a plane in row and column) to the guide's px
   of the solid calls a-b (a rim round the hole at z 0) and gives every drawn px below it the ground's depth + 1. The guide
@@ -185,20 +187,27 @@ kit; Yule Fjord's piers). Build commands: `tmp/art4/build-<kit>.sh` (Mac job, gi
   picture showing through. The ribs and the rerun screen were drawn on half-size guides (`kitscale.py`) and at the
   game's px; the screen shipped at the game's px, the ribs at 2 x 2.
 
-### 7. The bake: `kit-bake.mjs <kit> [--build dir] [--only ids] [--drop ids] [--check]`
-Every `build/<id>.json` whose id the kit has replaces that id's record. Every other record stays as it is. The data
-file is packed as `frontier-art.mjs` packs it: gzip + base64 of the JSON of ThingArt records (`rows/pal/glow/nrows/
-npal/deep/w/h/ax/ay`), read by `packed.ts` `unpackArt`, with the same export name. The bake refuses a drawing whose
-box is not the solids' box: night/day and off/on pairs are boxed by their solids, so the pairs keep one box.
-`--drop` puts a held-back piece back to its solids. A drawn record carries `drawn` (where it came from), and
-`../frontier-art.mjs` keeps drawn records when it re-bakes a kit's solids (`--solids` forces a full re-bake). The
-kit's source `.ts` (the solids) stays: it is the guide. For `gates` only the ids in `build/` change (the seterfell
-pair here).
+### 7. The bake: `kit-bake.mjs <kit> [--build dir] [--only ids] [--drop ids] [--check] [--no-upload]`
+The bake reads the kit as the game has it, from its pinned art pack (`../art-pack.mjs unpack --kit <kit>`: ThingArt
+records, `rows/pal/glow/nrows/npal/deep/w/h/ax/ay` and `drawn`). Every `build/<id>.json` whose id the kit has replaces
+that id's record. Every other record stays as it is. The table goes to `../art-pack.mjs --kit <kit> --from-json`, which
+packs it (two PNGs and an index), uploads it to the fixer art library and rewrites `themes/zelda/render/iso/artIndex.ts`
+with the new pins; commit that file. `--check` writes nothing and lists the pieces that would change; `--no-upload`
+leaves the pack in `tmp/art-packs/<group>/`, not pinned. `--upload` needs `FIXER_ART_KEY` (`~/.config/fixer-art/env`
+on Sleeper and the Mac). The bake refuses a drawing whose box is not the solids' box: night/day and off/on pairs are
+boxed by their solids, so the pairs keep one box. `--drop` puts a held-back piece back to its solids. A drawn record
+carries `drawn` (where it came from; the pack's index keeps it), and `../frontier-art.mjs` keeps drawn records when it
+re-bakes a kit's solids (`--solids` forces a full re-bake). The kit's source `.ts` (the solids) stays: it is the guide.
+`gates` is the six realms' arches, each in its realm's pack (`gate_<realm>_*`); only the ids in `build/` change. A
+stall or machine piece (part 25/26, drawn by the tools in `tmp/iso-figures-25|26/` on the Mac) goes in with
+`../art-pack.mjs --splice stalls|machines <id>.json --upload`.
 
 ### 8. Checks
-- `kit-check.mjs [tmp/world-art/before-data]` runs the realm-kit checks of `tests/zelda-things.test.mjs` without the
-  generated world. It checks that every record is whole, that each kit's atlas is at most 2048 px tall, that every id
-  keeps its box against the data files as they were (seter, meadow, gates, fjord, sporelight, quarry, stillsand), that night/day and off/on pairs keep one box with glow only
+- `kit-check.mjs [before-dir]` runs the realm-kit checks of `tests/zelda-things.test.mjs` without the generated world,
+  on the pinned packs (from `.art-cache/`, `npm run art:pull`). It checks that every record is whole, that each kit's
+  atlas is at most 2048 px tall, that every id keeps its box against the kits as they were (per kit module a
+  `<kit>.json` from `art-pack.mjs unpack --kit <kit> <before-dir>/<kit>.json` before the bake, or an old `<kit>Data.ts`),
+  that night/day and off/on pairs keep one box with glow only
   when lit, that the mill's frames differ, that the lighthouse's four beam frames each glow and differ, that the bathhouse
   is brighter at night than by day, that each angry grazer frame differs from its calm one in the same box, and that
   each hill letter's on frame glows more than its off (a drawn off letter not at all).
@@ -226,7 +235,7 @@ game scale. They were redrawn without the band and shipped.
 | `kitbeam.py` | the lighthouse's beam frames over the drawn lens tower |
 | `kitspin.py`, `kitscale.py`, `kittext.py` | a flat thing's turned/mirrored frame; a sheet drawn on a shrunk guide; a sign's words laid again (round 3) |
 | `kitlift.py` | a piece below the ground plane given the ground's depth (round 4: the root stair) |
-| `kit-bake.mjs`, `kit-check.mjs` | into `<kit>Data.ts`; the kit checks (7, 8) |
+| `kit-bake.mjs`, `kit-check.mjs` | into the kit's art pack (`../art-pack.mjs`); the kit checks (7, 8) |
 | `style.png` | the target pixel style (figures from Part 22) |
 | `things/` | Part 23's tools for `thingArt.ts`: `things.py`+`solids.py` (ray-cast guides), `sheet_things.py`, `prompts_things.py`, `build.py`, `composite.py`, `align.py`, `emit.py`, `archive.py`, `lineup.py`, `classic.py`, `dump.mjs`, `dumpsolids.py`; work dir `tmp/codex-kits/things` |
 | `shots.sh`, `webkit.mjs`, `same.py` | Part 23's stills, WebKit check (`PLAYWRIGHT_DIR`), still-for-still diff |

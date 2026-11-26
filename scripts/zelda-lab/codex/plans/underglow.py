@@ -1,4 +1,4 @@
-# The Underglow's kit (frontierArt/underglow.ts -> underglowData.ts): the spiral ledges' edges with the rock hanging
+# The Underglow's kit (frontierArt/underglow.ts -> the underglow art pack): the spiral ledges' edges with the rock hanging
 # under them, Rut's rope lift (cage, rope, the lift head whose wheel turns: drawn once with its wheel and once bare,
 # the frames turned by kitturn.py), the Delvers' Club glowsticks in the five rank colours, the dead arcade cabinet, the
 # Upside Grove's tree (roots), the glass-sea shards, the broadcast mast (dead, static, tuned) and the Sun Below (frame

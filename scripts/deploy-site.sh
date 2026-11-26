@@ -49,6 +49,9 @@ cleanup() {
 trap cleanup EXIT
 git -C "$repo" worktree add --detach "$workspace" "$revision"
 cd "$workspace"
+# The pinned art packs (themes/zelda/render/iso/artIndex.ts) are cached outside the throwaway worktree, so only the
+# first deploy, or a new pin, fetches from media.fixer.ink.
+export ART_CACHE="${PHAREIM_ART_CACHE:-$HOME/.cache/phareim-art}"
 heavy_run() { if command -v heavy >/dev/null 2>&1; then heavy -- "$@"; else "$@"; fi; }
 echo "Building $site from $revision"
 heavy_run npm ci --include=dev --no-audit --no-fund

@@ -1,7 +1,8 @@
 /**
  * THE WAYS IN (Neon Shrine art tasks W1 and W2): the gates where the walking roads from the hand-made world enter
  * the realms. Built as solids at the scene's own density (32 px to the tile, x east, y south, z up from the ground)
- * and drawn by `rasterThing`; `node scripts/zelda-lab/frontier-art.mjs gates` bakes them into `gatesData.ts`.
+ * and drawn by `rasterThing`; `node scripts/zelda-lab/frontier-art.mjs gates` bakes each realm's arches into that realm's art
+ * pack (`scripts/zelda-lab/art-pack.mjs`, `../artPack.ts`).
  *
  * W1, an arch per realm, three tiles wide and about two and a half tall, the road running under it through a
  * clear opening a little over two tiles wide and at least 40 px high: LUMENBY's timber headframe with a cyan

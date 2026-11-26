@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { installArtFetch, kitTable } from './helpers/art.mjs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -24,11 +25,15 @@ async function load() {
 }
 
 let M
-/** Every realm's kit, each loaded from its own chunk (`frontierArt/index.ts`) as the view does. */
+/** Every realm's kit, each loaded from its own art pack (`frontierArt/index.ts`, `artPack.ts`) as the view does. */
+let REALM_KIT
+/** The same packs unpacked to rows and palettes (tests/helpers/art.mjs), for the checks on what is drawn. */
 let REALM_THING_ART
 before(async () => {
+  installArtFetch()
   M = await load()
-  REALM_THING_ART = Object.fromEntries(await Promise.all(Object.keys(M.REALM_ART_LOADERS).map(async r => [r, await M.loadRealmArt(r)])))
+  REALM_KIT = Object.fromEntries(await Promise.all(Object.keys(M.REALM_ART_LOADERS).map(async r => [r, await M.loadRealmArt(r)])))
+  REALM_THING_ART = Object.fromEntries(await Promise.all(Object.entries(REALM_KIT).map(async ([r, kit]) => [r, await kitTable(Object.values(kit)[0].pack)])))
 })
 
 // Every thing drawn, and the animations that must keep all their frames.
@@ -106,8 +111,9 @@ describe('things drawn by hand', () => {
     const props = M.buildProps()
     const base = M.withThings(props)
     for (const [realm, art] of Object.entries(REALM_THING_ART)) {
-      const atlas = M.withThings(props, art)
+      const atlas = M.withThings(props, REALM_KIT[realm])
       assert.ok(atlas.h <= 2048, `${realm} atlas: ${atlas.h}px tall`)
+      assert.deepEqual(Object.keys(REALM_KIT[realm]), Object.keys(art), realm)
       for (const [id, t] of Object.entries(art)) {
         const box = atlas.sprites[M.thingKey(id)]
         assert.ok(box && box.y >= base.h, id)
@@ -147,7 +153,7 @@ describe('things drawn by hand', () => {
     for (const [id, def] of Object.entries(M.WORLD.maps)) {
       const kits = M.kitsFor(def)
       if (kits.length < 2) continue
-      const atlas = M.withThings(props, Object.assign({}, ...kits.map(k => REALM_THING_ART[k])))
+      const atlas = M.withThings(props, Object.assign({}, ...kits.map(k => REALM_KIT[k])))
       assert.ok(atlas.h <= 2048, `${id}'s kits ${kits.join('+')} pack ${atlas.h}px tall`)
     }
     assert.equal(M.withThings(props), base)

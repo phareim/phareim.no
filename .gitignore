@@ -26,6 +26,9 @@ tmp/
 tmp/*
 .playwright-mcp/
 
+# The pinned iso art packs, fetched and hash-checked by `npm run art:pull` (tests/helpers/art.mjs)
+.art-cache/
+
 # Python caches of the art scripts
 __pycache__/
 
