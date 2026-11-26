@@ -69,19 +69,20 @@ document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
 document.body.appendChild(canvas)
 // The lab draws as fast as it can on a software GPU: the 16-bit view must not take that for a slow phone.
 pinQuality(q.get('quality') === null ? 2 : +q.get('quality'))
-// look-<look>[-2] (render/looks.ts): a frontier region drawn in a realm's look, whatever its realm says (-2: another
-// region, by its north edge, where the land beyond and the sky show). The
-// region is a copy of a generated one under the id 'look-<look>:<region>', in a copy of the world.
-const forced = new Map()
-const lookWorld = { ...WORLD, generate: id => {
-  const m = /^look-([a-z]+):(.+)$/.exec(id)
-  if (!m) return WORLD.generate(id)
-  if (!forced.has(id)) { const base = WORLD.generate(m[2]); forced.set(id, base && { ...base, look: m[1] }) }
-  return forced.get(id)
-} }
+// look-<look>[-2] (render/looks.ts): a land drawn in another look, whatever its own says (-2: another spot, by its
+// north rim, where the land beyond and the sky show). The land is a copy under the id look-<look>:<land> in a copy
+// of the world.
+const lookMatch = /^look-([a-z]+)/.exec(scene)
+const LOOK_LAND = { snow: 'seterfell', dune: 'rerun', spore: 'seterfell', fog: 'sporelight', quarry: 'seterfell', suburb: 'stillsand' }
+const lookWorld = lookMatch ? (() => {
+  const base = LOOK_LAND[lookMatch[1]] ?? 'seterfell'
+  const id = 'look-' + lookMatch[1] + ':' + base
+  return { ...WORLD, maps: { ...WORLD.maps, [id]: { ...WORLD.maps[base], id, look: lookMatch[1] } } }
+})() : WORLD
+const lookId = lookMatch ? 'look-' + lookMatch[1] + ':' + (LOOK_LAND[lookMatch[1]] ?? 'seterfell') : ''
 // Paint the two sides of a planned gate on temporary copies of the real maps.
-const gateMap = scene === 'f-gate-seter' ? WORLD.generate('fr:4,1') : scene === 'f-gate-waymark' ? WORLD.maps.overworld : null
-const gateArt = scene === 'f-gate-seter' ? sceneryAt('seterfell', 'gate', 44, 36) : [
+const gateMap = scene === 'f-gate-waymark' ? WORLD.maps.overworld : null
+const gateArt = [
   { art: 'waymark_seterfell_n', x: 30, y: 10, motion: { frames: 2, fps: 0.75 } },
   { art: 'border_ns_down', x: 27.5, y: 10 },
 ]
@@ -200,16 +201,16 @@ const ev = []
 const give = () => { s.inv.sword = true; s.inv.bombBag = true; s.inv.bombs = 8; s.inv.disc = true; s.inv.selected = 'disc'; s.inv.bits = 123; s.inv.keys = 1; s.hero.maxHp = 10; s.hero.hp = 7 }
 const at = (map, x, y, dir = 'down') => { enterMap(WORLD, s, map, Object.keys({}).length ? '' : 'x', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir }
 function place(map, entryId, dx = 0, dy = 0) { enterMap(world, s, map, entryId, ev); s.hero.x += dx; s.hero.y += dy; s.hero.auto = null }
-/** A frontier map's tile with the NPC of that id, and the hero put a little south of it. */
+/** A map's tile with the NPC of that id, and the hero put a little south of it. */
 function near(map, id, dy = 2) {
   place(map, 'camp')
-  const d = WORLD.generate(map)
+  const d = WORLD.maps[map]
   d.rows.forEach((row, y) => { const x = [...row].findIndex(ch => d.marks[ch]?.ent.id === id); if (x >= 0) { s.hero.x = x + 0.5; s.hero.y = y + dy + 0.5; s.hero.dir = 'up' } })
 }
-/** Stand by the first thing in a frontier map that pick takes and show one page of what it says (an NPC: its last, unconditioned branch). */
+/** Stand by the first thing in a map that pick takes and show one page of what it says (an NPC: its last, unconditioned branch). */
 function say(map, pick, page = 0) {
   place(map, 'camp')
-  const d = WORLD.generate(map)
+  const d = WORLD.maps[map]
   let ent = null
   d.rows.forEach((row, y) => { const x = [...row].findIndex(ch => d.marks[ch] && pick(d.marks[ch].ent)); if (x >= 0 && !ent) { ent = d.marks[row[x]].ent; s.hero.x = x + 0.5; s.hero.y = y + 2.5; s.hero.dir = 'up' } })
   s.map.enemies.length = 0
@@ -220,7 +221,7 @@ function say(map, pick, page = 0) {
 }
 function nearArt(map, id, dx, dy) {
   place(map, 'camp')
-  const art = WORLD.generate(map).isoLandmarks.find(lm => lm.art === id)
+  const art = WORLD.maps[map].isoLandmarks.find(lm => lm.art === id || lm.art.startsWith(id))
   s.hero.x = art.x + dx
   s.hero.y = art.y + dy
   s.hero.dir = 'up'
@@ -234,33 +235,30 @@ const bossHit = /^(boss|l-llama|l-mistral|d-deepseek|d-gemini)-hit$/.test(scene)
 const bossDown = scene === 'l-mistral-down'
 switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'start': run(30); break
-  // The frontier (world/gen/): the Landing, the crossroads camp north of it, a cave, and one place in each realm
-  // (beside a quest site's or a landmark's people, so the realm's own places are in the picture).
-  // The systems in the frontier: a puzzle realm's walled puzzle, a battle realm's group, a dig realm's stone columns.
+  // The lands (docs/worlds/atlas.md): a place in each, beside its people, and the systems in the lands built for them:
+  // Stillsand's puzzles, the Sporelight's battle groups, Lumenby's dig benches.
   case 'f-puzzle': case 'f-battle': case 'f-dig': {
     give()
-    const want = { 'f-puzzle': 'stillsand', 'f-battle': 'sporelight', 'f-dig': 'lumenby' }[scene]
-    let id = null
-    for (let ry = 0; ry < 9 && !id; ry++) for (let rx = 0; rx < 12 && !id; rx++) { const d = WORLD.generate('fr:' + rx + ',' + ry); if (d?.realm === want && !(want === 'lumenby' && !d.rows.join('').includes('а'))) id = d.id }
-    const d = WORLD.generate(id)
+    const id = { 'f-puzzle': 'stillsand', 'f-battle': 'sporelight', 'f-dig': 'lumenby' }[scene]
+    const d = WORLD.maps[id]
     let spot = d.entries.camp
-    if (scene === 'f-puzzle') { const ch = Object.keys(d.marks).find(c => d.marks[c].ent.t === 'chest' && d.marks[c].ent.appear); const y = d.rows.findIndex(r => r.includes(ch)); spot = { x: d.rows[y].indexOf(ch) - 1.5, y: y + 1.5 } }
+    if (scene === 'f-puzzle') { const ch = Object.keys(d.marks).find(c => d.marks[c].ent.t === 'chest' && d.marks[c].ent.appear); const y = d.rows.findIndex(r => r.includes(ch)); spot = { x: d.rows[y].indexOf(ch) + 0.5, y: y + 2.5 } }
     if (scene === 'f-battle') { const g = d.battle.groups[0]; spot = { x: g.x, y: g.y + 3.5 } }
-    if (scene === 'f-dig') { const y = d.rows.findIndex(r => r.includes('а')); spot = { x: d.rows[y].indexOf('а') + 0.5, y: y + 2.5 }; for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true; s.inv.selected = 'dig' }
+    if (scene === 'f-dig') { const y = d.rows.findIndex(r => r.includes('а')); spot = { x: d.rows[y].indexOf('а') + 0.5, y: y + 2.5 }; for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true }
     go(id, spot.x, spot.y, 'up'); run(20)
     break
   }
-  case 'f-landing': give(); place('fr:6,8', 'camp', 0, -1); run(30); break
-  // The gates (world/gen/gates.ts): each one's hand-made side, a short way down its road (the wardens' without a
-  // blade, so they stand in the gate), the region's side, and the MAP page on the coast with the frontier beside it.
+  case 'f-landing': give(); place('yulefjord', 'ferry', 0, -1); run(30); break
+  // The gates (world/gates.ts): each one's hand-made side, a short way down its road (the wardens' without a blade,
+  // so they stand in the gate), the land's side, and the MAP page on the coast with the world's chart beside it.
   case 'g-fell': give(); place('overworld', 'gate-fell', 0, 3); s.hero.dir = 'up'; run(30); break
   case 'g-spore': place('overworld', 'gate-spore', 0, 4); s.hero.dir = 'up'; run(30); break
   case 'g-sand': give(); place('overworld', 'gate-sand', -4, 0); s.hero.dir = 'right'; run(30); break
   case 'g-lawns': place('overworld', 'gate-lawns', -1, 4); s.hero.dir = 'up'; run(30); break
   case 'g-quarry': give(); place('wildwood', 'gate-quarry', 0, 2); s.hero.dir = 'up'; run(30); break
   case 'g-fog': give(); place('wildwood', 'gate-fog', 4, 0); s.hero.dir = 'left'; run(30); break
-  case 'g-in-fell': give(); place('fr:4,1', 'gate-fell', 0, -3); s.hero.dir = 'down'; run(30); break
-  case 'g-in-sand': give(); place('fr:9,4', 'gate-sand', 3, 0); s.hero.dir = 'left'; run(30); break
+  case 'g-in-fell': give(); place('seterfell', 'gate-fell', 0, -3); s.hero.dir = 'down'; run(30); break
+  case 'g-in-sand': give(); place('stillsand', 'gate-sand', 3, 0); s.hero.dir = 'left'; run(30); break
   case 'g-map': {
     give()
     place('overworld', 'gate-spore', 0, 2)
@@ -274,68 +272,68 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   // Ambient life (render/life/): LIFE=<map>,<x>,<y> puts the hero there with no foes about; LIFE_T=<s> moves the clock.
   case 'life': { give(); const parts = (q.get('at') || 'overworld,30,20').split(','); const ly = parts.pop(), lx = parts.pop(), mp = parts.join(','); go(mp, +lx, +ly, 'down'); s.map.enemies.length = 0; run(10); break }
   case 'f-ferry-town': give(); place('overworld', 'ferry', 0, -1); run(30); break
-  case 'f-ferry-landing': give(); place('fr:6,8', 'camp', 0, 2); run(30); break
-  case 'f-meadow': give(); near('fr:6,7', 'q.seed.tender'); run(30); break
+  case 'f-ferry-landing': give(); place('yulefjord', 'ferry', 0, 0); run(30); break
+  case 'f-meadow': give(); near('seterfell', 'seterfell.ashlad'); run(30); break
   case 'f-roadlight': {
     give()
-    const map = 'fr:6,7'
-    const lamp = WORLD.generate(map).isoLandmarks.find(lm => lm.art.startsWith('road_lantern_'))
+    const map = 'seterfell'
+    const lamp = WORLD.maps[map].isoLandmarks.find(lm => lm.art.startsWith('road_lantern_'))
     nearArt(map, lamp.art, 0.25, 1.75)
     run(30)
     break
   }
-  case 'f-quarry': give(); near('fr:2,3', 'q.gunn'); run(30); break
+  case 'f-quarry': give(); near('unionhall', 'q.gunn'); run(30); break
   case 'f-lumenby': {
     give()
-    nearArt('fr:2,3', 'quarry_letter_e_off', -0.5, 3)
+    nearArt('lumenby', 'quarry_letter_e_off', -0.5, 3)
     for (const n of [1, 3, 5, 7]) s.flags['q.lumenby.lot' + n] = true
     run(30)
     break
   }
-  case 'f-underglow': give(); place('fr:0,3:deep1', 'up', 0.75, 0); run(30); break
-  case 'f-seterfell': give(); near('fr:4,1', 'q.bell.tail'); run(30); break
-  case 'f-yulefjord': give(); nearArt('fr:5,0', 'fjord_church', 0.05, 2.95); run(30); break
-  case 'f-fjord-cottage': give(); nearArt('fr:3,0', 'fjord_cottage', 0, 2); run(30); break
-  case 'f-fjord-lens': give(); nearArt('fr:3,0', 'fjord_lighthouse', 0.5, 3); run(30); break
+  case 'f-underglow': give(); place('underglow1', 'up', 0.75, 0); run(30); break
+  case 'f-seterfell': give(); near('seterfell', 'q.bell.tail'); run(30); break
+  case 'f-yulefjord': give(); nearArt('yulefjord', 'fjord_church', 0.05, 2.95); run(30); break
+  case 'f-fjord-cottage': give(); nearArt('yulefjord', 'fjord_cottage', 0, 2); run(30); break
+  case 'f-fjord-lens': give(); nearArt('yulefjord', 'fjord_lighthouse', 0.5, 3); run(30); break
   case 'kit-seterfell': give(); go('seterfell', 11.2, 10.6, 'down'); run(30); break
   case 'kit-meadow': give(); go('seterfell', 11.6, 11.2, 'up'); run(30); break
   case 'kit-yulefjord': give(); go('yulefjord', 11.2, 10.6, 'down'); run(30); break
   case 'kit-sporelight': give(); go('sporelight', 31.2, 30.6, 'down'); run(30); break
   case 'kit-lumenby': give(); go('lumenby', 31.2, 30.6, 'down'); run(30); break
   case 'kit-gates': give(); go('lumenby', 31.2, 30.6, 'down'); run(30); break
-  case 'f-seter-windows': give(); nearArt('fr:4,1', 'seter_hut', 0.5, 2.5); run(30); break
-  case 'f-stage-light': give(); nearArt('fr:1,6', 'fogstage_spotlight_3', -0.5, 1.75); run(30); break
+  case 'f-seter-windows': give(); nearArt('seterfell', 'seter_hut', 0.5, 2.5); run(30); break
+  case 'f-stage-light': give(); nearArt('fogstage', 'fogstage_spotlight', -0.5, 1.75); run(30); break
   case 'f-gate-seter':
     give()
-    put('fr:4,1', 45.5, 39.3, 'up')
+    put('seterfell', 45.5, 49.3, 'up')
     s.map.enemies.length = 0
     run(25, inp({ move: { x: 0, y: -1 } }))
     break
   case 'f-gate-waymark': give(); put('overworld', 29, 11.5, 'up'); s.map.enemies.length = 0; run(30); break
-  case 'f-stillsand': give(); near('fr:10,4', 'l.caravan.cook'); run(30); break
-  case 'f-sporelight': give(); near('fr:9,2', 'l.steam.clerk'); s.map.enemies.length = 0; run(30); break
-  case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
-  case 'f-rerun': give(); nearArt('fr:8,7', 'rerun_house_0', 2, 3); s.map.enemies.length = 0; run(30); break
-  case 'f-cave': { give(); const id = ['fr:6,7', 'fr:5,7', 'fr:6,6', 'fr:5,6', 'fr:4,6', 'fr:6,5', 'fr:5,5', 'fr:4,5', 'fr:3,4'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
-  // The frontier's words in the box (the narrowest is the phone's): a quest-giver, a realm's folk, a camp's sign with
-  // its roads, the crossroads sign, a realm's first-visit words.
-  case 'f-say-gunn': give(); say('fr:2,3', e => e.id === 'q.gunn'); break
-  case 'f-say-folk': give(); say('fr:4,2', e => e.t === 'npc' && e.id.includes('.npc')); break
-  case 'f-say-roads': give(); say('fr:6,2', e => e.t === 'sign' && e.lines.length > 1, 1); break
-  case 'f-say-cross': give(); say('fr:6,7', e => e.t === 'sign' && e.lines[0].startsWith('CROSSROADS')); break
-  case 'f-say-intro': { give(); place('fr:4,1', 'camp'); run(30); const a = WORLD.generate('fr:4,1').areas[0]; s.dialog = { lines: a.intro.lines, line: 0, chars: a.intro.lines[0].length, who: null, after: null }; s.mode = 'dialog'; break }
-  case 'look-snow': give(); place('look-snow:fr:4,6', 'camp', 0, -1); run(30); break
-  case 'look-snow-2': give(); place('look-snow:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
-  case 'look-dune': give(); place('look-dune:fr:1,1', 'camp'); run(30); break
-  case 'look-dune-2': give(); place('look-dune:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
-  case 'look-spore': give(); place('look-spore:fr:4,4', 'camp'); run(30); break
-  case 'look-spore-2': give(); place('look-spore:fr:3,4', 'camp'); s.hero.y = 3.5; run(30); break
-  case 'look-fog': give(); place('look-fog:fr:4,4', 'camp'); run(30); break
-  case 'look-fog-2': give(); place('look-fog:fr:4,6', 'camp', 0, -1); s.hero.y = 3.5; run(30); break
-  case 'look-quarry': give(); place('look-quarry:fr:1,1', 'camp'); run(30); break
-  case 'look-quarry-2': give(); place('look-quarry:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
-  case 'look-suburb': give(); place('look-suburb:fr:4,6', 'camp', 0, -1); run(30); break
-  case 'look-suburb-2': give(); place('look-suburb:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
+  case 'f-stillsand': give(); near('stillsand', 'l.caravan.cook'); run(30); break
+  case 'f-sporelight': give(); near('sporelight', 'l.steam.clerk'); s.map.enemies.length = 0; run(30); break
+  case 'f-fogstage': give(); near('fogstage', 'q.act.director'); run(30); break
+  case 'f-rerun': give(); nearArt('rerun', 'rerun_house_0', 2, 3); s.map.enemies.length = 0; run(30); break
+  case 'f-cave': give(); place('fellcave', 'door'); run(30); break
+  // The lands' words in the box (the narrowest is the phone's): a quest-giver, a land's folk, a sign with its roads,
+  // a story's first person on the coast, a land's first-visit words.
+  case 'f-say-gunn': give(); say('unionhall', e => e.id === 'q.gunn'); break
+  case 'f-say-folk': give(); say('seterfell', e => e.t === 'npc' && e.id === 'seterfell.walker'); break
+  case 'f-say-roads': give(); say('seterfell', e => e.t === 'sign' && e.lines[0].includes(String.fromCharCode(10))); break
+  case 'f-say-cross': give(); say('overworld', e => e.t === 'npc' && e.id === 'q.seed.tender'); break
+  case 'f-say-intro': { give(); place('seterfell', 'camp'); run(30); const a = WORLD.maps.seterfell.areas[0]; s.dialog = { lines: a.intro.lines, line: 0, chars: a.intro.lines[0].length, who: null, after: null }; s.mode = 'dialog'; break }
+  case 'look-snow': give(); place(lookId, 'camp', 0, -1); run(30); break
+  case 'look-snow-2': give(); place(lookId, 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-dune': give(); place(lookId, 'camp'); run(30); break
+  case 'look-dune-2': give(); place(lookId, 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-spore': give(); place(lookId, 'camp'); run(30); break
+  case 'look-spore-2': give(); place(lookId, 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-fog': give(); place(lookId, 'camp'); run(30); break
+  case 'look-fog-2': give(); place(lookId, 'camp', 0, -1); s.hero.y = 3.5; run(30); break
+  case 'look-quarry': give(); place(lookId, 'camp'); run(30); break
+  case 'look-quarry-2': give(); place(lookId, 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-suburb': give(); place(lookId, 'camp', 0, -1); run(30); break
+  case 'look-suburb-2': give(); place(lookId, 'camp'); s.hero.y = 3.5; run(30); break
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
   // Real-time combat: hit 1 of the chain mid-sweep, hit 2 (the backhand), hit 3 (the finisher), the roll, a blow landing.
@@ -375,7 +373,7 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'moves': give(); s.inv.moves = { triple: 20, flip: 5, backflip: 12, comet: 2, slip: 1 }; s.inv.arts = ['pulse', 'flash']; s.inv.selected = 'flash'; s.hero.artCool = { pulse: 1.2 }; run(10); ui.paused = true; ui.page = 'moves'; break
   // The B box with an art resting, and a combo called out over the world.
   case 'm-hud': give(); s.inv.arts = ['pulse']; s.inv.selected = 'pulse'; run(10); s.hero.artCool = { pulse: 1.4 }; r.onEvents([{ type: 'move', id: 'flip', n: 1, first: true, mastered: false }]); run(5); break
-  case 'f-pause': give(); for (const id of ['fr:6,8', 'fr:6,7', 'fr:6,6', 'fr:5,6']) place(id, 'camp'); run(10); ui.paused = true; break
+  case 'f-pause': give(); for (const id of ['seterfell', 'sporelight', 'yulefjord']) place(id, 'camp'); run(10); ui.paused = true; break
   case 'hut': give(); place('hut', 'door', 0, -5.5); s.hero.dir = 'up'; run(5); break
   case 'hutout': run(12); break
   case 'hutfront': give(); place('overworld', 'hut', 0, 1.5); run(10); break
