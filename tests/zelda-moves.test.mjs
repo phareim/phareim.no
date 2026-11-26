@@ -534,4 +534,31 @@ describe('the air and the field battles', () => {
     assert.equal(s.slow, 0)
     for (let j = 0; j < 30; j++) Z.stepGame(W, s, 1 / 60, inp())
   })
+
+  it('a field battle walked into with a COMET\'s window open closes it', () => {
+    const rows = ['TTTTTTTTTTTTTTT', ...Array.from({ length: 12 }, (_, y) => (y === 9 ? 'T......@......T' : 'T.............T')), 'TTTTTTTTTTTTTTT']
+    const W = {
+      start: { map: 'glade', entry: 'start' },
+      maps: {
+        glade: {
+          id: 'glade', name: 'GLADE', kind: 'overworld', track: 'forest', rows,
+          marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'up' } } },
+          battle: { track: 'boss', groups: [{ id: 'g.goo', x: 7.5, y: 5, foes: [Object.keys(Z.FOES)[0]] }] },
+        },
+      },
+    }
+    const s = Z.createGame(W, { seed: 3 })
+    s.mode = 'play'
+    s.dialog = null
+    s.inv.sword = true
+    const g = W.maps.glade.battle.groups[0]
+    Z.enterMap(W, s, 'glade', 'start', [], { x: g.x, y: g.y + 2.4 })
+    s.hero.x = s.map.enemies.find(e => e.group === g.id).x
+    s.hero.dir = 'up'
+    s.hero.aim = -Math.PI / 2
+    let k = 0
+    while (s.mode !== 'battle' && k++ < 300) { s.hero.cometT = 0.3; Z.stepGame(W, s, 1 / 60, inp({ move: { x: 0, y: -1 } })) }
+    assert.equal(s.mode, 'battle')
+    assert.equal(s.hero.cometT, 0)
+  })
 })

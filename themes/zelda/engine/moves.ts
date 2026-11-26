@@ -4,8 +4,9 @@
  * - *In the air* (`Hero.air`). A flip out of a roll (R, A: FLIP CUT) comes down in an overhead chop; a flip back
  *   out of the chain (A, R: BACKFLIP) or off a wall a roll ran into (WALL SPRING) can be followed by A, the COMET,
  *   a thrust that rockets through whatever stands along the aim; A right as the finisher lands takes off into the
- *   TEMPEST, an aerial double whirl. Nothing harms the hero in the air. The air never crosses a pit, spikes or ice
- *   (it stops at their edge, as the chain's lunge does), so no gap the hook is for and no ice lane is skipped.
+ *   TEMPEST, an aerial double whirl. No foe harms the hero in the air (`hurtHero`'s `foe`); a rolling stone or a
+ *   blast still does, and brings him down. The air never crosses a pit, spikes or ice, flown head on or along a
+ *   wall (it stops at their edge, as the chain's lunge does), so no gap the hook is for and no ice lane is skipped.
  * - *SLIP*. A blow that passes through the roll's first moments slows the world (`GameState.slow`) for a moment,
  *   the hero at full pace, and their next blow is critical (`Hero.edge`).
  * - *Mastery* (`Inventory.moves`). Each combo counts when it lands (BACKFLIP and WALL SPRING when done with a foe
@@ -322,10 +323,12 @@ export function stepAir(c: Ctx, inp: Input, dt: number) {
   const len = Math.hypot(mx, my)
   const er = HERO_R + 0.06
   if (len > 1e-6 && hazard(c, h.x + (mx / len) * er + mx, h.y + (my / len) * er + my)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
-  // And each axis on its own, as moveCircle moves them (x, then y): pressed to a wall, the probe ahead lands in
-  // the wall while the other axis slides along it.
-  if (mx !== 0 && hazard(c, h.x + Math.sign(mx) * er + mx, h.y)) { mx = 0; a.vx = 0 }
-  if (my !== 0 && hazard(c, h.x + mx, h.y + Math.sign(my) * er + my)) { my = 0; a.vy = 0 }
+  // Pressed to a wall, that probe lands in the wall while the other axis slides along it: then look ahead of
+  // where the slide goes (moveCircle is pure; only a clamped axis asks, so a flight past a corner keeps its line).
+  if (mx !== 0 && my !== 0) {
+    const t = moveCircle(c.w, s.map, h.x, h.y, HERO_R, mx, my)
+    if ((t.hitX && hazard(c, t.x, t.y + Math.sign(my) * er)) || (t.hitY && hazard(c, t.x + Math.sign(mx) * er, t.y))) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
+  }
   // In a dungeon the air stays in the hero's room.
   if (c.info.def.kind === 'dungeon' && cellIndex(c.info, h.x + mx * 4, h.y + my * 4) !== cellIndex(c.info, h.x, h.y)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
   const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, mx, my)
