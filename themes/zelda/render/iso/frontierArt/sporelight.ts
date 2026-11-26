@@ -98,6 +98,49 @@ function grazer(angry: boolean, step: number): Thing {
   }
 }
 
+/**
+ * THE ROOT STAIR's way down to the Battle Glade (art round 4), over its `>` tile, 2 x 2 tiles: worn stone steps going
+ * down northward into the ground through a mossy rim, between two great roots that arch out of the moss on its west
+ * and east sides, their veins glowing, a third root humped behind it; a soft cyan glow from the bottom of the stair.
+ * The steps and the pit's far walls lie below the ground (z < 0); the rim round the hole hides what the ground would.
+ */
+const rootstair: Thing = b => {
+  const rim: Pick = (x, y, _z, _nx, _ny, nz) => (nz > 0.5 && Math.sin(x / 2.5) + Math.sin(y / 3.1) > 1.2 ? 'stone' : 'moss')
+  b.box(-32, 14, -1, 32, 32, 0, rim)
+  b.box(-32, -32, -1, 32, -19, 0, rim)
+  b.box(-32, -19, -1, -14, 14, 0, rim)
+  b.box(16, -19, -1, 32, 14, 0, rim)
+  // The pit's far walls: the west wall's east face, the north wall's south face.
+  const wall: Pick = (_x, _y, z) => (Math.floor(z + 64) % 6 === 0 ? 'carve' : 'shrine')
+  b.box(-17, -19, -20, -14, 14, -1, wall)
+  b.box(-17, -22, -20, 16, -19, -1, wall)
+  // The steps, from the top at the south edge down to the north, the lowest in the glow.
+  for (let k = 0; k < 7; k++) {
+    const y1 = 14 - k * 4.7
+    b.box(-14, y1 - 4.7, -4 - k * 2.4, 16, y1, -1 - k * 2.4, (_x, _y, _z, _nx, ny, nz) => (nz > 0.5 ? (k > 4 ? 'bandCyan' : 'stone') : ny > 0.5 ? 'carve' : 'stone'))
+  }
+  b.box(-14, -19, -21, 16, -17, -14, 'glassCyan')
+  // The roots: thick, knotted, arching out of the ground either side of the stair and humped behind it.
+  const root = (salt: number): Pick => (x, y, z, _nx, _ny, nz) => {
+    const v = Math.sin((x + y) / 3 + salt) + Math.sin(z / 2 + y / 5 + salt)
+    if (Math.abs(v) < 0.16) return 'glassCyan'
+    return nz > 0.6 && Math.sin(x / 2 + salt) > 0.6 ? 'moss' : 'chestWood'
+  }
+  for (let i = 0; i <= 30; i++) {
+    const t = i / 30
+    b.ball(-26 + t * 52, -27 - Math.sin(t * 3) * 2, Math.sin(t * Math.PI) * 10 - 1, 5.5, 5, 5, root(3))
+  }
+  for (const [x0, side, salt] of [[-22, -1, 1], [23, 1, 2]] as const) {
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40
+      const y = -28 + t * 56
+      const z = Math.sin(t * Math.PI) * 11 - 2
+      const r = 6 - Math.sin(t * Math.PI) * 1.5
+      b.ball(x0 + side * Math.sin(t * 5) * 2.5, y, z, r, r * 0.9, r * 0.85, root(salt))
+    }
+  }
+}
+
 export const SPORELIGHT_THINGS: Record<string, Thing> = {
   sporelight_mushroom_small_teal: mushroom(0.75, false),
   sporelight_mushroom_medium_teal: mushroom(1.25, false),
@@ -115,4 +158,5 @@ export const SPORELIGHT_THINGS: Record<string, Thing> = {
   sporelight_grazer_calm_1: grazer(false, 1),
   sporelight_grazer_angry_0: grazer(true, 0),
   sporelight_grazer_angry_1: grazer(true, 1),
+  sporelight_rootstair: rootstair,
 }

@@ -491,6 +491,48 @@ function trollBig(awake: boolean): Thing {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The varde on Cairn Ridge (art round 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * The varde: a tall cairn of flat grey stones stacked into a tapering tower on one tile of the ridge, lichen and moss
+ * where the stones face up, a stick wedged in its top with a strip of cloth flying from it (east, with the wind over
+ * the tops). About 1 tile across and 3½ tall, so it shows from the Big Seter and the fell road.
+ */
+const varde: Thing = b => {
+  // A ring of footing stones half sunk in the heather.
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + 0.4
+    b.ball(Math.cos(a) * 11, Math.sin(a) * 10, 1.6, 4 + noise(i, 1, 61) * 1.4, 3.4, 2.4, stone(600 + i))
+  }
+  // The stack: flat slabs, each a little smaller and a little off the one under it.
+  const courses = 22
+  for (let k = 0; k < courses; k++) {
+    const t = k / (courses - 1)
+    const r = 12.5 - t * 7.5 + (noise(k, 2, 62) - 0.5) * 1.6
+    const z = 2 + k * 4.6
+    const dx = (noise(k, 3, 63) - 0.5) * 2.2
+    const dy = (noise(k, 4, 64) - 0.5) * 2
+    b.ball(dx, dy, z + 2.2, r, r * (0.86 + noise(k, 5, 65) * 0.12), 2.5, (x, y, zz, nx, ny, nz) => {
+      if (nz > 0.6) return noise(x * 2, y * 2, 70 + k) > 0.85 ? 'moss' : k % 3 === 0 ? 'rock' : 'stone'
+      // Grey-lilac stone with dark seams between the slabs, lichen in patches.
+      if (zz < z + 0.9) return 'crack'
+      const lichen = noise(Math.floor((x + 64) / 3), Math.floor((y + zz + 64) / 3), 80 + k)
+      if (lichen > 0.86) return 'sand'
+      return (['stone', 'rock', 'boulder', 'rock'] as const)[Math.floor(noise(k, nx * 3 + ny, 66) * 4)]!
+    })
+  }
+  // The top: a capstone, a weathered stick wedged in it, the cloth strip flying east from its tip.
+  const top = 2 + courses * 4.6
+  b.ball(0.6, 0, top + 1.6, 4.2, 3.8, 2.4, 'stone')
+  b.post(0.4, -0.4, top + 2, top + 22, 0.9, 'chestWood')
+  for (let i = 0; i < 6; i++) {
+    const u = 1.2 + i * 2.2
+    b.box(u, -0.9, top + 18.5 - i * 0.9 - (i % 2) * 0.6, u + 2.4, -0.1, top + 21.5 - i * 1.1 - (i % 2) * 0.6, i < 2 ? 'velvet' : i < 4 ? 'sand' : 'blockCyan')
+  }
+}
+
 /** Every SETER FELL thing by id; `_0`/`_1` are the frames of one thing. */
 export const SETER_THINGS: Record<string, Thing> = {
   seter_hut_0: hut(0),
@@ -506,4 +548,5 @@ export const SETER_THINGS: Record<string, Thing> = {
   seter_troll_small_1: trollSmall(true),
   seter_troll_big_0: trollBig(false),
   seter_troll_big_1: trollBig(true),
+  seter_varde: varde,
 }

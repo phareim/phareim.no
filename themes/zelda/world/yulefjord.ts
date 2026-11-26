@@ -161,6 +161,10 @@ export const YULEFJORD: MapDef = {
     prop('landing_bollard', 26.2, 18.5),
     prop('landing_bollard', 26.8, 16.4),
     prop('landing_bollard', 34.8, 16.5),
+    // Boats moored by the piers' bollards, bobbing: two at the harbour pier, one at the stilts' pier.
+    prop('harbour_boat', 25.0, 18.5, { motion: cycle(2, 1) }),
+    prop('harbour_boat', 28.0, 16.5, { motion: cycle(2, 0.8) }),
+    prop('harbour_boat', 36.0, 16.5, { motion: cycle(2, 1.25) }),
     prop('landing_crates', 22.5, 25.4, at(22, 25)),
     prop('landing_crates', 14.5, 25.3, at(14, 25)),
     prop('landing_net_rack', 10.6, 25.3, at(10, 25)),

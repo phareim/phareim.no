@@ -46,8 +46,10 @@ for (const realm of Object.keys(M.REALM_ART_LOADERS)) {
   console.log(`${realm}: ${Object.keys(art).length} pieces, atlas ${atlas.w}x${atlas.h}`)
 }
 // Boxes against the kits as they were.
-// (Pieces added since: the gold pyramid, round 3.)
-const ADDED = new Set(['stillsand_pyramid'])
+// (Pieces added since: the gold pyramid, round 3; the varde, the Ticket Hill's house, the drive-in screen, the Ribs,
+// the root stair and the harbour boat, round 4.)
+const ADDED = new Set(['stillsand_pyramid', 'seter_varde', 'fogstage_house', 'fogstage_house_night', 'rerun_screen',
+  'stillsand_ribs', 'stillsand_ribs_small', 'sporelight_rootstair', 'harbour_boat_0', 'harbour_boat_1'])
 if (before) for (const f of ['seter', 'meadow', 'gates', 'fjord', 'sporelight', 'quarry', 'stillsand', 'roadside', 'rerun', 'fogstage', 'underglow', 'coast', 'landing']) {
   const was = resolve(before, `${f}Data.ts`); if (!existsSync(was)) continue
   const a = unpack(was), b = unpack(resolve(repo, `themes/zelda/render/iso/frontierArt/${f}Data.ts`))

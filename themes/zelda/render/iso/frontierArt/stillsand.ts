@@ -78,6 +78,50 @@ const pyramid: Thing = b => {
   }
 }
 
+/**
+ * THE RIBS (art round 4): one rib pair of the stone bird's ribcage the Bone Road runs under, `span` tiles from foot to
+ * foot north-south, arching over the road: two curved bones, bleached and sand-scoured, rising from sand drifts at the
+ * ground and meeting at the top in a vertebra of the spine, which runs 2 tiles east-west, so the pairs set 2 tiles apart
+ * along the road join into one backbone. The big pair (8 tiles) stands mid-cage, the small (6) at its two ends.
+ */
+function ribs(span: number): Thing {
+  const half = span * 16
+  const top = span * 16
+  const bone: Pick = (x, y, z, _nx, _ny, nz) => {
+    // Sand-scoured grooves along the bone, a crack now and then; sand settled where it faces up.
+    if (nz > 0.75 && Math.sin(y / 3 + x) > 0.4) return 'sand'
+    if (Math.floor(z + y * 0.3 + 64) % 9 === 0) return 'carve'
+    return 'chrome'
+  }
+  return b => {
+    for (const side of [-1, 1]) {
+      // The rib: an arc from its foot up and in to the spine, thicker at the foot, a slight outward bulge.
+      const n = 64
+      for (let i = 0; i <= n; i++) {
+        const t = (i / n) * (Math.PI / 2)
+        const y = side * half * Math.cos(t) * (1 + 0.08 * Math.sin(2 * t))
+        const z = 4 + (top - 4) * Math.sin(t)
+        const r = 5.2 - 1.6 * (i / n)
+        b.ball(0, y, z, r * 1.5, r, r, bone)
+      }
+      // A hooked spur on the rib's back (a bird's rib has one), two thirds of the way up.
+      const t = 0.62
+      const sy = side * half * Math.cos(t) * (1 + 0.08 * Math.sin(2 * t))
+      const sz = 4 + (top - 4) * Math.sin(t)
+      for (let k = 0; k < 6; k++) b.ball(-6 - k * 2.2, sy - side * k * 0.6, sz - k * 1.6, 2.4 - k * 0.25, 2.2, 2.2, bone)
+      // A drift of sand banked against the foot.
+      b.ball(0, side * (half + 2), 1.5, 9, 7, 3.4, 'sand')
+    }
+    // The vertebra: a knuckled block of spine running east-west, a ridge of short spikes along its top.
+    for (let x = -30; x <= 30; x += 3) b.ball(x, 0, top + 2, 5, 6, 5.5, bone)
+    for (let k = 0; k < 4; k++) {
+      const x = -22.5 + k * 15
+      b.ball(x, 0, top + 2, 7, 8.5, 7, bone)
+      b.ball(x + 1, 0, top + 9, 2.6, 2.4, 5, bone)
+    }
+  }
+}
+
 export const STILLSAND_THINGS: Record<string, Thing> = {
   stillsand_island_small: island(1.2),
   stillsand_island_medium: island(1.8),
@@ -88,4 +132,6 @@ export const STILLSAND_THINGS: Record<string, Thing> = {
   stillsand_lens_2: lens(2),
   stillsand_lens_3: lens(3),
   stillsand_pyramid: pyramid,
+  stillsand_ribs: ribs(8),
+  stillsand_ribs_small: ribs(6),
 }

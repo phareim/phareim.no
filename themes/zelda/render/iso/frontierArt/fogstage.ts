@@ -1,4 +1,5 @@
 import type { MatName, Pick, Solids } from '../props'
+import { RIM, lamplight, onRim } from './nightPanes'
 
 type Thing = (solids: Solids) => void
 
@@ -122,6 +123,67 @@ const gangway: Thing = b => {
   }
 }
 
+/**
+ * A house of the Ticket Hill (art round 4): a narrow painted timber house on the 3 x 3 `H` block, its ridge running
+ * north-south, so its narrow gable end faces the road, and before that end a tall stage-flat FALSE FRONT standing
+ * above the roof (stepped top, braces behind it like a flat's), two upper windows, the door with a little marquee
+ * canopy over it and its row of bulbs (always lit: the show has always already started). Windows on the east wall.
+ * `night`: the same solids, the panes lamplight in a rim of spill light (the panes' boxes are the night build's masks).
+ */
+function hillHouse(night: boolean): Thing {
+  const pane = (a: number, z: number, w: number, h: number): MatName => {
+    if (!night) return Math.floor(a) === Math.floor(w / 2) || Math.floor(z) === Math.floor(h / 2) ? 'ink' : 'gold'
+    if (onRim(a, z, w, h)) return RIM
+    if (Math.floor(a) === Math.floor(w / 2)) return 'ink'
+    return lamplight(a, z, w, h)
+  }
+  // The long wall: painted clapboards, a window on each floor at two places along it.
+  const wall: Pick = (x, y, z, nx, _ny, nz) => {
+    if (nz > 0.5) return 'shrine'
+    if (z < 4) return 'stone'
+    if (nx > 0.5) {
+      for (const c of [-20, 6]) {
+        for (const [z0, z1] of [[14, 26], [32, 42]] as const) {
+          if (Math.abs(y - c) < 6 && z > z0 && z < z1) return pane(y - (c - 6), z - z0, 12, z1 - z0)
+          if (Math.abs(y - c) < 7.4 && z > z0 - 1.4 && z < z1 + 1.4) return 'lip'
+        }
+      }
+    }
+    return Math.floor(z) % 4 === 0 ? 'wood' : 'velvet'
+  }
+  // The false front: painted boards, trim round its stepped top, two upper windows and the door.
+  const front: Pick = (x, _y, z, _nx, ny, nz) => {
+    if (nz > 0.5 || ny < 0.5) return 'chestWood'
+    for (const c of [-12, 12]) {
+      if (Math.abs(x - c) < 5 && z > 42 && z < 56) return pane(x - (c - 5), z - 42, 10, 14)
+      if (Math.abs(x - c) < 6.4 && z > 40.6 && z < 57.4) return 'lip'
+    }
+    if (Math.abs(x) < 6 && z < 25) return Math.abs(x) < 0.6 ? 'ink' : 'dark'
+    if (Math.abs(x) < 7.4 && z < 26.4) return 'lip'
+    if (z > 64 && z < 66) return 'lip'
+    return Math.floor(x + 64) % 5 === 0 ? 'blockPink' : 'clay'
+  }
+  return b => {
+    b.box(-30, -44, 0, 30, 44, 4, 'stone')
+    b.box(-24, -38, 4, 24, 34, 48, wall)
+    for (let i = 0; i < 11; i++) b.box(-27 + i * 2.4, -41, 47 + i * 2, 27 - i * 2.4, 34, 49 + i * 2, (_x, _y, _z, nx, ny) => (ny > 0.5 && Math.abs(nx) < 0.5 ? 'wood' : 'shrine'))
+    // The chimney, on the ridge's north end.
+    b.box(-4, -30, 60, 4, -22, 76, (_x, _y, z) => (Math.floor(z) % 4 === 0 ? 'carve' : 'stone'))
+    // The false front and its stepped top.
+    b.box(-28, 34, 0, 28, 38, 76, front)
+    b.box(-18, 34, 76, 18, 38, 86, front)
+    b.box(-8, 34, 86, 8, 38, 94, front)
+    b.box(-29, 38, 74, 29, 39.4, 76.4, 'lip')
+    // Braces behind it, as a flat's.
+    for (const x of [-20, 20]) for (let k = 0; k < 6; k++) b.box(x - 1, 30 - k * 4, 76 - k * 3.4, x + 1, 34 - k * 4, 79 - k * 3.4, 'chestWood')
+    // The marquee canopy over the door and its bulbs.
+    b.box(-13, 38, 26, 13, 46, 30, 'lip')
+    for (let k = 0; k < 6; k++) b.ball(-11 + k * 4.4, 46.4, 27.6, 1.3, 1.3, 1.3, 'core')
+    // The step before the door.
+    b.box(-8, 38, 0, 8, 43, 2, 'stone')
+  }
+}
+
 export const FOGSTAGE_THINGS: Record<string, Thing> = {
   fogstage_spotlight: spotlight,
   ...Object.fromEntries([...Array(8)].map((_, dir) => [`fogstage_spotlight_${dir}`, turningSpot(dir)])),
@@ -130,4 +192,6 @@ export const FOGSTAGE_THINGS: Record<string, Thing> = {
   ...Object.fromEntries(posters.map((_, frame) => [`fogstage_poster_${frame}`, poster(frame)])),
   fogstage_raincheck: blimp,
   fogstage_gangway: gangway,
+  fogstage_house: hillHouse(false),
+  fogstage_house_night: hillHouse(true),
 }

@@ -13,8 +13,8 @@ export type StandIn = 'crate' | 'post' | 'cap' | 'stone'
 
 const KINDS: Array<[RegExp, StandIn]> = [
   [/mushroom/, 'cap'],
-  [/island|grazer|troll/, 'stone'],
-  [/mailbox|flamingo|sprinkler|spotlight|headframe|mill|waystone/, 'post'],
+  [/island|grazer|troll|varde/, 'stone'],
+  [/mailbox|flamingo|sprinkler|spotlight|headframe|mill|waystone|screen/, 'post'],
 ]
 
 export function standInOf(art: string): StandIn {

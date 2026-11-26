@@ -122,6 +122,44 @@ const mower: Thing = b => {
   b.box(-5, -14, 13, 5, -12, 15, 'pole')
 }
 
+/**
+ * THE DRIVE-IN's screen (art round 4): a pale 1950s drive-in screen 5 tiles long, standing north-south on the lot's
+ * east edge, its face to the wagons in the west; what the view shows is the screen's east side, where the evening's
+ * picture shows faintly through the pale canvas (a band of four on a stage: THE OVERDUE FOUR), in a timber frame on a
+ * trestle of legs and diagonal braces, a little marquee box with bulbs standing on its top. Box: 160 px along y, 128 up.
+ */
+const screen: Thing = b => {
+  const face: Pick = (_x, y, z, nx) => {
+    if (nx < 0.5) return 'chestWood'
+    // The picture: a frame of film inside a pale margin, four figures on a stage.
+    if (Math.abs(y) < 62 && z > 46 && z < 116) {
+      for (const c of [-36, -12, 12, 36]) if (Math.abs(y - c) < 4.5 && z > 58 && z < 86 + (c === -12 ? 4 : 0)) return 'bandCyan'
+      if (z < 58) return 'glassViolet'
+      return 'glassLilac'
+    }
+    return 'chrome'
+  }
+  // The trestle under it and behind it (west, on the wagons' side, so only its legs show under the screen): uprights,
+  // diagonal braces down to the ground, two rails.
+  for (let k = 0; k < 6; k++) {
+    const y = -76 + k * 30.4
+    b.box(-6, y - 2.5, 0, -1, y + 2.5, 126, 'wood')
+    for (let i = 0; i < 24; i++) b.box(-6 - i * 1.2, y - 1.5, 80 - i * 3.4, -3 - i * 1.2, y + 1.5, 85 - i * 3.4, 'chestWood')
+  }
+  for (const z of [8, 26]) b.box(-5, -80, z, -1, 80, z + 3, 'chestWood')
+  // The screen in its frame.
+  b.box(-1, -80, 38, 3, 80, 124, face)
+  b.box(-2, -82, 35, 4, 82, 38.5, 'wood')
+  b.box(-2, -82, 123.5, 4, 82, 126.5, 'wood')
+  for (const y of [-82, 80]) b.box(-2, y, 35, 4, y + 2, 126.5, 'wood')
+  // The marquee on the top: a box with bulbs round its edge.
+  b.box(-4, -26, 126.5, 5, 26, 140, (_x, y, z, nx, _ny, nz) => {
+    if (nz > 0.5) return 'velvet'
+    if (nx > 0.5 && (Math.abs(y) > 23 || z < 128.5 || z > 137.5)) return Math.floor(y + z) % 3 === 0 ? 'core' : 'velvet'
+    return nx > 0.5 ? 'glassPink' : 'velvet'
+  })
+}
+
 export const RERUN_THINGS: Record<string, Thing> = {
   rerun_house_0: house(1986),
   rerun_house_1: house(1986, true),
@@ -140,4 +178,5 @@ export const RERUN_THINGS: Record<string, Thing> = {
   rerun_sprinkler_0: sprinkler(0),
   rerun_sprinkler_1: sprinkler(1),
   rerun_lawnmower: mower,
+  rerun_screen: screen,
 }

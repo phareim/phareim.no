@@ -151,8 +151,10 @@ export const SPORELIGHT: MapDef = {
     grazer(49, 38), grazer(57, 39), grazer(54, 36),
     moss(50.5, 41.3), moss(56.4, 37.3), moss(48.6, 40.5), moss(55.6, 41.4), puff(53.5, 38.6),
     capM('violet', 48, 35),
-    // Spores rising out of the root stair, moss at its foot.
-    puff(39.5, 46.4), moss(38.3, 47.3), moss(40.7, 47.2), moss(36.6, 44.6),
+    // The Root Stair's way down to the Battle Glade: stone steps into the earth between glowing roots, cyan light from
+    // below, over its stair tile (the warp stays on it); moss at its foot.
+    prop('sporelight_rootstair', 39.5, 46.5, { cover: { x: 38, y: 45, w: 3, h: 3 } }),
+    moss(38.3, 47.3), moss(40.7, 47.2), moss(36.6, 44.6),
     // The Shellyard: the smelter's cart of shells, moss and spores among the grazers.
     prop('meadow_cart', 61.6, 8.3, at(61, 8)),
     moss(59.5, 11.5), moss(69.4, 14.6), moss(64.4, 7.6), moss(74.5, 20.4), puff(67.5, 12.5), puff(57.6, 17.4),

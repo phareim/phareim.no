@@ -16,7 +16,7 @@
  */
 import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
-import { at, BLIMP, bob, cycle, lantern, light, POSTER, prop, SPOT } from './scenery'
+import { at, BLIMP, bob, COTTAGE, cycle, lantern, light, POSTER, prop, SPOT } from './scenery'
 
 type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
@@ -27,6 +27,8 @@ const INTRO: AreaIntro = { lines: ['PINK FOG UP TO THE KNEES OF THE HILLS. OUT H
 
 /** A stage spotlight on its stand, its head turned `dir` eighths of a turn from east, its beam swinging over the fog. */
 const spot = (dir: number, x: number, y: number): IsoLandmark => prop(`fogstage_spotlight_${dir}`, x + 0.5, y + 0.6, { lights: SPOT, ...at(x, y) })
+/** A house of the Ticket Hill on its 3×3 of H: a narrow painted house behind a stage-flat false front, its marquee bulbs always lit, its windows lit after dusk. */
+const house = (x: number, y: number): IsoLandmark => prop('fogstage_house', x + 1.5, y + 1.5, { night: 'fogstage_house_night', cover: { x, y, w: 3, h: 3 }, lights: COTTAGE })
 /** A painted flat standing in the fog, its two tiles of 'F' at (x, y) under it. */
 const flat = (x: number, y: number): IsoLandmark => prop('fogstage_flat', x + 1, y + 0.75, { cover: { x, y, w: 2, h: 1 }, shadow: { tall: 1.15, wide: 0.7, deep: 0.06 } })
 
@@ -113,6 +115,8 @@ export const FOGSTAGE: MapDef = {
   },
   isoLandmarks: [
     prop('gate_fogstage_ew_off', 83.5, 20.5, { night: 'gate_fogstage_ew_on' }),
+    // The Ticket Hill's houses, up the hill either side of its road.
+    house(66, 14), house(73, 14), house(77, 16), house(66, 23), house(75, 23),
     prop('camp_fire', 70.1, 24.5, { motion: cycle(4, 5), light: { r: 2.2, tone: 'gold', a: 0.6 } }),
     prop('camp_log', 69.6, 25.3),
     prop('camp_log', 70.8, 25.2),

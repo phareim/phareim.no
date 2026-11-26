@@ -132,6 +132,8 @@ export const SETERFELL: MapDef = {
     prop('meadow_hay_medium', 9.5, 38.5, at(9, 38)),
     prop('meadow_hay_medium', 12.5, 42.5, at(12, 42)),
     prop('meadow_hay_small', 5.5, 42.5, at(5, 42)),
+    // The varde on Cairn Ridge by the cairn keeper's sign: the fell's far landmark, seen from the Big Seter and the fell road.
+    prop('seter_varde', 28.5, 11.5, at(28, 11)),
     // The lookout's waystone on Cairn Ridge.
     prop('meadow_waystone', 51.5, 8.5, { ...at(51, 8), light: { r: 1.6, tone: 'cyan', a: 0.5 } }),
     // The trolls asleep as hills, and the small ones as mounds (not the elder's: its door is the pantry's).
@@ -147,7 +149,7 @@ export const SETERFELL: MapDef = {
   lantern('violet', 52.5, 22.5),
   lantern('violet', 61.5, 21.5),
   lantern('violet', 67.5, 21.5),
-  lantern('pink', 24.5, 7.5),
+  lantern('pink', 23.5, 7.5),
   lantern('pink', 33.5, 7.5),
   lantern('pink', 44.5, 7.5),
     ...WALLS.map(([x, y, art]) => prop(art, x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 } })),
@@ -162,7 +164,7 @@ export const SETERFELL: MapDef = {
     'M': sign('→ THE SPORELIGHT.\n← THE BIG SETER.'),
     'N': sign('↑ YULE FJORD, OVER THE TOPS.\n↓ THE BIG SETER.'),
     'P': sign('THE FELL\'S EDGE.\nBELOW: PHAREIM.NO.'),
-    'Q': sign('CAIRN. ADD A STONE. TAKE NONE.'),
+    'Q': sign('THE VARDE ON CAIRN RIDGE. YOU CAN SEE IT FROM THE SETER.\nADD A STONE. TAKE NONE.'),
     'a': npc('q.bell.home', 'dairymaid', [{ lines: ['SIGRID: THE BELL RANG, AND THERE I WAS. HOME, WITH HAY IN MY HAIR.', 'SIGRID: THE COWS DIDN\'T EVEN NOTICE I WAS GONE. HERE. FOR YOUR WALK.'], give: 'bits50' }], { hide: { notFlag: 'q.bell.rung' } }),
     'd': npc('q.bell.tail', 'huldra', [{ when: { flag: 'q.bell.rung' }, lines: ['SOLVEIG: A BELL THAT RINGS! NOW I CAN BE WED UNDER IT.', '(SOMETHING SWISHES BEHIND HER SKIRT. NOBODY MENTIONS IT.)'] }, { lines: ['SOLVEIG: LOVELY EVENING. DON\'T LOOK DOWN.', 'SOLVEIG: I WANT TO BE WED UNDER A BELL THAT RINGS. THE ONE ON THE FJORD IS CRACKED.'] }]),
     'g': npc('seterfell.dairymaid', 'dairymaid', [{ lines: ['DAIRYMAID: THREE COWS MISSING, AND FIVE DAYS TILL WE WALK THE HERDS DOWN.', 'DAIRYMAID: CHEESE ON EVERY SHELF, BUTTER IN THE CHURN. HANDS OFF BOTH.'] }]),

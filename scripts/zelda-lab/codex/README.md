@@ -169,6 +169,22 @@ Build commands: `tmp/art3/build-<kit>.sh` (Mac job, git-ignored; copied in its r
 - Lab scenes: `kit-roadside`, `kit-rerun`, `kit-fogstage`, `kit-underglow`, `kit-coast`, `kit-landing` (seterfell stub,
   the kit named in the map's `kits`).
 
+### Round 4 (2026-11-26): new pieces for the seven lands
+Pieces no kit had, each a guide of new solids in its kit's `*_THINGS`, drawn, baked and placed in its land: `seter_varde`
+(Cairn Ridge), `fogstage_house` + `_night` (the Ticket Hill's five houses), `rerun_screen` (the drive-in), `stillsand_ribs`
++ `_small` (the Ribs over the Bone Road), `sporelight_rootstair` (the Battle Glade's stair), `harbour_boat_0`/`_1` (landing
+kit; Yule Fjord's piers). Build commands: `tmp/art4/build-<kit>.sh` (Mac job, git-ignored; copied in its report).
+- A new id must be in the kit's data before `kit-bake.mjs` bakes its drawing: `node scripts/zelda-lab/frontier-art.mjs <kit>`
+  re-bakes the solids, keeping every drawn record, and adds the new ids; `kit-check.mjs`'s ADDED names the new ids.
+- `kitlift.py <kit> <id> <a-b>`: a piece that goes down into the ground (the root stair's steps and pit, below z 0) is
+  hidden by the ground the engine draws. The tool fits the ground's depth (a plane in row and column) to the guide's px
+  of the solid calls a-b (a rim round the hole at z 0) and gives every drawn px below it the ground's depth + 1. The guide
+  itself needs that rim: without it the pit's outer faces show as a box hanging under the ground.
+- A bob frame from one drawing: `kitbuild.py ... --from <frame 0> --nudge 0,1` (the boat; the two ids share their solids).
+- The drive-in screen faces west, away from the view: the view shows its east side, drawn as the pale canvas with the
+  picture showing through. The ribs and the rerun screen were drawn on half-size guides (`kitscale.py`) and at the
+  game's px; the screen shipped at the game's px, the ribs at 2 x 2.
+
 ### 7. The bake: `kit-bake.mjs <kit> [--build dir] [--only ids] [--drop ids] [--check]`
 Every `build/<id>.json` whose id the kit has replaces that id's record. Every other record stays as it is. The data
 file is packed as `frontier-art.mjs` packs it: gzip + base64 of the JSON of ThingArt records (`rows/pal/glow/nrows/
@@ -209,6 +225,7 @@ game scale. They were redrawn without the band and shipped.
 | `kitbuild.py`, `kitturn.py`, `kitlineup.py` | a piece fitted, frame variants (`--edit`, `--glows`); turning parts; guide-over-drawing sheet (5, 6) |
 | `kitbeam.py` | the lighthouse's beam frames over the drawn lens tower |
 | `kitspin.py`, `kitscale.py`, `kittext.py` | a flat thing's turned/mirrored frame; a sheet drawn on a shrunk guide; a sign's words laid again (round 3) |
+| `kitlift.py` | a piece below the ground plane given the ground's depth (round 4: the root stair) |
 | `kit-bake.mjs`, `kit-check.mjs` | into `<kit>Data.ts`; the kit checks (7, 8) |
 | `style.png` | the target pixel style (figures from Part 22) |
 | `things/` | Part 23's tools for `thingArt.ts`: `things.py`+`solids.py` (ray-cast guides), `sheet_things.py`, `prompts_things.py`, `build.py`, `composite.py`, `align.py`, `emit.py`, `archive.py`, `lineup.py`, `classic.py`, `dump.mjs`, `dumpsolids.py`; work dir `tmp/codex-kits/things` |

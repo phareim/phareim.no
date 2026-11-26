@@ -30,4 +30,10 @@ Middle: a fishing-net drying rack: two wooden posts with a cross pole, a dark gr
 Right: a harbour light: a dark iron post on a stone base, a short wooden collar, and on top a lantern with a band of cyan glass (#0a8aa8, #2ff3ff, #c4fbff) round it under a big warm gold light (#c4861c, #ffd23f, #fff1b0, a white centre) under a little iron roof, as in the guide: the lamp glows.
 {WOOD}
 {IRON}"""),
+ # Round 4 (2026-11-26): a small moored fishing boat (frame 1 is this drawing a px lower: the bob).
+ 'boat': dict(size=(1536, 1024), pitch=16, ids=['harbour_boat_0'], n='one object', every='the boat', what='a small wooden rowing and fishing boat', names={'harbour_boat_0': 'boat'},
+   desc=f"""{HARBOUR} Big chunky pixels.
+A small Norwegian wooden rowing boat (a faering), moored and empty, exactly the guide's shape and angle: a double-ended clinker-built hull, pointed at both ends, its bow and stern posts rising a little higher than the sides, the overlapping planks (strakes) showing as fine horizontal lines along its side. The hull painted white (#5a5878 shade, #9a98b8, #d0cee4, #f4f2ff lit) with a red stripe (#6a1420, #a82a34, #d84a4a) just under the dark tarred gunwale (#1a1018, #2e1e26); below it the hull's bottom tarred dark (#141226, #22203a) where it meets the water.
+Inside, seen from above: the pale wooden floor boards, two plank seats (thwarts) across it, a pair of long oars laid along its right side with their blades at the right end, a coil of orange rope at the left end, a small wooden fish box. A little SNOW lies on the seats and in the bottom (#e8e4f8, #c8c0e8).
+{WOOD}"""),
 }

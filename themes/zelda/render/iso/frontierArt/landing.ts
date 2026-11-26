@@ -66,6 +66,44 @@ const harbour: Thing = b => {
   b.ball(0, 0, 35.5, 3.7, 3.7, 1.9, 'gold')
 }
 
+/**
+ * A small moored fishing boat (art round 4), 2 x 1 tiles, its keel east-west: a double-ended clinker-built hull (a
+ * Norwegian faering), its strakes painted with a stripe under the tarred gunwale, two thwarts, a pair of oars laid
+ * along it, a coil of rope and a fish box in the bottom. Frame 1 is the same solids (the build lowers frame 0's
+ * drawing a px: the bob), so both frames share one box.
+ */
+const boat: Thing = b => {
+  const L = 29
+  const beam = (x: number) => 10.5 * Math.sqrt(Math.max(0, 1 - (x / L) ** 2))
+  const sheer = (x: number) => 8 + 4 * (x / L) ** 2
+  const hull: Pick = (_x, _y, z, _nx, _ny, nz) => {
+    if (nz > 0.6) return 'ink'
+    if (z < 2) return 'pole'
+    return Math.floor(z) % 3 === 0 ? 'ink' : z > 5 && z < 7.5 ? 'velvet' : 'chrome'
+  }
+  // The hull: thin strakes round the curve of the side, a floor inside.
+  for (let x = -L; x < L; x += 1.2) {
+    const w = beam(x + 0.6)
+    const h = sheer(x + 0.6)
+    if (w < 1.2) { b.box(x, -1.2, 0, x + 1.2, 1.2, h + 1.5, hull); continue }
+    b.box(x, -w, 0, x + 1.2, -w + 1.6, h, hull)
+    b.box(x, w - 1.6, 0, x + 1.2, w, h, hull)
+    b.box(x, -w + 1.6, 0, x + 1.2, w - 1.6, 2.5, 'wood')
+  }
+  // The stem and stern posts rising a little over the sheer.
+  for (const s of [-1, 1]) b.box(s * L - 1.4, -1, 0, s * L + 1.4, 1, 14, 'chestWood')
+  // Two thwarts, the oars along the starboard side, a coil of rope, a fish box.
+  for (const x of [-9, 8]) b.box(x - 2, -beam(x) + 1.6, 5.5, x + 2, beam(x) - 1.6, 7, 'sand')
+  for (const y of [5.5, 6.8]) b.box(-20, y - 0.6, 7.2, 18, y + 0.6, 8.2, 'chestWood')
+  for (const x of [17, 19.5]) b.box(x, 4.4, 7, x + 2.5, 7.8, 7.8, 'chestWood')
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2
+    b.ball(-19 + Math.cos(a) * 2.6, -2 + Math.sin(a) * 2.2, 3.2, 1, 1, 0.8, 'clay')
+  }
+  b.box(-2, -6, 2.5, 4, -1, 6, 'board')
+  b.box(-1.4, -5.4, 6, 3.4, -1.6, 6.6, 'rock')
+}
+
 export const LANDING_THINGS: Record<string, Thing> = {
   landing_breakwater: breakwater(false),
   landing_breakwater_end: breakwater(true),
@@ -74,4 +112,6 @@ export const LANDING_THINGS: Record<string, Thing> = {
   landing_crates: crates,
   landing_net_rack: nets,
   landing_harbour_light: harbour,
+  harbour_boat_0: boat,
+  harbour_boat_1: boat,
 }
