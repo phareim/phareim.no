@@ -40,7 +40,9 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
 - `realm`: the land's identity: its art kit (`render/iso/frontierArt/`, fetched as a chunk of its own when the hero
   is there), its light and air (`render/looks.ts`, `MOOD`), its people's and foes' looks, the critters that live
   there (`render/life/`). `kits` names more kits the map draws from (Seter Fell's hay and mill are the `meadow` kit's);
-  the view merges them (`kitsFor`).
+  the view merges them (`kitsFor`). Every piece in a kit is drawn by Codex over a guide built from solids
+  (`scripts/zelda-lab/codex/README.md`; `kit-check.mjs` fails on a piece that is not); a new landmark gets its guide in
+  the kit's source (`frontierArt/<kit>.ts`) and goes the same way before it is placed.
 - `look` (one per map): snow, dune, spore, fog, quarry, suburb, wild. A climate is its own map.
 - Areas: five to eight named ones, each with a continue point and `intro` (the realm's first-visit words, flag
   `realm:<realm>`, so they open once in whichever area the hero arrives). `camp` is the land's heart: a save out
