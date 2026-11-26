@@ -29,7 +29,17 @@ export const MACHINE_SCREENS: Record<string, ReadonlyArray<readonly [number, num
   "cab_eventyrland": [[10, 31, 21, 14]],
   "cab_maileg": [[10, 31, 21, 14]],
   "home_terminal": [[16, 14, 15, 14]],
-  "login_console": [[11, 21, 20, 15], [25, 59, 3, 10]],}
+  "login_console": [[11, 21, 20, 15], [25, 59, 3, 10]],
+  // (part 26, 2026-11-26: the newsstand, NEW LOOK and KODING KATA, `stallArt.ts`)
+  "kiosk": [[22, 6, 52, 15]],
+  "look_wall": [[5, 16, 20, 17]],
+  "look_roof": [[18, 7, 93, 14]],
+  "kata_pc": [[5, 10, 16, 13]],
+  "kata_board": [[2, 6, 128, 15]],
+  "kata_junkl_0": [[10, 12, 9, 7]],
+  "kata_junkl_1": [[10, 12, 9, 7]],
+  // (end of part 26)
+}
 
 /** The hash of the classic style (`CAB_STYLES` in `exits.ts`: body, trim, marquee) each cabinet was drawn from: a test keeps them in step. */
 export const MACHINE_FROM: Record<string, string> = {
