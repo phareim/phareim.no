@@ -59,7 +59,7 @@ export const STILLSAND: MapDef = {
     '#--------...,,------#t....3....t#--,,,,,,,,,,,,,,,,,,,,,,,........,g.....--##---.-----##',
     '#-----.......,,9----#..Q.....Q..#.---....j...,........---.........,......-s##-------.--#',
     '##---..rrr....,-----#...........#----........,........--..........,......---r---------##',
-    '##----.r@r....,,,---#...I...I...#-r----------,----.--0------------,,-----------###-r9-##',
+    '##----.r@r....,,,---#...I...I...#-r----------,----.--W------------,,-----------###-r9-##',
     '#----..rrr......,,--#...........#e--.-------.,-----.-.---------.-.-,....m...-#######--##',
     '###---.........-.,,,R....b.b.....,,,,,,,,,,,,,,-----..-------...?..,,........#######---#',
     '####----..----.-----#...........#-------.-----,--..rIr-----.........,,,,.....#######---#',
@@ -174,10 +174,12 @@ export const STILLSAND: MapDef = {
     // The stone birds' nest south of the Ribs: a ring of stones round an egg that is not stone. Lift one to reach it.
     '@': { ent: { t: 'chest', id: 'stillsand.nest', item: 'bits20' } },
     '4': { ent: { t: 'chest', id: 'stillsand.firstlight', item: 'bombs5', appear: { flag: 'stillsand.firstlight' } } },
-    '7': { ent: { t: 'enemy', kind: 'dasher' } },
-    '8': { ent: { t: 'enemy', kind: 'blob' } },
-    '9': { ent: { t: 'enemy', kind: 'drone' } },
-    '0': { ent: { t: 'enemy', kind: 'sentry' } },
+    '7': { tile: '-', ent: { t: 'enemy', kind: 'dasher' } },
+    '8': { tile: '-', ent: { t: 'enemy', kind: 'blob' } },
+    '9': { tile: '-', ent: { t: 'enemy', kind: 'drone' } },
+    '0': { tile: '-', ent: { t: 'enemy', kind: 'sentry' } },
+    // The warden of the chest south of it: a tough sentry.
+    W: { tile: '-', ent: { t: 'enemy', kind: 'sentry', tough: true } },
   },
 }
 

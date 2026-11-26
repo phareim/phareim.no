@@ -156,6 +156,31 @@ const pics = new Map<string, FolkPic | null>()
 const fresh = new Map<string, boolean>()
 let seen = -1
 
+/** The drawn frame that stands for a classic sprite, or null when it has none, or has none that is still fresh. */
+function frameFor(name: string, flip: boolean): { famId: string; fam: FolkFamily; key: string; flip: boolean } | null {
+  const famId = familyOf(name)
+  if (!famId) return null
+  if (seen !== spriteRevision()) { seen = spriteRevision(); fresh.clear() }
+  const fam = ART[famId]!
+  let ok = fresh.get(famId)
+  if (ok === undefined) { ok = familyFresh(fam); fresh.set(famId, ok) }
+  if (!ok) return null
+  const f = facingOf(name, famId, flip, !!fam.frames.idle_0)
+  return f ? { famId, fam, ...f } : null
+}
+
+/**
+ * How far the top of a sprite's isometric figure stands above its foot point, in classic px (half the art's), read
+ * off the drawn frame; null where the view draws the classic sprite instead.
+ */
+export function folkTop(name: string, flip: boolean): number | null {
+  const f = frameFor(name, flip)
+  const fr = f?.fam.frames[f.key]
+  if (!fr) return null
+  const first = fr.rows.findIndex(r => [...r].some(ch => !!f!.fam.pal[ch]))
+  return first < 0 ? null : (fr.ay - first) / 2
+}
+
 /**
  * The isometric picture for what the classic painter is drawing (a sprite, or its silhouette in a colour), or
  * null when it has none, or has none that is still fresh: then the classic sprite is drawn.
@@ -165,15 +190,9 @@ export function folkPic(tag: SpriteTag): FolkPic | null {
   if (tag.name.startsWith('hero_')) return heroPic(tag)
   if (tag.name.startsWith('sword')) return bladePic(tag)
   if (tag.flipV) return null
-  const famId = familyOf(tag.name)
-  if (!famId) return null
-  if (seen !== spriteRevision()) { seen = spriteRevision(); fresh.clear() }
-  const fam = ART[famId]!
-  let ok = fresh.get(famId)
-  if (ok === undefined) { ok = familyFresh(fam); fresh.set(famId, ok) }
-  if (!ok) return null
-  const f = facingOf(tag.name, famId, tag.flip, !!fam.frames.idle_0)
+  const f = frameFor(tag.name, tag.flip)
   if (!f) return null
+  const { famId, fam } = f
   const key = `${famId}|${f.key}|${f.flip ? 'f' : ''}|${tag.color ?? ''}`
   let p = pics.get(key)
   if (p === undefined) {

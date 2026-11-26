@@ -784,6 +784,66 @@ classic picture. `/?view=<id>` asks for one.
     never goes alert and its touch does no harm, until a blow or a stun lands
     on it (`ai.angry`); from then on it is a sentry like any other, and goes
     for the hero. Loading the map again leaves it calm.
+  - *Tough foes* (`tough` on the enemy mark; every number in `TOUGH`,
+    `types.ts`). A sentry or a hound with more hit points (12 and 10), a bar
+    over its head and *poise*; any other kind, or a calm one, is refused by
+    `validate.ts`. They are small foes, not in `BIG`: five stand in the lands
+    (`docs/worlds/atlas.md`; Yule Fjord and Lumenby have none, no sentry or
+    hound lives there).
+    - *Poise and the opening* (`toughOpen`). While it is not open, the blade
+      (`sword`, `spin`: every move of it, the Arc Blade and a critical too)
+      only clanks off it: no damage, no flash, no shove, no mercy time, and a
+      SLIP's critical edge is kept for a blow that lands. It goes on with
+      what it was doing and harms at a touch. Bombs, pots and batted shots
+      hurt, shove and reel it as any small foe (a warning it has announced
+      stays up). It is open while stunned, and while it stands spent after
+      its strike (1 s): then it is a small foe in every way and its touch
+      does no harm. So the bar moves only while it is gold. One opening
+      gives the blade 5 hit points in all (`take`), whatever the blade or the
+      combo (the Arc Blade only gets there sooner); with that taken it shakes
+      itself shut and starts over with a fresh `pause`. A bomb is not counted.
+      A stun and the spent time run out on time however it is hit, and its
+      poise is back at once.
+    - *Stun.* The disc stuns it 1.2 s, the hook 1 s. While stunned, and for
+      4 s after (`shrug`), both clank off it. When a stun ends it starts
+      over: back to its stalk (the hound to its prowl) with a fresh `pause`,
+      whatever it was doing when caught, so it never strikes without a full
+      tell.
+    - *The tough sentry* stalks a hero it sees within 7 tiles at 1.6 tiles/s
+      (else it patrols). After 1.2 s of that, with him in sight within 4.5
+      tiles, it stands and tells for 0.6 s, then charges at 9 tiles/s along
+      the line to where he stood as the tell ended, without steering, to 1.2
+      tiles past that point or to a wall; then it is spent.
+    - *The tough hound* prowls as a hound does, tells (0.5 s) and lunges (10
+      tiles/s), then tells again for 0.25 s and lunges a second time, each
+      lunge ending 2.2 tiles past its mark (`houndPast`: far enough off that
+      the second can be answered) or at a wall; then it rests, spent.
+    - *The fight* is played by scripted players in
+      `tests/zelda-tough.test.mjs`, over eight setups for each kind: one who
+      stands still is hurt; one who hammers A is hurt at least twice, with
+      the Arc Blade too; one who only throws the disc is hurt; one who rolls
+      off the strike 0.1 s after it starts (or 0.15 s) and cuts while the bar
+      is gold wins untouched in 8 to 20 s; one who rolls before the tell is
+      over is hit, because the foe aims when the tell ends.
+    - *The bar, the outline and the light* (`render/renderer.ts`, every view;
+      no art of its own). The foe's silhouette a px out on four sides: pink,
+      gold while open, white and pink by turns at 8 Hz while it tells (steady
+      white under reduced motion); no `!`. While it tells a small white light
+      (1.4 tiles) stands on it, while it is open a gold one, so dusk and night
+      do not dull the outline. The bar is 12 × 3 px, 3 px over the top of the
+      figure as the view draws it (read off the art's rows, `folkTop` for the
+      isometric figures), drawn with the effects, so unlit and above
+      everything in the world; what is left is pink, gold while open. A
+      stunned one's stars turn between its head and the bar.
+    - *Falling.* It always drops a heart and five bits. It cannot be knocked
+      into a pit, water or spikes. Like any field foe it is back when the map
+      is entered again.
+    - *Day and night.* It stands where it is at every hour: no rank, no twin
+      (`settleFoes`).
+    - *The fight is tested* (`tests/zelda-tough.test.mjs`): scripted players
+      who stand, hammer A or lean on the disc are hurt; one who rolls off the
+      strike and cuts in the opening wins untouched, in 6 to 20 s. Tune
+      `TOUGH` against it.
   - *The lands' foes* are ordinary foe marks, drawn in the realm's own skins
     (`FRONTIER_FOE_LOOKS` in `render/renderer.ts`): which stand where is in
     `docs/worlds/atlas.md`, "The lands". The Sporelight's sentries are
@@ -1179,8 +1239,9 @@ every outdoor map; interiors and dungeons keep their own light.
   engine what the screen shows (`GameState.sight`: the classic view's
   rectangle, or the turned view's diamond of ground round the hero). A foe killed stays down until it has left for the day; next
   evening it comes back fresh. Only outdoor maps and only placed foes, the
-  lands' among them: the town has none, dungeons, bosses and key carriers are
-  untouched. A sentry (a grazer too) leaves at noon and has no night twin.
+  lands' among them: the town has none, dungeons, bosses, key carriers and
+  tough foes are untouched. A sentry (a grazer too) leaves at noon and has no
+  night twin.
 - **Trying it.** `/?daytime=dusk|night|dawn|noon|<seconds>` starts the
   clock at that hour (light and woods): after the prism, and before it only
   in development. Lab and live checks used `scripts/zelda-lab/cdp.mjs` on the

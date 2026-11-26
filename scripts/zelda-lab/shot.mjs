@@ -42,7 +42,7 @@ import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.t
 import { reveal } from ${JSON.stringify(join(repo, 'themes/zelda/engine/explore.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { sceneryAt } from ${JSON.stringify(join(repo, 'themes/zelda/world/scenery.ts'))}
-import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
+import { NO_INPUT, TOUGH, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { spawnEnemy } from ${JSON.stringify(join(repo, 'themes/zelda/engine/spawn.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
@@ -520,6 +520,57 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
     if (scene.endsWith('hit')) for (const e of picked) e.flash = 0.3
     break
   }
+  // Tough foes (docs/games/neon-shrine.md "Tough foes"). tough-<skin>: one skin on open ground. The first row, left
+  // to right: bar full, half, nearly empty, telling (white, as under reduced motion), open (gold), stunned. The
+  // second: the same foe facing down, up, left and right, each telling its bar's height apart.
+  case 'tough-sentry': case 'tough-grazer': case 'tough-hound': case 'tough-mower': {
+    const [map, x, y, kind] = { 'tough-sentry': ['overworld', 60.5, 35.5, 'sentry'], 'tough-grazer': ['sporelight', 58.5, 10.5, 'sentry'], 'tough-hound': ['overworld', 60.5, 35.5, 'hound'], 'tough-mower': ['rerun', 65.5, 18.5, 'hound'] }[scene]
+    give(); go(map, x, y, 'up'); run(2)
+    s.map.enemies.length = 0; s.map.npcs.length = 0
+    ui.reducedMotion = true
+    const iso = q.get('view') === 'iso'
+    // (A row across the screen: along x, or along x - y in the turned view.)
+    const stand = (row, i, n) => {
+      const d = (i - (n - 1) / 2) * (iso ? 1.35 : 1.7), back = row ? 1.2 : 3.2
+      return iso ? { x: x + d - back * 0.7, y: y - d - back * 0.7 } : { x: x + d, y: y - back }
+    }
+    const foe = (id, at, dir, share, mode, over = {}) => {
+      const e = spawnEnemy(id, kind, at.x, at.y, dir, s.zoneIndex)
+      e.tough = true; e.maxHp = kind === 'sentry' ? TOUGH.hp.sentry : TOUGH.hp.hound; e.hp = Math.max(1, Math.round(e.maxHp * share))
+      e.ai.mode = mode; e.ai.t = 9; Object.assign(e, over); s.map.enemies.push(e); return e
+    }
+    const walk = kind === 'sentry' ? 'stalk' : 'prowl'
+    const open = kind === 'sentry' ? 'spent' : 'rest'
+    foe('full', stand(0, 0, 6), 'down', 1, walk)
+    foe('half', stand(0, 1, 6), 'down', 0.5, walk)
+    foe('low', stand(0, 2, 6), 'down', 0, walk)
+    foe('tell', stand(0, 3, 6), 'down', 0.75, 'tell').ai.tell = 0.4
+    foe('open', stand(0, 4, 6), 'down', 0.6, open)
+    foe('stun', stand(0, 5, 6), 'down', 0.6, walk, { stun: 1 })
+    ;['down', 'up', 'left', 'right'].forEach((dir, i) => foe(dir, stand(1, i, 4), dir, 1, walk))
+    s.hero.x = x; s.hero.y = y + 0.3
+    break
+  }
+  // tough-spot-<land>: each of the five tough foes where it stands, as the map is entered, the hero four tiles off.
+  case 'tough-spot-seterfell': case 'tough-spot-sporelight': case 'tough-spot-stillsand': case 'tough-spot-rerun': case 'tough-spot-fogstage': {
+    const [map, x, y] = { seterfell: ['seterfell', 40.5, 8.5], sporelight: ['sporelight', 72.5, 7.6], stillsand: ['stillsand', 50.5, 23.5], rerun: ['rerun', 26.5, 25.5], fogstage: ['fogstage', 51.5, 35.5] }[scene.slice('tough-spot-'.length)]
+    give(); go(map, x, y, 'right'); run(1)
+    break
+  }
+  // stillsand-sentry: Stillsand's plain sentry at 40,28 on its own ground, the hero three tiles east.
+  case 'stillsand-sentry': give(); go('stillsand', 43.5, 28.5, 'left'); run(1); break
+  // tough-charge, tough-charge-close: the pink grazer at its own spot (72,4) in mid-charge at the hero beside it, run by
+  // the engine from its tell, and stopped with the two of them about 1.4 tiles apart, or 0.75 (it hurts under 0.69).
+  case 'tough-charge': case 'tough-charge-close': {
+    give(); go('sporelight', 75.4, 4.7, 'left'); s.hero.hp = s.hero.maxHp
+    const e = s.map.enemies.find(o => o.tough)
+    s.map.enemies = [e]
+    e.x = 72.5; e.y = 4.5; e.ai.mode = 'tell'; e.ai.t = 0.05; e.ai.tell = 0.05; e.dir = 'right'
+    const gap = scene === 'tough-charge' ? 1.4 : 0.75
+    for (let k = 0; k < 120 && !(e.ai.mode === 'charge' && Math.hypot(e.x - s.hero.x, e.y - s.hero.y) <= gap); k++) stepGame(world, s, 1 / 240, inp({}))
+    document.body.dataset.gap = Math.hypot(e.x - s.hero.x, e.y - s.hero.y).toFixed(2) + ' ' + e.ai.mode
+    break
+  }
   case 'f-cast': {
     go('overworld', 20.5, 19.5, 'up'); run(2)
     const looks = ['ghost', 'luna', 'mossa', 'dusty', 'toby', 'max', 'owl']
@@ -704,6 +755,8 @@ const SHOTS = [
   ['r-cast-1280', 'r-cast', 1280, 800, 1, 0],
   ['r-foehit-1280', 'r-foehit', 1280, 800, 1, 0],
   ['f-cast-1280', 'f-cast', 1280, 800, 1, 0],
+  ...['sentry', 'grazer', 'hound', 'mower', 'spot-seterfell', 'spot-sporelight', 'spot-stillsand', 'spot-rerun', 'spot-fogstage', 'charge', 'charge-close'].map(n => [`tough-${n}`, `tough-${n}`, 1280, 800, 1, 0]),
+  ['stillsand-sentry', 'stillsand-sentry', 1280, 800, 1, 0],
   ['f-town-1280', 'f-town', 1280, 800, 1, 0],
   ['f-townhit-1280', 'f-townhit', 1280, 800, 1, 0],
   ['f-shrine-1280', 'f-shrine', 1280, 800, 1, 0],

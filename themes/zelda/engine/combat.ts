@@ -3,7 +3,7 @@
  * calls into. `Ctx` bundles what a step needs.
  */
 import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, World } from '../types'
-import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES } from '../types'
+import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH } from '../types'
 import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
@@ -87,12 +87,24 @@ const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepse
 const blade = (src: HitSource) => src === 'sword' || src === 'spin'
 
 /**
+ * A tough foe's opening (`TOUGH`): stunned, or standing spent after its strike (the sentry's `spent`, the hound's
+ * `rest`). Open, it is a small foe in every way and its touch does no harm. False for a foe that is not tough.
+ */
+export function toughOpen(e: Enemy): boolean {
+  return !!e.tough && (e.stun > 0 || e.ai.mode === (e.kind === 'hound' ? 'rest' : 'spent'))
+}
+
+/**
  * How a blow lands, beyond its damage (the blade's chain, `COMBO`): `knock` x the ordinary shove, `stagger` s of
  * reeling (small foes), `stop` ms of hitstop, `chain` a quick hit of the chain (the foe's mercy is short, so the
  * next hit lands), `finisher` the chain's last (it bites harder on a foe stunned, or reeling from some other
  * blow: a pot, a bomb, the spin; not on one reeling only from the chain's own hits). Left out: the plain values.
  */
-export interface HitOpts { knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean; crit?: boolean }
+export interface HitOpts {
+  knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean; crit?: boolean
+  /** The most this blow may take (a tough foe's opening, `TOUGH.take`); what it took is counted in `ai.took`. */
+  cap?: number
+}
 
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
@@ -102,6 +114,15 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
     if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
     return false
   }
+  // Poise: a tough one that is not open turns the blade (every move of it) without a mark, and a SLIP's edge is kept.
+  // No mercy time comes of it: the opening that follows, and a disc thrown right after, must not be swallowed.
+  if (e.tough && blade(src) && !toughOpen(e)) {
+    c.ev.push({ type: 'clank', x: e.x, y: e.y })
+    return false
+  }
+  // Open, it gives the blade `TOUGH.take` in all and no more (the Arc Blade only gets there sooner); with that
+  // taken it shuts (`toughClocks`).
+  if (e.tough && blade(src)) opt = { ...opt, cap: Math.max(0, TOUGH.take - ((e.ai.took as number | undefined) ?? 0)) }
   // After a SLIP the hero's next blow is critical (`moves.ts`).
   const h0 = c.s.hero
   if (h0.edge && (src === 'sword' || src === 'spin')) {
@@ -118,10 +139,15 @@ function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: numb
   if (special !== null) return special
   // A calm sentry struck or stunned turns angry for good, and goes for the hero as soon as it can.
   if (e.calm && !e.ai.angry) { e.ai.angry = true; e.ai.mode = 'alert'; e.ai.t = 0.45 }
+  // A tough one that is stunned, or has just shaken a stun off, turns the disc and the hook away.
+  if (e.tough && (src === 'hook' || src === 'disc') && (e.stun > 0 || ((e.ai.shrug as number | undefined) ?? 0) > 0)) {
+    c.ev.push({ type: 'clank', x: e.x, y: e.y })
+    return false
+  }
   // The hook stuns like the disc, and bites the frail.
   if (src === 'hook') {
     if (BIG.has(e.kind)) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
-    e.stun = 2
+    e.stun = e.tough ? TOUGH.stunHook : 2
     e.flash = 0.1
     c.ev.push({ type: 'discHit', x: e.x, y: e.y })
     if (e.kind === 'bat' || e.kind === 'blob' || e.kind === 'drone') return damage(c, e, 1, fromX, fromY)
@@ -130,7 +156,7 @@ function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: numb
   // The disc stuns; it only hurts the frail.
   if (src === 'disc') {
     if (e.kind === 'king') return false
-    e.stun = e.kind === 'knight' ? 1.4 : 2.4
+    e.stun = e.tough ? TOUGH.stunDisc : e.kind === 'knight' ? 1.4 : 2.4
     e.flash = 0.1
     c.ev.push({ type: 'discHit', x: e.x, y: e.y })
     if (e.kind === 'bat' || e.kind === 'blob') return damage(c, e, 1, fromX, fromY)
@@ -231,7 +257,9 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   // The chain's finisher on a foe stunned (the disc, the hook) or reeling from another blow: a critical one.
   // The chain's own hits leave the foe reeling too, but that is the chain's ordinary course, not a crit.
   const crit = !!opt?.crit || (!!opt?.finisher && !big && (e.stun > 0 || ((e.stagger ?? 0) > 0 && !e.reelChain)))
-  e.hp -= dmg + (crit ? 1 : 0)
+  const dealt = Math.min(dmg + (crit ? 1 : 0), opt?.cap ?? Infinity)
+  e.hp -= dealt
+  if (opt?.cap !== undefined) e.ai.took = ((e.ai.took as number | undefined) ?? 0) + dealt
   e.flash = 0.14
   e.invuln = big ? 0.45 : opt?.chain ? 0.1 : 0.28
   const ddx = e.x - fromX
@@ -290,6 +318,13 @@ export function killEnemy(c: Ctx, e: Enemy) {
     c.s.shake = 0.6
     // The room's small fry go with their master.
     for (const o of c.s.map.enemies) if (o !== e && o.cell === e.cell && !o.dead && o.kind !== 'eye') { o.dead = true; o.deathT = 0; c.ev.push({ type: 'kill', x: o.x, y: o.y, kind: o.kind }) }
+    return
+  }
+  // A tough one always leaves a heart and five bits, side by side (and its key, if it carries one).
+  if (e.tough) {
+    spawnDrop(c, e.x - 0.3, e.y, 'heart')
+    spawnDrop(c, e.x + 0.3, e.y, 'bit5')
+    if (e.carries === 'smallKey') spawnDrop(c, e.x, e.y + 0.3, 'key')
     return
   }
   if (e.carries === 'smallKey') { spawnDrop(c, e.x, e.y, 'key'); return }

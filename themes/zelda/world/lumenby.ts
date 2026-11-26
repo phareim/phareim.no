@@ -263,7 +263,7 @@ export const LUMENBY: MapDef = {
     'j': { tile: 'а', ent: { t: 'enemy', kind: 'bat' } },
     'q': { tile: 'а', ent: { t: 'enemy', kind: 'zapper' } },
     'w': { tile: 'а', ent: { t: 'enemy', kind: 'blob' } },
-    '9': { ent: { t: 'enemy', kind: 'zapper' } },
+    '9': { tile: '-', ent: { t: 'enemy', kind: 'zapper' } },
   },
 }
 

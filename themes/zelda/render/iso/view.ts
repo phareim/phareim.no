@@ -1775,7 +1775,8 @@ export default function isoView(kit: Kit): View {
       xg.globalAlpha = 1
     }
     kit.projectiles(xg, s, S1, (dx, dy) => ({ x: dx * P.ex.x + dy * P.ey.x, y: dx * P.ex.y + dy * P.ey.y }))
-    kit.fx(xg, s, dt, S1, ui.paused, 1 - 0.5 * k)
+    // (The tough foes' bars stand over this view's own figures, on terrain at the height their cards stand.)
+    kit.fx(xg, s, dt, S1, ui.paused, 1 - 0.5 * k, { art: folk, lift: m.terrain ? (x, y) => terrainFoot(m, x, y) : undefined })
     // --- the air: dust at the hero's heels, sparks rising in the lamplight, leaves on the wind ----
     if (!reduced && k > 0.5 && (par.air as boolean)) {
       const h = s.hero

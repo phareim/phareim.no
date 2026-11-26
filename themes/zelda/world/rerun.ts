@@ -78,7 +78,7 @@ export const RERUN: MapDef = {
     'TTT*.F.....F......:.FT...............p,,.....8..............:.:.:::............T',
     'TTT*.F.....F........FT.T..............,,......###.........e....................T',
     'TTT..F..FFFF..FFFF..FTT............:..,,......#v#.........................:....T',
-    'TTT.......:...F.....FT.......7.7..T...,,......#%#......:......T................T',
+    'TTT.......:...F.....FT.......!.7..T...,,......#%#......:......T................T',
     'TTT....:......F**...FT..T......:......,,...T.............T.........T.....T.....T',
     'TTTTTTTTTTTTTTTTTTTTTT................,,......:................:...............T',
     '~#####################################,,##############################%########~',
@@ -221,6 +221,8 @@ export const RERUN: MapDef = {
     '+': { tile: ',', ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
     '&': { ent: { t: 'enemy', kind: 'drone' } },
     '7': { ent: { t: 'enemy', kind: 'hound' } },
+    // The west mower of the two is a tough one.
+    '!': { ent: { t: 'enemy', kind: 'hound', tough: true } },
     '1': { ent: { t: 'chest', id: 'rerun.island', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'rerun.maze', item: 'bits50' } },
     '5': { ent: { t: 'chest', id: 'rerun.close', item: 'bits20' } },

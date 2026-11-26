@@ -6,6 +6,7 @@
 import type {
   Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, World, Enemy, Npc, Pickup,
 } from '../types'
+import { TOUGH } from '../types'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { puzzleMarkTile } from '../world/puzzles'
 import { loadPuzzleTiles } from './puzzles/load'
@@ -339,6 +340,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       if (e.once && flag(e.once)) continue
       const foe = spawnEnemy(`${id}:${m.x},${m.y}`, e.kind, cx, cy, e.dir ?? 'down', cellIndex(info, cx, cy), e.once, e.carries)
       if (e.calm) foe.calm = true
+      if (e.tough && (e.kind === 'sentry' || e.kind === 'hound')) { foe.tough = true; foe.hp = foe.maxHp = TOUGH.hp[e.kind] }
       enemies.push(foe)
     } else if (e.t === 'npc') {
       if (e.hide && condMet(s, world, e.hide, -1)) continue

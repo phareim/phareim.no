@@ -277,7 +277,8 @@ export function potSlides(c: Ctx, o: Thrown): boolean {
  * hurt it. True when the foe is gone.
  */
 export function knockHazard(c: Ctx, e: Enemy): boolean {
-  if (!pz(c).physical || !e.knock || e.dead || BIG.has(e.kind) || STATS[e.kind].flying || STATS[e.kind].invulnerable) return false
+  // (A tough foe keeps its feet: one shove does not end that fight.)
+  if (!pz(c).physical || !e.knock || e.dead || e.tough || BIG.has(e.kind) || STATS[e.kind].flying || STATS[e.kind].invulnerable) return false
   const k = e.knock
   const len = Math.hypot(k.vx, k.vy)
   if (len < 1e-6) return false

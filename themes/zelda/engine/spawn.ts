@@ -39,7 +39,9 @@ export function resetEnemy(e: Enemy) {
   const st = STATS[e.kind]
   e.x = e.home.x
   e.y = e.home.y
-  e.hp = st.hp
+  // A tough one has hit points of its own, and no reeling left over from before.
+  e.hp = e.tough ? e.maxHp : st.hp
+  if (e.tough) e.stagger = 0
   e.dead = false
   e.invuln = 0
   e.stun = 0

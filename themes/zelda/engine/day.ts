@@ -158,7 +158,7 @@ function freshAt(e: Enemy, x: number, y: number) {
   const st = STATS[e.kind]
   e.x = x
   e.y = y
-  e.hp = st.hp
+  e.hp = e.tough ? e.maxHp : st.hp
   e.dead = false
   e.away = false
   e.invuln = 0
@@ -202,7 +202,8 @@ export function settleFoes(world: World, s: GameState) {
     const twins: Enemy[] = []
     let i = 0
     for (const e of m.enemies) {
-      if (!ROAMS.has(e.kind) || e.once || e.carries || e.id.includes(':night')) continue
+      // A tough one holds its ground all day and all night, and has no twin.
+      if (!ROAMS.has(e.kind) || e.once || e.carries || e.tough || e.id.includes(':night')) continue
       e.rank = 0.15 + hash(e.home.x, e.home.y, 3) * 0.8
       if (!TWINS.has(e.kind)) continue
       const at = twinSpot(world, m, e, i++)

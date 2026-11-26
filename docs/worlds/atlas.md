@@ -138,6 +138,8 @@ carries the path to Yule Fjord past STEINAR's cairns; THE MOUNDS in the west
 (the mound elder and the barrows) lead to Lumenby. UNDER THE
 FELL is a cave behind a cracked boulder. The heart piece sits on a ledge seen
 from the Big Seter and reached from Cairn Ridge.
+Fights: blobs, bats, hounds and a sentry about the paths, and a tough sentry
+guarding the spur to the heart piece's chute.
 
 ### YULE FJORD (`yulefjord`)
 The dark time on a fjord that opens to the western sea. THE PASS comes down
@@ -156,7 +158,8 @@ stair goes down to THE UNDER (the silent spirit and the seed); THE ROOT HOLLOW
 in the south, with the grazers' pool to its east.
 Fights: two slag hounds stalk the grazers' pool, on the road to the Clean
 Well; in the Shellyard's pen three calm grazers patrol and leave the hero be
-until struck, and a pink one by the shells chest charges on sight.
+until struck, and a pink one, a tough foe, guards the shells chest: it stalks
+and charges whoever it sees.
 
 ### STILLSAND (`stillsand`)
 A pastel desert after sunrise. From the graves gate the BONE ROAD runs east
@@ -164,6 +167,8 @@ past THE RIBS; ARNE's SURVEY CAMP; QUARTZ ISLANDS hang over the dunes; THE
 GOLD PYRAMID holds the Puzzle Lab; the CARAVAN (ABEL) at the oasis; the
 TENDER'S BED with its lens. North the dunes climb to the Sporelight's roots;
 south they fall to Rerun's lawns.
+Fights: dashers, blobs, drones and a sentry out on the sand, and a tough
+sentry, the warden of the chest south of it.
 
 ### RERUN ESTATES (`rerun`)
 One nice street, over and over, down to the sea. From the lake gate the
@@ -172,7 +177,8 @@ THE HEDGE MAZE; THE PHONE BOOTH on its corner; THE MARINA on the shore.
 OTTO delivers the paper. A bomb shelter under a lawn.
 Fights, the lawn answering back along a line: four mailbox spitters along the
 north side of the avenue, two flamingo drones between the drive-in's lot and its
-screen, two mower hounds by the fountain on the way to the marina.
+screen, two mower hounds by the fountain on the way to the marina, the west
+one a tough foe that guards that way down.
 
 ### LUMENBY QUARRY (`lumenby`)
 The town that dug every neon tube on the coast. From the grove gate the road
@@ -191,7 +197,8 @@ scenery); BIRGER's bucket; THE RAINCHECK's MAST, where the blimp is moored
 was stolen; the western shore.
 Fights, by the water (`physics`): two blobs on the cut-grass bank of the Flats
 pond and two skulls on the western shore, which drown when knocked in; two
-bats by the ghost lights' nook, where the water is no help.
+bats by the ghost lights' nook, where the water is no help; a tough sentry on
+the Flats meadow stands in the open west of the reeds chest.
 
 ### THE UNDERGLOW (`underglow1`…`underglow3`)
 Three hand-made floors under the deep drift, two of the old six layers on

@@ -245,9 +245,9 @@ export const SPORELIGHT: MapDef = {
     // The Clinker's slag hounds at the grazers' pool, on the road to the Clean Well.
     '4': { ent: { t: 'enemy', kind: 'hound' } },
     // The grazer pen in the Shellyard (sentries in a grazer's skin, `render/renderer.ts`): three calm ones that only
-    // patrol until struck, and the pink one by the shells, which charges on sight.
+    // patrol until struck, and the pink one by the shells, a tough one.
     '0': { ent: { t: 'enemy', kind: 'sentry', calm: true } },
-    '9': { ent: { t: 'enemy', kind: 'sentry' } },
+    '9': { ent: { t: 'enemy', kind: 'sentry', tough: true } },
     '1': { ent: { t: 'chest', id: 'sporelight.pond', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'sporelight.shells', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'sporelight.puffballs', item: 'bombs5' } },

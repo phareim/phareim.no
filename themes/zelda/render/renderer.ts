@@ -17,7 +17,7 @@
  */
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP } from '../types'
-import { airTime, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur } from '../engine/index'
+import { airTime, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen } from '../engine/index'
 import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, drawPause, drawSlow, drawViewStrip, hudScale, NEON_SKIN, type Callout, type HudSkin, type MenuPage } from './hud'
@@ -26,7 +26,8 @@ import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
+import { frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
+import { folkTop } from './iso/folk'
 import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { chestStar, createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
@@ -64,6 +65,18 @@ const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierC
 }
 
 const T = TILE
+
+/** A tough foe's colours (its outline and bar): pink, gold while it is open; the bar's rim and what it has lost. */
+const TOUGH_PINK = '#ff2fa0'
+const TOUGH_GOLD = '#ffd23f'
+const TOUGH_RIM = '#0b0616'
+const TOUGH_LOST = '#3b2466'
+
+/**
+ * How a view draws the figures the bars stand over: `art` how much of the isometric figure shows (0 the classic
+ * sprite, 1 the view's own art, between in a turn), `lift` the ground's height under a foot point, in tiles.
+ */
+export interface FoeView { art: number; lift?: (x: number, y: number) => number }
 
 export interface FrameUI {
   paused: boolean
@@ -259,7 +272,8 @@ export interface Kit {
   queue(g: G, s: GameState, ui: FrameUI, cx: number, cy: number, qw: number, qh: number, lights: Light[], flat?: G): SceneItem[]
   ambient(s: GameState, ui: FrameUI, lights: Light[]): string
   projectiles(g: G, s: GameState, place: Place, dirOf?: (vx: number, vy: number) => Vec): void
-  fx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash?: number): void
+  /** The effects that glow by themselves, and the tough foes' bars (`foes`: how this view draws their figures). */
+  fx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash?: number, foes?: FoeView): void
   /**
    * The camera's kick from the last blow, in tiles (world axes): the picture leans that far along the blow and
    * settles in a few hundredths of a second. Zero under reduced motion.
@@ -1023,6 +1037,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
     if (e.kind === 'blob' && e.ai.mode === 'hop') feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.38) * Math.PI) * 3)
     const [sx, sy] = foeSquash(e)
+    if (e.tough) {
+      toughOutline(g, e, name, x + shiver(e), feet, flip, sx, sy)
+      // A light of its outline's colour while it tells or is open, so dusk and night do not dull it.
+      if (e.ai.tell > 0) lights.push({ x: e.x, y: e.y - 0.4, r: 1.4, color: '#ffffff', a: 0.8 })
+      else if (toughOpen(e)) lights.push({ x: e.x, y: e.y - 0.4, r: 1.4, color: TOUGH_GOLD, a: 0.8 })
+    }
     put(g, name, x + shiver(e), feet, flip, flashing(e), sx, sy)
     if (e.kind === 'eye') {
       const a = e.ai.ang as number ?? 0
@@ -1034,12 +1054,74 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.kind === 'zapper' && e.stun <= 0) lights.push({ x: e.x, y: e.y - 0.4, r: 2, color: '#b6ff4a', a: 0.5 + 0.3 * Math.sin(time * 15) })
     if ((e.kind === 'knight' || e.kind === 'llama') && e.ai.mode === 'dazed') drawStars(g, x, feet - 25)
     if (e.kind === 'mistral' && e.ai.mode === 'down') drawStars(g, x, feet - 22)
-    if (e.stun > 0) drawStars(g, x, feet - (e.kind === 'knight' ? 25 : 16))
-    if (e.ai.tell > 0 && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek') {
+    // (A tough one's stars go with its bar, over its head as this view draws it.)
+    if (e.stun > 0 && !e.tough) drawStars(g, x, feet - (e.kind === 'knight' ? 25 : 16))
+    // (A tough one tells by its outline.)
+    if (e.ai.tell > 0 && !e.tough && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek') {
       g.fillStyle = '#ff2fa0'
       const top = feet - (e.kind === 'knight' ? 28 : 19)
       g.fillRect(Math.round(x), Math.round(top), 1, 4)
       g.fillRect(Math.round(x), Math.round(top) + 5, 1, 1)
+    }
+  }
+
+  /**
+   * A tough foe's outline, behind its sprite: its own silhouette a px out in the four directions. Pink; gold while it
+   * is open; while it tells, white and pink by turns at 8 Hz (white all along under reduced motion).
+   */
+  function toughOutline(g: G, e: Enemy, name: string, x: number, y: number, flip: boolean, sx: number, sy: number) {
+    const white = e.ai.tell > 0 && (frameReduced || Math.floor(time * 16) % 2 === 0)
+    const color = toughOpen(e) ? TOUGH_GOLD : white ? '#ffffff' : TOUGH_PINK
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) put(g, name, x + dx, y + dy, flip, false, sx, sy, color)
+  }
+
+  /**
+   * How far the top of a foe's figure stands above its foot point, in classic px, as the view draws it: read off the
+   * art's own rows (the classic sprite's, or the isometric figure's), the tallest frame of the pose, so a bar over it
+   * does not bob with the walk.
+   */
+  function figureTop(name: string, flip: boolean, art: number): number {
+    const walk = /^(.*)_\d+$/.exec(name)
+    const pose = walk ? Array.from({ length: frameCount(walk[1]!, 2) }, (_, i) => `${walk[1]}_${i}`)
+      : /^grazer_angry[ab]$/.test(name) ? ['grazer_angrya', 'grazer_angryb'] : [name]
+    let classic = 0
+    let drawn = 0
+    for (const n of pose) {
+      const rows = spriteRows(n)
+      if (!rows) continue
+      const first = rows.findIndex(r => [...r].some(ch => !!PAL[ch]))
+      const own = first < 0 ? 0 : rows.length - first
+      classic = Math.max(classic, own)
+      if (art > 0) drawn = Math.max(drawn, folkTop(n, flip) ?? own)
+    }
+    return art > 0 ? classic + (drawn - classic) * art : classic
+  }
+
+  /**
+   * Over every tough foe: a bar of what is left of it, 12 × 3 px, its lower edge 3 px above the figure, and its stars
+   * while stunned. Drawn with the effects, so it is unlit, crisp and above every sprite, in all the views.
+   */
+  function toughBars(g: G, s: GameState, place: Place, view: FoeView) {
+    const def = mapInfo(world, s.map.id).def
+    for (const e of s.map.enemies) {
+      // (The same foes the queue draws.)
+      if (!e.tough || e.dead || e.away) continue
+      if (def.kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
+      const { name, flip } = enemySprite(e, def.realm)
+      const foot = e.y + e.r + 1 / T
+      const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art))
+      // Stunned: its stars turn in the gap between its head and the bar.
+      if (e.stun > 0) drawStars(g, at.x, head - 1)
+      const x = Math.round(at.x) - 6
+      const y = head - 6
+      g.fillStyle = TOUGH_RIM
+      g.fillRect(x, y, 12, 3)
+      g.fillStyle = TOUGH_LOST
+      g.fillRect(x + 1, y + 1, 10, 1)
+      if (e.hp <= 0) continue
+      g.fillStyle = toughOpen(e) ? TOUGH_GOLD : TOUGH_PINK
+      g.fillRect(x + 1, y + 1, Math.max(1, Math.round((10 * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
     }
   }
 
@@ -1752,7 +1834,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.globalAlpha = 1
   }
 
-  function drawFx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash = 1) {
+  function drawFx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash = 1, foes: FoeView = { art: 0 }) {
     const h = s.hero
     // Dust at the hero's heels: off a roll, behind the finisher's lunge, where a run turns round.
     for (const what of heroFx) {
@@ -1881,6 +1963,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       g.globalAlpha = 1
     }
     fx = keep
+    toughBars(g, s, place, foes)
   }
 
   /** The hero's velocity last frame (a run turning round raises dust). */

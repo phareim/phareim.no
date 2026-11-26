@@ -3,11 +3,11 @@
  * `ai.tell` > 0 means "about to attack" and the renderer shows it.
  */
 import type { Enemy, Projectile } from '../types'
-import { HERO_R } from '../types'
+import { HERO_R, TOUGH } from '../types'
 import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral } from './bosses'
-import { BIG, type Ctx, hurtHero, hitEnemy } from './combat'
+import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
 import { angleDiff, chance, clamp, dirVec, nextId, opposite, pick, rnd, rndRange, toDir, DIRS } from './util'
@@ -90,6 +90,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
   if (e.flash > 0) e.flash -= dt
   if (e.invuln > 0) e.invuln -= dt
   if (e.hitT !== undefined && e.hitT < 1) e.hitT += dt
+  if (e.tough) toughClocks(c, e, dt)
   // A small foe knocked back or reeling from a blow harms no one: following up is safe.
   const reels = !BIG.has(e.kind)
   if (e.knock) {
@@ -103,11 +104,12 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
   }
   if (reels && (e.stagger ?? 0) > 0) {
     e.stagger! -= dt
-    ai.tell = 0
+    // (A tough one keeps the strike it has announced: its warning stays up while it reels from a blast or a pot.)
+    if (!e.tough) ai.tell = 0
     return
   }
   if (e.stun > 0) {
-    e.stun -= dt
+    if (!e.tough) e.stun -= dt
     ai.tell = 0
     return
   }
@@ -143,7 +145,7 @@ function contact(c: Ctx, e: Enemy) {
   const h = c.s.hero
   const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||
     (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
-    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry)
+    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e)
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper', true)
   }
@@ -211,6 +213,7 @@ function spitter(c: Ctx, e: Enemy, dt: number) {
 }
 
 function sentry(c: Ctx, e: Enemy, dt: number) {
+  if (e.tough) { toughSentry(c, e, dt); return }
   const ai = e.ai
   const h = c.s.hero
   if (ai.mode === 'alert') {
@@ -503,6 +506,7 @@ export { hitEnemy }
 
 /** Static hound: circles at a distance, opens its head, lunges where you stood. */
 function hound(c: Ctx, e: Enemy, dt: number) {
+  if (e.tough) { toughHound(c, e, dt); return }
   const ai = e.ai
   const h = c.s.hero
   if (ai.mode === 'lunge') {
@@ -522,6 +526,13 @@ function hound(c: Ctx, e: Enemy, dt: number) {
     return
   }
   if (ai.mode === 'rest') { if (ai.t <= 0) { ai.mode = 'prowl'; ai.t = rndRange(c.s, 1.2, 2.2) } return }
+  prowl(c, e, dt, 0.42)
+}
+
+/** The hound's prowl: wandering until it sees the hero, then round him; its time up and near enough, a tell of `tell` s. */
+function prowl(c: Ctx, e: Enemy, dt: number, tell: number) {
+  const ai = e.ai
+  const h = c.s.hero
   if (!seesHero(c, e, 8)) {
     const v = dirVec(e.dir)
     if (walk(c, e, v.x * 1.5, v.y * 1.5, dt) || ai.t <= 0) { e.dir = pick(c.s, DIRS); ai.t = rndRange(c.s, 0.8, 1.6) }
@@ -540,10 +551,139 @@ function hound(c: Ctx, e: Enemy, dt: number) {
   e.dir = toDir(-dx, -dy, e.dir)
   if (ai.t <= 0 && d < 5.5) {
     ai.mode = 'tell'
-    ai.t = 0.42
-    ai.tell = 0.42
+    ai.t = tell
+    ai.tell = tell
     c.ev.push({ type: 'bark', x: e.x, y: e.y })
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tough foes (`TOUGH`): a sentry or a hound whose mark says so
+// ---------------------------------------------------------------------------
+
+/**
+ * A tough foe's clocks, which run whatever is done to it, so the blade cannot hold it open: a stun ends on time (and
+ * the next one is shrugged off for a while), and so does the rest after its strike, even while it reels. Shut again,
+ * it stops reeling: its poise is back.
+ */
+function toughClocks(c: Ctx, e: Enemy, dt: number) {
+  const ai = e.ai
+  const shrug = (ai.shrug as number | undefined) ?? 0
+  if (shrug > 0) ai.shrug = Math.max(0, shrug - dt)
+  const open = toughOpen(e)
+  if (open && ((ai.took as number | undefined) ?? 0) >= TOUGH.take) {
+    // It has taken what one opening gives: it shakes itself shut, stunned or spent, and starts afresh.
+    if (e.stun > 0) { e.stun = 0; ai.shrug = TOUGH.shrug }
+    shutAgain(c, e)
+    ai.tell = 0
+  } else if (e.stun > 0) {
+    e.stun = Math.max(0, e.stun - dt)
+    // Over: it shrugs the next one off a while, and starts its strike afresh, never striking without a full tell.
+    if (e.stun === 0) {
+      ai.shrug = TOUGH.shrug
+      ai.mode = e.kind === 'hound' ? 'prowl' : 'stalk'
+      ai.t = TOUGH.pause
+      ai.tell = 0
+      ai.again = false
+      ai.took = 0
+    }
+  } else if (open && (e.knock || (e.stagger ?? 0) > 0)) {
+    // (Standing, the brain counts this time itself.)
+    ai.t -= dt
+    if (ai.t <= 0) shutAgain(c, e)
+  }
+  if (open && !toughOpen(e)) e.stagger = 0
+}
+
+/** The opening is over: back to the stalk or the prowl. */
+function shutAgain(c: Ctx, e: Enemy) {
+  const hound = e.kind === 'hound'
+  e.ai.again = false
+  e.ai.took = 0
+  e.ai.mode = hound ? 'prowl' : 'stalk'
+  e.ai.t = hound ? rndRange(c.s, 1.2, 2.2) : TOUGH.pause
+}
+
+/** The end of a tell: the line of the strike is fixed on where the hero stands now, to end `TOUGH.past` beyond. */
+function aimStrike(c: Ctx, e: Enemy, speed: number, past: number = TOUGH.past) {
+  const ai = e.ai
+  const h = c.s.hero
+  const d = heroDist(c, e)
+  const v = d > 1e-6 ? { x: (h.x - e.x) / d, y: (h.y - e.y) / d } : dirVec(e.dir)
+  ai.vx = v.x * speed
+  ai.vy = v.y * speed
+  ai.t = (d + past) / speed
+  ai.tell = 0
+}
+
+/** One step along the line, without steering. True when the strike is over: its distance run, or a wall met. */
+function strikeOver(c: Ctx, e: Enemy, dt: number): boolean {
+  const ai = e.ai
+  if (!walk(c, e, ai.vx as number, ai.vy as number, dt) && ai.t > 0) return false
+  // The last step still strikes: what comes after it may be harmless.
+  contact(c, e)
+  return true
+}
+
+/** The tough sentry: stalks, stands and tells, charges in a straight line, stands spent. */
+function toughSentry(c: Ctx, e: Enemy, dt: number) {
+  const ai = e.ai
+  const h = c.s.hero
+  if (ai.mode === 'tell') {
+    e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
+    ai.tell = Math.max(0, ai.t)
+    if (ai.t <= 0) { aimStrike(c, e, TOUGH.charge); ai.mode = 'charge' }
+    return
+  }
+  if (ai.mode === 'charge') {
+    if (strikeOver(c, e, dt)) { ai.mode = 'spent'; ai.t = TOUGH.spent }
+    return
+  }
+  if (ai.mode === 'spent') { if (ai.t <= 0) shutAgain(c, e); return }
+  if (ai.mode !== 'stalk') shutAgain(c, e)
+  ai.t = Math.max(0, ai.t)
+  if (!seesHero(c, e, TOUGH.sight)) {
+    // Out of sight of him, a sentry's patrol.
+    const v = dirVec(e.dir)
+    ai.turn = ((ai.turn as number | undefined) ?? 1.2) - dt
+    if (walk(c, e, v.x * 1.4, v.y * 1.4, dt) || (ai.turn as number) <= 0) {
+      e.dir = pick(c.s, DIRS)
+      ai.turn = rndRange(c.s, 1.2, 2.6)
+    }
+    return
+  }
+  const d = heroDist(c, e) || 1
+  const vx = ((h.x - e.x) / d) * TOUGH.stalk
+  const vy = ((h.y - e.y) / d) * TOUGH.stalk
+  walk(c, e, vx, vy, dt)
+  e.dir = toDir(vx, vy, e.dir)
+  if (ai.t <= 0 && heroDist(c, e) < TOUGH.range) { ai.mode = 'tell'; ai.t = TOUGH.tell; ai.tell = TOUGH.tell }
+}
+
+/** The tough hound: the hound's prowl and tell, two lunges with a short second tell between, then a long rest. */
+function toughHound(c: Ctx, e: Enemy, dt: number) {
+  const ai = e.ai
+  const h = c.s.hero
+  if (ai.mode === 'lunge') {
+    if (!strikeOver(c, e, dt)) return
+    if (ai.again) { ai.again = false; ai.mode = 'rest'; ai.t = TOUGH.spent; return }
+    ai.again = true
+    ai.mode = 'tell'
+    ai.t = TOUGH.retell
+    ai.tell = TOUGH.retell
+    c.ev.push({ type: 'bark', x: e.x, y: e.y })
+    return
+  }
+  if (ai.mode === 'tell') {
+    e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
+    ai.tell = Math.max(0, ai.t)
+    if (ai.t <= 0) { aimStrike(c, e, TOUGH.lunge, TOUGH.houndPast); ai.mode = 'lunge' }
+    return
+  }
+  if (ai.mode === 'rest') { if (ai.t <= 0) shutAgain(c, e); return }
+  // (Born 'idle': its first time up is the one it was spawned with.)
+  ai.mode = 'prowl'
+  prowl(c, e, dt, TOUGH.houndTell)
 }
 
 /** Lab drone: hovers in a slow figure eight; lined up with the hero it fires a pellet (send it back). */

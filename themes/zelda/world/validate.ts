@@ -60,6 +60,10 @@ export function validateWorld(world: World): string[] {
     for (const [ch, m] of Object.entries(def.marks)) {
       if (m.ent.t === 'entry') { entries.add(m.ent.id); markerEntries.add(m.ent.id) }
       if (!def.rows.some(r => r.includes(ch))) out.push(`${id}: marker '${ch}' is never placed`)
+      if (m.ent.t === 'enemy' && m.ent.tough) {
+        if (m.ent.kind !== 'sentry' && m.ent.kind !== 'hound') out.push(`${id}: marker '${ch}' is a tough ${m.ent.kind} (only a sentry or a hound may be tough)`)
+        if (m.ent.calm) out.push(`${id}: marker '${ch}' is calm and tough at once`)
+      }
     }
     // Exits: one placement per id, and each adds an entry of that name.
     const exitIds = new Set<string>()

@@ -64,6 +64,37 @@ export const ROLL_IFRAMES = 0.2
 export const ROLL_COOLDOWN = 0.15
 export const ROLL_CANCEL = 0.35
 
+/**
+ * Tough foes (`engine/enemies.ts`, docs/games/neon-shrine.md "Tough foes"): a sentry or a hound whose mark says
+ * `tough`. `hp` its hit points (a blade takes none while it is not open, `toughOpen`); `stunDisc` and
+ * `stunHook` s of stun, then `shrug` s in which it cannot be stunned again. The sentry: it walks at a hero it sees
+ * within `sight` tiles at `stalk` tiles/s; after `pause` s of that, within `range` tiles, it stands `tell` s and
+ * charges at `charge` tiles/s. The hound: its own prowl, a tell of `houndTell` s, a lunge at `lunge` tiles/s, a
+ * second tell of `retell` s and a second lunge. A charge or a lunge ends `past` tiles beyond the point it was aimed
+ * at; then the foe stands `spent` s, open.
+ */
+export const TOUGH = {
+  hp: { sentry: 12, hound: 10 },
+  stunDisc: 1.2,
+  stunHook: 1,
+  shrug: 4,
+  sight: 7,
+  stalk: 1.6,
+  pause: 1.2,
+  range: 4.5,
+  tell: 0.6,
+  charge: 9,
+  houndTell: 0.5,
+  retell: 0.25,
+  lunge: 10,
+  past: 1.2,
+  /** The hound skids further past its mark, so that its second lunge starts from a distance one can answer. */
+  houndPast: 2.2,
+  spent: 1,
+  /** What one opening gives the blade, whatever the blade: with that much taken, the foe shakes itself shut. */
+  take: 5,
+} as const
+
 // ---------------------------------------------------------------------------
 // The blade's acrobatics (`engine/moves.ts`, docs/games/neon-shrine.md "Combos and the hop")
 // ---------------------------------------------------------------------------
@@ -373,6 +404,8 @@ export type EntDef =
     t: 'enemy'; kind: EnemyKind; dir?: Dir; once?: string; carries?: ItemId
     /** A sentry that only patrols, harmless, until a blow lands on it (`ai.angry`). */
     calm?: boolean
+    /** A tough foe (`TOUGH`): a sentry or a hound only, never a calm one (`validate.ts`). */
+    tough?: boolean
   }
   | { t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond }
   | { t: 'item'; id: string; item: ItemId; appear?: Cond } // lies on the floor, one-time
@@ -675,6 +708,8 @@ export interface Enemy {
   carries?: ItemId
   /** A calm sentry (the mark's `calm`): it ignores the hero until struck (`ai.angry`). */
   calm?: boolean
+  /** A tough foe (the mark's `tough`, `TOUGH`): its own hit points, poise until it is open, a bar over its head. */
+  tough?: boolean
   /** Spawn point, for respawning on room re-entry. */
   home: Vec
   dead: boolean
