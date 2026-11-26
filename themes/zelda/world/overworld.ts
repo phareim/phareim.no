@@ -326,6 +326,15 @@ export const OVERWORLD: MapDef = {
             ],
           },
           {
+            // The first art (`engine/moves.ts`): once, as soon as the blade is in hand.
+            when: { flags: ['item:sword'], not: ['item:artPulse'] },
+            give: 'artPulse',
+            lines: [
+              'KEEPER: ONE MORE THING. THE BLADE IS ONLY HALF OF IT.',
+              'KEEPER: HOLD OUT YOUR PALM. FEEL THE STATIC HUMMING IN THE AIR? NOW PUSH.',
+            ],
+          },
+          {
             when: { notFlag: 'item:bombBag' },
             lines: [
               'KEEPER: THE SHRINE LIES NORTH OF THE HOLLOW GRAVES, PAST THE NIGHT MARKET. RUBBLE SEALS ITS DOOR.',

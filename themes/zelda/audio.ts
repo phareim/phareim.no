@@ -40,6 +40,9 @@ export type SfxName =
   | 'bossDie' | 'lowHp' | 'gate'
   // The Wildwood and Project Horizon
   | 'hook' | 'hookHit' | 'pull' | 'psi' | 'glyph' | 'lever' | 'land' | 'beam' | 'gust' | 'bark'
+  // The blade's acrobatics and arts (engine/moves.ts): a flip, the comet, the starfall's climb and slam, the
+  // pulse, the flash step, the halo, a slip into slow time, an art ready again
+  | 'flip' | 'comet' | 'rise' | 'slam' | 'pulse' | 'flash' | 'halo' | 'slip' | 'ready'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -3046,6 +3049,49 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
       tone({ f: 2400, to: 1200, dur: 0.2, type: 'square', vol: 0.08, lp: 6000 })
       tone({ f: 3520, dur: 0.24, type: 'sine', vol: 0.08, at: 0.02, verb: true })
       nz({ dur: 0.12, vol: 0.12, type: 'highpass', f: 5500 })
+    },
+    flip() {
+      nz({ dur: 0.26, vol: 0.32, f: 500, to: 2600, q: 1.1 })
+      tone({ f: 420, to: 1250, dur: 0.18, type: 'triangle', vol: 0.08 })
+    },
+    comet() {
+      nz({ dur: 0.22, vol: 0.45, f: 1400, to: 6000, q: 1.4 })
+      tone({ f: 880, to: 2640, dur: 0.16, type: 'sawtooth', vol: 0.07, lp: 4200 })
+      tone({ f: 140, to: 60, dur: 0.14, type: 'sine', vol: 0.18 })
+    },
+    rise() {
+      nz({ dur: 0.4, vol: 0.32, f: 300, to: 2800, q: 1.2, attack: 0.05 })
+      tone({ f: 220, to: 880, dur: 0.36, type: 'triangle', vol: 0.1, attack: 0.04 })
+    },
+    slam() {
+      nz({ dur: 0.3, vol: 0.6, type: 'lowpass', f: 1200 })
+      tone({ f: 120, to: 38, dur: 0.38, type: 'sine', vol: 0.42 })
+      tone({ f: 240, to: 70, dur: 0.22, vol: 0.2 })
+      ;[1319, 1760, 2349].forEach((f, i) => tone({ f, dur: 0.14, type: 'sine', vol: 0.08, at: 0.05 + i * 0.04, verb: true }))
+    },
+    pulse() {
+      tone({ f: 90, to: 260, dur: 0.22, type: 'sine', vol: 0.34 })
+      nz({ dur: 0.32, vol: 0.34, f: 700, to: 220, q: 0.9 })
+      tone({ f: 523, to: 1046, dur: 0.12, type: 'triangle', vol: 0.06, at: 0.03, verb: true })
+    },
+    flash() {
+      tone({ f: 2093, to: 4186, dur: 0.05, type: 'square', vol: 0.06 })
+      nz({ dur: 0.1, vol: 0.3, type: 'highpass', f: 3500 })
+      nz({ dur: 0.14, vol: 0.45, f: 1800, to: 5200, q: 2.2, at: 0.17 })
+      tone({ f: 1568, dur: 0.1, type: 'sine', vol: 0.1, at: 0.17, verb: true })
+    },
+    halo() {
+      ;[1047, 1319, 1568, 2093].forEach((f, i) => tone({ f, dur: 0.3, type: 'sine', vol: 0.09, at: i * 0.05, verb: true }))
+      nz({ dur: 0.4, vol: 0.12, f: 3000, to: 5000, q: 3 })
+    },
+    slip() {
+      tone({ f: 1760, to: 440, dur: 0.5, type: 'sine', vol: 0.14, verb: true })
+      tone({ f: 2637, to: 659, dur: 0.5, type: 'triangle', vol: 0.05, at: 0.02, verb: true })
+      nz({ dur: 0.45, vol: 0.16, f: 4000, to: 800, q: 3 })
+    },
+    ready() {
+      tone({ f: 2349, dur: 0.06, type: 'sine', vol: 0.06 })
+      tone({ f: 3136, dur: 0.08, type: 'sine', vol: 0.05, at: 0.05, verb: true })
     },
     gust() {
       nz({ dur: 0.75, vol: 0.42, f: 350, to: 1400, q: 0.8, attack: 0.12 })

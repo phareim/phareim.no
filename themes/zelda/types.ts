@@ -67,6 +67,82 @@ export const ROLL_DIST = 2.2
 export const ROLL_IFRAMES = 0.2
 export const ROLL_COOLDOWN = 0.15
 export const ROLL_CANCEL = 0.35
+
+// ---------------------------------------------------------------------------
+// The blade's acrobatics (`engine/moves.ts`, docs/games/neon-shrine.md "Combos and arts")
+// ---------------------------------------------------------------------------
+
+/**
+ * What the hero does in the air. `flip`: out of a roll (R, A), a forward somersault that comes down in an
+ * overhead chop; `back`: out of the chain (A, R), a flip back away from the blow; `spring`: a roll into a wall
+ * kicks off it; `comet`: from any of those three, A rockets the hero blade-first along the aim; `tempest`: A
+ * right as the finisher lands, an aerial double whirl; `star`: the STARFALL art's high leap and slam.
+ */
+export type AirKind = 'flip' | 'back' | 'spring' | 'comet' | 'tempest' | 'star'
+
+/**
+ * Each kind's shape: `time` s in the air, `top` tiles at the arc's peak, `speed` tiles/s along the ground at the
+ * start (`drag` the share of it lost by the end), `rest` s after landing before the blade is free.
+ */
+export const AIR: Record<AirKind, { time: number; top: number; speed: number; drag: number; rest: number }> = {
+  flip: { time: 0.36, top: 0.85, speed: 5.2, drag: 0.55, rest: 0.1 },
+  back: { time: 0.34, top: 0.8, speed: 7, drag: 0.6, rest: 0.04 },
+  spring: { time: 0.34, top: 0.9, speed: 7.5, drag: 0.5, rest: 0.04 },
+  comet: { time: 0.2, top: 0.3, speed: 17, drag: 0.35, rest: 0.14 },
+  tempest: { time: 0.5, top: 1.05, speed: 2.4, drag: 0.2, rest: 0.18 },
+  star: { time: 0.56, top: 1.6, speed: 7, drag: 0.1, rest: 0.2 },
+}
+/** FLIP CUT: the chop at the landing, its reach and arc (rad), and the ring of the blow all round. */
+export const FLIP_CHOP = { reach: 1.45, arc: Math.PI * 1.2, dmg: 3, ring: 1.25 }
+/** COMET: damage to each foe it passes through. TEMPEST: turns in the air, damage a blow, its reach. */
+export const COMET_DMG = 2
+export const TEMPEST = { turns: 2, dmg: 1, reach: 1.5 }
+/** A press of A this long after a back flip or a wall spring lands still launches the comet (s). */
+export const COMET_WINDOW = 0.22
+/** TEMPEST: a press from this share of the finisher on, or this long after it, takes off. */
+export const TEMPEST_FROM = 0.55
+export const TEMPEST_WINDOW = 0.2
+/** SLIP: the world runs at this share of its pace this long (s) after a blow passes through a dodge; then a rest. */
+export const SLIP_SCALE = 0.35
+export const SLIP_TIME = 0.9
+export const SLIP_COOL = 3
+
+/** The combos the MOVES page lists, in its order. */
+export type MoveId = 'triple' | 'whirl' | 'flip' | 'backflip' | 'comet' | 'tempest' | 'spring' | 'slip'
+/**
+ * Each combo: its name, the buttons (A the blade, R the roll, `>` "into"), what one more of it needs to count
+ * towards mastery (`need` of them masters it), and what mastering it gives.
+ */
+export const MOVES: ReadonlyArray<{ id: MoveId; name: string; keys: string; need: number; perk: string }> = [
+  { id: 'triple', name: 'TRIPLE CUT', keys: 'A A A', need: 20, perk: '+1 TO THE FINISHER' },
+  { id: 'whirl', name: 'WHIRL', keys: 'HOLD A', need: 12, perk: '+1 TO THE SPIN' },
+  { id: 'flip', name: 'FLIP CUT', keys: 'R A', need: 12, perk: '+1 TO THE CHOP' },
+  { id: 'backflip', name: 'BACKFLIP', keys: 'A R', need: 12, perk: 'FLIES FARTHER' },
+  { id: 'comet', name: 'COMET', keys: 'A R A', need: 10, perk: '+1 TO THE THRUST' },
+  { id: 'tempest', name: 'TEMPEST', keys: 'A A A A', need: 8, perk: '+1 EVERY TURN' },
+  { id: 'spring', name: 'WALL SPRING', keys: 'R > WALL', need: 6, perk: 'SPRINGS FARTHER' },
+  { id: 'slip', name: 'SLIP', keys: 'R > BLOW', need: 6, perk: 'LONGER SLOW' },
+]
+
+/** The arts the B button can hold instead of an item (`engine/moves.ts`), learned on the way. */
+export type ArtId = 'pulse' | 'flash' | 'star' | 'halo'
+/** Each art: its name, seconds before it is ready again, and who teaches it (the item that grants it). */
+export const ARTS: ReadonlyArray<{ id: ArtId; name: string; cool: number; item: ItemId }> = [
+  { id: 'pulse', name: 'PULSE', cool: 2.4, item: 'artPulse' },
+  { id: 'flash', name: 'FLASH STEP', cool: 1.8, item: 'artFlash' },
+  { id: 'star', name: 'STARFALL', cool: 4, item: 'artStar' },
+  { id: 'halo', name: 'HALO', cool: 10, item: 'artHalo' },
+]
+/** PULSE: the wave's reach (tiles), half its width (rad), the shove (× a blow's), the stun (s), its damage. */
+export const PULSE = { reach: 3.6, half: Math.PI * 0.3, knock: 2.6, stun: 0.9, dmg: 1 }
+/** FLASH STEP: tiles at most, seconds the step takes, seconds until the cuts land, damage each. */
+export const FLASH = { dist: 4.2, time: 0.1, delay: 0.16, dmg: 2 }
+/** STARFALL: how far it seeks a foe (tiles), the slam's radius, damage, shove, stun. */
+export const STARFALL = { seek: 4.6, radius: 2.1, dmg: 3, knock: 1.9, stun: 0.6 }
+/** HALO: seconds it lasts, sparks, their orbit (tiles), turns a second, damage, a foe's mercy between sparks (s). */
+export const HALO = { time: 6, sparks: 3, r: 1.15, spin: 1.6, dmg: 1, mercy: 0.3 }
+/** Each landed blow takes this long off every art still resting (s). */
+export const ART_FEED = 0.25
 /** After lines close, A must rest this long before it talks, reads or opens again (s). */
 export const TALK_REST = 0.35
 export const SWORD_REACH = 1.2
@@ -226,9 +302,14 @@ export type ItemId =
   | 'shovel' // dig earth and sand, fill a hole
   | 'axe' // fell trees and bushes, take wooden blocks and planks
   | 'hammer' // build: blocks, ramps, planks over water, lamps
+  // The arts (`engine/moves.ts`): each teaches one, for the B button
+  | 'artPulse' // the Keeper
+  | 'artFlash' // the knight's charge
+  | 'artStar' // the mistral's sky
+  | 'artHalo' // the twins' orbit
 
 /** `dig`: the pickaxe, shovel or axe, whichever the tile in front asks for; `build`: the hammer. */
-export type UseItem = 'disc' | 'bombs' | 'hook' | 'dig' | 'build'
+export type UseItem = 'disc' | 'bombs' | 'hook' | 'dig' | 'build' | ArtId
 
 /** Dig & build materials, carried in `Inventory.mats`. */
 export type DigMat = 'dirt' | 'stone' | 'wood' | 'lumen'
@@ -788,7 +869,7 @@ export interface DigState { h: number[]; g: number; z: number }
 
 export type HeroAct =
   | 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'throw' | 'push'
-  | 'use' | 'hurt' | 'get' | 'fall' | 'dead' | 'hook' | 'roll'
+  | 'use' | 'hurt' | 'get' | 'fall' | 'dead' | 'hook' | 'roll' | 'air' | 'dash'
 
 export interface Hero {
   x: number
@@ -814,8 +895,8 @@ export interface Hero {
    * `a`: the angle the sweep is centred on. `n`: the hit of the chain (0, 1, 2: `COMBO`; none: a swing outside it,
    * a field battle's); `side`: which way it sweeps (1 the first way, -1 back).
    */
-  swing: null | { t: number; dir: Dir; a?: number; hit: string[]; n?: 0 | 1 | 2; side?: 1 | -1 }
-  spin: null | { t: number; hit: string[] }
+  swing: null | { t: number; dir: Dir; a?: number; hit: string[]; n?: 0 | 1 | 2; side?: 1 | -1; landed?: boolean }
+  spin: null | { t: number; hit: string[]; landed?: boolean }
   /** Seconds the sword button has been held since the last swing (charge). */
   charge: number
   cooldown: number
@@ -835,6 +916,26 @@ export interface Hero {
   /** The dodge roll under way: seconds in, and its velocity (tiles/s, at the start). */
   roll?: null | { t: number; vx: number; vy: number }
   rollCool?: number
+  /**
+   * In the air (`engine/moves.ts`): seconds in, the kind, the way along the ground (tiles/s at the start), the angle
+   * a blow goes along (`a`), what it has struck (`hit`), the height it began at (`z0`), for a comet launched from a
+   * flip what it came out of, and whether A was pressed in it (`queued`: the strike comes on landing).
+   */
+  air?: null | { t: number; kind: AirKind; vx: number; vy: number; a: number; hit: string[]; z0: number; from?: AirKind; landed?: boolean; turn?: number; queued?: boolean }
+  /** After a back flip or a wall spring lands: a press of A this soon is still the comet. */
+  cometT?: number
+  /** FLASH STEP under way: seconds in, from where to where, and the foes it passed, each cut once it lands. */
+  dash?: null | { t: number; fx: number; fy: number; tx: number; ty: number; hit: string[]; cut: boolean }
+  /** HALO: seconds left, the sparks' turn, and each foe's mercy left. */
+  halo?: null | { t: number; turn: number; mercy: Record<string, number> }
+  /** Seconds each art still rests before it is ready (absent: ready). Never saved. */
+  artCool?: Partial<Record<ArtId, number>>
+  /** Seconds before another SLIP can slow the world. */
+  slipCool?: number
+  /** A roll or flip already slipped a blow (one SLIP each). */
+  slipped?: boolean
+  /** The next blow is critical (a SLIP's gift), until it lands or the slow ends. */
+  edge?: boolean
 }
 
 export interface Inventory {
@@ -863,6 +964,10 @@ export interface Inventory {
   mats?: Partial<Record<DigMat, number>>
   /** What the hammer builds on open ground. */
   build?: DigKind
+  /** The arts learned, in the order learned (`ArtId`; absent: none). */
+  arts?: ArtId[]
+  /** Each combo's count towards mastery (`MOVES`; absent: none yet). */
+  moves?: Partial<Record<MoveId, number>>
 }
 
 /** The grappling hook in flight. Positions in tiles. */
@@ -974,6 +1079,10 @@ export interface GameState {
   explored?: Record<string, string>
   /** The hero's last place as explore.ts noted it (map and 2-tile square); nothing is looked at again until it changes. */
   exploreAt?: string
+  /** SLIP: seconds left of the world running slow (the hero at full pace). Never saved. */
+  slow?: number
+  /** A boss just fell whose way of fighting becomes an art: taught once the room is calm (`engine/moves.ts`). */
+  teach?: null | { art: ArtId; t: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -1070,6 +1179,18 @@ export type GameEvent =
   | { type: 'bark'; x: number; y: number }
   | { type: 'battle'; what: 'start' | 'won' | 'fled' | 'turn' | 'tech'; track?: TrackId; boss?: boolean }
   | { type: 'dig'; x: number; y: number; verb: 'dig' | 'fill' | 'build' | 'take'; tile: TileChar; z: number }
+  // The acrobatics and the arts (`engine/moves.ts`)
+  | { type: 'air'; kind: AirKind }
+  /** Down again: where, and whether the landing struck (the flip's chop, the starfall's slam). */
+  | { type: 'touchdown'; kind: AirKind; x: number; y: number; heavy: boolean; a: number }
+  /** A combo landed: its count towards mastery now, `first` the very first, `mastered` the one that masters it. */
+  | { type: 'move'; id: MoveId; n: number; first: boolean; mastered: boolean }
+  /** An art used: where, the angle it goes along, and where it ends (the flash step). */
+  | { type: 'art'; art: ArtId; x: number; y: number; a: number; tx?: number; ty?: number }
+  /** A blow passed through a dodge: the world slows. */
+  | { type: 'slip'; x: number; y: number }
+  /** An art is ready again. */
+  | { type: 'artReady'; art: ArtId }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

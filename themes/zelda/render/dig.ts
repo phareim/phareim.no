@@ -6,7 +6,7 @@
  */
 import type { GameState, MapKind, MapState, TileChar, World } from '../types'
 import { TILE } from '../types'
-import { digPlan, hasTool, isRamp, RAMPS } from '../engine/index'
+import { digPlan, hasTool, isArt, isRamp, RAMPS } from '../engine/index'
 
 type G = CanvasRenderingContext2D
 type At = (dx: number, dy: number) => TileChar
@@ -169,6 +169,7 @@ export function drawDigCursor(g: G, world: World, s: GameState, cx: number, cy: 
 export function itemIconName(world: World, s: GameState): string {
   const u = s.inv.selected
   if (!u) return ''
+  if (isArt(u)) return `item_${u}`
   return u === 'dig' || u === 'build' ? digIcon(world, s) : u === 'disc' ? 'item_disc' : u === 'hook' ? 'item_hook' : 'item_bombbag'
 }
 

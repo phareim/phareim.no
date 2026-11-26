@@ -115,6 +115,11 @@ export function startBattle(c: Ctx, id: string, first: 'party' | 'foes' | null) 
   h.swing = null
   h.spin = null
   h.roll = null
+  h.air = null
+  h.dash = null
+  h.halo = null
+  h.edge = false
+  s.slow = 0
   h.bufA = 0
   h.charge = -1
   h.knock = null

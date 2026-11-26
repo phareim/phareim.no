@@ -24,8 +24,8 @@
  * (`legacy.ts`).
  */
 import type { GameState, MapDef, MapKind, TileChar } from '../../types'
-import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TILE } from '../../types'
-import { aimOf, battleFocus, has, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
+import { ARC_REACH, ROLL_TIME, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TEMPEST, TILE } from '../../types'
+import { aimOf, airTime, battleFocus, has, heroZ, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -717,6 +717,17 @@ export default function isoView(kit: Kit): View {
         case 'push': act = 'push'; t = stride; break
         case 'hurt': act = 'hurt'; t = Math.min(1, h.actT / 0.3); break
         case 'get': act = 'get'; t = Math.min(1, h.actT / 0.3); break
+        case 'roll': act = 'roll'; t = h.roll ? Math.min(1, h.roll.t / ROLL_TIME) : 1; break
+        // The acrobatics (`engine/moves.ts`): the roll's turn in the air, the finisher's lunge, the spin's circle.
+        case 'air': {
+          const a = h.air
+          const p = a ? Math.min(1, a.t / airTime(a.kind)) : 1
+          if (!a || a.kind === 'comet') { act = 'lunge'; t = 0.45 }
+          else if (a.kind === 'tempest') { act = 'spin'; t = (p * TEMPEST.turns) % 1 }
+          else { act = 'roll'; t = a.kind === 'star' ? Math.min(1, p * 1.6) : p }
+          break
+        }
+        case 'dash': act = 'lunge'; t = 0.7; break
       }
       const kind = arc ? 'arc' : 'sword'
       if (h.swing) {
@@ -736,6 +747,14 @@ export default function isoView(kit: Kit): View {
         // The figure turns the circle itself, from where the spin began.
         yawShown = base
         target = base
+      } else if (h.air?.kind === 'comet' || h.air?.kind === 'tempest') {
+        const p = Math.min(1, h.air.t / airTime(h.air.kind))
+        const a = h.air.kind === 'comet' ? h.air.a : h.air.a + Math.PI * 2 * TEMPEST.turns * p
+        const trail: number[] = []
+        if (h.air.kind === 'tempest') for (let i = 1; i <= 8; i++) trail.push(a - i * 0.25)
+        blade = { a, reach: (arc ? ARC_REACH : SWORD_REACH) + 0.2, trail, kind, charge: 0, flash: false }
+        if (h.air.kind === 'tempest') yawShown = a
+        target = h.air.kind === 'comet' ? a : target
       } else if (h.charge > 0.12 && s.inv.sword && !h.carry) {
         blade = { a: target, reach: (arc ? ARC_REACH : SWORD_REACH) * 0.82, trail: [], kind, charge: Math.min(1, h.charge), flash: h.charge >= 0.55 && Math.floor(time * 12) % 2 === 0 }
       }
@@ -1528,7 +1547,8 @@ export default function isoView(kit: Kit): View {
           const fr = (FIG.w - FIG.ax) * fp
           const gx = fx0 - 0.02
           const gy = fy0 - 0.02
-          quad(gx, gy, ft + z0, fl, gx, gy, ft + z0, fr, gx, gy, ff + z0, fr, gx, gy, ff + z0, fl, 0, 0, FIG.w, FIG.h, 3, 3)
+          const fz = z0 + heroZ(h)
+          quad(gx, gy, ft + fz, fl, gx, gy, ft + fz, fr, gx, gy, ff + fz, fr, gx, gy, ff + fz, fl, 0, 0, FIG.w, FIG.h, 3, 3)
           ghost = { start: nv - 6, count: 6 }
         }
       } else if (it.hero && k > 0.5) {

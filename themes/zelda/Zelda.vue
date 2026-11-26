@@ -100,7 +100,7 @@
         <button v-if="hasSword" class="zelda-pad zelda-pad-roll" aria-label="Roll" @pointerdown.prevent.stop="pressRoll" @contextmenu.prevent>
           <img v-if="rollIcon" :src="rollIcon" alt="" class="zelda-pad-icon">
         </button>
-        <button v-if="hasItem" class="zelda-pad zelda-pad-b" aria-label="Use item" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
+        <button v-if="hasItem" class="zelda-pad zelda-pad-b" :class="{ 'zelda-pad--rest': padRest < 1 }" :style="padRest < 1 ? { '--rest': padRest } : undefined" aria-label="Use item or art" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
           <img v-if="itemIcon" :src="itemIcon" alt="" class="zelda-pad-icon">
         </button>
         <button
@@ -120,9 +120,11 @@
     </div>
     <div v-else class="zelda-deck-paused">
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause()" @contextmenu.prevent>RESUME</button>
-      <button v-if="menuPage === 'items'" class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage('map')" @contextmenu.prevent>MAP</button>
-      <button v-else class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage('items')" @contextmenu.prevent>ITEMS</button>
-      <template v-if="menuPage === 'items'">
+      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage(nextPage)" @contextmenu.prevent>{{ nextPage.toUpperCase() }}</button>
+      <template v-if="menuPage === 'moves'">
+        <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage('items')" @contextmenu.prevent>ITEMS</button>
+      </template>
+      <template v-else-if="menuPage === 'items'">
         <button class="zelda-pad zelda-pad-wide" :aria-pressed="!sound.muted.value" @pointerdown.prevent.stop="toggleSound" @contextmenu.prevent>{{ sound.muted.value ? 'SOUND OFF' : 'SOUND ON' }}</button>
         <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
       </template>
@@ -156,11 +158,11 @@
  * blade, so a visitor who walks into a house never becomes a player.
  *
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
- * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
+ * throw; hold then release for a spin); K / X / Shift = B (item or art); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
- * P or an Escape tap open the menu on its ITEMS page, M on its MAP page
+ * P or an Escape tap open the menu on its ITEMS page, N on its MOVES page, M on its MAP page
  * (`render/worldMap.ts`); there the key of the open page (or Escape) closes
- * it, the other key turns the page. In the menu T goes to town, O turns the
+ * it, another page's key turns to it. In the menu T goes to town, O turns the
  * sound on or off, C the corner map; V turns to the next view anywhere
  * (`views.ts`: the classic one a visit starts in, the 16-bit one, and the
  * studio's own); holding Escape saves and goes back to town.
@@ -194,14 +196,14 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { createGame, HOURS, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
+import { artRest, createGame, HOURS, isArt, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { neighbourPrefetch } from './prefetch'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin } from './render/hud'
+import { HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin, type MenuPage } from './render/hud'
 import { drawMiniMap, hasMiniMap, MINI_H, MINI_W } from './render/worldMap'
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
@@ -253,7 +255,9 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
 /** The menu's page while paused: ITEMS (P, Escape, the pause chip) or MAP (M, the corner map). */
-const menuPage = ref<'items' | 'map'>('items')
+const menuPage = ref<MenuPage>('items')
+/** The page the deck's second button turns to: ITEMS → MOVES → MAP → ITEMS. */
+const nextPage = computed<MenuPage>(() => (menuPage.value === 'items' ? 'moves' : menuPage.value === 'moves' ? 'map' : 'items'))
 /** The corner map is wanted (C on the MAP page; kept in this browser), and where the hero is it has something to show. */
 const CORNER_KEY = 'zelda.cornerMap'
 const cornerMap = ref(true)
@@ -273,6 +277,8 @@ const phase = ref<Phase>('play')
 const touchUI = ref(false)
 /** The B item's icon, as the HUD would draw it (for DIG: the tool the tile in front wants); '' with nothing out. */
 const padItem = ref('')
+/** 0..1: how rested the art on B is (1: ready, or an item); the pad dims and fills while it rests. */
+const padRest = ref(1)
 /** The hero has a B item to use here (bombs, the disc, the hook, a dig tool on a dig map): B, SWAP and Tab have a job. */
 const hasItem = ref(false)
 /** The hero has the blade: the deck's roll pad is there (before it the town stays quiet). */
@@ -859,6 +865,8 @@ function shellKey(e: KeyboardEvent): boolean {
   if (e.code === 'KeyV' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) cycleView(); return true }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) openPage('items'); return true }
   if (e.code === 'KeyM' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('map'); return true }
+  // N: the MOVES page (the combos, their mastery, the arts). (While asking "start over?" N is no, above.)
+  if (e.code === 'KeyN' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('moves'); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
   if (e.code === 'Tab' && !hasItem.value) return true
   return false
@@ -996,6 +1004,9 @@ function dropSave(extra: { best?: number, won?: boolean } = {}) {
 function syncDeck() {
   const pad = itemIconName(WORLD, state)
   if (pad !== padItem.value) padItem.value = pad
+  const sel = state.inv.selected
+  const rest = isArt(sel) ? Math.floor(artRest(state, sel) * 20) / 20 : 1
+  if (rest !== padRest.value) padRest.value = rest
   const item = useItems(state, WORLD).length > 0
   if (item !== hasItem.value) hasItem.value = item
   if (state.inv.sword !== hasSword.value) {
@@ -1124,7 +1135,7 @@ function escTap() {
  * P, M, the pause chip, the corner map: the menu on that page. The key of the page already open closes the menu;
  * the other one turns the page.
  */
-function openPage(page: 'items' | 'map') {
+function openPage(page: MenuPage) {
   if (phase.value !== 'play') return
   if (confirmReset.value) { cancelReset(); return }
   if (!paused.value) { togglePause(page); return }
@@ -1143,7 +1154,7 @@ function toggleCorner() {
 }
 
 /** Stops the world on the menu's `page`, or sets it going again. */
-function togglePause(page: 'items' | 'map' = 'items') {
+function togglePause(page: MenuPage = 'items') {
   if (phase.value !== 'play') return
   // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
@@ -1240,6 +1251,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',
   hook: 'hook', hookHit: 'hookHit', pull: 'pull', psi: 'psi', glyph: 'glyph', lever: 'lever', land: 'land',
   gust: 'gust', bark: 'bark',
+  slip: 'slip', artReady: 'ready',
 }
 
 function handleEvents(events: GameEvent[]) {
@@ -1251,6 +1263,11 @@ function handleEvents(events: GameEvent[]) {
     switch (e.type) {
       // The chain's hits climb a step, and the finisher swings heavy; a heavy blow lands heavy, a critical one rings.
       case 'swing': a?.sfx(e.n === 1 ? 'sword2' : e.n === 2 ? 'swordHeavy' : 'sword'); break
+      // The acrobatics and the arts (`engine/moves.ts`).
+      case 'air': a?.sfx(e.kind === 'comet' ? 'comet' : e.kind === 'tempest' ? 'spin' : e.kind === 'star' ? 'rise' : 'flip'); break
+      case 'touchdown': if (e.kind === 'star') a?.sfx('slam'); else if (e.heavy) a?.sfx('swordHeavy'); else a?.sfx('land'); break
+      case 'art': if (e.art === 'pulse') a?.sfx('pulse'); else if (e.art === 'flash') a?.sfx('flash'); else if (e.art === 'halo') a?.sfx('halo'); break
+      case 'move': if (e.mastered) { a?.jingle('secret'); save = true } else if (e.first) save = true; break
       case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : e.crit ? 'bossHit' : e.heavy ? 'hitHeavy' : 'hit'); break
       case 'join': a?.jingle('friend'); save = true; break
       case 'wait': save = true; break
@@ -1871,6 +1888,16 @@ onBeforeUnmount(() => {
   border: 4px solid #2ff3ff;
   color: #2ff3ff;
   box-shadow: 4px 4px 0 #0b0616;
+}
+
+/* An art resting on B: the picture dim, its rest filling the pad from the bottom. */
+.zelda-pad--rest {
+  border-color: rgba(47, 243, 255, 0.45);
+  background: linear-gradient(to top, rgba(47, 243, 255, 0.28) calc(var(--rest, 0) * 100%), rgba(11, 6, 22, 0.35) calc(var(--rest, 0) * 100%));
+}
+
+.zelda-pad--rest .zelda-pad-icon {
+  opacity: 0.4;
 }
 
 /* Roll: a small pad over B, clear of A; once the hero has the blade. */

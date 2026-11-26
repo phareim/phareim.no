@@ -46,7 +46,7 @@ and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 `validate.ts`; the Wildwood: `wildwood.ts`, `lab1.ts`, `lab2.ts`, `luna.ts`,
 `cells.ts`. `index.ts` holds `WORLD` (start: the plaza), `worldExits()`
 and `worldStartingAt()`. `engine/` — pure simulation split by concern
-(`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `enemies.ts`,
+(`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `moves.ts` (the acrobatics and the arts), `enemies.ts`,
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
 `bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the
 classic view, and the turn between views), `iso/` (the isometric view),
@@ -740,7 +740,8 @@ classic picture. `/?view=<id>` asks for one.
     after it. It may cut a swing from 35 % in, a press of it in the last
     moments of a shove waits, a pit still takes the hero. It never starts
     on ice, sliding or standing (`iceUnder`), and a roll onto ice ends at
-    its edge, so the ice's lanes hold. A press of A in its last moments strikes as it ends.
+    its edge, so the ice's lanes hold. A press of A in it is the FLIP CUT (below; on the
+    edge of ice, where the air may not start, the strike waits for the roll's end).
   - *Moving.* Up to speed in about 0.07 s from a stand (`HERO_ACCEL`);
     turning keeps the pace and stopping is at once, so nothing slides past
     a ledge. The walk steps at 8.5 a second.
@@ -774,6 +775,78 @@ classic picture. `/?view=<id>` asks for one.
     standing (`extraFallback`), never to the classic hero. The lab's
     `swing1`, `swing2`, `swing3`, `roll`, `hit` and `kill` scenes show each
     moment.
+- **Combos and arts** (`engine/moves.ts`, the numbers in `types.ts`: `AIR`, `MOVES`,
+  `ARTS` and one table per art; 2026-11-25). The hero fights the way a small old
+  master would: off the ground as much as on it.
+  - *In the air* (`Hero.air`, `heroZ`). Nothing harms the hero there; the arc's height
+    lifts the figure off its shadow in every view (the classic painter draws it
+    higher; the isometric card carries it; the modelled hero stands its quad up).
+    The air never crosses a pit, spikes or ice, and in a dungeon never leaves the
+    room: it stops at their edge, as the chain's lunge does, so no gap the hook is
+    for and no ice lane is skipped. It never starts on ice. A shove (a shield, a gust)
+    brings the hero down; a hurt cannot land there. A press of A in the air (but the
+    comet's) strikes as soon as the landing lets the blade go.
+  - *The combos* (`MOVES`): TRIPLE CUT (A A A, the chain), WHIRL (hold A, let go:
+    the spin), FLIP CUT (R, then A in the roll: a somersault along the roll that
+    comes down in an overhead chop across 216°, turned to the nearest foe wherever
+    it landed, behind included, and a shock all round, `FLIP_CHOP`), BACKFLIP (R
+    during the chain, or just after a hit of it, with the stick at rest or pulled
+    back: a flip away from the blow, still facing it; pushed forward or across it is
+    the ordinary roll), COMET (A in a back flip or a wall spring, or `COMET_WINDOW`
+    after either lands: a thrust that rockets blade first along the stick, drawn to
+    the nearest foe in a 54° cone, through everything in its way), TEMPEST (A from
+    `TEMPEST_FROM` into the finisher, or `TEMPEST_WINDOW` after it: an aerial double
+    whirl, each half turn a fresh blow all round), WALL SPRING (a roll that runs into
+    a wall, met head on: it kicks off it, the way it came reflected; water is no
+    wall), SLIP (a foe's blow or shot through the roll's first moments: the world
+    runs at `SLIP_SCALE` of its pace for `SLIP_TIME`, the hero at full pace, the
+    screen tinted cool, and the next blow is critical, `Hero.edge`; once a roll,
+    `SLIP_COOL` between; spikes, a fall, a beam or the hero's own bomb are no blow).
+  - *Mastery* (`Inventory.moves`, saved). A combo counts when it lands on a foe
+    (BACKFLIP and WALL SPRING when done with one near, SLIP when it slips); `need` of
+    them masters it, and a mastered one hits one harder (the finisher, the spin, the
+    chop, the thrust, each of the tempest's turns), flies farther (BACKFLIP, WALL
+    SPRING) or slows longer (SLIP). Its name is called out over the hero's head as it
+    lands (`drawCallout`; the chain and the spin only their first and the mastering
+    one), NEW MOVE the first time, MASTERED! with what it gives the last.
+  - *The arts* (`ARTS`): sit on B among the items (`UseItem`, after them in the swap
+    round; learning one puts it in hand), each resting `cool` s after use (the B box
+    and the B button dim and fill; ready again: a soft chime) and each landed blow of
+    the blade taking `ART_FEED` off every rest. One may cut a hit of the chain short
+    from 35 % in, or come straight out of a roll's second half. PULSE (the Keeper's,
+    once the blade is in hand): a wave out of the palm across a cone, foes thrown back
+    and stunned, shots turned round, the knight's shield no help and a zapper no
+    shock. FLASH STEP (the Shrine's knight's): up to `FLASH.dist` tiles in a blink,
+    through the nearest foe that way, stopping short of walls, pits, spikes, ice and
+    the room's edge; what it passed is cut `FLASH.delay` later. STARFALL (the
+    mistral's): a leap at the nearest foe within reach (else three tiles along the
+    aim), a hang at the top, a slam all round that stuns. HALO (the twins'): three
+    sparks circle the hero for `HALO.time` s, each foe they touch cut with a short
+    mercy between, shots turned. A boss's art is taught once its room is calm
+    (`stepTeach`, `TEACHERS`: the boss's `once` flag), with the item-get pose; a save
+    with the boss down from before the arts has the art on load (`artsFromFlags`).
+    Field battles' foes take no art. The arts' hits are `HitSource` `art`, so a
+    boss's own rules (the llama's wool, the mistral in the air) still hold.
+  - *The MOVES page* (N, the second of the menu's three pages; on touch the deck's
+    page button goes round ITEMS, MOVES, MAP): every combo with its buttons (A the
+    blade in the hot colour, R the roll in the cool one) and a bar to its mastery,
+    MASTER in gold once it is; the arts in four slots (dim while resting, the one in
+    hand underlined), `???` for one not learned, and under them where the next is to
+    be found (where to go, never how). It fits a phone on its side.
+  - *What it looks like* (`render/renderer.ts`, all views alike). In the air the
+    roll's ball turns a quarter at a time (lossless turns, `putRot`) the way the hero
+    flies, tucked going up and crouched coming down; the FLIP CUT raises the blade
+    overhead before the chop, whose pose and whole-arc smear hold a moment after it
+    lands (`chopAt`); the COMET is the finisher's lunge with a white streak of
+    afterimages; the TEMPEST turns the swing round twice with the spin's smear; the
+    STARFALL climbs curled, hangs with the blade up and dives with it down, a ring
+    of rings and pink sparks where it lands. The FLASH STEP is gone in the blink (a
+    streak of afterimages and one long cut along the way) and stands after it with
+    the blade swept back. PULSE's wave is a band of hard pixels across its cone; the
+    HALO's sparks are diamonds with short tails. SLIP tints the screen and frames
+    it. Sounds: `flip`, `comet`, `rise`, `slam`, `pulse`, `flash`, `halo`, `slip`,
+    `ready`. The lab's `m-*` scenes catch each move, `moves` the page, `m-hud` the B
+    box resting and a call-out.
 - **The land beyond the edge** (`render/beyond.ts`, `iso/lands.ts`,
   2026-11-12). A turned map is a diamond, and outdoors the world goes on
   round it for 24 tiles (`BEYOND`), so the land is never a board on a table.
@@ -1033,8 +1106,8 @@ classic view, a diamond lying as the ground does in the isometric one
   squares, and the frontier's regions beside it (under it on an upright
   phone) out there and, once the blade is in hand, on the maps the gates
   leave from: walked into lit, the Landing in the prize colour, here in the
-  hot one, a gate's region with a bar on its gate side. The menu's two pages
-  stand as tabs over it: `P ITEMS` and `M MAP`.
+  hot one, a gate's region with a bar on its gate side. The menu's three pages
+  stand as tabs over it: `P ITEMS`, `N MOVES` and `M MAP`.
 
 The corner is one cluster: the pause chip and the turn switch, and under
 them, right edges in line, the map (it comes and goes with nothing under it
@@ -1045,11 +1118,13 @@ out has the screen.
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; pressed again, the next hit of the chain;
-hold after a swing, release to spin); K/X/Shift = B (item); L or C rolls
+hold after a swing, release to spin; in a roll, a flip; see "Combos and arts");
+K/X/Shift = B (the item or art in hand); L or C rolls
 (once the hero has the blade); Q, or Tab when there is an item, swaps; P or an
 Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
-current quest), M on its MAP page (see "The map"); the key of the open page
-or Escape closes it, the other key turns the page. In the menu O turns the
+current quest), N on its MOVES page (the combos, their mastery, the arts), M on
+its MAP page (see "The map"); the key of the open page or Escape closes it, another
+page's key turns to it. In the menu O turns the
 sound on or off, T goes to town, C (on the MAP page) the corner map; V
 turns to the next view anywhere (see "Views"). Holding Escape saves and
 goes to town. Starting over
@@ -1057,12 +1132,12 @@ is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %; round buttons with pictures and no
 letters: A always (a sword), the roll (the hero curled up, a small green
 ring over B, beside A while there is no item) once there is the blade, B
-(the chosen item) and swap (two arrows) once there is an item, and the
+(the chosen item or art; an art resting dims and fills from the bottom) and swap (two arrows) once there is an item or an art, and the
 lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
 SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
 the chain and the roll); on a phone lying on its side
 they sit lower and more side by side, the roll a size smaller over B, so
-the row stays out of the stick's 60 %; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the other page; on ITEMS SOUND ON/OFF and TO TOWN; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+the row stays out of the stick's 60 %; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the next page round (ITEMS, MOVES, MAP); on ITEMS SOUND ON/OFF and TO TOWN; on MOVES ITEMS; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status

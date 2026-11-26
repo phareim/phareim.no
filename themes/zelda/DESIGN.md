@@ -96,6 +96,15 @@ sword: 2 damage, cuts static vines), Luna (follows;
 slides psi blocks), letter stones, levers, crystal groups shared across
 floors, holes to the floor below, per-dungeon keyrings and room events.
 
+The blade fights like a small old master (`engine/moves.ts`, 2026-11-25): off
+the ground as much as on it. Eight combos to learn and master (TRIPLE CUT,
+WHIRL, FLIP CUT, BACKFLIP, COMET, TEMPEST, WALL SPRING, SLIP; the MOVES page
+lists them, and each mastered one hits harder or goes farther), and four arts
+that sit on B beside the items, learned on the way: PULSE from the Keeper
+once the blade is in hand, FLASH STEP from the Shrine's knight, STARFALL from
+the MISTRAL, HALO from the GEMINI twins. The air never crosses a pit, spikes
+or ice, so no puzzle is skipped by it.
+
 Enemies: blob, spitter (reflect its pellets), sentry (sees you, charges),
 bat, dasher, zapper (shocks a blade unless stunned), skull (dodges), eye
 statue (laser), knight (shield front, charges, dazed after a wall hit),

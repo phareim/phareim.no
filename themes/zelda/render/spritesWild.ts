@@ -9,6 +9,7 @@ import { BOSSES } from './spritesWildBosses'
 import { ITEMS } from './spritesWildItems'
 import { PROPS_A } from './spritesWildProps'
 import { PROPS_B } from './spritesWildPropsB'
+import { ARTS_ICONS } from './spritesArts'
 
 export const WILD_RAW: Record<string, string[]> = {
   ...FOLK,
@@ -17,4 +18,5 @@ export const WILD_RAW: Record<string, string[]> = {
   ...ITEMS,
   ...PROPS_A,
   ...PROPS_B,
+  ...ARTS_ICONS,
 }

@@ -11,7 +11,9 @@ import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
 import { buildKind, DIG_MATS, isDigItem, matCount } from '../engine/dig'
-import { digIcon } from './dig'
+import { itemIconName } from './dig'
+import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
+import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
 
 type G = CanvasRenderingContext2D
 
@@ -214,12 +216,21 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
-  // its pause chip owns the top-right corner).
+  // its pause chip owns the top-right corner). An art resting shows dim, its rest filling a bar under it.
   if (!touch && inv.selected) {
     const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
-    const item = isDigItem(inv.selected) && world ? digIcon(world, s) : inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
+    const item = world ? itemIconName(world, s) : inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
+    const rest = isArt(inv.selected) ? artRest(s, inv.selected) : 1
+    if (rest < 1) g.globalAlpha = 0.35
     icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)
+    g.globalAlpha = 1
+    if (rest < 1) {
+      g.fillStyle = skin.off
+      g.fillRect(bx + 3, 21, 16, 2)
+      g.fillStyle = skin.cool
+      g.fillRect(bx + 3, 21, Math.round(16 * rest), 2)
+    }
     F.draw(g, 'K', bx + 24, 4, skin.cool, skin.outline)
   }
   void vw
@@ -368,12 +379,15 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys, skin: Hud
   F.draw(g, hint, Math.round((vw - F.width(hint)) / 2), y + h + 8, skin.dim)
 }
 
-/** The menu's two pages, side by side over it, the one open lit: ITEMS (P, Escape) and MAP (M). Returns the y under them. */
-export function drawMenuTabs(g: G, page: 'items' | 'map', vw: number, y: number, keys: HudKeys, skin: HudSkin): number {
+/** The menu's pages. */
+export type MenuPage = 'items' | 'moves' | 'map'
+
+/** The menu's three pages, side by side over it, the one open lit: ITEMS (P, Escape), MOVES (N) and MAP (M). Returns the y under them. */
+export function drawMenuTabs(g: G, page: MenuPage, vw: number, y: number, keys: HudKeys, skin: HudSkin): number {
   const F = hudFont(skin)
-  const tabs: Array<['items' | 'map', string]> = [['items', keys.touch ? 'ITEMS' : 'P ITEMS'], ['map', keys.touch ? 'MAP' : 'M MAP']]
-  const gap = 18
-  const total = tabs.reduce((a, [, t]) => a + F.width(t), 0) + gap
+  const tabs: Array<[MenuPage, string]> = [['items', keys.touch ? 'ITEMS' : 'P ITEMS'], ['moves', keys.touch ? 'MOVES' : 'N MOVES'], ['map', keys.touch ? 'MAP' : 'M MAP']]
+  const gap = Math.min(18, Math.max(8, Math.floor((vw - tabs.reduce((a, [, t]) => a + F.width(t), 0)) / 4)))
+  const total = tabs.reduce((a, [, t]) => a + F.width(t), 0) + gap * (tabs.length - 1)
   let x = Math.round((vw - total) / 2)
   for (const [id, label] of tabs) {
     const on = id === page
@@ -495,4 +509,126 @@ export function drawViewStrip(g: G, strip: { views: ReadonlyArray<{ name: string
   void touch
   const count = `${strip.at + 1}/${n}`
   F.draw(g, count, Math.round((vw - F.width(count)) / 2), y + h + 4, skin.dim, skin.outline)
+}
+
+/** Where an art not yet learned is to be found (said on the MOVES page; where to go, never how). */
+const ART_HINT: Record<ArtId, string> = {
+  pulse: 'THE KEEPER HAS ONE MORE THING TO TEACH.',
+  flash: 'A KNIGHT IN THE SHRINE FIGHTS THIS WAY.',
+  star: 'SOMETHING IN THE OLD LAB RIDES THE SKY.',
+  halo: 'TWINS IN THE DEEP LAB CIRCLE THIS WAY.',
+}
+
+/** A combo's buttons, each token in its colour: A the blade, R the roll, B, the rest as words. */
+function drawKeys(g: G, F: HudFont, keys: string, x: number, y: number, skin: HudSkin) {
+  let cx = x
+  for (const tok of keys.split(' ')) {
+    const color = tok === 'A' ? skin.hot : tok === 'R' ? skin.cool : tok === 'B' ? skin.prize : skin.dim
+    F.draw(g, tok, cx, y, color)
+    cx += F.width(tok) + 4
+  }
+}
+
+/**
+ * The MOVES page (`N`): every combo with its buttons and how far it is from mastered (a gold MASTER once it is),
+ * and the arts on B, learned or where to look for the next. Laid out to fit a phone on its side.
+ */
+export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, skin: HudSkin = NEON_SKIN) {
+  g.fillStyle = skin.veil
+  g.fillRect(0, 0, vw, vh)
+  const F = hudFont(skin)
+  const w = Math.min(vw - 12, 248)
+  const x = Math.round((vw - w) / 2)
+  const row = vh < 230 ? 9 : 10
+  const next = ARTS.find(a => !knowsArt(s, a.id))
+  const tip = F.wrap(next ? ART_HINT[next.id] : 'EVERY ART IS YOURS.', w - 14).slice(0, 2)
+  const panelH = 16 + MOVES.length * row + 6 + 12 + 30 + 4 + tip.length * 10
+  let y = drawMenuTabs(g, 'moves', vw, Math.max(4, Math.round((vh - panelH - 14) / 2)), keys, skin)
+  skin.panel(g, x, y, w, panelH, 'cool')
+  // The combos.
+  F.draw(g, 'COMBOS', x + 7, y + 6, skin.prize)
+  const legend = keys.touch ? 'A SWORD  R ROLL' : `A ${keys.a}  R ${keys.roll ?? 'L'}`
+  F.draw(g, legend, x + w - 7 - F.width(legend), y + 6, skin.faint)
+  let ry = y + 18
+  const nameW = Math.max(...MOVES.map(m => F.width(m.name)))
+  const keysX = x + 7 + nameW + 6
+  const barW = Math.max(16, Math.min(34, w - (keysX - x) - F.width('R > BLOW') - 18))
+  const barX = x + w - 7 - barW
+  for (const m of MOVES) {
+    const n = moveCount(s, m.id)
+    const done = mastered(s, m.id)
+    F.draw(g, m.name, x + 7, ry, done ? skin.prize : n > 0 ? skin.text : skin.dim)
+    drawKeys(g, F, m.keys, keysX, ry, skin)
+    if (done) F.draw(g, 'MASTER', barX + barW - F.width('MASTER'), ry, skin.prize)
+    else {
+      g.fillStyle = skin.off
+      g.fillRect(barX, ry + 2, barW, 3)
+      g.fillStyle = n > 0 ? skin.cool : skin.off
+      g.fillRect(barX, ry + 2, Math.round((barW * Math.min(n, m.need)) / m.need), 3)
+    }
+    ry += row
+  }
+  // The arts on B.
+  ry += 4
+  const use = keys.touch ? 'ON THE ITEM BUTTON' : `ON ${keys.b}, ${keys.cycle} SWAPS`
+  F.draw(g, 'ARTS', x + 7, ry, skin.prize)
+  F.draw(g, use, x + w - 7 - F.width(use), ry, skin.faint)
+  ry += 11
+  const slot = Math.floor((w - 14) / ARTS.length)
+  ARTS.forEach((a, i) => {
+    const ix = x + 7 + i * slot
+    g.fillStyle = skin.slot
+    g.fillRect(ix, ry, slot - 4, 30)
+    const known = knowsArt(s, a.id)
+    if (known) {
+      const name = `item_${a.id}`
+      const rest = artRest(s, a.id)
+      if (rest < 1) g.globalAlpha = 0.4
+      icon(g, skin, name, Math.round(ix + (slot - 4) / 2 - sprite(name).width / 2), ry + 2)
+      g.globalAlpha = 1
+      if (s.inv.selected === a.id) { g.fillStyle = skin.prize; g.fillRect(ix, ry + 29, slot - 4, 1) }
+    }
+    const label = known ? a.name : '???'
+    // (A name too long for its slot on a narrow screen: its first word.)
+    const fit = F.width(label) <= slot - 6 ? label : label.split(' ')[0]!
+    F.draw(g, fit, Math.round(ix + (slot - 4) / 2 - F.width(fit) / 2), ry + 21, known ? skin.dim : skin.faint)
+  })
+  ry += 34
+  tip.forEach((line, i) => F.draw(g, line, Math.round(x + (w - F.width(line)) / 2), ry + i * 10, next ? skin.dim : skin.ok))
+}
+
+/** A combo's name called out where it lands: what it is, and once its first or its mastery. */
+export interface Callout { id: MoveId; t: number; first: boolean; mastered: boolean }
+export const CALLOUT_TIME = 1.1
+
+/** `at`: the row the call-out stands on (over the hero's head); none: a third of the way down. */
+export function drawCallout(g: G, c: Callout, vw: number, vh: number, skin: HudSkin = NEON_SKIN, at?: number) {
+  const m = MOVES.find(x => x.id === c.id)
+  if (!m) return
+  const a = Math.min(1, c.t * 10, (CALLOUT_TIME - c.t) * 5)
+  if (a <= 0) return
+  const F = hudFont(skin)
+  const rise = Math.round(Math.max(0, 1 - c.t * 8) * 4)
+  const y = Math.round(Math.max(36, Math.min(vh - 48, at ?? vh * 0.3))) + rise
+  g.globalAlpha = a
+  const sub = c.mastered ? 'MASTERED!' : c.first ? 'NEW MOVE' : ''
+  if (sub) F.draw(g, sub, Math.round((vw - F.width(sub)) / 2), y - 11, c.mastered ? skin.prize : skin.hot, skin.outline)
+  F.draw(g, m.name, Math.round((vw - F.width(m.name)) / 2), y, c.mastered ? skin.prize : skin.text, skin.outline)
+  if (c.mastered) F.draw(g, m.perk, Math.round((vw - F.width(m.perk)) / 2), y + 11, skin.dim, skin.outline)
+  g.globalAlpha = 1
+}
+
+/** SLIP: the world running slow, a cool tint and a frame round the edge, coming and going. */
+export function drawSlow(g: G, slow: number, vw: number, vh: number, skin: HudSkin = NEON_SKIN) {
+  const a = Math.min(1, slow * 5)
+  if (a <= 0) return
+  g.globalAlpha = 0.09 * a
+  g.fillStyle = skin.cool
+  g.fillRect(0, 0, vw, vh)
+  g.globalAlpha = 0.55 * a
+  g.fillRect(0, 0, vw, 2)
+  g.fillRect(0, vh - 2, vw, 2)
+  g.fillRect(0, 0, 2, vh)
+  g.fillRect(vw - 2, 0, 2, vh)
+  g.globalAlpha = 1
 }
