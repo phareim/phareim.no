@@ -4,9 +4,10 @@
  * and meet in THE PASS above the village. THE STILTS is the sleeping village on its quay over the water, a few lamps
  * kept lit; THE STAVE CHURCH stands on its rise above it with the cracked bell; THE HARBOUR is where the ferry from
  * the town's pier comes in; THE LIGHTHOUSE watches the mouth. East, the fjord's head is frozen: THE ICE FLATS hold
- * the old lamp and the ice house, and the only way over to THE FAR SHORE, where the sea cave opens under the cliffs
- * and a heart piece waits in a nook the stilts' long pier looks straight at. From the far shore the hook comes
- * back to the pier.
+ * the old lamp and the ice house, and the only way over to THE FAR SHORE: a sleeping hamlet whose lamps wake when
+ * the old lamp's beam is turned into the dark lamp, the rapid that never freezes, the sea cave under the cliffs and
+ * a heart piece in a nook the stilts' long pier looks at. The shore path ends on the bank straight across from the
+ * pier's post, where the hook comes back. In the spruce east of the ice road a frozen tarn keeps an ice-fishing camp.
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
  */
@@ -24,10 +25,12 @@ const INTRO: AreaIntro = { lines: ['THE SUN HAS NOT RISEN FOR WEEKS. THE VILLAGE
 const cottage = (x: number, y: number): IsoLandmark => prop('fjord_cottage', x + 1.5, y + 1.5, { night: 'fjord_cottage_night', cover: { x, y, w: 3, h: 3 }, lights: COTTAGE })
 /** A boathouse on stilts at the water's edge; cover is its 5×3 of H. */
 const boathouse = (x: number, y: number): IsoLandmark => prop('fjord_boathouse', x + 2.5, y + 1.5, { cover: { x, y, w: 5, h: 3 }, lights: [light('amber', 2.6, 0.7, { z: 0.7, dy: 1.8 })] })
-/** The fjord's own lamp post on a 't' tile, lit (the warden's) or put out (the sweeper's). */
-const post = (x: number, y: number, lit = true): IsoLandmark => lit
+/** The fjord's own lamp post on a 't' tile, lit (the warden's), put out (the sweeper's), or dark until a flag is set. */
+const post = (x: number, y: number, lit: boolean | string = true): IsoLandmark => lit === true
   ? prop('fjord_lantern', x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 }, lights: [light('amber', 3.2, 0.8, { z: 1.1, anim: 'fire' })] })
-  : prop('fjord_lantern_out', x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 } })
+  : typeof lit === 'string'
+    ? prop('fjord_lantern_out', x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 }, lit: { flag: lit, art: 'fjord_lantern' }, lights: [light('amber', 3.2, 0.8, { z: 1.1, anim: 'fire', lit: true })] })
+    : prop('fjord_lantern_out', x + 0.5, y + 0.5, { cover: { x, y, w: 1, h: 1 } })
 
 export const YULEFJORD: MapDef = {
   id: 'yulefjord',
@@ -44,11 +47,11 @@ export const YULEFJORD: MapDef = {
     '########################################################################################',
     '~~~~~~~~###############################################~~###############################',
     '~~~~~~~~####################################5##########~~###############################',
-    '~~~~~~~~######################T....#....;###,#...T#...~~~~#........#.#...#;#.T#;##.#.###',
-    '~~~~~~~~###################......;...;....R.,......T.;~~~~.;;T....T.;.T........7;....###',
-    '~~~~~~~~###################.1.T.T8...........T......;..~~m....T...........;.....;8T..###',
-    '~~~~~~~~###################.....;...;;.;.......;....7...;.;..........................###',
-    '~~~~~~~~~~~~~###~~#~######~###..................;;........############.#################',
+    '~~~~~~~~######################T....#....;###,#...T#....~~.#THHH..;..T.....HHH.;.T.######',
+    '~~~~~~~~###################......;...;....R.,......T.;.~~.m.HHH..;..T..;..HHH..T;..#####',
+    '~~~~~~~~###################.1.T.T8.,,,,,,,,,,,,,,,,,,,,==,.;HHH..t.......tHHH..;.T7#####',
+    '~~~~~~~~###################.....;..,;;.;.......;..7..;.~~,,,,,,,,,,,,,,,,,,,,,.;.....###',
+    '~~~~~~~~~~~~~###~~#~######~###.....,............;;.....~~.############,#################',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~αααα#ααααααααααααααα~~ααααα###',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~αααααα#ααααααααααααα~~ααααα###',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ααααααααααααααααααααααααααα###',
@@ -72,17 +75,17 @@ export const YULEFJORD: MapDef = {
     '~~.HHH.6........,.f.....,....;.;....,t...T..,.###########.T####,####.,........,NT..:####',
     '~~.HHH.........FFFFFF...,....FFFF..,,.;.....,T#.;HHHHH.;#......,,O,,,,,,,,,,,,,.TTTT####',
     '~~.HHH....t.::..,.....;.,.........,,...w...;,;#..HHHHH..#TTT.TT......,.T.;T.TT.T.:..####',
-    '~~........;.,,,,,,,,,...,....FFFF.,.........,.#..HHHHH..#.;...;..T...,:.;.T.........####',
-    '~~.;..,,,,,,,.......,,,,,,,,,...;.,.........,;#.;HHHHH..#...8.T.T.T..,:..TT..0.T.T..####',
-    '~~..;...L....;....;.;..TT...,....;,..;......,,,....a....#..;TT.....T***.T........:..####',
-    '~~~....;.......TT.........;.......,..;........#.;..,....#...T..TT.T.:,;....T.T..T.;.####',
-    '~~~~.;....;~........;.............,;;.....;T..#...K,....#TT..T....T.;,...;T......T..####',
-    '##TTT....T.........;.........T....,...;...T...####,,,####......;.....,;.T:....T..TT;####',
-    '####T#####.....T....;T...7.r..T...,.........T......,........T..T;T.T.,:..T.;T...T;..####',
-    '##T####T##..8...T..T:.............,T..........;....,....;T..T........,..T......T..T.####',
-    '##T#######;...;...0..............C,.T..:.T...:....;,....T.....;...;..,.....T......;.####',
-    '###T######...T.............,,,,,,,,,,,,,,,,,,,,,,,,,,....T.TT...T.T.;,.:..T..T..T...####',
-    '##T###TT##..;;.....;.,,,,,,,.;.;....;...............,,,;....;...T.T;.,..T.T......;..####',
+    '~~..,.....;.,,,,,,,,,...,....FFFF.,.........,.#..HHHHH..#.;...;..T...,:.;.T.........####',
+    '~~.;,,,,,,,,,.......,,,,,,,,,...;.,.........,;#.;HHHHH..#...8.T.T.T..,:.T.T..T..T.T.####',
+    '~~..;...L....;....;.;..TT...,....;,..;......,,,....a....#..;TT.....T***.T........T..####',
+    '~~~....;.......TT.........;.......,..;........#.;..,....#...T..TT.T.:,;..αααα#ααα.T.####',
+    '~~~~.;....;~........;.............,;;.....;T..#...K,....#TT..T....T.;,.U.ααααα#αα..T####',
+    '##TTT....T.........;.........T....,...;...T...####,,,####......;.....,...αααααααα...####',
+    '####T#####.....T....;T...9.r..T...,.........T......,........T..T;T.T.,:..#αααVαα#.T.####',
+    '##T####T##..8...T..T:.............,T..........;....,....;T..T........,...αααααααα...####',
+    '##T#######;...;...0..............C,.T..:.T...:....;,....T....0;...;..,...αα~ααααα.T.####',
+    '###T######...T.............,,,,,,,,,,,,,,,,,,,,,,,,,,....T.TT...T.T.;,...αααα#ααα..T####',
+    '##T###TT##..;;.....;.,,,,,,,.;.;....;...............,,,;....;...T.T;.,.T...;.....T..####',
     '####T#TT#T...T...,,,,,......IP...;......I.............,,,;.T....T.:,,,.T..T....;T.:.####',
     '##########....;,,,.....;.........;....T;..........;.....,,,..T....,,.;T..TT.TT.9.T..####',
     '##T#T#####...I,,..;...9T.T...T..T...T...T.;...9;.;......;.,,,..;,,,.;:TT.;T;..T.T..T####',
@@ -121,6 +124,11 @@ export const YULEFJORD: MapDef = {
     cottage(31, 24),
     cottage(38, 24),
     cottage(45, 24),
+    // The far shore's hamlet under the cliff, asleep; its two lamps wake with the old lamp's beam.
+    cottage(60, 4),
+    cottage(74, 4),
+    post(65, 6, 'yulefjord.lamp.lit'),
+    post(73, 6, 'yulefjord.lamp.lit'),
     boathouse(12, 21),
     boathouse(19, 21),
     prop('fjord_church', 51.5, 32.05, { cover: { x: 49, y: 30, w: 5, h: 4 }, shadow: { tall: 2, wide: 1.15, deep: 1.1 }, lights: [light('gold', 2.2, 0.55, { z: 0.6, dy: 2.25 })] }),
@@ -134,6 +142,11 @@ export const YULEFJORD: MapDef = {
     prop('camp_board_blank', 31.4, 39.05),
     prop('camp_log', 29.6, 39.4),
     prop('camp_log', 26.6, 39.2),
+    // The ice-fishing camp on the tarn's west bank, its hole in the ice.
+    prop('campfire', 71.5, 39.5, { motion: cycle(3, 6), light: { r: 2.4, tone: 'gold', a: 0.65 }, ...at(71, 39) }),
+    prop('camp_tripod', 71.5, 39.5),
+    prop('camp_log', 72.4, 40.5),
+    prop('landing_crates', 71.5, 41.4, at(71, 41)),
     // The fjord's lamp posts (one put out), the harbour's things, floes, the ice's broken edge, the roads' lanterns.
     post(37, 23),
     post(44, 23),
@@ -180,14 +193,17 @@ export const YULEFJORD: MapDef = {
     lantern('cyan', 70.5, 26.5),
     lantern('rose', 33.5, 35.5),
     lantern('cyan', 45.5, 5.5),
+    // The far shore: the ice landing seen from the ice, the bank across from the pier's hook post.
+    lantern('cyan', 69.5, 6.6),
+    lantern('cyan', 36.5, 8.4),
   ],
   marks: {
     // The ferry home from the end of the harbour pier; the sea cave's mouth in the far shore's cliff.
     '3': { ent: { t: 'warp', to: 'overworld', entry: 'ferry' }, tile: '=' },
     '5': { ent: { t: 'warp', to: 'seacave', entry: 'door' }, tile: 'D' },
     // Signs: the passes, the junction, each place.
-    'A': sign('↑ YULE FJORD.\n↓ LUMENBY QUARRY, OVER THE TOPS.'),
-    'B': sign('↑ YULE FJORD.\n↓ SETER FELL, OVER THE TOPS.'),
+    'A': sign('↑ THE STILTS AND THE HARBOUR.\n↓ LUMENBY QUARRY, OVER THE TOPS.'),
+    'B': sign('← THE STILTS. ↑ THE ICE FLATS.\n↓ SETER FELL, OVER THE TOPS.'),
     'C': sign('↑ THE STILTS.\n← THE HARBOUR.\n→ THE STAVE CHURCH.'),
     'E': sign('YULE FJORD. THE SUN COMES BACK IN SPRING. KEEP A LAMP LIT UNTIL THEN.'),
     'Q': sign('THE STILTS. NO KNOCKING. SLEEPERS INSIDE UNTIL SPRING.'),
@@ -195,17 +211,19 @@ export const YULEFJORD: MapDef = {
     'K': sign('THE STAVE CHURCH. THE BELL CRACKED IN THE COLD. NO RINGING UNTIL IT MENDS.'),
     'L': sign('THE LIGHTHOUSE. DO NOT ANSWER THE SEA.'),
     'M': sign('THE ICE FLATS. THE ICE HAS NO BRAKES. MIND THE OPEN WATER.'),
-    'N': sign('THE OLD LAMP SHINES DOWN ALL WINTER, AND THE DARK LAMP IN THE EAST WALL NEVER SEES IT.'),
+    'N': sign('TURN THE OLD LAMP ON THE DARK LAMP IN THE EAST WALL, AND THE FAR SHORE WAKES.'),
+    'U': sign('THE TARN. FROZEN TO THE BOTTOM. OUT ON THE ICE THE ROCKS ARE THE ONLY BRAKES.'),
     'O': sign('THE ICE HOUSE. THE HEAVY PLATE HAS HELD NOTHING SINCE THE BLOCK GOT AWAY ON THE ICE.'),
     'R': sign('THE SEA CAVE. THE TIDE COMES IN WITHOUT KNOCKING.'),
     'P': sign('CAIRN. ADD A STONE. TAKE NONE.'),
-    // The heart piece in the far shore's nook (over the ice), the two puzzles' chests, and three small finds.
+    // The heart piece in the far shore's nook (over the ice), the two puzzles' chests, and four small finds.
     '1': { ent: { t: 'chest', id: 'yulefjord.nook', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'yulefjord.lamp', item: 'bits50', appear: { flag: 'yulefjord.lamp.lit' } } },
     '4': { ent: { t: 'chest', id: 'yulefjord.icehouse', item: 'bombs5', appear: { plates: ['yulefjord.icehouse'] } } },
     '[': { ent: { t: 'chest', id: 'yulefjord.pier', item: 'bits20' } },
     ']': { ent: { t: 'chest', id: 'yulefjord.pass', item: 'bombs5' } },
     '6': { ent: { t: 'chest', id: 'yulefjord.keeper', item: 'bits20' } },
+    'V': { ent: { t: 'chest', id: 'yulefjord.tarn', item: 'bits50' } },
     // THE OLD LAMP (beam, mirror on ice) and THE ICE HOUSE (block on ice onto the heavy plate): proven by the kit solver.
     'h': { ent: { t: 'emitter', dir: 'down' } },
     'k': { ent: { t: 'receiver', flag: 'yulefjord.lamp.lit' } },

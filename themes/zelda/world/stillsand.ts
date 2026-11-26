@@ -1,14 +1,14 @@
 /**
  * STILLSAND: a pastel desert held just after sunrise, behind the Hollow Graves' east wall (docs/worlds/atlas.md; its
  * place on the grid is world/atlas.ts). From the graves gate THE BONE ROAD runs east under THE RIBS, the arched bones
- * of a stone bird, to THE GOLD PYRAMID, the stepped gold mass in the middle of the sands, whose door goes down to THE
- * PUZZLE LAB. North the road climbs past ARNE'S SURVEY CAMP to the Sporelight's roots; east of it the QUARTZ ISLANDS
- * hang over the dunes, and a garden that fell sits upright in its crater with a heart piece in it, seen from the
- * road and reached only from stake to stake. East of the pyramid THE CARAVAN camps round its oasis; north-east THE
- * TENDER'S BED waits under its lens for a clean seed, beside FIRST LIGHT, where the sunstone's beam wants to reach a
- * stone eye. South-west lie THE SCALES, a sunken court of three pans, whose cracked west wall opens straight back to
- * the Bone Road; south-east THE SALT FLAT, the hermit's pools and THE MAKER'S BOX, a hollow butte. South the dunes
- * fall to Rerun's lawns.
+ * of a stone bird (the stone birds nest south of them, a ring of stones round an egg), to THE GOLD PYRAMID, the stepped
+ * gold mass in the middle of the sands, whose door goes down to THE PUZZLE LAB. North the road climbs past ARNE'S
+ * SURVEY CAMP to the Sporelight's roots; east of it the QUARTZ ISLANDS hang over the dunes, and a garden that fell sits
+ * upright in its crater with a heart piece in it, seen from the road and reached only from stake to stake. East of the
+ * pyramid THE CARAVAN camps round its oasis; north-east THE TENDER'S BED waits under its lens for a clean seed, beside
+ * FIRST LIGHT, where the sunstone's beam wants to reach a stone eye. South-west lie THE SCALES, a sunken court of three
+ * pans, whose cracked west wall opens straight back to the Bone Road; south-east THE SALT FLAT, the hermit's pools and
+ * THE MAKER'S BOX, a hollow butte. South the dunes fall to Rerun's lawns.
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
  */
@@ -58,17 +58,17 @@ export const STILLSAND: MapDef = {
     '##-------I-I,I--------------......-,---######,######---------T;;;;;;;T----,.---------###',
     '#-----------,----------------.--r.-,---######,######-----y................,----.-----###',
     '##----------,------.#############.-,..I...W..,......I.---,,,,p,,,,,,,,,,,,,---.------###',
-    '#--------...,,------#t....3....t#--,,,,,,,,,,,,,,,,,,,,,,,.......g,......--##---.-----##',
+    '#--------...,,------#t....3....t#--,,,,,,,,,,,,,,,,,,,,,,,........,g.....--##---.-----##',
     '#-----.......,,9----#..Q.....Q..#.---....j...,........---.........,......-s##-------.--#',
-    '##---.........,-----#...........#----........,........--..........,......---r---------##',
-    '##----........,,,---#...I...I...#-r----------,----.---------------,,-----------###-r9-##',
-    '#----...........,,--#...........#e--.-------.,-----.-.---------.-.-,....m...-#######--##',
+    '##---..rrr....,-----#...........#----........,........--..........,......---r---------##',
+    '##----.r@r....,,,---#...I...I...#-r----------,----.--0------------,,-----------###-r9-##',
+    '#----..rrr......,,--#...........#e--.-------.,-----.-.---------.-.-,....m...-#######--##',
     '###---.........-.,,,R....b.b.....,,,,,,,,,,,,,,-----..-------...?..,,........#######---#',
     '####----..----.-----#...........#-------.-----,--..rIr-----.........,,,,.....#######---#',
     '####---8------------#.....Q.....#--r----------,,-..*+*..---.~αuα.......,,,,,,..#6#-----#',
     '#####----.----------#...........#--------------,-z.***..--α~~~ααααα.........,,,,,&.----#',
-    '####---.------------#...........#-------0---.--,---.-.--7-ααααααααα.............-------#',
-    '####----------.-.-###############--###------.-,,,---------8--ααα0.......~~~~.----.######',
+    '####---.------------#r.........r#-------0---.--,---.-.--7-ααααααααα.............-------#',
+    '####----------.-.-###############--###------.-,,,---------8--ααα........~~~~.----.######',
     '#########----##-#############-##########-#---#,,,#-#--#-##----#####-#-###-###---#-######',
     '##############################################,,,#######################################',
   ],
@@ -113,8 +113,9 @@ export const STILLSAND: MapDef = {
     prop('tent', 59.0, 20.5, at(58, 20, 2, 1)),
     prop('tent', 63.0, 21.0, at(62, 21, 2, 1)),
     prop('tent', 71.0, 21.0, at(70, 21, 2, 1)),
-    prop('campfire', 66.5, 19.5, { motion: cycle(3, 5), lights: [light('fire', 2.4, 0.6, { z: 0.3, anim: 'fire' })], ...at(66, 19) }),
-    prop('camp_log', 65.6, 20.3), prop('camp_log', 67.4, 20.3),
+    // The cook's fire stands on the sand beside the path south, so the way to the salt flat stays clear.
+    prop('campfire', 68.5, 20.5, { motion: cycle(3, 5), lights: [light('fire', 2.4, 0.6, { z: 0.3, anim: 'fire' })], ...at(68, 20) }),
+    prop('camp_log', 67.6, 21.3), prop('camp_log', 69.4, 20.4),
     // The Tender's lens over its bed: dark until the clean seed is planted, then a gold pulse.
     prop('stillsand_lens_0', 67.5, 3.6, { lit: { flag: 'q.seed.planted', art: 'stillsand_lens_1' }, lights: [light('gold', 3, 0.85, { z: 1, anim: 'pulse', lit: true })], ...at(67, 3) }),
     lantern('gold', 44.5, 18.5),
@@ -145,7 +146,7 @@ export const STILLSAND: MapDef = {
     'N': sign('↑ THE SPORELIGHT.\n↓ THE BONE ROAD.'),
     'V': sign('ARNE\'S SURVEY CAMP.\nKEEP OFF THE LINES.'),
     'W': sign('THE GOLD PYRAMID.\nTHE DOOR HUMS.\nTHE PUZZLE LAB INSIDE.'),
-    'e': sign('THE SCALES. THREE PANS,\nNOT ONE OF THEM LEVEL SINCE\nTHE WIND LAST TURNED.'),
+    'e': sign('THE SCALES. THREE PANS,\nTWO WEIGHTS AND ONE GUEST.\nA GUEST ALONE IS TOO LIGHT.'),
     'v': sign('FIRST LIGHT. THE SUNSTONE\nSHINES ALL DAY. THE STONE\nEYE HAS NEVER SEEN IT.'),
     'y': sign('THE CARAVAN. RATION BRICKS,\nSALT, GLASS AND QUIET.'),
     'z': sign('↓ RERUN ESTATES.\n↑ THE GOLD PYRAMID.\n← THE SCALES.'),
@@ -157,12 +158,12 @@ export const STILLSAND: MapDef = {
     '?': sign('THE SALT FLAT.\nDO NOT FEED THE REFLECTIONS.'),
     'a': npc('q.map.surveyor', 'smoker', [{ when: { flags: ['q.map.p1', 'q.map.p2', 'q.map.p3', 'q.map.p4'], not: ['q.map.done'] }, lines: ['ARNE: ALL FOUR PAGES. THE MAP IS WHOLE, AND IT IS RIGHT.', 'ARNE: FOR NOW. THE WIND TURNS IN THREE MINUTES. TAKE THIS BEFORE IT DOES.'], give: 'heartPiece', set: 'q.map.done' }, { when: { flag: 'q.map.done' }, lines: ['ARNE: MY MAP IS RIGHT. I DARE NOT LOOK UP.'] }, { when: { flag: 'q.map.asked' }, lines: ['ARNE: ONE PAGE WENT FAR WEST, TO FOGSTAGE. ONE NORTH-WEST, TO SETER FELL.', 'ARNE: ONE SOUTH, TO RERUN ESTATES. ONE WEST, TO THE FERRY ON THE TOWN\'S PIER.'] }, { lines: ['ARNE: I SURVEY THE DUNES. MY MAP WAS RIGHT. THEN THE WIND TURNED AND TOOK FOUR PAGES.', 'ARNE: ONE WEST, TO THE FERRY ON THE TOWN\'S PIER. ONE FAR WEST, TO FOGSTAGE.', 'ARNE: ONE NORTH-WEST, TO SETER FELL. ONE SOUTH, TO RERUN ESTATES. HERE, FOR YOUR BOOTS.'], give: 'bits20', set: 'q.map.asked' }]),
     'd': npc('q.seed.bed', 'gardenbot', [{ when: { flag: 'q.seed.planted' }, lines: ['BED TENDER: GROWING. YOU ARE STILL NOT A FLOWER. THAT IS ALL RIGHT.'] }, { when: { flag: 'q.seed.got' }, lines: ['BED TENDER: A CLEAN SEED. PLANTING.', '(A SHOOT. THEN A LEAF. THE TENDER HUMS.)', 'BED TENDER: TELL MY PARTNER AT THE CROSSROADS, WEST. IT CAN STOP WATERING.'], give: 'heartPiece', set: 'q.seed.planted' }, { lines: ['BED TENDER: SCANNING. YOU ARE NOT A FLOWER.', 'BED TENDER: THIS BED IS EMPTY. IT WANTS A SEED FROM CLEAN SOIL. NONE GROWS OUT HERE.'] }]),
-    'g': npc('l.caravan.cook', 'vendor', [{ lines: ['ABEL: I COOK FOR THE CARAVAN. REAL FRUIT? IS THAT SAFE TO BITE?', 'ABEL: WE EAT RATION BRICKS. WE HAVE NEVER CHEWED ANYTHING. WE ARE NOT SURE HOW.'] }]),
+    'g': npc('l.caravan.cook', 'vendor', [{ lines: ['ABEL: I COOK FOR THE CARAVAN. THE OASIS PALMS DROP REAL FRUIT. IS IT SAFE TO BITE?', 'ABEL: WE EAT RATION BRICKS. WE HAVE NEVER CHEWED ANYTHING. WE ARE NOT SURE HOW.'] }]),
     'h': npc('stillsand.quiet', 'ghost', [{ lines: ['(SHE HOLDS UP A PAINTED STONE: AN ARROW, POINTING SOUTH TO THE GOLD PYRAMID.)', '(THEN SHE PUTS A FINGER TO HER LIPS. THE DUNES ARE LISTENING.)'] }], { wander: true }),
     'm': npc('stillsand.quiet2', 'ghost', [{ lines: ['(HE HOLDS UP A STONE: A STAR. THEN A SHRUG.)', '(HE TURNS THE STONE OVER. ON THE BACK, A BOX WITH A DOOR.)'] }], { wander: true }),
     'k': npc('stillsand.gardenunit', 'gardenbot', [{ lines: ['GARDEN UNIT: MY ISLAND FELL. I KEPT WATERING THE SPOT. IT SEEMED POLITE.', 'GARDEN UNIT: THE SURVEYOR LEFT A STAKE ON EACH SIDE OF THE CRACK. I WATER THOSE TOO.'] }]),
     'p': npc('stillsand.caravanner', 'vendor', [{ lines: ['CARAVANNER: WE RIDE THE STONE BIRDS ACROSS. THEY DON\'T TALK. NEITHER DO WE, MOSTLY.', 'CARAVANNER: SALT, GLASS AND QUIET. THAT\'S ALL STILLSAND SELLS.'] }]),
-    's': npc('stillsand.roostkid', 'kid', [{ lines: ['ROOST KID: THE BIRDS ARE STONE. DON\'T TELL THEM.', 'ROOST KID: I KNOW EVERY STONE BIRD BY NAME. THAT ONE IS GRAVEL. SO IS THAT ONE.'] }]),
+    's': npc('stillsand.roostkid', 'kid', [{ lines: ['ROOST KID: THE BIRDS ARE STONE. DON\'T TELL THEM.', 'ROOST KID: I KNOW EVERY STONE BIRD BY NAME. THAT ONE IS GRAVEL. SO IS THAT ONE.', 'ROOST KID: THEY NEST FAR WEST, SOUTH OF THE RIBS. THE EGG IS NOT STONE. I CHECKED.'] }]),
     'u': npc('stillsand.hermit', 'smoker', [{ lines: ['SALT HERMIT: SHH. OH. IT\'S ONLY YOU. I THOUGHT YOU WERE THE WIND.', 'SALT HERMIT: I TALK TO MY REFLECTION IN THE SALT. IT AGREES WITH EVERYTHING. GOOD COMPANY.'] }]),
     'j': npc('stillsand.tourist', 'hippie', [{ lines: ['TOURIST: I CAME THROUGH THE GRAVES FOR AN AFTERNOON. THE SUN HASN\'T MOVED SINCE.', 'TOURIST: A GOLD PYRAMID, AND NOT ONE GIFT SHOP. FIVE STARS FOR THE VIEW, THOUGH.'] }]),
     '1': { ent: { t: 'chest', id: 'stillsand.garden', item: 'heartPiece' } },
@@ -170,6 +171,8 @@ export const STILLSAND: MapDef = {
     '3': { ent: { t: 'chest', id: 'stillsand.scales', item: 'bits50', appear: { plates: ['stillsand.scale'] } } },
     // A Warden, half-buried to the shoulders, still waiting for a beam; something glints in the dry shrub at its feet.
     '+': { ent: { t: 'chest', id: 'stillsand.warden', item: 'bits20' } },
+    // The stone birds' nest south of the Ribs: a ring of stones round an egg that is not stone. Lift one to reach it.
+    '@': { ent: { t: 'chest', id: 'stillsand.nest', item: 'bits20' } },
     '4': { ent: { t: 'chest', id: 'stillsand.firstlight', item: 'bombs5', appear: { flag: 'stillsand.firstlight' } } },
     '7': { ent: { t: 'enemy', kind: 'dasher' } },
     '8': { ent: { t: 'enemy', kind: 'blob' } },
@@ -186,14 +189,14 @@ export const MAKERSBOX: MapDef = {
   track: 'indoor',
   rows: [
     '################',
-    '#[[..oo..oo..[[#',
+    '#[[..oos.oo..[[#',
     '#..............#',
     '#.t..nnnn....t.#',
     '#........a.....#',
     '#..o........o..#',
     '#......1.......#',
     '#..............#',
-    '#....s.........#',
+    '#..............#',
     '#......@.......#',
     '#######D########',
   ],
