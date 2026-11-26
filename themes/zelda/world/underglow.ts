@@ -8,8 +8,9 @@
  *     (0,0) the shaft foot: stairs up, Rut's lift   (1,0) the rails: BROR's camp      (2,0) the old drift (dark): bats, key
  *     (0,1) the hanging garden (dark): heart piece   (1,1) the grove: SIGGE            (2,1) the root stair: locked, stairs down
  *   The key lies in the old drift once its bats are down; the root stair's door takes it. The heart piece sits on an
- *   island in the garden's void, seen from the grove's door; the hook only reaches it from the north ledge, and the
- *   north ledge is behind the cracked wall in the shaft foot's south side (bombs).
+ *   island in the garden's void, seen from the grove's door; the hook only reaches it from the north ledge (the post
+ *   at (8,18) from (8,14); roots shield it from the east and south, and the ledge's torch (9,13) is the way back), and
+ *   the north ledge is behind the cracked wall in the shaft foot's south side (bombs; a sign and SIGGE point at it).
  *
  *   underglow2  THE GLASS SEA (top row) and BROADCAST (bottom row)
  *     (0,0) the shore: stairs up, HANNA               (1,0) the still water            (2,0) the far ledge: blobs, key, grotto
@@ -66,7 +67,7 @@ const SHAFT_FOOT = [
   '#..............#',
   '#.1............#',
   '#..............#',
-  '#t............t#',
+  '#t....3.......t#',
   '#######%%#######',
 ]
 
@@ -106,9 +107,9 @@ const HANGING_GARDEN = [
   '#..........#####',
   '#OOOOOOOOOO....#',
   '#OOAOOOOOOO....#',
-  '#OOOOOth..O.....',
-  '#OOOOOOO|OO.....',
-  '#OOOOOOOOAO....#',
+  '#OOOOOTh..O.....',
+  '#OOOOOOO|TO.....',
+  '#OOOOOOOTAO....#',
   '#OOOOOOOOOO....#',
   '#..............#',
   '#t.....t......t#',
@@ -119,29 +120,29 @@ const GROVE = [
   '#######..#######',
   '#T.T..T..T..T.T#',
   '#..............#',
-  '#.:..T....T..:e#',
-  '#..............#',
+  '#.:..T....T..:a#',
+  '#...T.......T..#',
   '..........:.....',
-  '....T.......T...',
+  '................',
   '#..............#',
   '#.:..T.s..T..:.#',
-  '#e.............#',
+  '#a.............#',
   '#T..:..TT..:..T#',
   '################',
 ]
 
 const ROOT_STAIR = [
   '################',
-  '#t..........v.t#',
-  '#..T....T...E..#',
-  '#..............#',
-  '#......:.......#',
+  '#t........T.v.t#',
+  '#.........T.E..#',
+  '#...:..........#',
+  '#..T..T..T.....#',
   'L..............#',
-  'L.....T........#',
-  '#..............#',
-  '#..e...:..T....#',
-  '#.......a......#',
-  '#t..T.....T...t#',
+  'L..............#',
+  '#..T..T..T..T..#',
+  '#.....:........#',
+  '#..a.......:...#',
+  '#t.....a......t#',
   '################',
 ]
 
@@ -183,13 +184,15 @@ export const UNDERGLOW1: MapDef = {
     // The old drift: a void down its middle under the plank bridge, two more either side.
     ...rim(38, 1, 3, 4), ...rim(38, 7, 3, 4), ...rim(34, 3, 2, 2), ...rim(34, 7, 2, 2), ...rim(43, 3, 2, 2), ...rim(43, 7, 2, 2),
     // The hanging garden: the north ledge's face over the void, the island's.
-    ...Array.from({ length: 10 }, (_, i) => ledge('s', 1 + i, 2)),
-    ledge('s', 6, 17), ledge('s', 7, 17), ledge('se', 9, 17), ledge('s', 8, 16),
+    ...Array.from({ length: 10 }, (_, i) => ledge('s', 1 + i, 14)),
+    ledge('s', 6, 17), ledge('s', 7, 17), ledge('e', 9, 17), ledge('se', 9, 18), ledge('se', 8, 19),
     roots(1, 13), roots(3, 13), roots(5, 13),
+    // The island is a clump of the grove hanging in the void: its roots hide the post from every side but the ledge's.
+    roots(6, 17), roots(9, 18), roots(8, 19),
     // The grove.
-    ...([[17, 13], [19, 13], [22, 13], [25, 13], [28, 13], [30, 13], [21, 15], [26, 15], [20, 18], [28, 18], [21, 20], [26, 20], [17, 22], [23, 22], [24, 22], [30, 22]] as const).map(([x, y]) => roots(x, y)),
-    // The root stair, and the rose stick by the way down.
-    roots(35, 14), roots(40, 14), roots(38, 18), roots(42, 20), roots(36, 22), roots(42, 22),
+    ...([[17, 13], [19, 13], [22, 13], [25, 13], [28, 13], [30, 13], [21, 15], [26, 15], [20, 16], [28, 16], [21, 20], [26, 20], [17, 22], [23, 22], [24, 22], [30, 22]] as const).map(([x, y]) => roots(x, y)),
+    // The root stair: an avenue of roots from the door east, turning north to the stair head and the rose stick.
+    ...([[42, 13], [42, 14], [35, 16], [38, 16], [41, 16], [35, 19], [38, 19], [41, 19], [44, 19]] as const).map(([x, y]) => roots(x, y)),
     glowstick('rose', 45.45, 14.5),
   ],
   marks: {
@@ -199,16 +202,21 @@ export const UNDERGLOW1: MapDef = {
     E: { ent: { t: 'entry', id: 'down', dir: 'down' } },
     '1': sign('ECHO LEDGES. LAYER ONE.\nTHE LIFT IS BEING MENDED.\n↑ LUMENBY QUARRY.'),
     '2': sign('THE RAILS HOLD.\n(SCRATCHED UNDER IT: B.G.)'),
+    '3': sign('MIND THE CRACK.\nTHE WALL HERE IS HOLLOW.\nSOMETHING GROWS BEHIND IT.'),
     g: npc('q.lamp.bror', 'dusty', [
+      { when: { flag: 'q.lamp.done' }, lines: ['BROR: GUNN HAS MY LAMP? GOOD. THE RAILS STILL HOLD. TELL HER SO, NOW AND THEN.'] },
       { when: { flag: 'q.lamp.got' }, lines: ['BROR: GO ON UP. GUNN WILL BE AT THE UNION HALL. SHE ALWAYS IS.'] },
       { lines: ['BROR: FROM UP TOP? TELL MY SISTER GUNN THE RAILS HOLD.', "BROR: TAKE HER MY LAMP. I CAN'T CLIMB ANY MORE, AND I LIKE IT HERE. IT'S WARM."], set: 'q.lamp.got' },
     ]),
-    s: npc('d.sigge', 'kid', [{ lines: ["SIGGE: I'M ONLY ALLOWED DOWN TO LAYER TWO. THIS IS LAYER TWO. I CHECKED.", "SIGGE: THE TREES HERE GROW DOWN FROM THE ROOF. DON'T LOOK UP FOR TOO LONG."] }]),
+    s: npc('d.sigge', 'kid', [{ lines: [
+      "SIGGE: I'M ONLY ALLOWED DOWN TO LAYER TWO. THIS IS LAYER TWO. I CHECKED.",
+      "SIGGE: THE HEART IN THE GARDEN, WEST? THE HOOK WON'T BITE FROM THIS SIDE.",
+      'SIGGE: BROR SAYS THE LEDGE ABOVE IT IS BEHIND THE CRACKED WALL SOUTH OF THE LIFT.',
+    ] }]),
     k: { ent: { t: 'chest', id: 'underglow1.key', item: 'smallKey', appear: { clear: true } } },
     h: { ent: { t: 'item', id: 'underglow1.piece', item: 'heartPiece' } },
     a: foe('bat'),
     A: foe('bat', 'O'),
-    e: foe('blob'),
   },
 }
 
@@ -360,7 +368,11 @@ export const UNDERGLOW2: MapDef = {
     E: { ent: { t: 'entry', id: 'down', dir: 'down' } },
     '1': sign('THE GLASS SEA. LAYER THREE.\nSTILL WATER. NO SWIMMING.\nNO SPLASHING EITHER.'),
     '3': sign('BROADCAST. LAYER FOUR.\nTHE RADIO TALKS BACK.\nDO NOT TALK BACK TO IT.'),
-    j: npc('d.hanna', 'ghost', [{ lines: ['HANNA: DOWN.', 'HANNA: DEEPER.'] }]),
+    // HANNA says one word at a time, and every word is true: east over the still water, round by the masts, down.
+    j: npc('d.hanna', 'ghost', [
+      { when: { flag: 'underglow2.shortcut' }, lines: ['HANNA: DOWN.', 'HANNA: DEEPER.'] },
+      { lines: ['HANNA: EAST.', 'HANNA: ACROSS.', 'HANNA: ROUND.', 'HANNA: DOWN.'] },
+    ]),
     u: npc('d.echo', 'ghost', [{ lines: ['ECHO: DID I SAY LEFT? I MEANT LEFT.'] }]),
     k: { ent: { t: 'chest', id: 'underglow2.key', item: 'smallKey', appear: { clear: true } } },
     '4': { ent: { t: 'chest', id: 'underglow2.islet', item: 'bits20' } },
@@ -519,7 +531,12 @@ export const UNDERGLOW3: MapDef = {
     '1': sign('THE FOSSIL ARCADE. LAYER FIVE.\nINSERT COIN.\nNOBODY HAS, FOR A LONG TIME.'),
     '2': sign('HIGH SCORES\n1ST: BROR. 2ND: BROR.\n3RD: A SMUDGE.'),
     '3': sign('THE GEYSER\nGOES UP. ALL THE WAY UP.\nHOLD ON TO YOUR HAT.'),
-    g: npc('d.herdsman', 'troll', [{ lines: ['HERDSMAN: THE JUKEBOXES ARE MY HERD. THEY ONLY PLAY WHEN FED COINS.', 'HERDSMAN: THEY ARE SHY. LIKE ME.'] }]),
+    g: npc('d.herdsman', 'troll', [{ lines: [
+      'HERDSMAN: THE JUKEBOXES ARE MY HERD. THEY ONLY PLAY WHEN FED COINS.',
+      'HERDSMAN: THEY ARE SHY. LIKE ME.',
+      'HERDSMAN: THE WARM PART IS PAST THE BONE ROAD, EAST, THEN SOUTH. ITS OLD BLOCK OPENS THE WAY.',
+      "HERDSMAN: SOMETHING HUMS BEHIND THE CRACK SOUTH OF THE CABINETS, WEST. THE HERD WON'T GO NEAR IT.",
+    ] }]),
     p: { ent: { t: 'plate', id: 'underglow3.road' } },
     W: { tile: 'X', ent: { t: 'gate', open: { plates: ['underglow3.road'] } } },
     k: { ent: { t: 'chest', id: 'underglow3.key', item: 'smallKey', appear: { clear: true } } },
