@@ -220,7 +220,7 @@ export const RERUN: MapDef = {
     // The lawn answers back: a mailbox spitter on each of the avenue's lots, flamingo drones at the drive-in, mower
     // hounds by the fountain (the skins: `render/renderer.ts`).
     '6': { tile: ':', ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
-    '+': { ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
+    '+': { tile: ',', ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
     '&': { ent: { t: 'enemy', kind: 'drone' } },
     '7': { ent: { t: 'enemy', kind: 'hound' } },
     '1': { ent: { t: 'chest', id: 'rerun.island', item: 'heartPiece' } },
