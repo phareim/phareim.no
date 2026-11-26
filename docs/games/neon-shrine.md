@@ -822,8 +822,9 @@ classic picture. `/?view=<id>` asks for one.
       `tests/zelda-tough.test.mjs`, over eight setups for each kind: one who
       stands still is hurt; one who hammers A is hurt at least twice, with
       the Arc Blade too; one who only throws the disc is hurt; one who rolls
-      off the strike 0.1 s after it starts (or 0.15 s) and cuts while the bar
-      is gold wins untouched in 8 to 20 s; one who rolls before the tell is
+      off the strike 0.1 s after it starts and cuts while the bar is gold
+      wins untouched in 8 to 20 s (0.15 s after it starts: still untouched,
+      a little slower); one who rolls before the tell is
       over is hit, because the foe aims when the tell ends.
     - *The bar, the outline and the light* (`render/renderer.ts`, every view;
       no art of its own). The foe's silhouette a px out on four sides: pink,
