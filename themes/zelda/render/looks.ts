@@ -189,11 +189,11 @@ export const MOOD: Record<RealmLook, Mood> = {
     particles: 'snow', colors: ['#ffffff', '#d6e2ff', '#b4c4ff'], count: 70, leaves: null,
     lamps: 0.9, glow: 0.6, lamp: ['#ffb13f', '#ffd23f'], raysColor: '#c8d8ff', flies: null, life: ['lanterns', 'gulls', 'fish'], hero: 0.3,
   },
-  // A warm haze over pastel dunes, quartz glinting.
+  // A warm haze over pastel dunes, quartz glinting. The light stays under 1: brighter, noon burns the peach sand white.
   dune: {
-    sky: ['#5a3a8a', '#ffb08a'], water: '#0e7088', haze: 1.4, hazeColor: '#ffd8b0', hazeMix: 0.75,
+    sky: ['#5a3a8a', '#ffb08a'], water: '#0e7088', haze: 0.8, hazeColor: '#ffd8b0', hazeMix: 0.75,
     mist: 0, mistColor: '#ffc0a0', clear: 0, rays: 0.6,
-    ambient: [1, 1.22, 1.12], sun: [1, 1.12, 1], shadowLength: 1.3, shadowColor: '#7a4a9a',
+    ambient: [0.84, 0.78, 0.76], sun: [0.96, 0.92, 0.86], shadowLength: 1.3, shadowColor: '#7a4a9a',
     particles: 'dust', colors: ['#ffe0c0', '#ffc0b0'], count: 26, leaves: null,
     lamps: 0.75, glow: 0.55, lamp: ['#ffd23f', '#ffb13f'], raysColor: '#ffd8a0', flies: null, life: ['glints', 'birds'], hero: 0,
   },
