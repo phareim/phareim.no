@@ -143,6 +143,13 @@ describe('things drawn by hand', () => {
       }
     }
     assert.ok(found > 30, `${found} preset landmarks`)
+    // A map that names more kits than its realm's (Seter Fell's meadow) puts them on the GPU together: they still fit.
+    for (const [id, def] of Object.entries(M.WORLD.maps)) {
+      const kits = M.kitsFor(def)
+      if (kits.length < 2) continue
+      const atlas = M.withThings(props, Object.assign({}, ...kits.map(k => REALM_THING_ART[k])))
+      assert.ok(atlas.h <= 2048, `${id}'s kits ${kits.join('+')} pack ${atlas.h}px tall`)
+    }
     assert.equal(M.withThings(props), base)
   })
 
