@@ -220,6 +220,40 @@ describe("the Keeper's hut", () => {
   })
 })
 
+describe('a sign with a second text', () => {
+  /** Stand under the sign at (x, y) and read it; returns the lines and closes the box. */
+  function read(s, x, y) {
+    Object.assign(s.hero, { x: x + 0.5, y: y + 1.5, dir: 'up' })
+    s.map.enemies = []
+    for (let k = 0; k < 30; k++) step(s)
+    step(s, inp({ aPress: true, a: true }))
+    const said = s.dialog?.lines
+    settle(s)
+    for (let k = 0; k < 30; k++) step(s)
+    return said
+  }
+  function at(map, entry) {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map, entry } })
+    s.flags.intro = true
+    return s
+  }
+
+  it('the phone booth in Rerun hisses until the Gate is shut, then sounds relieved', () => {
+    const s = at('rerun', 'booth')
+    assert.deepEqual(read(s, 58, 24), ['(YOU PICK UP. THE DIAL TONE HAS A HISS UNDER IT, LIKE SOMETHING WAITING ITS TURN.)'])
+    s.flags.gateShut = true
+    assert.deepEqual(read(s, 58, 24), ['(YOU PICK UP. JUST THE DIAL TONE. IT SOUNDS RELIEVED.)'])
+  })
+
+  it('a sign without one reads the same before and after', () => {
+    const s = at('seterfell', 'gate-fell')
+    const lines = ['CLOSE THE GATE.\nTHE GOATS HAVE LEARNED THE LATCH.']
+    assert.deepEqual(read(s, 43, 48), lines)
+    s.flags.gateShut = true
+    assert.deepEqual(read(s, 43, 48), lines)
+  })
+})
+
 // A small world with every kind of exit, spikes, a pit, a blob and a spitter.
 function fixture() {
   return {

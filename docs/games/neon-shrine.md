@@ -38,7 +38,10 @@ for the player to find out; the jokes stay. A page is one or more whole
 sentences, never a clause cut by the box; whoever talks opens with their name
 ("GUNN: …", the name plate); a place has one name everywhere, the one on its
 banner. Out in the lands a page is at most three rows of the narrowest box
-(180 px, touch key names), which `tests/zelda-world.test.mjs` checks.
+(180 px, touch key names), which `tests/zelda-world.test.mjs` checks. A sign
+may carry a second text (`alt: { when, lines }`), read instead of its lines
+while the condition holds (Rerun's phone booth once the Gate is shut). How the
+lands use their words: `docs/worlds/README.md`, "How the lands speak".
 
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
 wholesale on 2026-09-22; it is in git history up to `a110530`. The separate

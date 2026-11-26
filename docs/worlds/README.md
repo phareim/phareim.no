@@ -35,7 +35,7 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
 `MAPS`; `world/lands.ts` gathers them. Seter Fell (`seterfell.ts`) is the worked example.
 
 - `away: true`: a land past the coast. A reload of the tab out there continues there (the per-tab flag `zelda.out`,
-  `awayMap`, `loadSpot`); arriving by a gate, the ferry or a seam opens the arrival area's first-visit words.
+  `awayMap`, `loadSpot`); arriving in an area with first-visit words opens them ("How the lands speak", below).
 - `realm`: the land's identity: its art kit (`render/iso/frontierArt/`, an art pack fetched when the hero is there;
   docs/games/neon-shrine.md, "The art packs"), its light and air (`render/looks.ts`, `MOOD`), its people's and foes' looks, the critters that live
   there (`render/life/`). `kits` names more kits the map draws from (Seter Fell's hay and mill are the `meadow` kit's);
@@ -43,9 +43,8 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
   (`scripts/zelda-lab/codex/README.md`; `kit-check.mjs` fails on a piece that is not); a new landmark gets its guide in
   the kit's source (`frontierArt/<kit>.ts`) and goes the same way before it is placed.
 - `look` (one per map): snow, dune, spore, fog, quarry, suburb, wild. A climate is its own map.
-- Areas: five to eight named ones, each with a continue point and `intro` (the realm's first-visit words, flag
-  `realm:<realm>`, so they open once in whichever area the hero arrives). `camp` is the land's heart: a save out
-  there that lost its spot continues there.
+- Areas: five to eight named ones, each with a continue point; one of them may carry an `intro` (first-visit words,
+  shown once by its flag). `camp` is the land's heart: a save out there that lost its spot continues there.
 - The realm's system lives in a place built for it: relighting the hill sign in Lumenby (its tubes, on ground with
   heights: `MapDef.terrain`), physical puzzles in Yule Fjord and Stillsand (puzzle tiles in the rows, chests that
   appear once a puzzle is solved).
@@ -58,6 +57,19 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
   (`render/standIns.ts`).
 - The questlines' people keep their old ids (`q.…`, `l.…`), so their flags and saves still work; each story's first
   step stands on the hand-made coast or in the Wildwood (atlas.md, "The stories start in the old world").
+
+## How the lands speak
+
+- At most one intro per land, and only where the map confirms it: Yule Fjord's beam at THE LIGHTHOUSE (while the
+  Gate stands open), Rerun's mailboxes on THE AVENUE, Fogstage's spotlight on THE TICKET HILL.
+- A sign that names its place says something about it; none is only a heading for the banner. A person says one
+  thing.
+- Bearings live on junction signs.
+- The story thread: one beat per land, a thing that is a little wrong while the sun is stuck, and it answers on
+  `gateShut` or `item:prism`. Solveig, Yule Fjord's grandad and Gunn's lit sign say it once (`seterfell.sun`,
+  `yulefjord.hiss`, `lumenby.sunset`); Ragna, Arne, the Night Watch, Gunn's own lines and Rerun's phone booth say
+  the new line for as long as it holds. No land line names the King, the Prism or the Gate.
+- A sign may carry a second text (`alt: { when, lines }`), read instead of `lines` while its condition holds.
 
 ## Old saves
 

@@ -18,8 +18,8 @@ type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
 const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [text] } })
 
-/** The fjord's first-visit words, in whichever area the hero arrives (the ferry, a pass): once. */
-const INTRO: AreaIntro = { lines: ['THE SUN HAS NOT RISEN FOR WEEKS. THE VILLAGE SLEEPS, AND A FEW LAMPS STAY LIT.'], who: null, flag: 'realm:yulefjord' }
+/** The lighthouse's beam still going out to sea: once, and only while the Gate stands open. */
+const BEAM: AreaIntro = { lines: ['(A BEAM GOES OUT TO SEA AND COMES BACK WITH A HISS.)'], who: null, flag: 'yulefjord.beam', when: { notFlag: 'gateShut' } }
 
 /** A red cottage under snow, its windows lit at night; cover is its 3×3 of H. */
 const cottage = (x: number, y: number): IsoLandmark => prop('fjord_cottage', x + 1.5, y + 1.5, { night: 'fjord_cottage_night', cover: { x, y, w: 3, h: 3 }, lights: COTTAGE })
@@ -48,7 +48,7 @@ export const YULEFJORD: MapDef = {
     '~~~~~~~~###############################################~~###############################',
     '~~~~~~~~####################################5##########~~###############################',
     '~~~~~~~~######################T....#....;###,#...T#....~~.#THHH..;..T.....HHH.;.T.######',
-    '~~~~~~~~###################......;...;....R.,......T.;.~~.m.HHH..;..T..;..HHH..T;..#####',
+    '~~~~~~~~###################......;...;......,......T.;.~~.m.HHH..;..T..;..HHH..T;..#####',
     '~~~~~~~~###################.1.T.T8.,,,,,,,,,,,,,,,,,,,,==,.;HHH..t.......tHHH..;.T7#####',
     '~~~~~~~~###################.....;..,;;.;.......;..7..;.~~,,,,,,,,,,,,,,,,,,,,,.;.....###',
     '~~~~~~~~~~~~~###~~#~######~###.....,............;;.....~~.############,#################',
@@ -66,12 +66,12 @@ export const YULEFJORD: MapDef = {
     '~~~~~~~~~~~~~~~~~~~~~~~~~~=~~~HHH~=~~HHH~~~HHH=~~HHH~~~~~~ααααααααααααααααααααααααααα###',
     '~~~~~~~~~~~~HHHHH~~HHHHH~~=~~===s============c========~~~~..........................####',
     '~~~~~~~~~~~~HHHHH~~HHHHH~~=~,,,,,,,,,,,,,,,,,,,,,,,,e,,..M...........,....#h######.;####',
-    '~~~~~~~~~~~~HHHHH~~HHHHH~~=~~:...E.,.t...Q,.t.....t...t....#########.,;...#......k2.####',
+    '~~~~~~~~~~~~HHHHH~~HHHHH~~=~~:...E.,.t....,.t.....t...t....#########.,;...#......k2.####',
     '~~~~~~~~.---------d--------t-..HHH.,..HHH.,..HHH........;.;######y##.,;..;#αααααα#:.####',
     '~~~~~~~~.----------------,--J..HHH.,..HHH.,..HHH......:....#.αααααα#.,....#αμαααα#..####',
     '~~~~~~~~...t..;.,....t..,,....;HHH.,..HHH.,..HHH...........#.αbααα##.,....#αααααα#;.####',
     '~~~.............,......;,;;...,,,,,,,,,,,,,,,,,,,,,,,,,,,.;#.ααααα.#;,..;;#......#.:####',
-    '~~~............FFFFFF...,...........,.;....;,..z......;...;#......4#.,....####.###..####',
+    '~~~............FFFFFF...,...........,.;....;,.........;...;#......4#.,....####.###..####',
     '~~.HHH.6........,.f.....,....;.;....,t...T..,.###########.T####,####.,........,NT..:####',
     '~~.HHH.........FFFFFF...,....FFFF..,,.;.....,T#.;HHHHH.;#......,,O,,,,,,,,,,,,,.TTTT####',
     '~~.HHH....t.::..,.....;.,.........,,...w...;,;#..HHHHH..#TTT.TT......,.T.;T.TT.T.:..####',
@@ -79,14 +79,14 @@ export const YULEFJORD: MapDef = {
     '~~.;,,,,,,,,,.......,,,,,,,,,...;.,.........,;#.;HHHHH..#...8.T.T.T..,:.T.T..T..T.T.####',
     '~~..;...L....;....;.;..TT...,....;,..;......,,,....a....#..;TT.....T***.T........T..####',
     '~~~....;.......TT.........;.......,..;........#.;..,....#...T..TT.T.:,;..αααα#ααα.T.####',
-    '~~~~.;....;~........;.............,;;.....;T..#...K,....#TT..T....T.;,.U.ααααα#αα..T####',
+    '~~~~.;....;~........;.............,;;.....;T..#...K,....#TT..T....T.;,...ααααα#αα..T####',
     '##TTT....T.........;.........T....,...;...T...####,,,####......;.....,...αααααααα...####',
     '####T#####.....T....;T...9.r..T...,.........T......,........T..T;T.T.,:..#αααVαα#.T.####',
     '##T####T##..8...T..T:.............,T..........;....,....;T..T........,...αααααααα...####',
     '##T#######;...;...0..............C,.T..:.T...:....;,....T....0;...;..,...αα~ααααα.T.####',
     '###T######...T.............,,,,,,,,,,,,,,,,,,,,,,,,,,....T.TT...T.T.;,...αααα#ααα..T####',
     '##T###TT##..;;.....;.,,,,,,,.;.;....;...............,,,;....;...T.T;.,.T...;.....T..####',
-    '####T#TT#T...T...,,,,,......IP...;......I.............,,,;.T....T.:,,,.T..T....;T.:.####',
+    '####T#TT#T...T...,,,,,......I....;......I.............,,,;.T....T.:,,,.T..T....;T.:.####',
     '##########....;,,,.....;.........;....T;..........;.....,,,..T....,,.;T..TT.TT.9.T..####',
     '##T#T#####...I,,..;...9T.T...T..T...T...T.;...9;.;......;.,,,..;,,,.;:TT.;T;..T.T..T####',
     '###T####T#.;,,,.T.T....;T.;.;...T......;.......;............,,,,,.;..T..;..T.T.TT...####',
@@ -97,13 +97,13 @@ export const YULEFJORD: MapDef = {
     '##########,,,#################################################,,,#######################',
   ],
   areas: [
-    { name: 'THE FAR SHORE', x: 26, y: 0, w: 62, h: 9, entry: 'farshore', intro: INTRO },
-    { name: 'THE LIGHTHOUSE', x: 0, y: 0, w: 13, h: 38, entry: 'lighthouse', intro: INTRO },
-    { name: 'THE HARBOUR', x: 13, y: 9, w: 16, h: 29, entry: 'ferry', intro: INTRO },
-    { name: 'THE STAVE CHURCH', x: 44, y: 28, w: 12, h: 12, entry: 'church', intro: INTRO },
-    { name: 'THE STILTS', x: 29, y: 9, w: 27, h: 29, entry: 'camp', intro: INTRO },
-    { name: 'THE ICE FLATS', x: 56, y: 9, w: 32, h: 31, entry: 'iceflats', intro: INTRO },
-    { name: 'THE PASS', x: 0, y: 38, w: 88, h: 14, entry: 'pass', intro: INTRO },
+    { name: 'THE FAR SHORE', x: 26, y: 0, w: 62, h: 9, entry: 'farshore' },
+    { name: 'THE LIGHTHOUSE', x: 0, y: 0, w: 13, h: 38, entry: 'lighthouse', intro: BEAM },
+    { name: 'THE HARBOUR', x: 13, y: 9, w: 16, h: 29, entry: 'ferry' },
+    { name: 'THE STAVE CHURCH', x: 44, y: 28, w: 12, h: 12, entry: 'church' },
+    { name: 'THE STILTS', x: 29, y: 9, w: 27, h: 29, entry: 'camp' },
+    { name: 'THE ICE FLATS', x: 56, y: 9, w: 32, h: 31, entry: 'iceflats' },
+    { name: 'THE PASS', x: 0, y: 38, w: 88, h: 14, entry: 'pass' },
   ],
   entries: {
     'camp': { x: 36.5, y: 23.5, dir: 'down' },
@@ -205,21 +205,17 @@ export const YULEFJORD: MapDef = {
     // The ferry home from the end of the harbour pier; the sea cave's mouth in the far shore's cliff.
     '3': { ent: { t: 'warp', to: 'overworld', entry: 'ferry' }, tile: '=' },
     '5': { ent: { t: 'warp', to: 'seacave', entry: 'door' }, tile: 'D' },
-    // Signs: the passes, the junction, each place.
+    // Signs: the passes, the junctions and a few places.
     'A': sign('↑ THE STILTS AND THE HARBOUR.\n↓ LUMENBY QUARRY, OVER THE TOPS.'),
     'B': sign('← THE STILTS. ↑ THE ICE FLATS.\n↓ SETER FELL, OVER THE TOPS.'),
     'C': sign('↑ THE STILTS.\n← THE HARBOUR.\n→ THE STAVE CHURCH.'),
-    'E': sign('YULE FJORD. THE SUN COMES BACK IN SPRING. KEEP A LAMP LIT UNTIL THEN.'),
-    'Q': sign('THE STILTS. NO KNOCKING. SLEEPERS INSIDE UNTIL SPRING.'),
-    'J': sign('THE HARBOUR. THE FERRY SAILS FOR THE NEON COAST FROM THE END OF THE PIER.'),
-    'K': sign('THE STAVE CHURCH. THE BELL CRACKED IN THE COLD. NO RINGING UNTIL IT MENDS.'),
-    'L': sign('THE LIGHTHOUSE. DO NOT ANSWER THE SEA.'),
-    'M': sign('THE ICE FLATS. THE ICE HAS NO BRAKES. MIND THE OPEN WATER.'),
-    'N': sign('TURN THE OLD LAMP ON THE DARK LAMP IN THE EAST WALL, AND THE FAR SHORE WAKES.'),
-    'U': sign('THE TARN. FROZEN TO THE BOTTOM. OUT ON THE ICE THE ROCKS ARE THE ONLY BRAKES.'),
+    'E': sign('YULE FJORD. 9 LAMPS, 1 WARDEN.\nTHE WARDEN WOULD LIKE A SECOND WARDEN.'),
+    'J': sign('FERRY: END OF THE PIER.\nIT WILL WAIT. IT HAS NOWHERE ELSE TO BE.'),
+    'K': sign('THE BELL IS CRACKED.\nSOMEONE RANG IT ANYWAY.\nIT SAID CLUNK.'),
+    'L': sign('DO NOT ANSWER THE SEA.'),
+    'M': sign('THE ICE HAS NO BRAKES.\nMIND THE OPEN WATER.'),
+    'N': sign('THE OLD LAMP FACES THE WRONG WALL. THE DARK LAMP IS IN THE EAST WALL.'),
     'O': sign('THE ICE HOUSE. THE HEAVY PLATE HAS HELD NOTHING SINCE THE BLOCK GOT AWAY ON THE ICE.'),
-    'R': sign('THE SEA CAVE. THE TIDE COMES IN WITHOUT KNOCKING.'),
-    'P': sign('CAIRN. ADD A STONE. TAKE NONE.'),
     // The heart piece in the far shore's nook (over the ice), the two puzzles' chests, and four small finds.
     '1': { ent: { t: 'chest', id: 'yulefjord.nook', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'yulefjord.lamp', item: 'bits50', appear: { flag: 'yulefjord.lamp.lit' } } },
@@ -235,19 +231,18 @@ export const YULEFJORD: MapDef = {
     // ASLAK and the cracked bell (`q.bell.*`, docs/worlds/quests.md): the Clinker lies south-east past Seter Fell; the seters south.
     'a': npc('q.bell.ringer', 'keeper', [
       { when: { flag: 'q.bell.rung' }, lines: ['ASLAK: IT RINGS EVERY HOUR NOW. EVEN WHEN ASKED NOT TO.'] },
-      { when: { flag: 'q.bell.cast' }, lines: ['ASLAK: RECAST! UP IT GOES.', '(DONG. THE WHOLE FJORD GOES QUIET TO LISTEN.)', 'ASLAK: WHOEVER WAS CARRIED OFF CAN HEAR THE WAY HOME NOW. TRY THE SETERS, SOUTH.'], set: 'q.bell.rung', give: 'heartPiece' },
-      { when: { flag: 'q.bell.crack' }, lines: ['ASLAK: A FIRE HOT ENOUGH TO RECAST A BELL? THE CLINKER CAMP, IN THE SPORELIGHT.', 'ASLAK: SOUTH-EAST, PAST SETER FELL. THE EAST ROAD GOES OVER THE TOPS.'] },
-      { lines: ['ASLAK: THE BELL CRACKED IN THE COLD. A BELL THAT CANNOT RING CALLS NOBODY HOME.', 'ASLAK: TAKE IT TO A FIRE BIG ENOUGH TO RECAST IT. THERE IS NONE ON THE FJORD.'], set: 'q.bell.crack' },
+      { when: { flag: 'q.bell.cast' }, lines: ['ASLAK: RECAST! UP IT GOES.', '(DONG. THE WHOLE FJORD GOES QUIET TO LISTEN.)', 'ASLAK: SOMEWHERE SOUTH, ON THE SETERS, A GIRL WITH HAY IN HER HAIR JUST LOOKED UP.'], set: 'q.bell.rung', give: 'heartPiece' },
+      { when: { flag: 'q.bell.crack' }, lines: ['ASLAK: THE CLINKER. ASK FOR RAGNA. SHE WILL NOT SMILE.'] },
+      { lines: ['ASLAK: THE BELL CRACKED IN THE COLD. A BELL THAT CANNOT RING CALLS NOBODY HOME.', 'ASLAK: NO FIRE ON THE FJORD IS BIG ENOUGH. I TRIED THE STOVE. THE BELL DID NOT FIT.', 'ASLAK: THE CLINKER, IN THE SPORELIGHT. THEY HAVE A FIRE THEY ARE PROUD OF.'], set: 'q.bell.crack' },
     ]),
     // The fjord's folk (the old frontier's yulefjord realm).
-    'w': npc('yulefjord.warden', 'guard', [{ lines: ['LAMP WARDEN: KEEP THE LAMPS LIT TILL THE SUN COMES BACK. THAT\'S THE WHOLE JOB.', 'LAMP WARDEN: I AM THE LAST ONE AWAKE. I THINK. HELLO? OH, GOOD. YOU\'RE AWAKE TOO.', 'LAMP WARDEN: WHEN THE SUN COMES BACK, EVERYONE GETS SUN BUNS. I\'VE BEEN SAVING ROOM.'] }]),
-    's': npc('yulefjord.sleeper', 'sleeper', [{ lines: ['SLEEPER: WAKE ME... WHEN IT\'S... BUNS...', '(THEY SLEEP ON THE PORCH IN A BOX BED, UNDER SIX SKINS.)'] }]),
-    'z': npc('yulefjord.sleeper2', 'sleeper', [{ lines: ['SLEEPER: NOT YET... STILL DARK... FIVE MORE WEEKS...', 'SLEEPER: WHO\'S ROWING... NOBODY ROWS IN WINTER... SHH...'] }]),
-    'c': npc('yulefjord.chalk', 'sledchild', [{ lines: ['CHALK GIRL: THE DOORS BY THE PIER HAVE NO MARKS. THAT IS VERY BAD.', 'CHALK GIRL: A CROSS ON EVERY DOOR, SO THE NIGHT RIDERS GO PAST. GRANDMA SAYS.', 'CHALK GIRL: I\'M NOT SCARED OF THE DARK. I\'M SCARED OF WHAT RIDES ACROSS IT.'] }], { wander: true }),
-    'e': npc('yulefjord.sweeper', 'lamplighter', [{ lines: ['SWEEPER: MIND ROWING ME ACROSS THE FJORD, DEAR? MY BROOM IS TIRED.', 'SWEEPER: SUCH BRIGHT LAMPS. SUCH A SHAME. NOBODY NEEDS A LAMP WHEN THEY\'RE ASLEEP.', 'SWEEPER: I SWEEP THE DOORSTEPS, DEAR. AND WHATEVER I FIND ON THEM.'] }]),
-    'm': npc('yulefjord.musician', 'guitar', [{ lines: ['MUSICIAN: SOMETHING IN THE RAPID TAUGHT ME ONE TUNE. NOT THE END OF IT.', 'MUSICIAN: I CAN\'T STOP PLAYING. MY FINGERS WON\'T LET ME. IT\'S BEEN THREE DAYS.', 'MUSICIAN: HUM ME THE LAST BAR, IF YOU KNOW IT. NOBODY KNOWS IT.'] }]),
-    'f': npc('yulefjord.fishwife', 'fjordfisher', [{ lines: ['FISHWIFE: SOMETHING ATE MY FISH. SOMETHING WET.', 'FISHWIFE: COD ON THE RACKS ALL WINTER. IT DRIES IN THE DARK. SO DO I.', 'FISHWIFE: IF THE SEA CALLS YOUR NAME, DON\'T ANSWER. IT DOESN\'T WANT A CHAT.'] }]),
-    'd': npc('yulefjord.grandad', 'keeper', [{ lines: ['GRANDAD: THREE CRIES OUT ON THE WATER LAST NIGHT. NOBODY ROWS IN THE DARK.', 'GRANDAD: HALF A BOAT WENT PAST IN THE FOG. HALF A MAN ROWING IT. DON\'T WAVE.', 'GRANDAD: THE BOATHOUSE STAYS SHUT TILL SPRING. THE SEA KNOWS WHO\'S INSIDE.'] }]),
+    'w': npc('yulefjord.warden', 'guard', [{ lines: ['LAMP WARDEN: I LIGHT THEM. THE OLD WOMAN WITH THE BROOM PUTS THEM OUT.', 'LAMP WARDEN: WE HAVE NEVER BEEN IN THE SAME PLACE. I THINK SHE PLANS IT.', 'LAMP WARDEN: SUN BUNS FOR EVERYONE AT SUNRISE. I HAVE BEEN SAVING ROOM.'] }]),
+    's': npc('yulefjord.sleeper', 'sleeper', [{ lines: ["SLEEPER: WAKE ME... WHEN IT'S... BUNS..."] }]),
+    'c': npc('yulefjord.chalk', 'sledchild', [{ lines: ['CHALK GIRL: THE DOORS BY THE PIER HAVE NO MARKS. THAT IS VERY BAD.', "CHALK GIRL: I'M NOT SCARED OF THE DARK. I'M SCARED OF WHAT RIDES ACROSS IT."] }], { wander: true }),
+    'e': npc('yulefjord.sweeper', 'lamplighter', [{ lines: ["SWEEPER: SUCH BRIGHT LAMPS. SUCH A SHAME. NOBODY NEEDS A LAMP WHEN THEY'RE ASLEEP.", 'SWEEPER: I SWEEP THE DOORSTEPS, DEAR. AND WHATEVER I FIND ON THEM.'] }]),
+    'm': npc('yulefjord.musician', 'guitar', [{ when: { flag: 'yulefjord.lamp.lit' }, lines: ['(THE MUSICIAN PLAYS THE LAST BAR. IT IS ONE NOTE.)'] }, { lines: ['MUSICIAN: SOMETHING IN THE RAPID TAUGHT ME ONE TUNE. NOT THE END OF IT.', 'MUSICIAN: HUM ME THE LAST BAR, IF YOU KNOW IT. NOBODY KNOWS IT.'] }]),
+    'f': npc('yulefjord.fishwife', 'fjordfisher', [{ lines: ['FISHWIFE: SOMETHING ATE MY FISH. SOMETHING WET.'] }]),
+    'd': npc('yulefjord.grandad', 'keeper', [{ when: { flags: ['gateShut'], not: ['yulefjord.hiss'] }, lines: ['GRANDAD: THE BEAM CAME BACK EMPTY TODAY. FIRST TIME IN THREE NIGHTS. I MISS THE HISS.'], set: 'yulefjord.hiss' }, { lines: ['GRANDAD: THREE CRIES OUT ON THE WATER LAST NIGHT. NOBODY ROWS IN THE DARK.', "GRANDAD: HALF A BOAT WENT PAST IN THE FOG. HALF A MAN ROWING IT. DON'T WAVE."] }]),
     // Field foes: seals on the far shore, bats under the cliffs, wisps on the pass, skulls in the spruce.
     '7': { ent: { t: 'enemy', kind: 'dasher' } },
     '8': { ent: { t: 'enemy', kind: 'bat' } },

@@ -11,7 +11,7 @@
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
  */
-import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
+import type { EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
 import { at, cycle, lantern, light, prop } from './scenery'
 
@@ -19,8 +19,6 @@ type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
 const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [text] } })
 
-/** The fell's first-visit words, in whichever area the hero arrives (a gate, a pass): once. */
-const INTRO: AreaIntro = { lines: ['HEATHER, BIRCHES AND COWBELLS: THE LAST WEEK OF SUMMER ON THE HIGH PASTURE.', 'SOME OF THE HILLS ARE BREATHING.'], who: null, flag: 'realm:seterfell' }
 
 /** A seter hut: grass roof, hearth at the door, smoke from the chimney; cover is its 3×3 of H. */
 const hut = (x: number, y: number): IsoLandmark => prop('seter_hut', x + 1.5, y + 1.5, {
@@ -54,7 +52,7 @@ export const SETERFELL: MapDef = {
     'TT...~~~~~~~~~;.....:..,,,:;m.:I......:.:::..;...;.:;.....#####.......TT',
     'TT...;~~~~~~~~......;.....,,,,,,;.;;.;:;...:...,,:::::......;.........TT',
     'TT.....~~~~~~...;.9...;...;;.:,.,,,,,,,,,,,,,,,..::::::..............;TT',
-    'TT....;...:.~~......:..:I..:.Q,..;.I..:.8..;;....:::K....;T;.....;;...TT',
+    'TT....;...:.~~......:..:I..:.Q,..;.I..:.8..;;....::::....;T;.....;;...TT',
     'TT....;......~~......;..::..:.,........;:...:;..........;;;;;.........TT',
     'TT............~......:.:..:..;,...;;:.;.....:.......;..T;;;;;........;TT',
     'TT..:.:.6....;~~.....;....####,,#############.########..;;;;;......;..TT',
@@ -99,12 +97,12 @@ export const SETERFELL: MapDef = {
     '#############################################A##########################',
   ],
   areas: [
-    { name: 'CAIRN RIDGE', x: 0, y: 0, w: 72, h: 14, entry: 'ridge', intro: INTRO },
-    { name: 'THE MOUNDS', x: 0, y: 14, w: 25, h: 20, entry: 'mounds', intro: INTRO },
-    { name: 'THE BIG SETER', x: 25, y: 14, w: 25, h: 20, entry: 'camp', intro: INTRO },
-    { name: 'TROLL HUMPS', x: 50, y: 14, w: 22, h: 38, entry: 'humps', intro: INTRO },
-    { name: 'LOWER PASTURE', x: 0, y: 34, w: 34, h: 18, entry: 'pasture', intro: INTRO },
-    { name: 'THE FELL ROAD', x: 34, y: 34, w: 16, h: 18, entry: 'gate-fell', intro: INTRO },
+    { name: 'CAIRN RIDGE', x: 0, y: 0, w: 72, h: 14, entry: 'ridge' },
+    { name: 'THE MOUNDS', x: 0, y: 14, w: 25, h: 20, entry: 'mounds' },
+    { name: 'THE BIG SETER', x: 25, y: 14, w: 25, h: 20, entry: 'camp' },
+    { name: 'TROLL HUMPS', x: 50, y: 14, w: 22, h: 38, entry: 'humps' },
+    { name: 'LOWER PASTURE', x: 0, y: 34, w: 34, h: 18, entry: 'pasture' },
+    { name: 'THE FELL ROAD', x: 34, y: 34, w: 16, h: 18, entry: 'gate-fell' },
   ],
   entries: {
     'gate-fell': { x: 45.5, y: 48.5, dir: 'up' },
@@ -156,26 +154,25 @@ export const SETERFELL: MapDef = {
   ],
   marks: {
     'A': gateHome('fell'),
-    'B': sign('SETER FELL. SUMMER PASTURE.\nCLOSE EVERY GATE BEHIND YOU.'),
-    'E': sign('THE BIG SETER\nMILK, CHEESE, BUTTER.\nNO BUTTER FOR THE NISSE.'),
+    'B': sign('CLOSE THE GATE.\nTHE GOATS HAVE LEARNED THE LATCH.'),
+    'E': sign('MILK. CHEESE. BUTTER.\nNOT FOR THE NISSE.'),
     'J': sign('↑ THE BIG SETER.\n← LOWER PASTURE.\n↓ WHISPER WOODS.'),
-    'K': sign('THE LOOKOUT.\n↓ THE BIG SETER.\n→ TROLL HUMPS.'),
-    'L': sign('← LUMENBY QUARRY.\n→ THE BIG SETER.'),
-    'M': sign('→ THE SPORELIGHT.\n← THE BIG SETER.'),
-    'N': sign('↑ YULE FJORD, OVER THE TOPS.\n↓ THE BIG SETER.'),
+    'L': sign('← LUMENBY QUARRY.'),
+    'M': sign('→ THE SPORELIGHT.'),
+    'N': sign('↑ YULE FJORD, OVER THE TOPS.'),
     'P': sign('THE FELL\'S EDGE.\nBELOW: PHAREIM.NO.'),
-    'Q': sign('THE VARDE ON CAIRN RIDGE. YOU CAN SEE IT FROM THE SETER.\nADD A STONE. TAKE NONE.'),
-    'a': npc('q.bell.home', 'dairymaid', [{ lines: ['SIGRID: THE BELL RANG, AND THERE I WAS. HOME, WITH HAY IN MY HAIR.', 'SIGRID: THE COWS DIDN\'T EVEN NOTICE I WAS GONE. HERE. FOR YOUR WALK.'], give: 'bits50' }], { hide: { notFlag: 'q.bell.rung' } }),
-    'd': npc('q.bell.tail', 'huldra', [{ when: { flag: 'q.bell.rung' }, lines: ['SOLVEIG: A BELL THAT RINGS! NOW I CAN BE WED UNDER IT.', '(SOMETHING SWISHES BEHIND HER SKIRT. NOBODY MENTIONS IT.)'] }, { lines: ['SOLVEIG: LOVELY EVENING. DON\'T LOOK DOWN.', 'SOLVEIG: I WANT TO BE WED UNDER A BELL THAT RINGS. THE ONE ON THE FJORD IS CRACKED.'] }]),
-    'g': npc('seterfell.dairymaid', 'dairymaid', [{ lines: ['DAIRYMAID: THREE COWS MISSING, AND FIVE DAYS TILL WE WALK THE HERDS DOWN.', 'DAIRYMAID: CHEESE ON EVERY SHELF, BUTTER IN THE CHURN. HANDS OFF BOTH.'] }]),
+    'Q': sign('ADD A STONE. TAKE NONE.'),
+    'a': npc('q.bell.home', 'dairymaid', [{ lines: ['SIGRID: THE BELL RANG, AND THERE I WAS. HOME, WITH HAY IN MY HAIR.', "SIGRID: THE GOATS DIDN'T EVEN NOTICE I WAS GONE. HERE. FOR YOUR WALK."], give: 'bits50' }], { hide: { notFlag: 'q.bell.rung' } }),
+    'd': npc('q.bell.tail', 'huldra', [{ when: { flags: ['item:prism'], not: ['seterfell.sun'] }, lines: ['SOLVEIG: THE SUN HAS MOVED. NOBODY TOLD ME IT COULD DO THAT.'], set: 'seterfell.sun' }, { when: { flag: 'q.bell.rung' }, lines: ['SOLVEIG: A BELL THAT RINGS! NOW I CAN BE WED UNDER IT.', '(SOMETHING SWISHES BEHIND HER SKIRT. NOBODY MENTIONS IT.)'] }, { lines: ['SOLVEIG: LOVELY EVENING. DON\'T LOOK DOWN.', 'SOLVEIG: I WANT TO BE WED UNDER A BELL THAT RINGS. THE ONE ON THE FJORD IS CRACKED.'] }]),
+    'g': npc('seterfell.dairymaid', 'dairymaid', [{ lines: ['DAIRYMAID: THE CHURN HAS BEEN GOING SINCE MAY. I AM NOT SURE IT IS STILL BUTTER.'] }]),
     'h': npc('seterfell.nisse', 'troll', [{ lines: ['BARN NISSE: NO BUTTER. NO BUTTER! NOT A SCRAP OF BUTTER IN MY PORRIDGE.', 'BARN NISSE: SOMEONE WILL HEAR ABOUT THIS PORRIDGE. SOMEONE WITH COWS.'] }]),
     'j': npc('seterfell.goat', 'fellgoat', [{ lines: ['(THE GOAT EYES YOUR COAT.)', 'MAA.'] }], { wander: true }),
-    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.', 'MOUND ELDER: EVERY MOUND KEEPS A PANTRY UNDER IT. NONE OF THEM IS FOR YOU.', 'MOUND ELDER: WE LIVE UNDER THE MOUNDS AND HEAR EVERY FOOTSTEP. YOURS ARE LOUD.'] }]),
-    'm': npc('q.map.cairn', 'owl', [{ when: { flag: 'q.map.p3' }, lines: ['STEINAR: THAT PAGE BELONGS TO SOMEONE IN STILLSAND.', 'STEINAR: SOUTH-EAST, PAST THE GRAVES. I PUT A STONE DOWN FOR YOU.'] }, { lines: ['STEINAR: I KEEP THE CAIRNS. A PAGE BLEW INTO THIS ONE. IT HAS DUNES ON IT.', 'STEINAR: WE HAVE NO DUNES UP HERE. TAKE IT.'], set: 'q.map.p3' }]),
-    'p': npc('seterfell.herder', 'oldherder', [{ lines: ['OLD HERDER: DON\'T WHISTLE NEAR THE HUMPS. THEY\'RE ONLY HILLS IN THE DAYTIME.', 'OLD HERDER: FIFTY SUMMERS UP HERE. EVERY ONE ENDS THE SAME: WE WALK DOWN, THEY MOVE IN.', 'OLD HERDER: THE QUICK WAY DOWN IS SOUTH: TWO POSTS OVER THE GORGE, AND A HOOK.'] }]),
+    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.'] }]),
+    'm': npc('q.map.cairn', 'owl', [{ when: { flag: 'q.map.p3' }, lines: ['STEINAR: I WOULD GIVE YOU A STONE FOR THE ROAD. THEY ARE ALL SPOKEN FOR.'] }, { lines: ['STEINAR: I KEEP THE CAIRNS. A PAGE BLEW INTO THIS ONE. IT HAS DUNES ON IT.', 'STEINAR: WE HAVE NO DUNES UP HERE. TAKE IT.'], set: 'q.map.p3' }]),
+    'p': npc('seterfell.herder', 'oldherder', [{ lines: ["OLD HERDER: DON'T WHISTLE NEAR THE HUMPS. THEY'RE ONLY HILLS IN THE DAYTIME.", 'OLD HERDER: TWO POSTS OVER THE GORGE. I NEVER LEARNED THE HOOK, SO I WALK ROUND.'] }]),
     's': npc('seterfell.ashlad', 'kid', [{ lines: ['ASH LAD: THAT HILL HAS A NOSE. I POKED IT. IT SNEEZED.', 'ASH LAD: MY BROTHERS SAY I\'M NO GOOD FOR ANYTHING. I\'M GOOD AT POCKETS.'] }], { wander: true }),
-    'y': npc('seterfell.walker', 'keeper', [{ lines: ['WALKER: FORTY YEARS ON THESE PATHS. THE CAIRNS MOVE ABOUT. I DON\'T ASK.', 'WALKER: YULE FJORD IS NORTH, OVER THE TOPS. I DON\'T GO. TOO DARK UP THERE FOR ME.'] }]),
-    'u': npc('seterfell.sitter', 'tree', [{ lines: ['SITTER: I\'LL WALK ON. TOMORROW. PROBABLY.', 'SITTER: I STOPPED HERE FOR A REST. THE MOSS WAS VERY WELCOMING.'] }]),
+    'y': npc('seterfell.walker', 'keeper', [{ lines: ["WALKER: FORTY YEARS ON THESE PATHS. THE CAIRNS MOVE ABOUT. I DON'T ASK."] }]),
+    'u': npc('seterfell.sitter', 'tree', [{ lines: ["SITTER: I'LL WALK ON. TOMORROW. PROBABLY."] }]),
     'v': npc('seterfell.goat2', 'fellgoat', [{ lines: ['(THE GOAT IS CHEWING SOMETHING. IT MAY ONCE HAVE BEEN A HAT.)'] }], { wander: true }),
     '1': { ent: { t: 'chest', id: 'seterfell.ledge', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'seterfell.nostril', item: 'bits50' } },

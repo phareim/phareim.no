@@ -417,7 +417,7 @@ describe('the lands', () => {
   })
 
   it('speaks in the pixel font out there, a page at most three rows of the narrowest box, each speaker named first', () => {
-    const talkOf = e => (e.t === 'npc' ? e.talk.flatMap(b => [...b.lines, ...(b.ask ? [...b.ask.options, ...b.ask.replies.flat()] : [])]) : e.t === 'sign' ? e.lines : [])
+    const talkOf = e => (e.t === 'npc' ? e.talk.flatMap(b => [...b.lines, ...(b.ask ? [...b.ask.options, ...b.ask.replies.flat()] : [])]) : e.t === 'sign' ? [...e.lines, ...(e.alt?.lines ?? [])] : [])
     const OWN = new Set(['KEEPER', 'MOSSA', 'MAX', 'TOBY', 'OWL', 'DUSTY', 'TROLL', 'LUNA', 'PETTER', 'BARTENDER'])
     const maps = outThere().map(id => Z.WORLD.maps[id])
     const lines = []

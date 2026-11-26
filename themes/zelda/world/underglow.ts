@@ -10,7 +10,7 @@
  *   The key lies in the old drift once its bats are down; the root stair's door takes it. The heart piece sits on an
  *   island in the garden's void, seen from the grove's door; the hook only reaches it from the north ledge (the post
  *   at (8,18) from (8,14); roots shield it from the east and south, and the ledge's torch (9,13) is the way back), and
- *   the north ledge is behind the cracked wall in the shaft foot's south side (bombs; a sign and SIGGE point at it).
+ *   the north ledge is behind the cracked wall in the shaft foot's south side (bombs; a sign points at it).
  *
  *   underglow2  THE GLASS SEA (top row) and BROADCAST (bottom row)
  *     (0,0) the shore: stairs up, HANNA               (1,0) the still water            (2,0) the far ledge: blobs, key, grotto
@@ -157,11 +157,11 @@ export const UNDERGLOW1: MapDef = {
   keyring: 'underglow',
   cell: { w: 16, h: 12 },
   cells: {
-    '0,0': { name: 'ECHO LEDGES', events: [{ lines: ['THE UNDERGLOW. LAYER ONE: ECHO LEDGES.', 'EVERY STEP COMES BACK A MOMENT LATE.'], set: 'underglow1.layer' }] },
+    '0,0': { name: 'ECHO LEDGES' },
     '1,0': { name: 'ECHO LEDGES' },
     '2,0': { name: 'ECHO LEDGES', dark: true },
     '0,1': { name: 'THE UPSIDE GROVE', track: 'forest', dark: true },
-    '1,1': { name: 'THE UPSIDE GROVE', track: 'forest', events: [{ lines: ['LAYER TWO: THE UPSIDE GROVE.', 'THE TREES HERE GROW DOWN FROM THE ROOF, AND THEIR ROOTS REACH UP INTO THE DARK.'], set: 'underglow1.grove' }] },
+    '1,1': { name: 'THE UPSIDE GROVE', track: 'forest', events: [{ lines: ['(SOMETHING UP IN THE ROOTS IS DARNING THEM WITH A GOLD NEEDLE.)'], set: 'underglow1.grove' }] },
     '2,1': { name: 'THE UPSIDE GROVE', track: 'forest' },
   },
   rows: joinCells([
@@ -200,18 +200,17 @@ export const UNDERGLOW1: MapDef = {
     '@': { ent: { t: 'entry', id: 'up', dir: 'down' } },
     v: { tile: '>', ent: { t: 'warp', to: 'underglow2', entry: 'up' } },
     E: { ent: { t: 'entry', id: 'down', dir: 'down' } },
-    '1': sign('ECHO LEDGES. LAYER ONE.\nTHE LIFT IS BEING MENDED.\n↑ LUMENBY QUARRY.'),
+    '1': sign('LIFT: HALFWAY DOWN.\nPLEASE WAIT.'),
     '2': sign('THE RAILS HOLD.\n(SCRATCHED UNDER IT: B.G.)'),
     '3': sign('MIND THE CRACK.\nTHE WALL HERE IS HOLLOW.\nSOMETHING GROWS BEHIND IT.'),
     g: npc('q.lamp.bror', 'dusty', [
       { when: { flag: 'q.lamp.done' }, lines: ['BROR: GUNN HAS MY LAMP? GOOD. THE RAILS STILL HOLD. TELL HER SO, NOW AND THEN.'] },
-      { when: { flag: 'q.lamp.got' }, lines: ['BROR: GO ON UP. GUNN WILL BE AT THE UNION HALL. SHE ALWAYS IS.'] },
+      { when: { flag: 'q.lamp.got' }, lines: ["BROR: GO ON. SHE'LL BE UNDER THE EMPTY SHIFT BOARD. SHE ALWAYS IS."] },
       { lines: ['BROR: FROM UP TOP? TELL MY SISTER GUNN THE RAILS HOLD.', "BROR: TAKE HER MY LAMP. I CAN'T CLIMB ANY MORE, AND I LIKE IT HERE. IT'S WARM."], set: 'q.lamp.got' },
     ]),
     s: npc('d.sigge', 'kid', [{ lines: [
       "SIGGE: I'M ONLY ALLOWED DOWN TO LAYER TWO. THIS IS LAYER TWO. I CHECKED.",
       "SIGGE: THE HEART IN THE GARDEN, WEST? THE HOOK WON'T BITE FROM THIS SIDE.",
-      'SIGGE: BROR SAYS THE LEDGE ABOVE IT IS BEHIND THE CRACKED WALL SOUTH OF THE LIFT.',
     ] }]),
     k: { ent: { t: 'chest', id: 'underglow1.key', item: 'smallKey', appear: { clear: true } } },
     h: { ent: { t: 'item', id: 'underglow1.piece', item: 'heartPiece' } },
@@ -324,12 +323,12 @@ export const UNDERGLOW2: MapDef = {
   crystal: 'underglow2',
   cell: { w: 16, h: 12 },
   cells: {
-    '0,0': { name: 'THE GLASS SEA', track: 'beach', events: [{ lines: ['LAYER THREE: THE GLASS SEA.', 'WATER SO STILL IT LOOKS LIKE A FLOOR. IT IS NOT A FLOOR.'], set: 'underglow2.layer' }] },
+    '0,0': { name: 'THE GLASS SEA', track: 'beach', events: [{ lines: ['WATER SO STILL IT LOOKS LIKE A FLOOR. IT IS NOT A FLOOR.'], set: 'underglow2.layer' }] },
     '1,0': { name: 'THE GLASS SEA', track: 'beach' },
     '2,0': { name: 'THE GLASS SEA', track: 'beach' },
     '0,1': { name: 'BROADCAST', track: 'static', dark: true, mood: 'static' },
     '1,1': { name: 'BROADCAST', track: 'static', mood: 'static' },
-    '2,1': { name: 'BROADCAST', track: 'static', mood: 'static', events: [{ lines: ['LAYER FOUR: BROADCAST.', 'THE STATIC DOWN HERE HAS A VOICE, AND IT IS LISTENING.'], set: 'underglow2.broadcast' }] },
+    '2,1': { name: 'BROADCAST', track: 'static', mood: 'static' },
   },
   rows: joinCells([
     [SHORE, STILL_WATER, FAR_LEDGE],
@@ -366,8 +365,8 @@ export const UNDERGLOW2: MapDef = {
     '@': { ent: { t: 'entry', id: 'up', dir: 'down' } },
     v: { tile: '>', ent: { t: 'warp', to: 'underglow3', entry: 'up' } },
     E: { ent: { t: 'entry', id: 'down', dir: 'down' } },
-    '1': sign('THE GLASS SEA. LAYER THREE.\nSTILL WATER. NO SWIMMING.\nNO SPLASHING EITHER.'),
-    '3': sign('BROADCAST. LAYER FOUR.\nTHE RADIO TALKS BACK.\nDO NOT TALK BACK TO IT.'),
+    '1': sign('STILL WATER. NO SWIMMING.\nNO SPLASHING EITHER.'),
+    '3': sign('THE RADIO TALKS BACK.\nDO NOT TALK BACK TO IT.'),
     // HANNA says one word at a time, and every word is true: east over the still water, round by the masts, down.
     j: npc('d.hanna', 'ghost', [
       { when: { flag: 'underglow2.shortcut' }, lines: ['HANNA: DOWN.', 'HANNA: DEEPER.'] },
@@ -496,11 +495,11 @@ export const UNDERGLOW3: MapDef = {
   keyring: 'underglow',
   cell: { w: 16, h: 12 },
   cells: {
-    '0,0': { name: 'THE FOSSIL ARCADE', events: [{ lines: ['LAYER FIVE: THE FOSSIL ARCADE.', 'SOMEWHERE BELOW, SOMETHING HUMS LIKE A SUN.'], set: 'underglow3.layer' }] },
+    '0,0': { name: 'THE FOSSIL ARCADE' },
     '1,0': { name: 'THE FOSSIL ARCADE' },
     '2,0': { name: 'THE FOSSIL ARCADE' },
     '0,1': { name: 'THE FOSSIL ARCADE', dark: true },
-    '1,1': { name: 'THE CORE', track: 'boss', events: [{ lines: ['LAYER SIX: THE CORE.', 'THE SUN BELOW LIES IN THE FLOOR LIKE A DROPPED COIN, AND THE FLOOR IS WARM.'], set: 'underglow3.core' }] },
+    '1,1': { name: 'THE CORE', track: 'boss', events: [{ lines: ['THE SUN BELOW LIES IN THE FLOOR LIKE A DROPPED COIN, AND THE FLOOR IS WARM.'], set: 'underglow3.core' }] },
     '2,1': { name: 'THE CORE', track: 'boss' },
   },
   rows: joinCells([
@@ -528,14 +527,13 @@ export const UNDERGLOW3: MapDef = {
     V: { tile: '>', ent: { t: 'warp', to: 'underglow2', entry: 'down' } },
     '@': { ent: { t: 'entry', id: 'up', dir: 'down' } },
     E: { ent: { t: 'entry', id: 'down', dir: 'down' } },
-    '1': sign('THE FOSSIL ARCADE. LAYER FIVE.\nINSERT COIN.\nNOBODY HAS, FOR A LONG TIME.'),
+    '1': sign('INSERT COIN.\nNOBODY HAS, FOR A LONG TIME.'),
     '2': sign('HIGH SCORES\n1ST: BROR. 2ND: BROR.\n3RD: A SMUDGE.'),
     '3': sign('THE GEYSER\nGOES UP. ALL THE WAY UP.\nHOLD ON TO YOUR HAT.'),
     g: npc('d.herdsman', 'troll', [{ lines: [
-      'HERDSMAN: THE JUKEBOXES ARE MY HERD. THEY ONLY PLAY WHEN FED COINS.',
-      'HERDSMAN: THEY ARE SHY. LIKE ME.',
-      'HERDSMAN: THE WARM PART IS PAST THE BONE ROAD, EAST, THEN SOUTH. ITS OLD BLOCK OPENS THE WAY.',
-      "HERDSMAN: SOMETHING HUMS BEHIND THE CRACK SOUTH OF THE CABINETS, WEST. THE HERD WON'T GO NEAR IT.",
+      'HERDSMAN: NOT A COIN IN YEARS. THE HERD IS VERY POLITE ABOUT IT.',
+      'HERDSMAN: THE WARM PART IS PAST THE BONE ROAD. THE OLD BLOCK STILL KNOWS ITS PLACE.',
+      "HERDSMAN: SOMETHING HUMS BEHIND THE CRACK, WEST. THE HERD WON'T GO NEAR IT.",
     ] }]),
     p: { ent: { t: 'plate', id: 'underglow3.road' } },
     W: { tile: 'X', ent: { t: 'gate', open: { plates: ['underglow3.road'] } } },

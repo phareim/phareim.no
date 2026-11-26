@@ -403,8 +403,8 @@ function interact(c: Ctx): boolean {
     return true
   }
   if (t === 'S') {
-    const lines = c.info.signs.get(idx)
-    if (lines) { openDialog(c, lines, null); return true }
+    const sign = c.info.signs.get(idx)
+    if (sign) { openDialog(c, sign.alt && condFor(c, sign.alt.when) ? sign.alt.lines : sign.lines, null); return true }
   }
   if (t === 'B') {
     if (s.luna) psiPush(c, tx, ty, h.dir)
@@ -462,8 +462,13 @@ function talkTo(c: Ctx, id: string) {
     if (e.t !== 'npc' || e.id !== id) continue
     for (const br of e.talk) {
       if (!condFor(c, br.when)) continue
-      const give = br.give && !has(s, `got:${id}:${br.give}`) ? br.give : undefined
-      openDialog(c, br.lines, e.look, { give, set: [br.set, give ? `got:${id}:${give}` : undefined].filter((x): x is string => !!x), clear: br.clear ? [br.clear] : undefined, panel: br.panel ? { id, panel: br.panel } : undefined })
+      // A gift is given once: per person and item, and per step where the branch sets a flag (Gunn pays a heart
+      // piece for the lamp and another for the sign). A save from before the step key counts a step whose flag it holds as paid.
+      const got = `got:${id}:${br.give}`
+      const step = br.set ? `${got}:${br.set}` : got
+      const paid = has(s, step) || (has(s, got) && (!br.set || has(s, br.set)))
+      const give = br.give && !paid ? br.give : undefined
+      openDialog(c, br.lines, e.look, { give, set: [br.set, ...(give ? [got, step] : [])].filter((x): x is string => !!x), clear: br.clear ? [br.clear] : undefined, panel: br.panel ? { id, panel: br.panel } : undefined })
       if (br.ask) s.dialog!.ask = br.ask
       c.ev.push({ type: 'talk' })
       return

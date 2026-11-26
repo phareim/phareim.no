@@ -57,7 +57,7 @@ hero tile + grid + flags with the engine's rules at tile resolution (walk, slide
 beams, weights; pots and foes left out). Past a kit's edge is wall. A kit set into a land keeps the kit's `.` floor, not the land's ground: nothing is
 pushed or rolled over Stillsand's sand (`-`).
 
-**THE PUZZLE LAB** (`puzzlelab`, entry `start`, inside Stillsand's gold pyramid, `world/demos.ts`). Six rooms, 3×2 (their banners: THE WEIGH HOUSE, THE COLD ROOM, THE MIRROR ROOM, THE STONE RUN, THE SLUICE HALL, THE LAST ROOM; each sign says what is wrong in it, never how):
+**THE PUZZLE LAB** (`puzzlelab`, entry `start`, inside Stillsand's gold pyramid, `world/demos.ts`). Six rooms, 3×2 (their banners: THE WEIGH HOUSE, THE COLD ROOM, THE MIRROR ROOM, THE STONE RUN, THE SLUICE HALL, THE LAST ROOM; the mirror room, the stone run, the sluice hall and the last room have a sign, which never says how):
 A weights (carry a pot onto the heavy plate) → B ice (slide the block onto the plate) → C beams (prism, two
 mirrors, two receivers) → D rolling stone (lever, cracked wall, pit filled) → E sluices (two valves, two basins)
 → F all together (the stone clears the beam's road, the mirror slides up the ice into it and is turned, the

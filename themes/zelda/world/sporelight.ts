@@ -14,7 +14,7 @@
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`, the foes among them
  * (the slag hounds at the pool, the grazer pen in the Shellyard).
  */
-import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
+import type { EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
 import { at, cap, cycle, lantern, light, prop } from './scenery'
 
@@ -22,8 +22,6 @@ type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
 const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [text] } })
 
-/** The Sporelight's first-visit words, in whichever area the hero arrives (the gate, a pass): once. */
-const INTRO: AreaIntro = { lines: ['GIANT FUNGUS GLOWS IN A SLOW CYAN HAZE. THE AIR STINGS ABOVE THE KNEE.'], who: null, flag: 'realm:sporelight' }
 
 type Tone = 'teal' | 'violet'
 /** A giant cap on its stalk (solid where the stalk stands), its glow under the cap: large, medium, small. */
@@ -57,7 +55,7 @@ export const SPORELIGHT: MapDef = {
     'TT..........................:....::::::::k:::...;........;0.;........rrr......TT',
     'TTT.........---..s.........,,,,,,,,,,,,,,,,,,,,,.............;......rrrrr.....TT',
     'TTT..:....v-----....,,,,,,,,.::;..:::::,::::;..,,,,,,,,.....u...r.;.r.2.r....TTT',
-    'TT..:.....-----,,,,,,....:....y...:T..:,.V:.:..:..:...,,,,,.......;.rr.rr....TTT',
+    'TT..:.....-----,,,,,,....:....y...:T..:,.::.:..:..:...,,,,,.......;.rr.rr....TTT',
     'TT..:......e--,,a......;...#...##.#.##.,,.#..:##.:T.....;;,,,........r%r..r..TTT',
     'TT;.........--,..........:.############,,##########TT.......,,,...............TT',
     'TT...........,,..:....:...;############,,##########TT.......r.,.;.....;......TTT',
@@ -76,12 +74,12 @@ export const SPORELIGHT: MapDef = {
     'TTTT.......;,..............;..~~~~~~::b,:::~~~~~~~......;..,,............TTTTTTT',
     'TT.T;.......,..m..........TT...~~~~~~~~=~~~~~~~~~~..;.;...,,...;...:......TTTTTT',
     'TTTT;.....;.,.................~~.~~~~~~=~~~~~~~..;....;N.,,...........;..:TTTTTT',
-    'TTTT....;...,...;.........:...~...~~~~~=~~~~.......q...,,,.........T...;.;TTT.TT',
-    'TT.T........,J...........p...~~....;...=.........;;.,,,,.,,.............;.....TT',
+    'TTTT....;...,...;.........:...~...~~~~~=~~~~...........,,,.........T...;.;TTT.TT',
+    'TT.T........,............p...~~....;...=.........;;.,,,,.,,.............;.....TT',
     'TTTT........,,,,,,,,,,,,,,,,==,...:::::,:::::..,,,,,,.....,,..........;.......TT',
     'TT.T........,......;.......~~;,,,,,,,,,,::,,,,,,...........,,........;........TT',
     'TTT.........,.........;.;.~~......:g:::,:::h:.......;.......,,....::.......;..TT',
-    'TT..;.j.....,............~~.;.....:::K:,:::::;...............,,:::::::.......;TT',
+    'TT..;.......,............~~.;.....:::K:,:::::;...............,,:::::::.......;TT',
     'TTT.........,...........~~.............,.;...................;,::...:::......TTT',
     'TT:.***.....,..........~~.T............,..........T.T.........,:..5..::..;....TT',
     'TT.**.**....,.....;...~~..TT....T.;.;..,.;.T..;.;...~~~.......,,..,...:.;.....TT',
@@ -92,22 +90,22 @@ export const SPORELIGHT: MapDef = {
     'TTT........,.....~~~~~...TTT.....T.;.........T..;:4.T;..........,,,..........TTT',
     'TT......;..,....z.~~~.....TT.....;..;..,.....T.:....4..........,,............;TT',
     'TT..;.....,,,,,,,,,,,,,,,,%%,,,,,,,,,,,7....;..:..;.........,,,,...........;.TTT',
-    'TTT.;;....,..8............TT.....;.;...,.,,,,,,.;:..........,.;.....;........TTT',
+    'TTT.;;....,...............TT.....;.;...,.,,,,,,.;:..........,.;.....;........TTT',
     'TTTT.....,,.....;...;.....TT;;T..T.....,..;...,,,,,,,,,,,,,,,................TTT',
     'TT.T.;..;,.B..............TT..:..T.;.........T......;..;..;,,...;.............TT',
-    'TT.T.....,......;.........TTTTT..TTTTTTTTTTTTTTTTTTTT..;...,.Q...;.....TTTTT.TTT',
+    'TT.T.....,......;.........TTTTT..TTTTTTTTTTTTTTTTTTTT..;...,.....;.....TTTTT.TTT',
     'TTT.TT;.,,,.T.T:T..T.....TTTTTTTT;.....T..;..TTTTTTTT...T;,,,....TTT.TTTTTTTTTTT',
     'TTTTTTTTt,tTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,,TTTTTTTTTTTTTTTTTTT',
     'TTTTTTTTTATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,,TTTTTTTTTTTTTTTTTTT',
   ],
   areas: [
-    { name: 'THE CLINKER', x: 0, y: 0, w: 26, h: 26, entry: 'clinker', intro: INTRO },
-    { name: 'OLA\'S WINDMILL', x: 26, y: 0, w: 26, h: 15, entry: 'mill', intro: INTRO },
-    { name: 'THE SHELLYARD', x: 52, y: 0, w: 28, h: 26, entry: 'shellyard', intro: INTRO },
-    { name: 'THE STEAMHOUSE', x: 26, y: 15, w: 26, h: 21, entry: 'camp', intro: INTRO },
-    { name: 'THE CAPS', x: 0, y: 26, w: 26, h: 26, entry: 'gate-spore', intro: INTRO },
-    { name: 'THE ROOT HOLLOW', x: 26, y: 36, w: 26, h: 16, entry: 'from-arena', intro: INTRO },
-    { name: 'THE CLEAN WELL', x: 52, y: 26, w: 28, h: 26, entry: 'well', intro: INTRO },
+    { name: 'THE CLINKER', x: 0, y: 0, w: 26, h: 26, entry: 'clinker' },
+    { name: 'OLA\'S WINDMILL', x: 26, y: 0, w: 26, h: 15, entry: 'mill' },
+    { name: 'THE SHELLYARD', x: 52, y: 0, w: 28, h: 26, entry: 'shellyard' },
+    { name: 'THE STEAMHOUSE', x: 26, y: 15, w: 26, h: 21, entry: 'camp' },
+    { name: 'THE CAPS', x: 0, y: 26, w: 26, h: 26, entry: 'gate-spore' },
+    { name: 'THE ROOT HOLLOW', x: 26, y: 36, w: 26, h: 16, entry: 'from-arena' },
+    { name: 'THE CLEAN WELL', x: 52, y: 26, w: 28, h: 26, entry: 'well' },
   ],
   entries: {
     'gate-spore': { x: 9.5, y: 49.5, dir: 'up' },
@@ -222,34 +220,28 @@ export const SPORELIGHT: MapDef = {
     'A': gateHome('spore'),
     '5': { ent: { t: 'warp', to: 'sporeunder', entry: 'door' }, tile: '>' },
     '7': { ent: { t: 'entry', id: 'from-arena', dir: 'up' }, tile: ',' },
-    'B': sign('THE SPORELIGHT.\n↑ THE STEAMHOUSE, THE CLINKER.\nNO FIRES. FIRE MAKES IT GROW.'),
-    '8': sign('→ THE ROOT HOLLOW.\n↑ THE STEAMHOUSE.\n↓ THE NIGHT MARKET.'),
+    'B': sign('NO FIRES.\nTHE CLINKER HAS BEEN TOLD.'),
     'E': sign('← SETER FELL.\n↑ THE CLINKER.\n↓ THE CAPS.'),
-    'J': sign('→ THE STEAMHOUSE.\n↑ THE CLINKER.\n↓ THE NIGHT MARKET.'),
-    'K': sign('THE STEAMHOUSE\nSHIFTS PAID IN TAGS.\nNAMES KEPT AT THE DESK.'),
+    'K': sign('THE STEAMHOUSE.\nNAMES KEPT AT THE DESK.\nNOT RETURNED.'),
     'N': sign('↑ THE SHELLYARD.\n↓ THE CLEAN WELL, STILLSAND.\n← THE STEAMHOUSE.'),
-    'Q': sign('↓ STILLSAND.\n↑ THE CLEAN WELL.'),
-    'U': sign('THE CLINKER.\nNOBODY TURNED AWAY.\nMIND THE SPARKS.'),
-    'V': sign('OLA\'S WINDMILL.\nWIND\'S UP. THE HAZE\nSTAYS DOWN THERE.'),
-    'W': sign('THE SHELLYARD.\nGRAZERS. CYAN EYES: CALM.\nPINK EYES: RUN.'),
-    'X': sign('THE CLEAN WELL.\nDOWN: THE UNDER.\nWIPE YOUR FEET.'),
-    'a': npc('q.bell.forewoman', 'guard', [{ when: { flag: 'q.bell.cast' }, lines: ['RAGNA: RING IT GENTLY. AND TELL THEM UP NORTH WHO CAST IT.'] }, { when: { flag: 'q.bell.chrome' }, lines: ['RAGNA: CHROME, AND NOT ONE TREE FELLED. THERE. RECAST, AND STILL WARM.', 'RAGNA: TAKE IT BACK TO THE STAVE CHURCH ON YULE FJORD. NORTH-WEST, OVER THE TOPS.'], give: 'bits50', set: 'q.bell.cast' }, { when: { flag: 'q.bell.ore' }, lines: ['RAGNA: CHROME. LUMENBY QUARRY, DUE WEST, PAST SETER FELL. ASK FOR GUNN AT THE UNION HALL.'] }, { when: { flag: 'q.bell.crack' }, lines: ['RAGNA: A BELL? I CAN RECAST IT, BUT NOT BY BURNING MORE OF THE FOREST.', 'RAGNA: BRING ME CHROME INSTEAD. THE QUARRY OUT WEST HAS CHROME.'], set: 'q.bell.ore' }, { lines: ['RAGNA: THIS IS THE CLINKER. THE TOWN SAID NO TO US. THE FIRE SAID YES.', 'RAGNA: NOBODY HERE IS TURNED AWAY. NOT EVEN YOU.'] }]),
+    'U': sign('VISITORS WELCOME.\nSPARKS ALSO.'),
+    'W': sign('GRAZERS.\nCYAN EYES: CALM.\nPINK EYES: RUN.'),
+    'X': sign('CLEAN BELOW.\nWIPE YOUR FEET.'),
+    'a': npc('q.bell.forewoman', 'guard', [{ when: { flag: 'q.bell.cast' }, lines: ['RAGNA: RING IT GENTLY. AND TELL THEM UP NORTH WHO CAST IT.'] }, { when: { flag: 'q.bell.chrome' }, lines: ['RAGNA: CHROME, AND NOT ONE TREE FELLED. THERE. RECAST, AND STILL WARM.', 'RAGNA: ASLAK WILL WANT IT BEFORE IT COOLS. THE CHURCH ON THE FJORD.'], give: 'bits50', set: 'q.bell.cast' }, { when: { flag: 'q.bell.ore' }, lines: ['RAGNA: STILL NO CHROME. GUNN AT LUMENBY HAS A HILL OF IT.'] }, { when: { flag: 'q.bell.crack' }, lines: ["RAGNA: A BELL? I'LL POUR IT, BUT I WON'T BURN THE FOREST FOR IT.", 'RAGNA: I NEED CHROME. LUMENBY DIGS IT.'], set: 'q.bell.ore' }, { when: { flag: 'gateShut' }, lines: ['RAGNA: THE TOWN SAID NO TO US. THE FIRE SAID YES.', 'RAGNA: THE FIRE JUST CRACKLES NOW. I ASKED IT FOR A SIGN. IT CRACKLED. I TOOK THAT AS NO.'] }, { lines: ['RAGNA: THE TOWN SAID NO TO US. THE FIRE SAID YES.', 'RAGNA: THE FIRE TALKS WHEN THE SUN IS WRONG. IT SAID YES TO EVERYTHING. I STOPPED ASKING.'] }]),
     'e': npc('q.clinker.dancer', 'twirler', [{ lines: ['TRIXIE: AND LEFT, AND PUMP, AND SMILE!', 'TRIXIE: THE BELLOWS KEEP THE FIRE HOT. ALSO, GREAT FOR THE ARMS.'] }]),
-    'v': npc('sporelight.dancer', 'twirler', [{ lines: ['BACKUP DANCER: TRIXIE LEADS AND I FOLLOW. AND PUMP. AND SMILE. MY FACE HURTS.', 'BACKUP DANCER: FIVE, SIX, SEVEN, EIGHT. SORRY. I COUNT EVERYTHING NOW.'] }]),
-    's': npc('sporelight.smelter', 'guard', [{ lines: ['SMELTER: THE TOWN TURNED US AWAY. THE CLINKER TOOK US IN. WE OWE THE FIRE.', 'SMELTER: IRON OUT OF FUNGUS WOOD. DON\'T ASK ME HOW. I JUST STOKE.'] }]),
-    'k': npc('q.seed.keeper', 'hippie', [{ when: { flag: 'q.seed.well' }, lines: ['OLA: THE SPIRIT BY THE CLEAN WELL. SOUTH-EAST OF THE MILL, PAST THE STEAMHOUSE. BE POLITE.'] }, { lines: ['OLA: WIND\'S UP. THE MILL KEEPS THE HAZE DOWN THERE, WHERE IT BELONGS.', 'OLA: CLEAN SOIL? ONLY UNDER THE ROOTS. A SPIRIT KEEPS A CLEAN WELL, SOUTH-EAST OF HERE.'], set: 'q.seed.well' }]),
-    'y': npc('sporelight.watcher', 'hippie', [{ lines: ['HAZE WATCHER: THE HAZE IS LOWER TODAY. OR I\'M TALLER. HARD TO TELL.', 'HAZE WATCHER: BREATHE THE HAZE AND YOU SEE COLOURS. ALSO SPOTS. MOSTLY SPOTS.'] }]),
+    'v': npc('sporelight.dancer', 'twirler', [{ lines: ['BACKUP DANCER: FIVE, SIX, SEVEN, EIGHT. SORRY. I COUNT EVERYTHING NOW.'] }]),
+    's': npc('sporelight.smelter', 'guard', [{ lines: ["SMELTER: I STOKE ON TRIXIE'S COUNT. WHEN SHE LOSES IT, THE IRON COMES OUT SOFT."] }]),
+    'k': npc('q.seed.keeper', 'hippie', [{ when: { flag: 'q.seed.well' }, lines: ['OLA: BE POLITE. THE SPIRIT NOTICES FEET.'] }, { lines: ["OLA: WIND'S UP, SO THE HAZE STAYS LOW. IT'S THE WHOLE JOB. I AM VERY GOOD AT IT.", 'OLA: CLEAN SOIL? THE SPIRIT AT THE CLEAN WELL KEEPS SOME. SOUTH-EAST.'], set: 'q.seed.well' }]),
+    'y': npc('sporelight.watcher', 'hippie', [{ lines: ["HAZE WATCHER: THE HAZE IS LOWER TODAY. OR I'M TALLER. HARD TO TELL."] }]),
     'b': npc('l.steam.clerk', 'vendor', [{ lines: ['MS. B: WELCOME TO THE STEAMHOUSE. SIGN HERE.', 'MS. B: NO, SHORTER.', 'MS. B: SHORTER STILL. THERE. THAT IS YOUR NAME NOW.'] }]),
     'd': npc('l.steam.boiler', 'keeper', [{ lines: ['PUFFER: COAL\'S LATE AND THE PUFFS ARE ON BREAK. I DO THE BATHS, THE BOILER AND THE BOOKS.', 'PUFFER: IF YOU SEE A SPIRIT COVERED IN MUD, SEND IT IN. IT HAS NOT PAID.'] }]),
-    'g': npc('sporelight.guest', 'keeper', [{ lines: ['BATH GUEST: THE STEAMHOUSE DESK CALLS ME G. I USED TO HAVE ELEVEN LETTERS.', 'BATH GUEST: A SOAK, A NAP, ANOTHER SOAK. THE SPIRITS RUN A FINE HOUSE.'] }]),
+    'g': npc('sporelight.guest', 'keeper', [{ lines: ['BATH GUEST: THE STEAMHOUSE DESK CALLS ME G. I USED TO HAVE ELEVEN LETTERS.'] }]),
     'h': npc('sporelight.guest2', 'keeper', [{ lines: ['BATH GUEST: I CAME FOR ONE NIGHT. THE TOWELS ARE VERY PERSUASIVE.', 'BATH GUEST: SOMETHING GLINTS ON THE LITTLE ISLAND. THE OLD MOORING POSTS STILL HOLD.'] }]),
     'p': npc('sporelight.spirit2', 'ghost', [{ lines: ['(THE SPIRIT BOWS, MUCH TOO LOW. IT IS ON ITS WAY TO THE BATHS.)'] }], { wander: true }),
-    'j': npc('sporelight.picker', 'vendor', [{ lines: ['SPORE PICKER: PICK THE CAPS LOW. ABOVE THE KNEE, THE HAZE STINGS YOUR EYES.', 'SPORE PICKER: A BASKET OF CAPS BUYS A BATH AT THE STEAMHOUSE. WORTH EVERY CAP.'] }]),
-    'm': npc('sporelight.picker2', 'vendor', [{ lines: ['SPORE PICKER: EVERYTHING GLOWS HERE. I HAVEN\'T SEEN MY OWN SHADOW IN YEARS.'] }], { wander: true }),
+    'm': npc('sporelight.picker2', 'vendor', [{ lines: ['SPORE PICKER: I TOOK MY SHADOW TO THE BATHS. IT STAYED.'] }], { wander: true }),
     'z': npc('sporelight.spirit', 'ghost', [{ lines: ['(A TALL SPIRIT IN A PAPER MASK HOLDS OUT GOLD. IT SMELLS OF MUD.)'] }]),
-    'u': npc('sporelight.smelter2', 'guard', [{ lines: ['SMELTER: THE SHELLS MAKE GOOD WALLS. THE GRAZERS DON\'T MIND. THEY GROW NEW ONES.', 'SMELTER: OUR SMOKE MAKES THE FOREST GROW FASTER. NOBODY PLANNED THAT. NOBODY STOPS IT.'] }]),
-    'w': npc('sporelight.watcher2', 'hippie', [{ lines: ['HAZE WATCHER: UNDER THE ROOTS THE SOIL IS CLEAN. THE FUNGUS DRANK THE POISON. GOOD FUNGUS.'] }]),
-    'q': npc('sporelight.spirit3', 'ghost', [{ lines: ['(A SPIRIT DRIFTS PAST, HUMMING. ITS TOWEL IS DRY.)'] }], { wander: true }),
+    'u': npc('sporelight.smelter2', 'guard', [{ lines: ['SMELTER: I CUT A STALK AT DAWN. BACK BY LUNCH, TALLER. I STOPPED TAKING IT PERSONALLY.'] }]),
+    'w': npc('sporelight.watcher2', 'hippie', [{ lines: ['HAZE WATCHER: THE FUNGUS DRANK THE POISON. I THANK IT EVERY MORNING. NO REPLY YET.'] }]),
     // The Clinker's slag hounds at the grazers' pool, on the road to the Clean Well.
     '4': { ent: { t: 'enemy', kind: 'hound' } },
     // The grazer pen in the Shellyard (sentries in a grazer's skin, `render/renderer.ts`): three calm ones that only
@@ -288,8 +280,8 @@ export const SPOREUNDER: MapDef = {
     D: { tile: 'D', ent: { t: 'warp', to: 'sporelight', entry: 'well' } },
     '1': { ent: { t: 'chest', id: 'sporeunder.sand', item: 'bits50' } },
     a: { tile: '-', ...npc('q.seed.spirit', 'ghost', [
-      { when: { flag: 'q.seed.got' }, lines: ['(THE SPIRIT POINTS SOUTH, PAST THE ROOTS, TO WHERE THE SAND BEGINS.)'] },
-      { lines: ['(THE SPIRIT HOLDS OUT A SEED. IT IS NOT FUNGUS AT ALL. IT SMELLS OF CLEAN SAND.)', '(THEN IT POINTS SOUTH, TOWARD STILLSAND.)'], set: 'q.seed.got' },
+      { when: { flag: 'q.seed.got' }, lines: ['(THE SPIRIT LOOKS AT YOUR FEET. THEN AT YOU. YOU WIPE THEM AGAIN.)'] },
+      { lines: ['(THE SPIRIT HOLDS OUT A SEED. IT IS NOT FUNGUS AT ALL. IT SMELLS OF CLEAN SAND.)'], set: 'q.seed.got' },
     ]) },
   },
 }

@@ -23,8 +23,8 @@ type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
 const sign = (...lines: string[]): Mark => ({ tile: 'S', ent: { t: 'sign', lines } })
 
-/** Fogstage's first-visit words, in whichever area the hero arrives (the gate): once. */
-const INTRO: AreaIntro = { lines: ['PINK FOG UP TO THE KNEES OF THE HILLS. OUT HERE, EVERYONE WAITS FOR THEIR CUE.'], who: null, flag: 'realm:fogstage' }
+/** Fogstage's first-visit words, on the Ticket Hill: once. */
+const INTRO: AreaIntro = { lines: ['(A SPOTLIGHT SWINGS OVER THE FOG, FINDS YOU, WAITS, AND MOVES ON.)'], who: null, flag: 'realm:fogstage' }
 
 /** A stage spotlight on its stand, its head turned `dir` eighths of a turn from east, its beam swinging over the fog. */
 const spot = (dir: number, x: number, y: number): IsoLandmark => prop(`fogstage_spotlight_${dir}`, x + 0.5, y + 0.6, { lights: SPOT, ...at(x, y) })
@@ -53,7 +53,7 @@ export const FOGSTAGE: MapDef = {
     '~~~.#######........:...;.,t,.........;.....,t,...............#.,t,..;.;...###########TTT',
     '~~~.....:.........;..:....,..,,,,,,,,.;..:..,,,,,,,,,........,,,,,,,......###########.TT',
     '~~~.....;..:.;......,,,,,,,,,,..:...,,,,,,,,,,....t:,,,,,,,,,,###..,,,,,.;...#####....TT',
-    '~~~~............,,,,,..P..:......;.,.....i;.............,.t..#####.....,..............TT',
+    '~~~~............,,,,,.....:......;.,.....i;.............,.t..#####.....,..............TT',
     '~~~;...........,,.........###.....,t,......####.........,;....###......,###.........TTTT',
     '~~~~......####,,.#.;.....######...:,.....#######........,.....:...#####R######......TTTT',
     '~~~~.....####,,######.:...###.............####......;...,.......#######,..######.....TTT',
@@ -61,9 +61,9 @@ export const FOGSTAGE: MapDef = {
     '~~~~..####...,,....####.......;..;......;....FF.FF.FF..:,......###HHH..,.HHH...#####TTTT',
     '~~~...##......,......##..;...:;~~~~;.......:.=========..,......###HHH..,.HHH...####TTTTT',
     '~~~~.###.............##.....;~~~~~~~;.:......====4====..,...:;###.HHH..,.HHH.HHH###TTTTT',
-    '~~~~###...............##.....;~~~~;;.:.......=========.k,::...##.......,..V..HHH.###TTTT',
+    '~~~~###...............##.....;~~~~;;.:.......=========.k,::...##.......,.....HHH.###TTTT',
     '~~~~###...............###......;;............=========..,..;..##.....,f,,,,,.HHH.....TTT',
-    '~~~~###...............###................:..K...a......:,....###.....,,,,,,,E.........TT',
+    '~~~~###...............###................:......a......:,....###.....,,,,,,,..........TT',
     '~~~~###....,,,,,,,....###.d.........:.......:..:..........,,,,,,,,,,,,,,,,,,,,,,,,,,,,,A',
     '~~~~###...c,,,b,,,.,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..###....J,,,,,,,.e........TT',
     '~~~~###....,,,,,,,Q...##.............:............;..........###.....,,,,,,,.....B...TTT',
@@ -74,7 +74,7 @@ export const FOGSTAGE: MapDef = {
     '~~~~...######.,.#####.....:..;..;;;;;.....;...............:.....####....,....###:...TTTT',
     '~~~.:...######,#####............;;;;;.....;.............:........######.,.#######....TTT',
     '~~~~--------..,###.............:;;;;;..:..;...:.:...........FF.....#####,######....T..TT',
-    '~~~----------.,.......................~~~~~..;;.:.............L........,,####...:..T..TT',
+    '~~~----------.,.......................~~~~~..;;.:......................,,####...:..T..TT',
     '~~~----------.,,,,,,,,,,..............~~~~~...............*****h...;...,.......;....TTTT',
     '~~~~~~~~~~~###########:,....;.........~~~~~;;;;;.....;....*.2.*.......,,......;;;..T.TTT',
     '~~~~~~~~~~~###########.,..;.........;:.....;;;;;;....:....*...*......,,..;...;;;;....TTT',
@@ -88,7 +88,7 @@ export const FOGSTAGE: MapDef = {
     '~~~~~~~~~~~###########-,,....:.;...:,,..:........M:.~;;;;.....~~~~~...;............TT.TT',
     '~~~~~~~~~~~~~~~~~~~~----,,---------,,............~~~~~~~....:~~~~~~....;:..;........:TTT',
     '~~~~~~~~~~~~~~~~~~~~-----,,,,,,,,,,.............~~~~~~~~~.....~~~~~;;;;.............T.TT',
-    '~~~~~~~~~~~~~~~~~~~~--------FFN----....:.........~~~~~~~..........;;;;;;.........;.TTTTT',
+    '~~~~~~~~~~~~~~~~~~~~--------FF-----....:.........~~~~~~~..........;;;;;;.........;.TTTTT',
     '~~~~~~~~~~~~~~~~~~~~---------6--6--.....:......:.:..~.............;;;;;....:.......:TTTT',
     '~~~~~~~~~~~~~~~~~~~~-----~--~~~-~--..........~.:..;...;......:...~~.~...:.;.......~TTTTT',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~..~~~;..~.~~..~.~.~~~.~~~;...~.~..~..~~~~.~.::~.TTTTT',
@@ -98,12 +98,12 @@ export const FOGSTAGE: MapDef = {
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT',
   ],
   areas: [
-    { name: 'THE RAINCHECK\'S MAST', x: 0, y: 0, w: 26, h: 30, entry: 'mast', intro: INTRO },
-    { name: 'THE GHOST LIGHTS', x: 26, y: 0, w: 36, h: 12, entry: 'ghost', intro: INTRO },
+    { name: 'THE RAINCHECK\'S MAST', x: 0, y: 0, w: 26, h: 30, entry: 'mast' },
+    { name: 'THE GHOST LIGHTS', x: 26, y: 0, w: 36, h: 12, entry: 'ghost' },
     { name: 'THE TICKET HILL', x: 62, y: 0, w: 26, h: 30, entry: 'camp', intro: INTRO },
-    { name: 'BIRGER\'S BUCKET', x: 26, y: 12, w: 36, h: 18, entry: 'bucket', intro: INTRO },
-    { name: 'THE WESTERN SHORE', x: 0, y: 30, w: 35, h: 22, entry: 'shore', intro: INTRO },
-    { name: 'THE FLATS', x: 35, y: 30, w: 53, h: 22, entry: 'flats', intro: INTRO },
+    { name: 'BIRGER\'S BUCKET', x: 26, y: 12, w: 36, h: 18, entry: 'bucket' },
+    { name: 'THE WESTERN SHORE', x: 0, y: 30, w: 35, h: 22, entry: 'shore' },
+    { name: 'THE FLATS', x: 35, y: 30, w: 53, h: 22, entry: 'flats' },
   ],
   entries: {
     'gate-fog': { x: 85.5, y: 20.5, dir: 'left' },
@@ -191,17 +191,11 @@ export const FOGSTAGE: MapDef = {
   marks: {
     'A': gateHome('fog'),
     'B': sign('FOGSTAGE. THE FOG IS PART OF THE SHOW. PLEASE DO NOT WAVE IT AWAY.'),
-    'E': sign('BOX OFFICE. TONIGHT IS SOLD OUT. TONIGHT IS ALWAYS SOLD OUT.'),
     'J': sign('← THE RAINCHECK\'S MAST.\n↓ THE FLATS.\n→ THE WILDWOOD.'),
-    'K': sign('SCENERY FOR ACT THREE. ACT THREE IS MISSING.'),
-    'L': sign('SCENERY: THE CASTLE. IN ACT TWO IT IS THE INN. PLEASE DO NOT LEAN ON IT.'),
     'M': sign('SCENERY: THE MOON. YES, IT LOOKS LIKE A HOUSE. PLEASE DO NOT TELL THE MOON.'),
-    'N': sign('SCENERY: A SHIP AT SEA. IT IS THE SAME FLAT AS THE MOON. PLEASE STOP TRYING TO BOARD IT.'),
-    'P': sign('THE GHOST LIGHTS.\n↓ THE RAINCHECK\'S MAST.\n→ BIRGER\'S BUCKET.'),
-    'Q': sign('THE RAINCHECK. TONIGHT: THE SAME MUSICAL.', 'LATECOMERS WILL BE SEATED IN THE FOG.'),
-    'U': sign('THE WESTERN SHORE. THE SEA IS REAL. PLEASE DO NOT CLAP.', 'THE OLD PIER IS SHUT. A ROCK FELL ACROSS THE WAY IN, JUST WEST OF HERE.', '↑ THE RAINCHECK\'S MAST.\n→ THE FLATS.'),
-    'W': sign('SCENERY: A DEEP, DARK FOREST. SQUINT A LITTLE, THEN SAY OOH.', '← THE RAINCHECK\'S MAST.\n→ BIRGER\'S BUCKET.'),
-    'V': sign('THE TICKET HILL. QUIET, PLEASE. THE SHOW HAS ALREADY STARTED. IT ALWAYS HAS.'),
+    'Q': sign('THE RAINCHECK. LATECOMERS WILL BE SEATED IN THE FOG.'),
+    'U': sign('THE WESTERN SHORE. THE SEA IS REAL.\nNO PROPS, NO CUES, NO REFUNDS.', 'THE OLD PIER IS CLOSED. A ROCK SAT DOWN ACROSS THE WAY IN, JUST WEST OF HERE.'),
+    'W': sign("← THE RAINCHECK'S MAST.\n→ BIRGER'S BUCKET."),
     // Blobs on the cut-grass bank of the Flats pond, skulls on the shore, bats round the ghost lights' nook. The first
     // two can be knocked into the water (`physics`); the bats fly.
     '5': { tile: ';', ent: { t: 'enemy', kind: 'blob' } },
@@ -211,16 +205,16 @@ export const FOGSTAGE: MapDef = {
     '2': { ent: { t: 'chest', id: 'fogstage.reeds', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'fogstage.nook', item: 'bits50' } },
     '4': { ent: { t: 'warp', to: 'understage', entry: 'door' }, tile: '>' },
-    'a': npc('q.act.prompter', 'sleeper', [{ when: { flag: 'q.act.trap' }, lines: ['BIRGER: PSST. THE TV REPAIRMAN IN RERUN ESTATES TAPES EVERYTHING.', 'BIRGER: HE LIVES FAR EAST, PAST THE WILDWOOD, THE COAST AND MIRROR LAKE.'] }, { lines: ['BIRGER: PSST. I SAW IT ALL FROM MY BUCKET. ACT THREE WENT DOWN THE STAGE TRAP.', 'BIRGER: THEN IT WENT OUT ON THE AIR. SOME TV IN RERUN ESTATES CAUGHT IT.', 'BIRGER: FAR EAST OF HERE, PAST THE WILDWOOD, THE COAST AND MIRROR LAKE.'], set: 'q.act.trap' }]),
-    'b': npc('q.act.director', 'stagemanager', [{ when: { flag: 'q.act.done' }, lines: ['VEGA: WE END EVERY NIGHT NOW. THE AUDIENCE CRIES. GOOD.'] }, { when: { flag: 'q.act.tape' }, lines: ['VEGA: YOU FOUND THE LAST ACT, ON TAPE! TONIGHT THE RAINCHECK FINALLY ENDS ITS SHOW.', 'VEGA: TAKE A BOW. YOU EARNED IT.'], give: 'heartPiece', set: 'q.act.done' }, { lines: ['VEGA: WELCOME TO THE RAINCHECK. YES, THE BLIMP. BEST SEATS IN THE FOG.', 'VEGA: TONIGHT: THE SAME MUSICAL. IT STOPS BEFORE THE END. SOMETHING STOLE ACT THREE.', 'VEGA: ASK OUR OLD PROMPTER, EAST OF THE MAST. HE NEVER LEAVES HIS BUCKET.'] }]),
-    'c': npc('q.act.cast', 'smoker', [{ lines: ['FINGERS: LOVELY SHOW. CHECK YOUR POCKETS.', 'FINGERS: NO, REALLY. CHECK THEM. I GET BORED BETWEEN SCENES.'] }]),
+    'a': npc('q.act.prompter', 'sleeper', [{ when: { flag: 'q.act.trap' }, lines: ["BIRGER: THE TV MAN IN RERUN TAPES EVERYTHING. I'M STILL COMFORTABLE."] }, { lines: ['BIRGER: PSST. I SAW IT FROM MY BUCKET. ACT THREE WENT DOWN THE TRAP.', "BIRGER: A TV MAN IN RERUN, FAR EAST, TAPES EVERYTHING. I'D ASK, BUT I'M COMFORTABLE."], set: 'q.act.trap' }]),
+    'b': npc('q.act.director', 'stagemanager', [{ when: { flag: 'q.act.done' }, lines: ['VEGA: WE END EVERY NIGHT NOW. THE AUDIENCE CRIES. GOOD.'] }, { when: { flag: 'q.act.tape' }, lines: ['VEGA: YOU BROUGHT THE ENDING. NOBODY HERE HAS SEEN IT. SIT, SIT, ALL OF YOU.'], give: 'heartPiece', set: 'q.act.done' }, { lines: ['VEGA: THE RAINCHECK. YES, THE BLIMP. BEST SEATS IN THE FOG.', 'VEGA: ACT THREE IS GONE. I SAY "AND SCENE" AFTER ACT TWO AND WE ALL LOOK AT BIRGER.', 'VEGA: HE SAW IT HAPPEN. HE NEVER LEAVES HIS BUCKET, SO YOU WILL HAVE TO GO TO HIM.'] }]),
+    'c': npc('q.act.cast', 'smoker', [{ lines: ['FINGERS: LOVELY SHOW. CHECK YOUR POCKETS.'] }]),
     'd': npc('q.map.programs', 'kid', [{ when: { flag: 'q.map.p2' }, lines: ['PIA: PROGRAMS. STILL NO ACT THREE. STILL HALF PRICE.'] }, { lines: ['PIA: PROGRAMS! ACT THREE IS TORN OUT, SO I GLUED IN A MAP PAGE INSTEAD.', 'PIA: NOBODY READS THEM ANYWAY. HAVE THE PAGE.'], set: 'q.map.p2' }]),
-    'e': npc('fogstage.tickettaker', 'vendor', [{ lines: ['TICKET-TAKER: NO TICKET? THEN YOU\'RE IN THE SHOW.', 'TICKET-TAKER: SOLD OUT EVERY NIGHT. NOBODY HAS EVER BOUGHT A TICKET.', 'TICKET-TAKER: THE RAINCHECK IS OUR BLIMP, A FLYING THEATRE. SHE IS MOORED IN THE FAR WEST.'] }]),
-    'f': npc('fogstage.usher', 'kid', [{ lines: ['USHER: THIS WAY, PLEASE. MIND THE FOG. MIND THE STEP. THERE IS NO STEP.', 'USHER: THE SHOW STOPS BEFORE THE END. EVERYONE CLAPS ANYWAY. THEN THEY WAIT.', 'USHER: THE STAIR NORTH TO THE GHOST LIGHTS IS SHUT. A ROCK FELL ON IT IN ACT ONE.'] }], { wander: true }),
-    'g': npc('fogstage.stoker', 'dusty', [{ lines: ['FOG STOKER: EVERY WISP OF THIS FOG CAME OUT OF MY ENGINES. YOU\'RE WELCOME.', 'FOG STOKER: ONE PUFF DRIFTED FAR WEST, TO THE ISLAND OFF THE OLD PIER.', 'FOG STOKER: SOMETHING OUT THERE SHINES. I SAW IT FROM THE ROAD BY THE MAST.'] }]),
-    'h': npc('fogstage.stagehand', 'smoker', [{ lines: ['STAGEHAND: WE MOVE THE HILLS BETWEEN SCENES. NOT REALLY. BUT IT FEELS LIKE IT.', 'STAGEHAND: SAME SHOW EVERY NIGHT. I COULD DO IT IN MY SLEEP. LAST NIGHT I DID.'] }]),
-    'i': npc('fogstage.nightwatch', 'stagemanager', [{ lines: ['NIGHT WATCH: NEVER LET THE STAGE GO DARK. NEVER.', 'NIGHT WATCH: ONE LAMP ON AN EMPTY STAGE KEEPS THE GHOSTS FROM PUTTING ON A SHOW.', 'NIGHT WATCH: I CHECK EVERY GHOST LIGHT TWICE A NIGHT. ONCE FOR ME, ONCE FOR THEM.'] }]),
-    'k': npc('fogstage.understudy', 'stagepuppet', [{ lines: ['UNDERSTUDY: I\'M VILLAGER #3. I HAVE NO LINES YET.', 'UNDERSTUDY: MY CARD SAYS: ENTER, LOOK WORRIED, EXIT. I\'VE BEEN PRACTISING WORRIED.', 'UNDERSTUDY: THE BANGS FOR THE FINALE ARE KEPT UNDER THE STAGE. NO FINALE, NO BANGS.'] }]),
+    'e': npc('fogstage.tickettaker', 'vendor', [{ lines: ["TICKET-TAKER: NO TICKET? THEN YOU'RE IN THE SHOW.", 'TICKET-TAKER: I TEAR EVERY TICKET IN HALF. THERE ARE NO TICKETS. I HAVE NEVER MISSED.'] }]),
+    'f': npc('fogstage.usher', 'kid', [{ lines: ['USHER: THIS WAY, PLEASE. MIND THE FOG. MIND THE STEP. THERE IS NO STEP.'] }], { wander: true }),
+    'g': npc('fogstage.stoker', 'dusty', [{ lines: ["FOG STOKER: EVERY WISP OF THIS FOG CAME OUT OF MY ENGINES. YOU'RE WELCOME.", 'FOG STOKER: ONE PUFF WENT WEST AND CAME BACK SHINING. LOOK OFF THE OLD PIER.'] }]),
+    'h': npc('fogstage.stagehand', 'smoker', [{ lines: ['STAGEHAND: SAME SHOW EVERY NIGHT. I COULD DO IT IN MY SLEEP. LAST NIGHT I DID.'] }]),
+    'i': npc('fogstage.nightwatch', 'stagemanager', [{ when: { flag: 'item:prism' }, lines: ['NIGHT WATCH: ONE LAMP ON AN EMPTY STAGE KEEPS THE GHOSTS FROM PUTTING ON A SHOW.', 'NIGHT WATCH: I CHECK EVERY GHOST LIGHT TWICE A NIGHT. ONCE FOR ME, ONCE FOR THEM.', "NIGHT WATCH: THE SUN WENT DOWN FOR REAL. THE GHOSTS CAME EARLY. I'VE ASKED THEM TO WAIT FOR A CUE."] }, { lines: ['NIGHT WATCH: ONE LAMP ON AN EMPTY STAGE KEEPS THE GHOSTS FROM PUTTING ON A SHOW.', 'NIGHT WATCH: I CHECK EVERY GHOST LIGHT TWICE A NIGHT. ONCE FOR ME, ONCE FOR THEM.', 'NIGHT WATCH: THREE NIGHTS OF EVENING. THE GHOSTS WANT THE SHOW TO END. SO DO I.'] }]),
+    'k': npc('fogstage.understudy', 'stagepuppet', [{ lines: ["UNDERSTUDY: I'M VILLAGER #3. I HAVE NO LINES YET.", "UNDERSTUDY: MY CARD SAYS: ENTER, LOOK WORRIED, EXIT. I'VE BEEN PRACTISING WORRIED.", "UNDERSTUDY: THE BANGS FOR THE FINALE ARE UNDER THE STAGE. I'M NOT ALLOWED NEAR THEM."] }]),
   },
 }
 

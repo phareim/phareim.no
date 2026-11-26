@@ -27,7 +27,7 @@ export interface MapInfo {
   warps: Array<Required<Warp>>
   chests: Map<number, ChestInfo>
   chestList: ChestInfo[]
-  signs: Map<number, string[]>
+  signs: Map<number, Extract<EntDef, { t: 'sign' }>>
   /** Exits by tile index; `exitLines` holds a solid exit's dialog. */
   exits: Map<number, ExitSpot>
   exitLines: Map<number, string[]>
@@ -114,7 +114,7 @@ function buildInfo(def: MapDef): MapInfo {
       const c: ChestInfo = { id: e.id, item: e.item, big: !!e.big, appear: e.appear, idx, x: m.x, y: m.y, cell }
       info.chests.set(idx, c)
       info.chestList.push(c)
-    } else if (e.t === 'sign') info.signs.set(idx, e.lines)
+    } else if (e.t === 'sign') info.signs.set(idx, e)
     else if (e.t === 'plate') info.plates.set(idx, e.id)
     else if (e.t === 'glyph') info.glyphs.set(idx, e.ch)
     else if (e.t === 'lever') info.levers.set(idx, e.flag)

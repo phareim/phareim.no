@@ -5,10 +5,12 @@ and sends the hero out; the people stand in the lands' maps (`themes/zelda/world
 `wildwood.ts`) with talk that branches on flags. `tests/zelda-quests.test.mjs` talks every line through from its first
 step to its last in the real maps.
 
-Rules: people say where to go and what is wrong, never how to win; jokes stay. Every step names the next place by
-its banner name and a bearing true on the grid. Everyone speaks under their own name (`GUNN: …`); nobody borrows a
-hand-made character's. Quest items are flags (`q.<line>.<step>`); a reward is an ordinary item given once per person
-(`got:<npc>:<item>`). The flags and the people's ids are the old frontier's, so a save that got halfway keeps its
+Rules: people say where to go and what is wrong, never how to win; jokes stay. A person points on in their own words
+and gives a bearing only where it helps, true on the grid; bearings otherwise live on the junction signs
+(`README.md`, "How the lands speak"). Everyone speaks under their own name (`GUNN: …`); nobody borrows a hand-made
+character's. Quest items are flags (`q.<line>.<step>`); a reward is an ordinary item given once per person
+(`got:<npc>:<item>`), and once per step where the same person pays twice (Gunn: a heart piece for the lamp, one for
+the sign; `got:<npc>:<item>:<the step's flag>`). The flags and the people's ids are the old frontier's, so a save that got halfway keeps its
 place.
 
 ## 1. The cracked bell (`q.bell.*`)

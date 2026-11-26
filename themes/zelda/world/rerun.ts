@@ -19,8 +19,8 @@ type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
 const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [text] } })
 
-/** The estate's first-visit words, in whichever area the hero arrives (the gate, the pass): once. */
-const INTRO: AreaIntro = { lines: ['LAWNS, MAILBOXES AND SPRINKLERS. THE SAME NICE STREET, OVER AND OVER.'], who: null, flag: 'realm:rerun' }
+/** The estate's first-visit words, on the avenue: once. */
+const INTRO: AreaIntro = { lines: ['(EVERY MAILBOX HAS ITS FLAG UP. NOBODY HAS COME FOR THE MAIL.)'], who: null, flag: 'realm:rerun' }
 
 /** A house on its 3×3 of H, its windows lit and its porch light on after dusk. */
 const house = (art: string, x: number, y: number): IsoLandmark => prop(art, x + 1.5, y + 1.5, {
@@ -53,7 +53,7 @@ export const RERUN: MapDef = {
   away: true,
   rows: [
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,,TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T****.HHH...s*HHH....*HHH....*HHH....*...HHH--,,,-V-HHH...5F......T...T...T....T',
+    'T****.HHH....*HHH....*HHH....*HHH....*...HHH--,,,---HHH...5F......T...T...T....T',
     'T****.HHH....*HHH....*HHH....*HHH....*..:HHH.-,,,,..HHH....F...............:...T',
     'T****.HHH....*HHH....*HHH....*HHH....*...HHH.,,,,,,.HHH....F...................T',
     'T.....:,:.FFF.:,:.FFF.6,:.FFF.6,:.FFF.+...,.,,,,,,,,,,.,,,,,,,.................T',
@@ -82,7 +82,7 @@ export const RERUN: MapDef = {
     'TTT....:......F**...FT..T......:......,,...T.............T.........T.....T.....T',
     'TTTTTTTTTTTTTTTTTTTTTT................,,......:................:...............T',
     '~#####################################,,##############################%########~',
-    '~~----------------------d-----------g-,,--------------------------------------~~',
+    '~~----------------------d-------------,,--------------------------------------~~',
     '~~,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,~~',
     '~~~----------=------------------------==---------------------=k--------------~~~',
     '~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~~',
@@ -95,12 +95,12 @@ export const RERUN: MapDef = {
   ],
   areas: [
     { name: 'THE AVENUE', x: 0, y: 0, w: 37, h: 13, entry: 'gate-lawns', intro: INTRO },
-    { name: 'THE CUL-DE-SAC', x: 37, y: 0, w: 22, h: 16, entry: 'camp', intro: INTRO },
-    { name: 'THE DRIVE-IN', x: 59, y: 0, w: 21, h: 29, entry: 'drivein', intro: INTRO },
-    { name: 'THE HEDGE MAZE', x: 0, y: 13, w: 23, h: 16, entry: 'maze', intro: INTRO },
-    { name: 'RALF\'S TV VAN', x: 23, y: 13, w: 17, h: 16, entry: 'tvvan', intro: INTRO },
-    { name: 'THE PHONE BOOTH', x: 40, y: 16, w: 19, h: 13, entry: 'booth', intro: INTRO },
-    { name: 'THE MARINA', x: 0, y: 29, w: 80, h: 11, entry: 'marina', intro: INTRO },
+    { name: 'THE CUL-DE-SAC', x: 37, y: 0, w: 22, h: 16, entry: 'camp' },
+    { name: 'THE DRIVE-IN', x: 59, y: 0, w: 21, h: 29, entry: 'drivein' },
+    { name: 'THE HEDGE MAZE', x: 0, y: 13, w: 23, h: 16, entry: 'maze' },
+    { name: 'RALF\'S TV VAN', x: 23, y: 13, w: 17, h: 16, entry: 'tvvan' },
+    { name: 'THE PHONE BOOTH', x: 40, y: 16, w: 19, h: 13, entry: 'booth' },
+    { name: 'THE MARINA', x: 0, y: 29, w: 80, h: 11, entry: 'marina' },
   ],
   entries: {
     'gate-lawns': { x: 1.5, y: 5.5, dir: 'right' },
@@ -194,29 +194,27 @@ export const RERUN: MapDef = {
   ],
   marks: {
     'A': gateHome('lawns'),
-    'E': sign('RERUN ESTATES. A NICE STREET.\nTHE SAME NICE STREET,\nOVER AND OVER.'),
-    'J': sign('SOLD. NEW OWNERS MOVING IN SOON.\nTHEY HAVE BEEN MOVING IN SOON\nFOR YEARS.'),
-    'N': sign('↓ THE HEDGE MAZE.\nTHE CAT IS IN THERE AGAIN.\nTHE PRIZE IS BY THE GATE.'),
+    'E': sign('RERUN ESTATES.\nPOP. 212. LAST YEAR: 212.'),
+    'J': sign('SOLD. NEW OWNERS MOVING IN SOON.\n(SOON IS WRITTEN IN SIX DIFFERENT PENS.)'),
+    'N': sign('THE HEDGE MAZE.\nTHE CAT IS NOT THE PRIZE.'),
     'Q': sign('← MIRROR LAKE.\n→ THE CUL-DE-SAC, THE DRIVE-IN.\n↓ THE MARINA.'),
     'U': sign('THE CUL-DE-SAC.\nEVERYONE TURNS AROUND HERE.\n↑ STILLSAND, UP THE DUNES.'),
-    'V': sign('↑ STILLSAND, UP THE DUNES.\n↓ THE CUL-DE-SAC.'),
     'W': sign('THE DRIVE-IN. TONIGHT:\nTHE OVERDUE FOUR. ONE NIGHT\nONLY. EVERY NIGHT.'),
-    'e': sign('PHONE BOOTH. THE LINE IS BUSY.\nIT HAS BEEN BUSY FOR YEARS.'),
-    'g': sign('THE MARINA. THREE BERTHS.\nEVERY BOAT IS OUT. BACK SOON.'),
+    // The phone booth: you pick up, and the line sounds relieved once the Gate is shut.
+    'e': { tile: 'S', ent: { t: 'sign', lines: ['(YOU PICK UP. THE DIAL TONE HAS A HISS UNDER IT, LIKE SOMETHING WAITING ITS TURN.)'], alt: { when: { flag: 'gateShut' }, lines: ['(YOU PICK UP. JUST THE DIAL TONE. IT SOUNDS RELIEVED.)'] } } },
     'k': sign('THE ISLAND. MEMBERS ONLY.\nMEMBERS ARE ASKED NOT TO SWIM.'),
     'p': sign('→ THE PHONE BOOTH.\n→ THE DRIVE-IN.\n↓ THE MARINA.'),
-    's': sign('LAWN OF THE MONTH.\nEVERY MONTH.'),
-    'a': npc('q.map.paperboy', 'toby', [{ when: { flag: 'q.map.p4' }, lines: ['OTTO: EXTRA! SAME NEWS AS YESTERDAY.', 'OTTO: THE MAP MAN? HE CAMPS IN STILLSAND. NORTH, UP OVER THE DUNES.'] }, { lines: ['OTTO: EXTRA! A MAP PAGE FELL OUT OF THE SKY.', 'OTTO: I FOLDED IT INTO TODAY\'S PAPER. HERE. NO CHARGE.'], set: 'q.map.p4' }], { wander: true }),
-    'd': npc('rerun.bikekid', 'kid', [{ lines: ['BIKE KID: I\'VE RIDDEN ROUND THE BLOCK A THOUSAND TIMES. IT\'S ALWAYS THE SAME BLOCK.', 'BIKE KID: THE SEA WALL UNDER THE DRIVE-IN IS CRACKED. ONE GOOD BANG AND I COULD RIDE UP.'] }], { wander: true }),
-    'h': npc('q.act.repairman', 'max', [{ when: { flag: 'q.act.tape' }, lines: ['RALF: EVERY SET ON THE STREET SHOWS THE PLAY NOW, RIGHT TO THE END.', 'RALF: THE TAPE BELONGS ON THE RAINCHECK. FOGSTAGE, FAR WEST.'] }, { when: { flag: 'q.act.trap' }, lines: ['RALF: A STOLEN LAST ACT? IT WENT OUT ON THE AIR, AND I TAPED IT. I TAPE EVERYTHING.', 'RALF: TAKE THE TAPE BACK TO THE RAINCHECK, IN FOGSTAGE. FAR WEST, PAST MIRROR LAKE.', 'RALF: PAST THE NEON COAST AND THE WILDWOOD, TOO. IT IS A LONG WAY FOR A TAPE.'], set: 'q.act.tape' }, { lines: ['RALF: TV REPAIRS. EVERY SET ON THE STREET SHOWS THE SAME PLAY. IT STOPS BEFORE THE END.', 'RALF: I HAVE CHECKED THE TUBES TWICE. THE TUBES ARE FINE.'] }]),
-    'j': npc('rerun.seller', 'vendor', [{ lines: ['YARD SELLER: EVERYTHING\'S A BIT. EVEN THE DOG.', 'YARD SELLER: SAME SALE EVERY SATURDAY, SAME THINGS ON THE TABLE. NOBODY TAKES THE DOG.'] }]),
+    'a': npc('q.map.paperboy', 'toby', [{ when: { flag: 'q.map.p4' }, lines: ['OTTO: THE MAP MAN IN STILLSAND WANTS THAT PAGE. HE SAYS THE WIND TOOK IT. IT DID.'] }, { lines: ['OTTO: EXTRA! A MAP PAGE FELL OUT OF THE SKY.', 'OTTO: I FOLDED IT INTO TODAY\'S PAPER. HERE. NO CHARGE.'], set: 'q.map.p4' }], { wander: true }),
+    'd': npc('rerun.bikekid', 'kid', [{ lines: ['BIKE KID: I BRAKE AT THE SAME CRACK EVERY LAP. TODAY IT WAS A LITTLE BIGGER.', "BIKE KID: IT'S IN THE SEA WALL UNDER THE DRIVE-IN. ONE BANG AND I'D RIDE UP."] }], { wander: true }),
+    'h': npc('q.act.repairman', 'max', [{ when: { flag: 'q.act.tape' }, lines: ['RALF: EVERY SET ON THE STREET SHOWS THE PLAY NOW, RIGHT TO THE END.'] }, { when: { flag: 'q.act.trap' }, lines: ['RALF: A STOLEN LAST ACT? IT WENT OUT ON THE AIR, AND I TAPED IT. I TAPE EVERYTHING.', "RALF: ACT THREE IS ON TAPE. I'VE SEEN IT NINE TIMES. THE BLIMP IN FOGSTAGE NEEDS IT MORE THAN I DO."], set: 'q.act.tape' }, { lines: ['RALF: TV REPAIRS. EVERY SET ON THE STREET SHOWS THE SAME PLAY. IT STOPS BEFORE THE END.', 'RALF: I HAVE CHECKED THE TUBES TWICE. THE TUBES ARE FINE.'] }]),
+    'j': npc('rerun.seller', 'vendor', [{ lines: ["YARD SELLER: EVERYTHING'S A BIT. EVEN THE DOG.", "YARD SELLER: THE DOG IS STILL HERE. I'VE LOWERED HIM TO HALF A BIT."] }]),
     'y': { tile: 'n', ent: { t: 'shop', id: 'rerun.sale', item: 'heart', price: 1 } },
-    'u': npc('l.band', 'guitar', [{ lines: ['LENNY: WE\'RE THE OVERDUE FOUR. WE OWE THE DRIVE-IN ONE GIG. WE HAVE OWED IT FOR YEARS.', 'LENNY: THREE OF US ARE HERE. THE BASSIST WANDERED OFF WITH THE BASS. AND THE VAN.'] }]),
+    'u': npc('l.band', 'guitar', [{ lines: ['LENNY: OVERDUE FOUR. WE OWE THIS DRIVE-IN ONE GIG. THE SIGN SAYS TONIGHT.', 'LENNY: THREE OF US ARE HERE. THE BASSIST WANDERED OFF WITH THE BASS. AND THE VAN.'] }]),
     'm': npc('l.rose', 'mossa', [{ lines: ['ROSE: I PLANTED THAT OAK WHEN I WAS SMALL. MIND THE ROOTS.', 'ROSE: THE STREET LOOKS THE SAME EVERY YEAR. THE OAK IS HOW I KNOW IT ISN\'T.'] }]),
-    'z': npc('rerun.rocker', 'guitar', [{ lines: ['TEEN ROCKER: MY BAND PRACTISES IN THE GARAGE. THE NEIGHBOURS PRACTISE COMPLAINING.', 'TEEN ROCKER: ONE DAY I WILL PLAY THE DRIVE-IN. THE BAND THEY BOOKED IS ONE BASSIST SHORT.'] }]),
+    'z': npc('rerun.rocker', 'guitar', [{ lines: ['TEEN ROCKER: MY BAND PRACTISES IN THE GARAGE. THE NEIGHBOURS PRACTISE COMPLAINING.'] }]),
     '0': npc('rerun.cat', 'cat', [{ lines: ['MRRP.', '(THE CAT HAS FOUND THE MIDDLE OF THE MAZE. IT HAS NO PLANS TO LEAVE.)'] }]),
-    '9': npc('rerun.gardener', 'mossa', [{ lines: ['GARDENER: MOW ON SATURDAY, WATER ON SUNDAY. EVERY WEEK. THE GRASS NEVER GROWS.', 'GARDENER: MY ROSES WIN THE SHOW EVERY YEAR. NOBODY ELSE ENTERS. THAT\'S NOT MY FAULT.'] }]),
-    '8': npc('rerun.kid', 'kid', [{ lines: ['NEIGHBOUR KID: I DUG A HOLE IN THE COMMON. NEXT DAY IT WAS FILLED IN. NOBODY DID IT.', 'NEIGHBOUR KID: THE PHONE BOOTH RINGS AT NIGHT. NOBODY ANSWERS. I\'M NOT ALLOWED.'] }]),
+    '9': npc('rerun.gardener', 'mossa', [{ lines: ['GARDENER: THE MOWER LEFT FOR THE CUL-DE-SAC ON ITS OWN. I LET IT. IT KNOWS THE WAY.', "GARDENER: MY ROSES WIN THE SHOW. NOBODY ELSE ENTERS. THAT'S NOT MY FAULT."] }]),
+    '8': npc('rerun.kid', 'kid', [{ lines: ['NEIGHBOUR KID: I DUG A HOLE IN THE COMMON. NEXT DAY IT WAS FILLED IN. NOBODY DID IT.'] }]),
     // The lawn answers back: a mailbox spitter on each of the avenue's lots, flamingo drones at the drive-in, mower
     // hounds by the fountain (the skins: `render/renderer.ts`).
     '6': { tile: ':', ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
@@ -256,7 +254,7 @@ export const BOMBSHELTER: MapDef = {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
     D: { tile: 'D', ent: { t: 'warp', to: 'rerun', entry: 'shelter' } },
     '1': { ent: { t: 'chest', id: 'bombshelter.tins', item: 'bits50' } },
-    a: npc('bombshelter.gordon', 'guard', [{ lines: ['GORDON: THIS IS A DRILL. I CAME DOWN FOR THE DRILL. NOBODY SOUNDED THE ALL CLEAR.', "GORDON: WHAT YEAR IS IT UP THERE? NO, DON'T TELL ME. IT'S ALWAYS THE SAME ONE."] }]),
+    a: npc('bombshelter.gordon', 'guard', [{ lines: ['GORDON: THIS IS A DRILL. I CAME DOWN FOR THE DRILL. NOBODY SOUNDED THE ALL CLEAR.', "GORDON: I'VE BEEN EATING THE TINS IN ALPHABETICAL ORDER. I'M ON PEACHES. DON'T TELL ME HOW LONG."] }]),
   },
 }
 

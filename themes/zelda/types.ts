@@ -353,7 +353,7 @@ export interface TalkBranch {
   /** First branch whose condition holds is spoken. No condition = default. */
   when?: Cond
   lines: string[]
-  /** Given once after the lines (flag `got:<npc id>` prevents repeats). */
+  /** Given once after the lines: once per person and item (flag `got:<npc id>:<item>`), and once per step where the branch has a `set` (`got:<npc id>:<item>:<set>`). */
   give?: ItemId
   /** Flag set after speaking. */
   set?: string
@@ -383,7 +383,8 @@ export type EntDef =
     /** Joins the hero as a follower once `hide` holds after a talk (Luna). */
     join?: boolean
   }
-  | { t: 'sign'; lines: string[] }
+  /** Read facing it (tile 'S'); `alt` is read instead while its condition holds. */
+  | { t: 'sign'; lines: string[]; alt?: { when: Cond; lines: string[] } }
   | { t: 'shop'; id: string; item: ItemId; price: number; once?: boolean }
   | { t: 'plate'; id: string }
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre

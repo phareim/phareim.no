@@ -142,7 +142,7 @@ from the Big Seter and reached from Cairn Ridge.
 ### YULE FJORD (`yulefjord`)
 The dark time on a fjord that opens to the western sea. THE PASS comes down
 from the fell and the quarry hills; THE STILTS is the sleeping village on
-stilts (the lamp warden, sleepers, the chalk girl); THE STAVE CHURCH stands on
+stilts (the lamp warden, a sleeper, the chalk girl); THE STAVE CHURCH stands on
 a rise (ASLAK and the cracked bell); THE HARBOUR is the ferry's dock
 (boathouses, the fishwife); THE LIGHTHOUSE watches the fjord mouth; THE ICE
 FLATS hold the realm's puzzles (ice, beams). A sea cave under the cliffs.
@@ -168,7 +168,7 @@ south they fall to Rerun's lawns.
 ### RERUN ESTATES (`rerun`)
 One nice street, over and over, down to the sea. From the lake gate the
 avenue runs to THE CUL-DE-SAC; THE DRIVE-IN (LENNY, ROSE); RALF's TV van;
-THE HEDGE MAZE; THE PHONE BOOTH that rings at night; THE MARINA on the shore.
+THE HEDGE MAZE; THE PHONE BOOTH on its corner; THE MARINA on the shore.
 OTTO delivers the paper. A bomb shelter under a lawn.
 Fights, the lawn answering back along a line: four mailbox spitters along the
 north side of the avenue, two flamingo drones between the drive-in's lot and its
@@ -177,7 +177,7 @@ screen, two mower hounds by the fountain on the way to the marina.
 ### LUMENBY QUARRY (`lumenby`)
 The town that dug every neon tube on the coast. From the grove gate the road
 climbs to LUMENBY under the dark hill sign (seven letters, `quarry_letter_*`,
-lit by the lots' flags); THE UNION HALL (GUNN); THE PIT, terraced, with the
+lit by the sockets' flags, `q.lumenby.sign1..7`); THE UNION HALL (GUNN); THE PIT, terraced, with the
 heart piece on its stack (bombs, then the hook); THE DEEP DRIFT under its
 headframe (MOTHER MAG) down to THE UNDERGLOW; chalk lots waiting for houses.
 The ground has heights (`terrain`), and the realm's system is relighting the

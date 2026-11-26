@@ -12,7 +12,7 @@
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
  */
-import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
+import type { EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
 import { at, cycle, lantern, light, prop } from './scenery'
 
@@ -23,8 +23,6 @@ const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [tex
 /** Every letter of the hill sign lit (`q.lumenby.sign<n>`, set by the sockets). */
 const SIGN_LIT = ['q.lumenby.sign1', 'q.lumenby.sign2', 'q.lumenby.sign3', 'q.lumenby.sign4', 'q.lumenby.sign5', 'q.lumenby.sign6', 'q.lumenby.sign7']
 
-/** The quarry's first-visit words, in whichever area the hero arrives (the gate, a pass): once. */
-const INTRO: AreaIntro = { lines: ['PINK VEINS IN GREY STONE, AND RAIN IN THE PIT. THE SHIFT WHISTLE HAS NOT BLOWN IN YEARS.'], who: null, flag: 'realm:lumenby' }
 
 /** The hill sign: L U M E N B Y on their scaffolds along the terrace, each dark until its socket is fed (`q.lumenby.sign<n>`). */
 const LETTERS: IsoLandmark[] = [...'lumenby'].map((ch, i) => prop(`quarry_letter_${ch}_off`, 28.8 + i * 1.3, 7.6, {
@@ -50,7 +48,7 @@ export const LUMENBY: MapDef = {
     '######################################################,,,###########################',
     '######################################################,,,###########################',
     '#######################ввввввввввввввввввввввв..T.T.:T.,...#####........T.....T...##',
-    '#######################вв3вввввввввввввввввzвв..;....K.,.;..:..TOO.;.;T...┌╴╷┌═╴:.##',
+    '#######################вв3вввввввввввввввввzвв..;......,.;..:..TOO.;.;T...┌╴╷┌═╴:.##',
     '###..##--V--.;#.##.###.ввввввввввввввввввввввв.:....;..,.T.T....OO....;...│╶╬┤┌┬⑦.##',
     '##...:;--,--h..┌┬═┬╴...вввввввввввввввввжввввв..T...r.,,.T..TT.TOO#####..Θ┤┌┤└┘╵..##',
     '##.....g-,--GTΘ┤╵╶┤╷;7.вввввааааааааааввдввввв.......T,T.....:..OO....#...└┘└──╴..##',
@@ -59,24 +57,24 @@ export const LUMENBY: MapDef = {
     '##.....--,,,,,,,,,,,,,,идддддддддддΘ┤д├─④вввввT...r.,,:TT....T;.OO#####TTr........##',
     '##...T.-----.T.rr.T..,Eвввввввввввдв└─┘ввввввв......,....T.T:...OO......;..T..;.rT##',
     '##.......;...........,.вввввввввввжввввввввввв:.....,.........8.OO....:.T.r..0..:.##',
-    '##адаааааааааааааааааRаааааа...c.L,;..............;,,...:T..;T:.OO.....T..T......T##',
+    '##адаааааааааааааааааRаааааа.....L,;..............;,,...:T..;T:.OO.....T..T......T##',
     '##аааааааааааааааааад,аааааа.,,,,,,.HHHHHHH....;T.,,...T......T.T;....T...........##',
     '##ааааааааjаааааааааа,аааааа.,...,,;HHHHHHH......,,.....T....;;...;...............##',
-    '##аааааадааадаадааааа,аааааа.,...,,;HHHUHHH....N,,...................T........TM.:##',
-    '##ааааjдааааааааааааа,аааааа......,....,.Z...;.,,...Θ═┐.............:...........,,,,',
+    '##аааааадааадаадааааа,аааааа.,...,,;HHHUHHH....N,,...................T........T..:##',
+    '##ааааjдааааааааааааа,аааааа......,....,.....;.,,...Θ═┐.............:...........,,,,',
     '##ааааааааааааааааааа,аааааа.,,,,,,----,------,,......║..........,,,,,,,,,,,,,,,,,,,',
     '##аааааадаааааааажааа,еееажа.,...,.----------v-;.;....└─①...,,,,,,......;..:.;..,,,,',
     '##аааадаааааададааааа,аааада.,;....k-----------,,,,,,,,,,,,,,..;..,.....;.......TT##',
     '##аааааааааееежаааада,аааааа.,,,,,.------------.....;..i..........,......:........##',
     '##аааааааа...............аай.......------------.,,.,.,,.,,.;----s-,---Y-.-------:T##',
-    '##адаааааа.а....Q,.......ааа...T..---y---------.,....,...,..------,.---.--------..##',
+    '##адаааааа.а.....,.......ааа...T..---y---------.,....,...,..------,.---.--------..##',
     '##аааааааа...----,,....а..........,------------.,....,...,..====================..##',
     '##ааааеааа..------,..:.....P..;.:,,...J,,............,,,,,..--=---------Θ─┐-╷---..##',
     '##адаааада...-----,,,,,,,...,,,,,,:....,,..,,,,;,,.,...;....--=-----------└─╬─┐-;:##',
     '##ааадаааа..~~~:...┌─┬╴.....,,,,,,:....,,.T...;.,...,....T..--=.--------.0--╵-│-..##',
     '##дааадаае.~~|2~..Θ┘╶┤┌⑤........;......,,..,....,...,.......--=---------.-③───┘-.T##',
     '##ааааааае:~~--~..:╶─┴┘......,,.,,.....,,..,,,,.,,,,,..T....--=-------.---------;T##',
-    '##ааааааве.~~~~~..----а.:дад.,...,.T.T.,,....f........T.;T..--=---------.-------:T##',
+    '##ааааааве.~~~~~..----а.:дад.,...,.T.T.,,.............T.;T..--=---------.-------:T##',
     '##еааааадв:.~~~...-----..ааа.,...,.TT..,,.....T..T.T.T...T.:--=----.-----.######..##',
     '##аеадаава.b---.....:....ааа.,,,,,...T.,,............;T.....--=-----------#.5.##:.##',
     '##ааааааааадааааееаваааааааа.........T.,..T..........T.T.T:...=...-9------#...##TT##',
@@ -135,13 +133,13 @@ export const LUMENBY: MapDef = {
     ],
   },
   areas: [
-    { name: 'THE DEEP DRIFT', x: 0, y: 0, w: 23, h: 12, entry: 'deep', intro: INTRO },
-    { name: 'THE HILL SIGN', x: 23, y: 0, w: 23, h: 12, entry: 'hill', intro: INTRO },
-    { name: 'THE TOPS', x: 46, y: 0, w: 38, h: 12, entry: 'tops', intro: INTRO },
-    { name: 'THE PIT', x: 0, y: 12, w: 28, h: 28, entry: 'pit', intro: INTRO },
-    { name: 'LUMENBY', x: 28, y: 12, w: 30, h: 17, entry: 'camp', intro: INTRO },
-    { name: 'THE GROVE ROAD', x: 28, y: 29, w: 30, h: 11, entry: 'gate-quarry', intro: INTRO },
-    { name: 'THE TRUCK YARD', x: 58, y: 12, w: 26, h: 28, entry: 'yard', intro: INTRO },
+    { name: 'THE DEEP DRIFT', x: 0, y: 0, w: 23, h: 12, entry: 'deep' },
+    { name: 'THE HILL SIGN', x: 23, y: 0, w: 23, h: 12, entry: 'hill' },
+    { name: 'THE TOPS', x: 46, y: 0, w: 38, h: 12, entry: 'tops' },
+    { name: 'THE PIT', x: 0, y: 12, w: 28, h: 28, entry: 'pit' },
+    { name: 'LUMENBY', x: 28, y: 12, w: 30, h: 17, entry: 'camp' },
+    { name: 'THE GROVE ROAD', x: 28, y: 29, w: 30, h: 11, entry: 'gate-quarry' },
+    { name: 'THE TRUCK YARD', x: 58, y: 12, w: 26, h: 28, entry: 'yard' },
   ],
   entries: {
     'gate-quarry': { x: 39.5, y: 37.5, dir: 'up' },
@@ -230,34 +228,27 @@ export const LUMENBY: MapDef = {
     '⑦': { ent: { t: 'socket', flag: 'q.lumenby.sign7', letter: 'Y' } },
     'V': { ent: { t: 'warp', to: 'underglow1', entry: 'up' }, tile: '>' },
     'U': { ent: { t: 'warp', to: 'unionhall', entry: 'door' }, tile: 'D' },
-    'B': sign('LUMENBY QUARRY.\nEVERY NEON TUBE ON THE COAST STARTED HERE.'),
+    'B': sign('LUMENBY QUARRY.\nOUR TUBES LIT THE COAST.\nNOBODY LIT US.'),
     'J': sign('↑ THE UNION HALL.\n← THE PIT.  → SETER FELL.\n↓ THE WILDWOOD.'),
-    'N': sign('↑ YULE FJORD, OVER THE TOPS.\n↓ LUMENBY.'),
-    'K': sign('↓ LUMENBY.\n↑ YULE FJORD.'),
-    'M': sign('← LUMENBY.\n→ SETER FELL.'),
-    'L': sign('THE HILL SIGN. SEVEN LETTERS,\nSEVEN LINES OF LUMEN GAS.\nNOT ONE IS LIT.'),
-    'Q': sign('THE PIT FLOOR.\nTHE LAST SHIFT LEFT\nIN A HURRY.'),
+    'N': sign('↑ YULE FJORD, OVER THE TOPS.'),
+    'L': sign('THE HILL SIGN.\nSEVEN LETTERS, SEVEN LINES.\nTHE TAPS ARE ALL OVER TOWN.'),
     'P': sign('THE PIT. HARD HATS PAST THIS\nPOINT. HATS NOT PROVIDED.'),
     'G': sign('THE DEEP DRIFT\nNAMES THAT NEVER CAME UP:\nBROR, GUNN\'S BROTHER.'),
     'E': sign('← THE DEEP DRIFT.\n→ THE HILL SIGN.\n↓ THE PIT, PAST THE ROCK.'),
     'Y': sign('SHIFT WHISTLE: OUT OF ORDER.\nGO HOME WHEN TIRED.'),
-    'Z': sign('UNION HALL, LUMENBY\nSHIFT BOARD: EMPTY.\nNEXT SHIFT: WHEN SOMEONE COMES.'),
-    'c': sign('BUILDING LOT.\nHOUSE NOT INCLUDED.'),
-    'f': sign('RESERVED FOR A HOUSE.\nANY DAY NOW.'),
     'i': sign('LOT FOR A MINER\'S HOUSE.\nTHE MINER LEFT FIRST.'),
-    'g': npc('l.deep.mag', 'mossa', [{ lines: ['MOTHER MAG: WELCOME TO THE DELVERS\' CLUB. ROSE STICK, ROSE LEDGE, HOME BY TEA.', "MOTHER MAG: EACH FLOOR'S WAY ON HAS A GLOWSTICK. ROSE, THEN PINK, THEN CYAN."] }]),
+    'g': npc('l.deep.mag', 'mossa', [{ lines: ["MOTHER MAG: DELVERS' CLUB RULES. ROSE STICK, ROSE LEDGE, HOME BY TEA.", 'MOTHER MAG: THE CLUB HAS ONE MEMBER AND THREE COLOURS. ROSE, THEN PINK, THEN CYAN.'] }]),
     'h': npc('lumenby.liftop', 'liftlady', [{ lines: ['LIFT OPERATOR: THE LIFT IS OUT. THE CABLE WENT TO THE CITY WITH EVERYTHING ELSE.', 'LIFT OPERATOR: THE STAIR IN THE SHAFT STILL GOES DOWN. MIND YOUR THUMBS ON THE RAIL.'] }]),
-    'k': npc('lumenby.miner', 'dusty', [{ lines: ['OLD MINER: PINK IN THE ROCK MEANS LUMEN. PINK ON YOUR HANDS MEANS YOU TOUCHED IT.', 'OLD MINER: THE DEEP DRIFT IS NORTH-WEST, PAST THE HILL SIGN. NOBODY GOES DOWN IT FOR FUN.', "OLD MINER: THE TALL STACK IN THE PIT'S SOUTH-WEST CORNER HAS A CHEST ON TOP. ITS RAMP FELL IN.", 'OLD MINER: A HOOK WOULD GET YOU UP THERE, IF THE ROCKS WERE NOT IN THE WAY.'] }]),
+    'k': npc('lumenby.miner', 'dusty', [{ lines: ['OLD MINER: PINK IN THE ROCK MEANS LUMEN. PINK ON YOUR HANDS MEANS YOU TOUCHED IT.', "OLD MINER: THE TALL STACK IN THE PIT HAS A CHEST ON TOP. THIRTY YEARS I'VE WANTED A HOOK."] }]),
     'v': npc('lumenby.vending', 'robot', [
-      // The whole sign lit, the hill's power comes back on: the unit pays out its last twenty bits, once.
       { when: { flags: SIGN_LIT, not: ['lumenby.vended'] }, lines: ['VENDING UNIT: POWER RESTORED. THANK YOU FOR THE LIGHT.', 'VENDING UNIT: DISPENSING THE LAST OF THE STOCK. NO CHARGE.'], set: 'lumenby.vended', give: 'bits20' },
-      { when: { flag: 'lumenby.vended' }, lines: ['VENDING UNIT: OUT OF STOCK. LIT, THOUGH. THANK YOU FOR THE LIGHT.'] },
-      { lines: ['VENDING UNIT: LUMEN ACCEPTED. FEELINGS NOT.', 'VENDING UNIT: OUT OF STOCK SINCE THE SHIFT WHISTLE STOPPED. THANK YOU FOR WAITING.'] },
+      { when: { flag: 'lumenby.vended' }, lines: ['VENDING UNIT: LUMEN ACCEPTED. FEELINGS, ALSO, NOW. NO STOCK, THOUGH.'] },
+      { lines: ['VENDING UNIT: LUMEN ACCEPTED. FEELINGS NOT.', 'VENDING UNIT: OUT OF STOCK SINCE THE LAST SHIFT. THANK YOU FOR WAITING.'] },
     ]),
-    'y': npc('lumenby.cat', 'cat', [{ lines: ['MRRP.', '(A QUARRY CAT, GREY WITH DUST. IT WATCHES THE PIT AS IF THE PIT OWES IT MONEY.)'] }], { wander: true }),
-    'p': { tile: 'д', ...npc('lumenby.apprentice', 'tubeblower', [{ lines: ['APPRENTICE: I BLOW GLASS. I SPEAK FONT. THIS WHOLE HILL IS SET IN CAPITALS.', 'APPRENTICE: NILS SAYS I BLOW GLASS LIKE A KETTLE. HE MEANS IT KINDLY. I THINK.', 'APPRENTICE: EVERY LETTER HAS ITS OWN LINE FROM A TAP IN TOWN. ONE RUNS RIGHT BY THIS BENCH.'] }]) },
+    'y': npc('lumenby.cat', 'cat', [{ lines: ['(A QUARRY CAT. IT WATCHES THE PIT AS IF THE PIT OWES IT MONEY.)'] }], { wander: true }),
+    'p': { tile: 'д', ...npc('lumenby.apprentice', 'tubeblower', [{ lines: ['APPRENTICE: THIS WHOLE HILL IS SET IN CAPITALS. THE LOWER CASE WENT WITH THE LAST SHIFT.', 'APPRENTICE: NILS SAYS I BLOW GLASS LIKE A KETTLE. HE MEANS IT KINDLY. I THINK.'] }]) },
     's': npc('lumenby.detector', 'kid', [{ lines: ['DETECTOR KID: BEEP. BEEP. THAT\'S A SPOON. IT\'S ALWAYS A SPOON.', "DETECTOR KID: THERE'S A PATH BEHIND THE TREES BY THE SPOIL HEAP. IT BEEPS BACK THERE."] }], { wander: true }),
-    'u': npc('lumenby.prospector', 'foreman', [{ lines: ['PROSPECTOR: CAME FOR THE LUMEN. FOUND RAIN, BATS AND A VERY UNFRIENDLY HILL.', 'PROSPECTOR: GUNN AT THE UNION HALL SAYS I DIG LIKE A DOG. A DOG WOULD BE FASTER, SHE SAYS.'] }]),
+    'u': npc('lumenby.prospector', 'foreman', [{ lines: ['PROSPECTOR: CAME FOR THE LUMEN. FOUND BATS, BLOBS AND A VERY UNFRIENDLY HILL.', 'PROSPECTOR: GUNN AT THE UNION HALL SAYS I DIG LIKE A DOG. A DOG WOULD BE FASTER, SHE SAYS.'] }]),
     '1': { ent: { t: 'chest', id: 'lumenby.stack', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'lumenby.island', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'lumenby.crest', item: 'bits20' } },
@@ -301,13 +292,16 @@ export const UNIONHALL: MapDef = {
     s: { tile: 'S', ent: { t: 'sign', lines: ['SHIFT BOARD.\nDAY SHIFT: NOBODY.\nNIGHT SHIFT: NOBODY.'] } },
     a: npc('q.gunn', 'foreman', [
       { when: { flags: ['q.lamp.got'], not: ['q.lamp.done'] }, lines: ["GUNN: BROR'S LAMP. AND THE RAILS HOLD, HE SAYS?", 'GUNN: THEN HE STAYS DOWN THERE BY CHOICE. STUBBORN. LIKE OUR MOTHER.', 'GUNN: THANK YOU. TAKE THIS. I WAS KEEPING IT FOR HIM.'], set: 'q.lamp.done', give: 'heartPiece' },
-      { when: { flags: ['q.bell.ore'], not: ['q.bell.chrome'] }, lines: ["GUNN: CHROME FOR A BELL? TAKE A SHIFT'S WORTH. IT ISN'T DOING ANYTHING HERE.", 'GUNN: AND TELL RAGNA FROM ME: NOT ONE TREE.', "GUNN: RAGNA'S CLINKER IS EAST, IN THE SPORELIGHT, PAST SETER FELL."], set: 'q.bell.chrome', give: 'bits20' },
+      { when: { flags: ['q.bell.ore'], not: ['q.bell.chrome'] }, lines: ["GUNN: CHROME FOR A BELL? TAKE A SHIFT'S WORTH. IT ISN'T DOING ANYTHING HERE.", 'GUNN: AND TELL RAGNA FROM ME: NOT ONE TREE.'], set: 'q.bell.chrome', give: 'bits20' },
       { when: { flags: SIGN_LIT, not: ['q.lumenby.sign.done'] }, lines: ['GUNN: SEVEN LETTERS, ALL LIT. I WATCHED THEM COME ON FROM THE STEPS.', 'GUNN: THE SHIFT WHISTLE WOULD HAVE BLOWN FOR THAT. TAKE THIS INSTEAD.'], set: 'q.lumenby.sign.done', give: 'heartPiece' },
-      { when: { flag: 'q.lamp.done' }, lines: ["GUNN: BROR'S LAMP HANGS IN THE HALL NOW. IT STILL SMELLS OF THE DEEP."] },
+      { when: { flags: ['item:prism', 'q.lumenby.sign.done'], not: ['lumenby.sunset'] }, lines: ["GUNN: THE SUN SET. EVERY LETTER ON THE HILL IS LIT. I'M NOT CRYING. IT'S LUMEN DUST."], set: 'lumenby.sunset' },
+      { when: { flags: ['q.lamp.done', 'q.lumenby.sign.done'] }, lines: ["GUNN: BROR IS FINE. THE LETTERS ARE LIT. I'VE RUN OUT OF THINGS TO WAIT FOR."] },
+      { when: { flag: 'q.lamp.done' }, lines: ["GUNN: THE RAILS HOLD. I HEARD. I'D LIKE TO HEAR IT IN HIS OWN VOICE."] },
       { when: { flag: 'q.lumenby.sign.done' }, lines: ['GUNN: THE SIGN IS LIT. NOW ALL IT NEEDS IS A TOWN UNDER IT.'] },
-      { lines: ['GUNN: LAST FOREWOMAN OF LUMENBY. I KEEP THE SHIFT BOARD, AND NOBODY IS ON IT.', 'GUNN: MY BROTHER BROR WENT DOWN THE DEEP DRIFT, NORTH-WEST PAST THE HILL SIGN, AND NEVER CAME UP.', 'GUNN: BRING ME WORD OF HIM. ANY WORD.', 'GUNN: AND THE HILL SIGN. SEVEN LETTERS, SEVEN GAS LINES ROUND TOWN, ALL DARK. HANDS TO SPARE?'], set: 'q.lamp.ask' },
+      { when: { flag: 'item:prism' }, lines: ['GUNN: MY BROTHER BROR WENT DOWN THE DEEP DRIFT, NORTH-WEST PAST THE HILL SIGN, AND NEVER CAME UP.', 'GUNN: BRING ME WORD OF HIM. ANY WORD.', 'GUNN: THE SUN SET. NOW THE ORDERS COME. I HAVE SEVEN DARK LETTERS AND TWO HANDS.'], set: 'q.lamp.ask' },
+      { lines: ['GUNN: MY BROTHER BROR WENT DOWN THE DEEP DRIFT, NORTH-WEST PAST THE HILL SIGN, AND NEVER CAME UP.', 'GUNN: BRING ME WORD OF HIM. ANY WORD.', "GUNN: NOBODY ORDERS NEON FROM A SUN THAT WON'T SET. BRING US A NIGHT."], set: 'q.lamp.ask' },
     ]),
-    d: npc('q.lumenby.nils', 'tubeblower', [{ lines: ["NEON NILS: THAT'S A LOVELY SERIF OF A ROCK.", "NEON NILS: I BENT EVERY LETTER OF THE TOWN'S SIGN. NOW I BEND SPOONS. TO KEEP MY HAND IN.", 'NEON NILS: LUMEN WILL NOT GLOW IN A LEAKY LINE. EVERY END CLOSED, OR NOTHING.'] }]),
+    d: npc('q.lumenby.nils', 'tubeblower', [{ lines: ["NEON NILS: THAT'S A LOVELY SERIF OF A ROCK.", "NEON NILS: I BENT EVERY LETTER OF THE TOWN'S SIGN. NOW I BEND SPOONS. TO KEEP MY HAND IN."] }]),
   },
 }
 

@@ -21,7 +21,7 @@ import { joinCells } from './cells'
 const A = [
   '################',
   '#..............#',
-  '#..a...........#',
+  '#..............#',
   '#..............#',
   '#...o.o........#',
   '#..........H...1',
@@ -43,7 +43,7 @@ const B = [
   '...αααααααααα..X',
   '#.ααααααααααα..#',
   '#..............#',
-  '#..g...........#',
+  '#..............#',
   '#..............#',
   '################',
 ]
@@ -128,11 +128,9 @@ export const PUZZLELAB: MapDef = {
   marks: {
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
     // A: weights
-    a: { ent: { t: 'sign', lines: ['THE WEIGH HOUSE. THE HEAVY PLATE HAS NOT MOVED IN YEARS. ONE VISITOR DOES NOT IMPRESS IT.'] } },
     H: { ent: { t: 'plate', id: 'lab.a.heavy' }, tile: 'η' },
     '1': { ent: { t: 'gate', open: { plates: ['lab.a.heavy'] } } },
     // B: ice
-    g: { ent: { t: 'sign', lines: ['THE COLD ROOM. MIND THE FLOOR. IT HAS NO BRAKES.'] } },
     J: { ent: { t: 'plate', id: 'lab.b.heavy' }, tile: 'η' },
     '2': { ent: { t: 'gate', open: { plates: ['lab.b.heavy'] } } },
     // C: beams
@@ -143,7 +141,7 @@ export const PUZZLELAB: MapDef = {
     '3': { ent: { t: 'gate', open: { flags: ['lab.c.a', 'lab.c.b'] } } },
     E: { ent: { t: 'enemy', kind: 'blob' } },
     // D: the rolling stone
-    d: { ent: { t: 'sign', lines: ['THE STONE RUN. DANGER: ROLLING STONE. DO NOT STAND IN ITS ROAD.'] } },
+    d: { ent: { t: 'sign', lines: ['THE STONE RUN. THE STONE HAS ONE ROAD AND NO MANNERS.'] } },
     z: { ent: { t: 'boulder', dir: 'left', flag: 'lab.d.roll' } },
     N: { ent: { t: 'lever', flag: 'lab.d.roll' } },
     // E: sluices
@@ -152,7 +150,7 @@ export const PUZZLELAB: MapDef = {
     A: { ent: { t: 'sluice', flag: 'lab.e.tide', invert: true } },
     m: { ent: { t: 'valve', flag: 'lab.e.tide' } },
     // F: all together
-    j: { ent: { t: 'sign', lines: ['THE LAST ROOM. THE PRIZE IS BEHIND THE GATE, AND THE GATE WANTS LIGHT.'] } },
+    j: { ent: { t: 'sign', lines: ['THE LAST ROOM. ALL OF THE ABOVE, AT ONCE.'] } },
     Q: { ent: { t: 'boulder', dir: 'down', flag: 'lab.f.roll' } },
     U: { ent: { t: 'lever', flag: 'lab.f.roll' } },
     p: { ent: { t: 'emitter', dir: 'right' } },

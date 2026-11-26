@@ -380,7 +380,7 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'f-say-folk': give(); say('seterfell', e => e.t === 'npc' && e.id === 'seterfell.walker'); break
   case 'f-say-roads': give(); say('seterfell', e => e.t === 'sign' && e.lines[0].includes(String.fromCharCode(10))); break
   case 'f-say-cross': give(); say('overworld', e => e.t === 'npc' && e.id === 'q.seed.tender'); break
-  case 'f-say-intro': { give(); place('seterfell', 'camp'); run(30); const a = WORLD.maps.seterfell.areas[0]; s.dialog = { lines: a.intro.lines, line: 0, chars: a.intro.lines[0].length, who: null, after: null }; s.mode = 'dialog'; break }
+  case 'f-say-intro': { give(); place('rerun', 'gate-lawns'); run(30); const a = WORLD.maps.rerun.areas[0]; s.dialog = { lines: a.intro.lines, line: 0, chars: a.intro.lines[0].length, who: null, after: null }; s.mode = 'dialog'; break }
   case 'look-snow': give(); place(lookId, 'camp', 0, -1); run(30); break
   case 'look-snow-2': give(); place(lookId, 'camp'); s.hero.y = 3.5; run(30); break
   case 'look-dune': give(); place(lookId, 'camp'); run(30); break
