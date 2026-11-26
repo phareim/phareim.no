@@ -160,9 +160,10 @@ the things of the world (the van, tents, fires, torches, the mast, tanks, the DJ
 consoles and benches, a fountain in the square's pool) are rotoscoped too, from guides built of solids (`iso/things.ts`),
 and since part 25 the arcade cabinets, Petter's terminals and the LOGIN console (`iso/machines.ts`: one master cabinet,
 every other a Codex edit of it in its own colours and marquee; the screens stay the classic painter's, live, in the
-drawn glass). What still waits for its isometric art (the pictures on the walls, the pool's square water, the effects,
-the newsstand and the two stalls on the square, still a classic front on a plain box) is
-in the journal thread `neon-shrine-isometric-art`.
+drawn glass), and since part 26 the square's newsstand, NEW LOOK stall and KODING KATA stand (`iso/stallArt.ts`:
+each stall several drawings that stand together, as a sheet holds no more; the lit signs, the mirror, the screens and
+the people behind the counters stay the classic painter's, live). What still waits for its isometric art (the pictures
+on the walls, the pool's square water, the effects) is in the journal thread `neon-shrine-isometric-art`.
 
 **Rotoscoped pixel art** (Petter, 2026-11-25: «Alt vi legger ut skal ha en håndtegnet piksel-art følelse … Vi tåler
 veldig godt å bruke mange farger.»). A 3D model is only ever the guide: it gives the angle (the view's own projection:

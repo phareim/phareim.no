@@ -13,6 +13,10 @@
  * The isometric view may stand a cabinet, a terminal or the login console drawn by hand in the round (part 25,
  * `iso/machines.ts`): the item names the drawing (`things`) and the regions of this painter's picture that are
  * its screens (`screens`), which that view stands in the drawing's glass, live. `CAB_STYLES` is read by its test.
+ * The SLEEPER NEWS newsstand and the NEW LOOK stall are drawn so too (part 26): the newsstand's lit NEWS and the stall's
+ * NEW LOOK and mirror are such regions, and the stall's people stand behind its drawn counter as cards of their own
+ * (`ThingScreen.stand`, the item's `bare` drawing only what lives). So is the KODING KATA stand: its sign, the desk
+ * computer's code and the amber prompt are regions, Linus and Ada cards, and its disk light picks a lit or an unlit drawing.
  */
 import type { Dir, ExitLook, ExitSpot, GameState, World } from '../types'
 import { TILE } from '../types'
@@ -1056,41 +1060,71 @@ function queueKata(
   const glint = !reduced && (t * 0.9 + seed) % 3 < 0.15
   const amber = reduced || Math.sin(t * 0.9 + seed) > -0.9
   const disk = !reduced && Math.sin(t * 9 + seed * 3) > 0.4
+  /** What moves: the lit sign, the desk computer's code, the amber prompt, the disk light (`bare`: not it), Linus and Ada. */
+  const live = (bare: boolean) => {
+    drawText(g, 'KODING KATA', left + Math.round((KATA_W - textWidth('KODING KATA')) / 2), top + 2, on ? '#b6ff4a' : '#2a4a1a')
+    // The desk computer's code, and a cursor after it (blinking once it is all there).
+    const sx = left + KATA_SCR.x + 1
+    const sy = top + KATA_SCR.y + 1
+    let n = typed
+    let cur: [number, number] = [sx, sy]
+    KATA_CODE.forEach(([ind, len], i) => {
+      const w = Math.min(len, n)
+      n -= w
+      if (w > 0) { r(g, solved ? '#b6ff4a' : '#3fe86a', sx + ind, sy + i * 2, w, 1); cur = [sx + ind + w, sy + i * 2] }
+    })
+    if (typed < KATA_CODE_LEN || reduced || Math.floor(t * 3) % 2 === 0) r(g, '#fff4ff', cur[0], cur[1])
+    // The amber monitor on the pile: a prompt and a cursor, though nothing feeds it. The PC under it reads a disk.
+    if (amber) {
+      r(g, '#3a2408', left + 3, top + 27, 5, 4)
+      r(g, '#ffb13f', left + 3, top + 28); r(g, '#ffb13f', left + 4, top + 29); r(g, '#ffb13f', left + 3, top + 30)
+      if (reduced || Math.floor(t * 2) % 2 === 0) r(g, '#ffb13f', left + 5, top + 30, 2, 1)
+    }
+    if (!bare) r(g, disk ? '#ff3b5c' : '#5a1a2a', left + 8, top + 36)
+    // Waist up behind the desk: Linus on the left, Ada on the right; the counter hides the rest.
+    const rows = STALL_COUNTER - 20
+    const person = (look: HeroLook, x: number, dy: number) =>
+      g.drawImage(stallPerson(look), 0, 0, 16, rows - dy, left + x, top + 20 + dy, 16, rows - dy)
+    person(LINUS, 17, dyL)
+    kataGlasses(g, left + 17, top + 20 + dyL, '#0b0616', glint ? '#2ff3ff' : '#fff4ff')
+    person(ADA, 47, dyA)
+    kataGlasses(g, left + 47, top + 20 + dyA, '#ff2fa0', null)
+  }
+  /** A region of the static drawing, as it is, under what moves there (for a turned view's cell). */
+  const under = (x: number, y: number, w: number, h: number) => g.drawImage(kataBack(), x, y, w, h, left + x, top + y, w, h)
   items.push({
     x: e.x,
     y: e.y + 0.5,
     box: { w: 60, h: STALL_H, d: 16, px: [2, 37] },
+    // A turned view may stand the stand in the round, drawn by hand (part 26, `iso/machines.ts`): too large for one drawing,
+    // it is several that stand together (the back wall with its shelf, a side wall each end, the desk, the desk computer on
+    // it, the two junk piles, the awning, the board; the left pile's disk light a lit and an unlit drawing). This painter's
+    // lit sign, the desk computer's code and the amber prompt stand in their key areas; Linus and Ada behind the desk as
+    // cards of their own, waist up over its top.
+    things: [
+      { id: 'kata_wall', dy: -20 / 32 }, { id: 'kata_side', dx: -62 / 32, dy: -12 / 32 }, { id: 'kata_side', dx: 62 / 32, dy: -12 / 32 },
+      { id: 'kata_desk', dy: -4 / 32 }, { id: 'kata_pc', dy: -4 / 32 }, { id: `kata_junkl_${disk ? 1 : 0}`, dx: -74 / 32, dy: -8 / 32 },
+      { id: 'kata_junkr', dx: 75 / 32, dy: -7 / 32 }, { id: 'kata_awning', dy: -16 / 32 }, { id: 'kata_board', dy: -22 / 32 },
+    ],
+    screens: [
+      { u: 9 - KATA_W / 2, v: 2 - STALL_H, w: 62, h: 7, part: 8, box: 0 },
+      { u: KATA_SCR.x - KATA_W / 2, v: KATA_SCR.y - STALL_H, w: KATA_SCR.w, h: KATA_SCR.h, part: 4, box: 0 },
+      { u: 3 - KATA_W / 2, v: 27 - STALL_H, w: 5, h: 4, part: 5, box: 0 },
+      { u: 17 - KATA_W / 2, v: 19 - STALL_H, w: 16, h: STALL_COUNTER - 19, part: 3, stand: { y: 11 / 32, z: 20 / 32 } },
+      { u: 47 - KATA_W / 2, v: 19 - STALL_H, w: 16, h: STALL_COUNTER - 19, part: 3, stand: { y: 11 / 32, z: 20 / 32 } },
+    ],
+    shade: { dx: 0, dy: -12 / 32, tall: 1.3, wide: 2.2, deep: 0.42 },
+    bare: () => {
+      under(9, 2, 62, 7)
+      under(KATA_SCR.x, KATA_SCR.y, KATA_SCR.w, KATA_SCR.h)
+      under(3, 27, 5, 4)
+      live(true)
+    },
     draw: () => {
       g.fillStyle = 'rgba(8,4,20,0.45)'
       g.fillRect(left + 1, bottom - 1, KATA_W - 2, 2)
       g.drawImage(kataBack(), left, top)
-      drawText(g, 'KODING KATA', left + Math.round((KATA_W - textWidth('KODING KATA')) / 2), top + 2, on ? '#b6ff4a' : '#2a4a1a')
-      // The desk computer's code, and a cursor after it (blinking once it is all there).
-      const sx = left + KATA_SCR.x + 1
-      const sy = top + KATA_SCR.y + 1
-      let n = typed
-      let cur: [number, number] = [sx, sy]
-      KATA_CODE.forEach(([ind, len], i) => {
-        const w = Math.min(len, n)
-        n -= w
-        if (w > 0) { r(g, solved ? '#b6ff4a' : '#3fe86a', sx + ind, sy + i * 2, w, 1); cur = [sx + ind + w, sy + i * 2] }
-      })
-      if (typed < KATA_CODE_LEN || reduced || Math.floor(t * 3) % 2 === 0) r(g, '#fff4ff', cur[0], cur[1])
-      // The amber monitor on the pile: a prompt and a cursor, though nothing feeds it. The PC under it reads a disk.
-      if (amber) {
-        r(g, '#3a2408', left + 3, top + 27, 5, 4)
-        r(g, '#ffb13f', left + 3, top + 28); r(g, '#ffb13f', left + 4, top + 29); r(g, '#ffb13f', left + 3, top + 30)
-        if (reduced || Math.floor(t * 2) % 2 === 0) r(g, '#ffb13f', left + 5, top + 30, 2, 1)
-      }
-      r(g, disk ? '#ff3b5c' : '#5a1a2a', left + 8, top + 36)
-      // Waist up behind the desk: Linus on the left, Ada on the right; the counter hides the rest.
-      const rows = STALL_COUNTER - 20
-      const person = (look: HeroLook, x: number, dy: number) =>
-        g.drawImage(stallPerson(look), 0, 0, 16, rows - dy, left + x, top + 20 + dy, 16, rows - dy)
-      person(LINUS, 17, dyL)
-      kataGlasses(g, left + 17, top + 20 + dyL, '#0b0616', glint ? '#2ff3ff' : '#fff4ff')
-      person(ADA, 47, dyA)
-      kataGlasses(g, left + 47, top + 20 + dyA, '#ff2fa0', null)
+      live(false)
       g.drawImage(kataFront(), left, top + STALL_COUNTER)
     },
   })
@@ -1524,6 +1558,11 @@ export function queueExits(
           x: e.x,
           y: e.y + 0.5,
           box: { w: KIOSK_W, h: KIOSK_H, d: 14, px: [3, 22] },
+          // A turned view may stand the newsstand in the round, drawn by hand (part 26, `iso/machines.ts`), its middle 12 px
+          // behind the front, with this painter's lit NEWS in the key area of its board.
+          things: [{ id: 'kiosk', dy: -12 / 32 }],
+          screens: [{ u: 2 - KIOSK_W / 2, v: 2 - KIOSK_H, w: 26, h: 7 }],
+          shade: { dx: 0, dy: -12 / 32, tall: 1.3, wide: 0.95, deep: 0.42 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, KIOSK_W - 2, 2)
@@ -1702,23 +1741,48 @@ export function queueExits(
         // A sparkle over the mannequin while its look is new.
         const fresh = !reduced && turn % 1 < 0.18
         const glint = reduced ? 3 : Math.floor(t * 5 + seed) % 22
+        /** What moves: the lit NEW LOOK, the mirror's bulbs and shine, and the people behind the counter. */
+        const live = () => {
+          drawText(g, 'NEW LOOK', left + Math.round((STALL_W - textWidth('NEW LOOK')) / 2), top + 2, on ? '#ff2fa0' : '#5a1a4a')
+          // The mirror's bulbs, and a shine that crosses the glass now and then.
+          for (let i = 0; i < 4; i++) r(g, (Math.floor(t * 3) + i) % 4 === 0 && !reduced ? '#fff4ff' : '#ffd23f', left + 6 + i * 3, top + 21, 1, 1)
+          if (glint < 8) { r(g, '#cfc6ff', left + 6 + glint, top + 23, 1, 2); r(g, '#fff4ff', left + 7 + glint, top + 25, 1, 2) }
+          // Waist up behind the counter: the mannequin on its pole, the stylist in the middle.
+          const rows = STALL_COUNTER - 20
+          g.drawImage(stallPerson(model), 0, 0, 16, rows, left + 35, top + 20, 16, rows)
+          if (fresh) { r(g, '#fff4ff', left + 37, top + 21, 1, 1); r(g, '#fff4ff', left + 48, top + 24, 1, 1); r(g, '#ffd23f', left + 46, top + 20, 1, 1) }
+          g.drawImage(stallPerson(STYLIST), 0, 0, 16, rows - bob, left + 18, top + 20 + bob, 16, rows - bob)
+        }
         items.push({
           x: e.x,
           y: e.y + 0.5,
           box: { w: STALL_W, h: STALL_H, d: 16, px: [2, 37] },
+          // A turned view may stand the stall in the round, drawn by hand (part 26, `iso/machines.ts`): too large for one
+          // drawing, it is four that stand together (the back wall with the mirror, a side wall each end, the counter, the
+          // roof with its board). This painter's lit NEW LOOK stands in the board's key area and its mirror in the glass's;
+          // the stylist and the mannequin stand behind the counter as cards of their own, waist up over its top.
+          things: [
+            { id: 'look_wall', dy: -20 / 32 }, { id: 'look_side', dx: -50 / 32, dy: -22 / 32 }, { id: 'look_side', dx: 50 / 32, dy: -22 / 32 },
+            { id: 'look_counter', dy: -4 / 32 }, { id: 'look_roof', dy: -16 / 32 },
+          ],
+          screens: [
+            { u: 3 - STALL_W / 2, v: 2 - STALL_H, w: 46, h: 7, part: 4, box: 0 },
+            { u: 6 - STALL_W / 2, v: 21 - STALL_H, w: 10, h: 8, part: 0, box: 0 },
+            { u: 18 - STALL_W / 2, v: 20 - STALL_H, w: 16, h: STALL_COUNTER - 20, part: 3, stand: { y: 11 / 32, z: 20 / 32 } },
+            { u: 35 - STALL_W / 2, v: 20 - STALL_H, w: 16, h: STALL_COUNTER - 20, part: 3, stand: { y: 11 / 32, z: 20 / 32 } },
+          ],
+          shade: { dx: 0, dy: -12 / 32, tall: 1.3, wide: 1.6, deep: 0.42 },
+          // (Its cell then: the board's face and the mirror as this painter draws them, and the live parts on nothing.)
+          bare: () => {
+            g.drawImage(stallBack(), 3, 1, 46, 8, left + 3, top + 1, 46, 8)
+            g.drawImage(stallBack(), 6, 21, 10, 9, left + 6, top + 21, 10, 9)
+            live()
+          },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, STALL_W - 2, 2)
             g.drawImage(stallBack(), left, top)
-            drawText(g, 'NEW LOOK', left + Math.round((STALL_W - textWidth('NEW LOOK')) / 2), top + 2, on ? '#ff2fa0' : '#5a1a4a')
-            // The mirror's bulbs, and a shine that crosses the glass now and then.
-            for (let i = 0; i < 4; i++) r(g, (Math.floor(t * 3) + i) % 4 === 0 && !reduced ? '#fff4ff' : '#ffd23f', left + 6 + i * 3, top + 21, 1, 1)
-            if (glint < 8) { r(g, '#cfc6ff', left + 6 + glint, top + 23, 1, 2); r(g, '#fff4ff', left + 7 + glint, top + 25, 1, 2) }
-            // Waist up behind the counter: the mannequin on its pole, the stylist in the middle.
-            const rows = STALL_COUNTER - 20
-            g.drawImage(stallPerson(model), 0, 0, 16, rows, left + 35, top + 20, 16, rows)
-            if (fresh) { r(g, '#fff4ff', left + 37, top + 21, 1, 1); r(g, '#fff4ff', left + 48, top + 24, 1, 1); r(g, '#ffd23f', left + 46, top + 20, 1, 1) }
-            g.drawImage(stallPerson(STYLIST), 0, 0, 16, rows - bob, left + 18, top + 20 + bob, 16, rows - bob)
+            live()
             g.drawImage(stallFront(), left, top + STALL_COUNTER)
           },
         })

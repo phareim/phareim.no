@@ -86,6 +86,12 @@ const CASES = {
   // The arcade's and Petter's house's machines, their screens running (part 25).
   'arcade-stand': ['r-arcade', ``, [[90, STILL]]],
   'home-stand': ['r-home', ``, [[90, STILL]]],
+  // Part 26: at the newsstand's counter, at NEW LOOK's and at KODING KATA's, on the square.
+  'kiosk-stand': ['r-kioskat', ``, [[90, STILL]]],
+  'look-stand': ['r-look', ``, [[90, STILL]]],
+  'kata-stand': ['r-kata', ``, [[90, STILL]]],
+  // (two tiles south of NEW LOOK, KODING KATA to the north-east: the stalls in view with no label over them)
+  'stall-stand': ['r-stall', ``, [[90, STILL]]],
 }
 const SIZES = { 1280: [1280, 800, 1], 390: [390, 844, 3] }
 const [W0, H0, DPR] = SIZES[SIZE]

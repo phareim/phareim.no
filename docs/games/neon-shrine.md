@@ -425,6 +425,24 @@ classic picture. `/?view=<id>` asks for one.
     hash of the classic style it was drawn from (`MACHINE_FROM`, against `CAB_STYLES` in `exits.ts`):
     `tests/zelda-machines.test.mjs` fails when a style changes, so it is redrawn. The job's tools, sheets
     and archive are in `tmp/iso-figures-25/` on the Mac (`REPORT.md`).
+    **The square's stalls** (part 26, 2026-11-26; `iso/stallArt.ts`, behind the same value): the SLEEPER
+    NEWS newsstand, the NEW LOOK stall and the KODING KATA stand are drawn the same way, each by Codex over
+    its own guide from solids. Codex draws about 150 × 100 art px on a sheet, so a stall is several
+    drawings that stand together, each piece a thing of the item with its own anchor (`things`): NEW LOOK
+    a back wall with the mirror, a side wall at each end, the counter, and the roof (the board and a short
+    awning, so the mirror and the people stay in view from above); KODING KATA a back wall with its shelf,
+    the side walls, the desk, the desk computer, the board, the awning and the two junk piles; the
+    newsstand is one drawing. What moves stays the classic painter's, live: the lit NEWS, NEW LOOK and
+    KODING KATA, NEW LOOK's mirror (bulbs, glass, shine), the desk computer's code and the amber prompt
+    stand in the drawings' key areas as the screens do (a region may name the drawing and key area it
+    stands in, `ThingScreen.part`, `box`); the junk pile's disk light, too small for a key area, is a lit
+    and an unlit drawing (one px apart). The people behind the counters (the stylist, the mannequin and
+    its changing look, Linus and Ada with their glasses) are the classic painter's too, each a card of its
+    own (`ThingScreen.stand`) standing behind the drawn counter with its foot just under the counter's top,
+    so they show waist up and bob and hop as before; for such an item the cell holds only what lives
+    (`Item.bare`). Their art (about 340 KB raw) is a second chunk, so the town fetches only it, and a map
+    packs only the drawings its looks bring (`machineLooks`, `machineKit`): the square's atlas holds no
+    cabinet. The tools, sheets and archive: `tmp/iso-figures-26/` on the Mac (`REPORT.md`).
   - *Cabinets and booths with a body.* An item whose drawing is the front
     of a box says so (`Item.box` in `wild.ts`: the front's width and height
     in the drawing, and how deep the body is; the arcade's cabinets, the
@@ -434,8 +452,8 @@ classic picture. `/?view=<id>` asks for one.
     body behind it on top and to the east with a plain patch of the
     drawing's own edge, so a cabinet is a cabinet seen from the corner,
     its screen running away to the right, and not a card. Since part 25 the machines stand drawn
-    (above) and the box is their fallback and their first part of the turn; the newsstand and the two
-    stalls are still boxes.
+    (above) and the box is their fallback and their first part of the turn; since part 26 the newsstand
+    and the two stalls too.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable
     over its east wall, so what is painted on it stays whole. The sun's
@@ -1040,10 +1058,13 @@ classic picture. `/?view=<id>` asks for one.
   (the cone is drawn still), the desk's screen and lamp and the consoles' lights are drawn frames rather
   than the classic live pixels, and the art adds about 490 KB to the view’s lazy chunk (148 KB gzipped together); the built things (lamps,
   counters, chests: *Standing things in the round*) are crisp flat-stepped solids, which reads as pixel art
-  beside the drawn things but plainer; the newsstand and the two stalls on the square are still a classic
-  front on a plain box, beside the drawn booths and machines; the machines' screens are the classic
+  beside the drawn things but plainer; the machines' screens are the classic
   pictures doubled in their glass, a px off a cabinet's top and bottom edge, and their art arrives a moment
-  after the view enters a room with them (the boxes stand until then); the eight keyboard directions are the
+  after the view enters a room with them (the boxes stand until then); the square's stalls are several
+  drawings each (a sheet holds no more), so their pieces were drawn apart and meet where the guide put
+  them, the people behind their counters are the classic cards (head and shoulders over the counter, as in
+  the classic), the long boards' and awnings' far ends are a few px nearer in depth than they are (the
+  depth byte holds ±32 px), and the town now fetches their chunk (about 340 KB raw); the eight keyboard directions are the
   eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>

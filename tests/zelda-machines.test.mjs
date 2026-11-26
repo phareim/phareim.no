@@ -2,6 +2,9 @@
 // chunk of its own, packed beside a realm's kit by things.ts): the arcade cabinets, Petter's terminals and the LOGIN console. Which placed machines have a drawing, that a style
 // with none keeps the classic box, that every cabinet style is an edit on the master's silhouette, that each live screen
 // stands inside its drawing's glass, and that each cabinet was drawn from the style the classic painter still paints.
+// Part 26 (stallArt.ts, a second chunk): the square's newsstand, NEW LOOK stall and KODING KATA stand, each standing from
+// several drawings; their lit signs, screens and mirror stand in their key areas in front of every px of their own drawings,
+// their people behind the counter, and a map packs only the drawings its looks bring.
 // Bundled with esbuild like the other zelda tests; no canvas is made here.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -16,7 +19,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export { withThings, thingKey } from './render/iso/things'; export { buildProps } from './render/iso/props'; export { screenFit, hasMachines, withMachines, loadMachineArt, MACHINE_SCREENS, MACHINE_FROM } from './render/iso/machines'; export { queueExits, CAB_STYLES } from './render/exits'; export { worldExits, WORLD } from './world'`,
+      contents: `export { withThings, thingKey } from './render/iso/things'; export { buildProps } from './render/iso/props'; export { screenFit, hasMachines, machineLooks, machineKit, machineArt, withMachines, loadMachineArt, MACHINE_SCREENS, MACHINE_FROM } from './render/iso/machines'; export { queueExits, CAB_STYLES } from './render/exits'; export { worldExits, WORLD } from './world'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -30,7 +33,10 @@ before(async () => {
   const mod = await load()
   // (The art is fetched as the view does; its entries stand in for THING_ART below.)
   const art = await mod.loadMachineArt()
-  M = { ...mod, MACHINE_ART: art, THING_ART: art, hasThing: id => Object.prototype.hasOwnProperty.call(art, id) }
+  // (Part 25's machines, and part 26's newsstand and stalls, a chunk of their own.)
+  const part25 = id => id.startsWith('cab_') || id === 'home_terminal' || id === 'login_console'
+  const pick = f => Object.fromEntries(Object.entries(art).filter(([id]) => f(id)))
+  M = { ...mod, MACHINE_ART: pick(part25), STALL_ART: pick(id => !part25(id)), THING_ART: art, hasThing: id => Object.prototype.hasOwnProperty.call(art, id) }
 })
 
 /** Every cabinet placed in the world (the arcade, the VIP hall, Petter's house), by its art. */
@@ -148,8 +154,8 @@ describe('zelda machines drawn by hand (part 25)', () => {
     }
     const kit = { other: M.MACHINE_ART.cab_newgame }
     assert.equal(M.withMachines(kit, M.MACHINE_ART), M.withMachines(kit, M.MACHINE_ART), 'the same merged kit, so the atlas is packed once')
-    for (const id of ['arcade', 'vip', 'home']) assert.equal(M.hasMachines(M.WORLD.maps[id]), true, id)
-    for (const id of ['overworld', 'hut']) assert.equal(M.hasMachines(M.WORLD.maps[id]), false, id)
+    for (const id of ['arcade', 'vip', 'home', 'overworld']) assert.equal(M.hasMachines(M.WORLD.maps[id]), true, id)
+    assert.equal(M.hasMachines(M.WORLD.maps.hut), false, 'hut')
   })
 
   it('the marquee and the coin slots glow; every px has a normal and a depth', () => {
@@ -165,5 +171,126 @@ describe('zelda machines drawn by hand (part 25)', () => {
         assert.ok(geo.npal[geo.nrows[y].charCodeAt(x) - 48], `${id} (${x}, ${y}) has a normal`)
       }
     }
+  })
+
+  // -------------------------------------------------------------------------------------------- part 26: the square's stalls
+  const STALLS = [['kiosk', undefined], ['stall', undefined], ['stall', 'kata']]
+  /** The key areas' colour per drawing (build.py's KEY_RGB): the classic painter's live picture stands over them. */
+  const KEY = { kiosk: '#12081e', look_roof: '#12081e', look_wall: '#1a2f78', kata_board: '#12081e', kata_pc: '#0b1a10', kata_junkl_0: '#1a1206', kata_junkl_1: '#1a1206' }
+  const geoOf = t => (t.like ? M.THING_ART[t.like] : t)
+  const qOf = (t, x, y) => { const a = Buffer.from(geoOf(t).deep, 'base64')[y * t.w + x]; return a ? (a - 128) / 4 : 4.8 }
+
+  it('the newsstand and the two stalls name their drawings, their live regions and their people', () => {
+    const placed = M.worldExits().filter(e => e.look === 'kiosk' || e.look === 'stall').map(e => `${e.look}:${e.art ?? ''}`).sort()
+    assert.deepEqual(placed, ['kiosk:', 'stall:', 'stall:kata'], 'one of each on the square')
+    const counts = { kiosk: [1, 1, 0], stall: [5, 2, 2], kata: [9, 3, 2] }
+    for (const [look, art] of STALLS) {
+      const it = itemOf(look, art)
+      const [parts, regions, people] = counts[art ?? look]
+      assert.ok(it.box, `${look} keeps its box for the classic turn and with the value off`)
+      assert.equal(it.things.length, parts, `${art ?? look}: its drawings`)
+      for (const p of it.things) assert.ok(M.hasThing(p.id), `${p.id} is drawn`)
+      assert.equal(it.screens.filter(sc => !sc.stand).length, regions, `${art ?? look}: its live regions`)
+      assert.equal(it.screens.filter(sc => sc.stand).length, people, `${art ?? look}: its people`)
+      assert.equal(!!it.bare, people > 0, `${art ?? look}: a cell of only what lives when it has people`)
+      // Every piece stands on a whole scene px: (dx + dy) in scene px is even, so its rows land on the scene's.
+      for (const p of it.things) assert.ok(Math.abs(Math.round(((p.dx ?? 0) + (p.dy ?? 0)) * 32) % 2) === 0, `${p.id} stands on a whole px`)
+    }
+    // The disk light: a lit and an unlit drawing, one px apart, the lit one sharing the other's normals and depth.
+    const [d0, d1] = [M.THING_ART.kata_junkl_0, M.THING_ART.kata_junkl_1]
+    assert.equal(d1.like, 'kata_junkl_0')
+    let diff = 0
+    for (let y = 0; y < d0.h; y++) for (let x = 0; x < d0.w; x++) if (d0.pal[d0.rows[y][x]] !== d1.pal[d1.rows[y][x]]) diff++
+    assert.equal(diff, 1, 'the disk light is one px of the drawing')
+  })
+
+  it('each lit sign, screen and the mirror stands in its key area at the classic\'s doubled px', () => {
+    for (const [look, art] of STALLS) {
+      const it = itemOf(look, art)
+      it.screens.forEach((sc, i) => {
+        if (sc.stand) return
+        const id = it.things[sc.part ?? 0].id
+        const t = M.THING_ART[id]
+        const f = M.screenFit(M.MACHINE_SCREENS[id][sc.box ?? i], sc.w, sc.h)
+        assert.equal(f.S, 2, `${id} region ${i}: at the classic's doubled px`)
+        assert.ok(f.du <= 0.5 && f.dv <= 0.5, `${id} region ${i}: no more than a px of each edge goes`)
+        const key = new Set(Object.entries(t.pal).filter(([, c]) => c === KEY[id]).map(([ch]) => ch))
+        assert.ok(key.size >= 1, `${id}: its key colour`)
+        for (let j = 0; j < f.sw; j++) {
+          const top = Math.ceil(f.r + j / 2 - 1e-9)
+          for (let k = 0; k < f.sh; k++) assert.ok(key.has(t.rows[top + k]?.[f.c + j]), `${id} region ${i}: px (${f.c + j}, ${top + k}) is the key`)
+        }
+      })
+    }
+  })
+
+  it('no px of a stall\'s own drawings stands in front of its live regions (fully visible)', () => {
+    for (const [look, art] of STALLS) {
+      const it = itemOf(look, art)
+      // Each drawing's px on the screen (scene px from the item's point) and how near it is (q, scene px along the sight).
+      const drawn = []
+      for (const p of it.things) {
+        const t = M.THING_ART[p.id]
+        const ox = Math.round(((p.dx ?? 0) - (p.dy ?? 0)) * 32) - t.ax
+        const oy = Math.round(((p.dx ?? 0) + (p.dy ?? 0)) * 16) - t.ay
+        const oq = ((p.dx ?? 0) + (p.dy ?? 0)) * 16
+        for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) if (t.rows[y][x] !== '.') drawn.push([x + ox, y + oy, qOf(t, x, y) + oq, p.id])
+      }
+      it.screens.forEach((sc, i) => {
+        if (sc.stand) return
+        const p = it.things[sc.part ?? 0]
+        const t = M.THING_ART[p.id]
+        const f = M.screenFit(M.MACHINE_SCREENS[p.id][sc.box ?? i], sc.w, sc.h)
+        const ox = Math.round(((p.dx ?? 0) - (p.dy ?? 0)) * 32) - t.ax
+        const oy = Math.round(((p.dx ?? 0) + (p.dy ?? 0)) * 16) - t.ay
+        const oq = ((p.dx ?? 0) + (p.dy ?? 0)) * 16
+        // (As view.ts: a px nearer than the key at its left and right column, in between along the line.)
+        const qL = qOf(t, f.c, Math.round(f.r + f.sh / 2)) + 1
+        const qR = qOf(t, f.c + f.sw - 1, Math.round(f.r + (f.sw - 1) / 2 + f.sh / 2)) + 1
+        const card = new Map()
+        for (let j = 0; j < f.sw; j++) {
+          const top = Math.ceil(f.r + j / 2 - 1e-9)
+          const q = qL + (f.sw > 1 ? (qR - qL) * j / (f.sw - 1) : 0) + oq
+          for (let k = 0; k < f.sh; k++) card.set(`${f.c + j + ox},${top + k + oy}`, q)
+        }
+        const hiding = drawn.filter(([x, y, q]) => card.has(`${x},${y}`) && q > card.get(`${x},${y}`) + 1e-6)
+        assert.equal(hiding.length, 0, `${art ?? look} region ${i} (${p.id}): hidden by ${hiding.slice(0, 5).map(h => h[3] + '@' + h[0] + ',' + h[1]).join(' ')}`)
+      })
+    }
+  })
+
+  it('the people stand behind the counter, in front of the back wall, waist up over its top', () => {
+    for (const [look, art] of STALLS.slice(1)) {
+      const it = itemOf(look, art)
+      const front = it.things[3]
+      const back = it.things[0]
+      for (const sc of it.screens.filter(sc => sc.stand)) {
+        // (scene px: the counter's px run from its anchor forward; the wall's back.)
+        const y = -sc.stand.y * 32
+        assert.ok(y < (front.dy ?? 0) * 32 - 4, `${art ?? look}: behind the counter`)
+        assert.ok(y > (back.dy ?? 0) * 32 + 2, `${art ?? look}: in front of the back wall`)
+        assert.ok(Math.abs(sc.stand.z * 32 - 20) < 1e-9, 'the foot just under the counter\'s top (22 px), so no gap shows')
+      }
+    }
+  })
+
+  it('a map packs only the drawings its looks bring', () => {
+    assert.equal(M.machineLooks(M.WORLD.maps.overworld), 'kiosk+stall')
+    assert.ok(!M.machineLooks(M.WORLD.maps.arcade).includes('stall'))
+    const square = M.machineKit('kiosk+stall')
+    assert.deepEqual(Object.keys(square).sort(), Object.keys(M.STALL_ART).sort(), 'the town: its stalls, no cabinet')
+    assert.ok(Object.keys(M.machineKit('cabinet')).every(id => id.startsWith('cab_')))
+    assert.equal(M.machineKit('kiosk+stall'), square, 'the same object, so the atlas is packed once')
+    const atlas = M.withThings(M.buildProps(), M.withMachines(undefined, square))
+    for (const [id, t] of Object.entries(square)) {
+      const box = atlas.sprites[M.thingKey(id)]
+      assert.ok(box && box.w === t.w && box.h === t.h, id)
+      for (let y = 0; y < t.h; y += 5) for (let x = 0; x < t.w; x++) {
+        if (t.rows[y][x] === '.') continue
+        assert.ok(atlas.albedo[((box.y + y) * atlas.w + box.x + x) * 4 + 3] > 0, `${id} (${x}, ${y}) has a depth`)
+        assert.ok(geoOf(t).npal[geoOf(t).nrows[y].charCodeAt(x) - 48], `${id} (${x}, ${y}) has a normal`)
+      }
+    }
+    assert.ok(atlas.h <= 2048 && atlas.w <= 2048, 'the atlas fits the smallest texture a WebGL2 device promises')
   })
 })
