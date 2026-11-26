@@ -158,7 +158,7 @@ export function deepseek(c: Ctx, e: Enemy, dt: number) {
       ai.t = p2 ? 1.6 : 2
       s.shake = Math.max(s.shake, 0.2)
       // Surfacing right under the hero bites.
-      if (heroDist(c, e) < e.r + HERO_R + 0.2) hurtHero(c, 2, e.x, e.y)
+      if (heroDist(c, e) < e.r + HERO_R + 0.2) hurtHero(c, 2, e.x, e.y, false, true)
       // The lure flashes: a ring of pellets (knock them back for a bonus hit).
       if (p2) for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; shoot(c, e, 'pellet', Math.cos(a) * 5, Math.sin(a) * 5) }
     }
@@ -228,6 +228,6 @@ export function gemini(c: Ctx, e: Enemy, dt: number) {
     const t = Math.max(0, Math.min(1, ((h.x - ax) * (bx - ax) + (h.y - ay) * (by - ay)) / L2))
     const px = ax + (bx - ax) * t
     const py = ay + (by - ay) * t
-    if (Math.hypot(h.x - px, h.y - py) < HERO_R + 0.12 && t > 0.08 && t < 0.92) hurtHero(c, 1, px, py, true)
+    if (Math.hypot(h.x - px, h.y - py) < HERO_R + 0.12 && t > 0.08 && t < 0.92) hurtHero(c, 1, px, py, true, true)
   }
 }

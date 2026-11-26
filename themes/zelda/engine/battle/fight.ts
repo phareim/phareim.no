@@ -20,6 +20,7 @@ import { HERO_R, MAX_BITS, SPIN_TIME } from '../../types'
 import { acquire, rollDrop, type Ctx } from '../combat'
 import { has, setFlag, tileAt } from '../map'
 import { swingDur } from '../hero'
+import { resetMoves } from '../moves'
 import { rnd, toDir } from '../util'
 import { combosOf, FOES, PARTY, TECHS, TP_MAX, TP_START, type TechDef } from './data'
 import { freeSpot } from './field'
@@ -115,11 +116,7 @@ export function startBattle(c: Ctx, id: string, first: 'party' | 'foes' | null) 
   h.swing = null
   h.spin = null
   h.roll = null
-  h.air = null
-  h.dash = null
-  h.halo = null
-  h.edge = false
-  s.slow = 0
+  resetMoves(s)
   h.bufA = 0
   h.charge = -1
   h.knock = null

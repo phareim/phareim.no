@@ -560,7 +560,7 @@ function crush(c: Ctx, r: PhysState['rolling'][number]) {
     const px = -r.dy
     const py = r.dx
     const side = (h.x - r.x) * px + (h.y - r.y) * py >= 0 ? 1 : -1
-    hurtHero(c, 2, h.x - px * side, h.y - py * side, false, false)
+    hurtHero(c, 2, h.x - px * side, h.y - py * side)
   }
 }
 

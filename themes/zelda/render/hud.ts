@@ -515,9 +515,15 @@ export function drawViewStrip(g: G, strip: { views: ReadonlyArray<{ name: string
 const ART_HINT: Record<ArtId, string> = {
   pulse: 'THE KEEPER HAS ONE MORE THING TO TEACH.',
   flash: 'A KNIGHT IN THE SHRINE FIGHTS THIS WAY.',
-  star: 'SOMETHING IN THE OLD LAB RIDES THE SKY.',
+  star: 'SOMETHING IN HORIZON LAB RIDES THE SKY.',
   halo: 'TWINS IN THE DEEP LAB CIRCLE THIS WAY.',
 }
+
+/** A short name for an art whose name and first word are both too wide for its slot on a narrow screen. */
+const ART_SHORT: Partial<Record<ArtId, string>> = { star: 'STAR' }
+
+/** How wide a combo's buttons are drawn (`drawKeys`). */
+const keysWidth = (F: HudFont, keys: string) => keys.split(' ').reduce((sum, tok, i) => sum + F.width(tok) + (i ? 4 : 0), 0)
 
 /** A combo's buttons, each token in its colour: A the blade, R the roll, B, the rest as words. */
 function drawKeys(g: G, F: HudFont, keys: string, x: number, y: number, skin: HudSkin) {
@@ -554,12 +560,15 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const keysX = x + 7 + nameW + 6
   const barW = Math.max(16, Math.min(34, w - (keysX - x) - F.width('R > BLOW') - 18))
   const barX = x + w - 7 - barW
+  // On a narrow screen the word MASTER would run into the widest buttons: a full gold bar says it instead.
+  const word = barX + barW - F.width('MASTER') >= keysX + Math.max(...MOVES.map(m => keysWidth(F, m.keys))) + 3
   for (const m of MOVES) {
     const n = moveCount(s, m.id)
     const done = mastered(s, m.id)
     F.draw(g, m.name, x + 7, ry, done ? skin.prize : n > 0 ? skin.text : skin.dim)
     drawKeys(g, F, m.keys, keysX, ry, skin)
-    if (done) F.draw(g, 'MASTER', barX + barW - F.width('MASTER'), ry, skin.prize)
+    if (done && word) F.draw(g, 'MASTER', barX + barW - F.width('MASTER'), ry, skin.prize)
+    else if (done) { g.fillStyle = skin.prize; g.fillRect(barX, ry + 2, barW, 3) }
     else {
       g.fillStyle = skin.off
       g.fillRect(barX, ry + 2, barW, 3)
@@ -589,8 +598,9 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
       if (s.inv.selected === a.id) { g.fillStyle = skin.prize; g.fillRect(ix, ry + 29, slot - 4, 1) }
     }
     const label = known ? a.name : '???'
-    // (A name too long for its slot on a narrow screen: its first word.)
-    const fit = F.width(label) <= slot - 6 ? label : label.split(' ')[0]!
+    // (A name too wide for its box on a narrow screen: its first word, or its short name.)
+    const short = known ? ART_SHORT[a.id] : undefined
+    const fit = [label, label.split(' ')[0]!, short].find(l => l && F.width(l) <= slot - 4) ?? short ?? label.split(' ')[0]!
     F.draw(g, fit, Math.round(ix + (slot - 4) / 2 - F.width(fit) / 2), ry + 21, known ? skin.dim : skin.faint)
   })
   ry += 34

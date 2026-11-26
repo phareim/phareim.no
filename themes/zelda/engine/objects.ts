@@ -63,7 +63,7 @@ export function explode(c: Ctx, x: number, y: number) {
   }
   breakShards(c, x, y, BOMB_RADIUS)
   const h = s.hero
-  if (Math.hypot(h.x - x, h.y - y) < BOMB_RADIUS + HERO_R - 0.2) hurtHero(c, 2, x, y, false, false)
+  if (Math.hypot(h.x - x, h.y - y) < BOMB_RADIUS + HERO_R - 0.2) hurtHero(c, 2, x, y)
   let secret = false
   const r = Math.ceil(BOMB_RADIUS)
   for (let ty = Math.floor(y) - r; ty <= Math.floor(y) + r; ty++) {
@@ -230,7 +230,7 @@ function stepProjectiles(c: Ctx, dt: number) {
         dead = true
       }
     } else if (!dead && !p.friendly && Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R) {
-      if (hurtHero(c, p.kind === 'laser' || p.kind === 'spark' ? 2 : 1, p.x - p.vx * 0.05, p.y - p.vy * 0.05)) dead = true
+      if (hurtHero(c, p.kind === 'laser' || p.kind === 'spark' ? 2 : 1, p.x - p.vx * 0.05, p.y - p.vy * 0.05, false, true)) dead = true
       else if (h.invuln > 0) dead = p.kind !== 'laser'
     }
     if (!dead && p.friendly) {

@@ -24,7 +24,7 @@ import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
 import { digLevel } from './digGround'
 import { resetPuzzleRoom } from './puzzles/index'
 import { cleanExplored, revealAround, reveal } from './explore'
-import { ART_IDS, artsFromFlags, endMoves, stepSlow, stepTeach } from './moves'
+import { ART_IDS, artsFromFlags, endMoves, resetMoves, stepSlow, stepTeach } from './moves'
 
 function freshInv(): Inventory {
   return {
@@ -112,10 +112,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   h.swing = null
   h.spin = null
   h.roll = null
-  endMoves(h)
-  h.halo = null
-  h.edge = false
-  s.slow = 0
+  resetMoves(s)
   h.bufA = 0
   h.bufRoll = 0
   h.charge = -1

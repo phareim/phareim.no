@@ -60,7 +60,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
       h.act = 'idle'
       h.actT = 0
       h.invuln = 0
-      hurtHero(c, 1, h.x, h.y, false, false)
+      hurtHero(c, 1, h.x, h.y)
       h.knock = null
     }
     return
@@ -314,7 +314,7 @@ export function underfoot(c: Ctx) {
     c.ev.push({ type: 'fall' })
     return
   }
-  if (t === 'x' && h.invuln <= 0) hurtHero(c, 1, h.x - h.vx * 0.1, h.y - h.vy * 0.1 + 0.01, false, false)
+  if (t === 'x' && h.invuln <= 0) hurtHero(c, 1, h.x - h.vx * 0.1, h.y - h.vy * 0.1 + 0.01)
   // Crystal blocks that rose under the hero become solid once left.
   if (s.map.pending.length) s.map.pending = s.map.pending.filter(i => circleOnTileIdx(c, i))
 }

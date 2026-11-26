@@ -23,6 +23,7 @@ import {
 import { acquire, BIG, hitEnemy, type Ctx, type HitOpts } from './combat'
 import { enemyActive, breakShards } from './enemies'
 import { cellIndex, circleBlocked, has, lineClear, moveCircle, tileAt } from './map'
+import { digLevel } from './digGround'
 import { iceUnder } from './puzzles/index'
 import { angleDiff, toDir } from './util'
 import { TILE_INFO } from '../world/tiles'
@@ -96,6 +97,14 @@ export function endMoves(h: GameState['hero']) {
   h.cometT = 0
 }
 
+/** Clear all of it, the halo, a SLIP's edge and its slow too: a new map, a field battle. */
+export function resetMoves(s: GameState) {
+  endMoves(s.hero)
+  s.hero.halo = null
+  s.hero.edge = false
+  s.slow = 0
+}
+
 // ---------------------------------------------------------------------------
 // In the air
 // ---------------------------------------------------------------------------
@@ -121,8 +130,8 @@ export function heroZ(h: { air?: GameState['hero']['air'] }): number {
 
 /** Is the ground at (x, y) one the air must not cross (a pit, spikes, ice)? */
 function hazard(c: Ctx, x: number, y: number) {
-  const t = tileAt(c.s.map, Math.floor(x), Math.floor(y))
-  return t === 'O' || t === 'x' || iceUnder(c, x, y)
+  const t = TILE_INFO[tileAt(c.s.map, Math.floor(x), Math.floor(y))]
+  return !!t?.pit || !!t?.hurt || iceUnder(c, x, y)
 }
 
 /**
@@ -227,9 +236,12 @@ export function wallSpring(c: Ctx, hitX: boolean, hitY: boolean): boolean {
   let vy = r.vy
   const v = Math.hypot(vx, vy) || 1
   // Only a real wall (a tree, a wall, a cliff), met nearly head on along that axis.
+  // The map's own rim is no wall: off it lies the next map (a pass, an open edge).
   const wallAt = (sx: number, sy: number) => {
-    const t = tileAt(s.map, Math.floor(h.x + sx * (HERO_R + 0.12)), Math.floor(h.y + sy * (HERO_R + 0.12)))
-    return !!TILE_INFO[t]?.wall
+    const tx = Math.floor(h.x + sx * (HERO_R + 0.12))
+    const ty = Math.floor(h.y + sy * (HERO_R + 0.12))
+    if (tx < 0 || ty < 0 || tx >= s.map.w || ty >= s.map.h) return false
+    return !!TILE_INFO[tileAt(s.map, tx, ty)]?.wall
   }
   let ok = false
   if (hitX && Math.abs(vx) > v * 0.55 && wallAt(Math.sign(vx), 0)) { vx = -vx; ok = true }
@@ -308,7 +320,12 @@ export function stepAir(c: Ctx, inp: Input, dt: number) {
   let my = a.vy * k * dt
   // Never over a pit, spikes or ice: the air stops at their edge.
   const len = Math.hypot(mx, my)
-  if (len > 1e-6 && hazard(c, h.x + (mx / len) * (HERO_R + 0.06) + mx, h.y + (my / len) * (HERO_R + 0.06) + my)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
+  const er = HERO_R + 0.06
+  if (len > 1e-6 && hazard(c, h.x + (mx / len) * er + mx, h.y + (my / len) * er + my)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
+  // And each axis on its own, as moveCircle moves them (x, then y): pressed to a wall, the probe ahead lands in
+  // the wall while the other axis slides along it.
+  if (mx !== 0 && hazard(c, h.x + Math.sign(mx) * er + mx, h.y)) { mx = 0; a.vx = 0 }
+  if (my !== 0 && hazard(c, h.x + mx, h.y + Math.sign(my) * er + my)) { my = 0; a.vy = 0 }
   // In a dungeon the air stays in the hero's room.
   if (c.info.def.kind === 'dungeon' && cellIndex(c.info, h.x + mx * 4, h.y + my * 4) !== cellIndex(c.info, h.x, h.y)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
   const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, mx, my)
@@ -561,10 +578,13 @@ function clearRun(c: Ctx, a: number, dist: number): number {
   const room = cellIndex(c.info, h.x, h.y)
   const dungeon = c.info.def.kind === 'dungeon'
   let ok = 0
+  // On dug ground, the level the trace stands on, carried along as walking carries it: down a ledge, not up one.
+  let lv = s.map.dig ? digLevel(s.map, h.x, h.y, HERO_R) : undefined
   for (let r = 0.1; r <= dist + 1e-6; r += 0.1) {
     const x = h.x + ca * r
     const y = h.y + sa * r
-    if (circleBlocked(c.w, s.map, x, y, HERO_R)) break
+    if (circleBlocked(c.w, s.map, x, y, HERO_R, 'hero', lv)) break
+    if (s.map.dig) lv = digLevel(s.map, x, y, HERO_R)
     if (hazard(c, x + ca * HERO_R, y + sa * HERO_R)) break
     if (dungeon && cellIndex(c.info, x + ca * (HERO_R + 0.2), y + sa * (HERO_R + 0.2)) !== room) break
     ok = r

@@ -145,14 +145,14 @@ function contact(c: Ctx, e: Enemy) {
     (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
     (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise'))
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
-    hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper')
+    hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper', true)
   }
   if (e.kind === 'king' && e.ai.mode !== 'down') {
     const bits = e.ai.shards as number
     for (let i = 0; i < 4; i++) {
       if (!(bits & (1 << i))) continue
       const p = shardPos(e, i)
-      if (Math.hypot(h.x - p.x, h.y - p.y) < SHARD_R + HERO_R) hurtHero(c, 2, p.x, p.y)
+      if (Math.hypot(h.x - p.x, h.y - p.y) < SHARD_R + HERO_R) hurtHero(c, 2, p.x, p.y, false, true)
     }
   }
 }

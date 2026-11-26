@@ -8,7 +8,7 @@ import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
 import { startBattle } from './battle/fight'
-import { artOfItem, endMoves, learnArt, slip } from './moves'
+import { artOfItem, endMoves, isArt, learnArt, slip } from './moves'
 
 export interface Ctx {
   w: World
@@ -26,10 +26,11 @@ export function ctx(w: World, s: GameState, ev: GameEvent[]): Ctx {
 // ---------------------------------------------------------------------------
 
 /**
- * `foe`: the harm is a foe's (a blow, a shot): one that passes through the roll's first moments is a SLIP
- * (`moves.ts`). Spikes, a fall, the hero's own bomb are not.
+ * `foe`: the harm is a foe's (a blow, a shot). Only a foe's harm passes over the hero in the air or the flash
+ * step, and only a foe's that passes through the roll's first moments is a SLIP (`moves.ts`). Any other harm
+ * (spikes, a fall, a stone, the hero's own bomb, whatever a land adds) is not a foe's unless its caller says so.
  */
-export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shock = false, foe = true): boolean {
+export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shock = false, foe = false): boolean {
   const s = c.s
   const h = s.hero
   // Nothing hurts while the hero steps out of a door.
@@ -37,8 +38,8 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
   if (s.mode !== 'play' || h.invuln > 0 || h.act === 'fall' || h.act === 'dead' || h.act === 'get') return false
   // The first moments of a dodge roll: nothing lands.
   if (h.roll && h.roll.t < ROLL_IFRAMES) { if (foe) slip(c, fromX, fromY); return false }
-  // In the air and in the flash step: nothing lands.
-  if (h.air || h.dash) return false
+  // In the air and in the flash step: no foe's blow lands. A stone or a blast still does, and throws him clear.
+  if ((h.air || h.dash) && foe) return false
   h.hp = Math.max(0, h.hp - dmg)
   h.invuln = INVULN
   let dx = h.x - fromX
@@ -138,7 +139,7 @@ function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: numb
   }
   // Zappers shock a blade that strikes them unless they are stunned.
   if (e.kind === 'zapper' && (src === 'sword' || src === 'spin') && e.stun <= 0) {
-    hurtHero(c, 1, e.x, e.y, true)
+    hurtHero(c, 1, e.x, e.y, true, true)
     e.flash = 0.2
     return false
   }
@@ -368,7 +369,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'pickaxe': return ['YOU GOT THE PICKAXE!', 'DIG WITH {B}: STONE, ORE AND ROCK BREAK, AND WHAT FALLS OUT IS YOURS.']
     case 'shovel': return ['YOU GOT THE SHOVEL!', 'DIG WITH {B}: EARTH AND SAND GO DOWN A LEVEL. A HOLE AT YOUR FEET FILLS WITH DIRT.']
     case 'axe': return ['YOU GOT THE AXE!', 'DIG WITH {B}: TREES AND BUSHES COME DOWN AS WOOD.']
-    case 'artPulse': return ['YOU LEARNED PULSE!', 'PRESS {B} TO PUSH A WAVE FROM YOUR PALM. IT THROWS FOES BACK, STUNS THEM AND TURNS THEIR SHOTS ROUND.', 'ARTS SIT ON {B} WITH YOUR ITEMS, AND EACH NEEDS A MOMENT BETWEEN USES. PAUSE FOR YOUR MOVES.']
+    case 'artPulse': return ['YOU LEARNED PULSE!', 'PRESS {B} TO PUSH A WAVE FROM YOUR PALM. IT THROWS FOES BACK, STUNS THEM AND TURNS THEIR SHOTS ROUND.', 'ARTS SIT ON {B} WITH YOUR ITEMS: {CYCLE} SWAPS. EACH NEEDS A MOMENT BETWEEN USES.']
     case 'artFlash': return ['THE KNIGHT\'S CHARGE IS YOURS: FLASH STEP!', 'PRESS {B} TO CROSS FOUR TILES IN A BLINK. WHATEVER STOOD IN THE WAY IS CUT A MOMENT LATER.']
     case 'artStar': return ['THE MISTRAL\'S SKY IS YOURS: STARFALL!', 'PRESS {B} TO LEAP HIGH AT THE NEAREST FOE AND COME DOWN ON IT LIKE A FALLING STAR.']
     case 'artHalo': return ['THE TWINS\' ORBIT IS YOURS: HALO!', 'PRESS {B} AND THREE SPARKS CIRCLE YOU FOR A WHILE, CUTTING WHATEVER COMES TOO CLOSE.']
@@ -382,7 +383,7 @@ export function grant(s: GameState, item: ItemId) {
   const h = s.hero
   switch (item) {
     case 'sword': inv.sword = true; break
-    case 'bombBag': inv.bombBag = true; inv.bombs = 8; if (!inv.selected) inv.selected = 'bombs'; break
+    case 'bombBag': inv.bombBag = true; inv.bombs = 8; if (!inv.selected || isArt(inv.selected)) inv.selected = 'bombs'; break
     case 'bombs5': inv.bombs = Math.min(bombMax(s), inv.bombs + 5); break
     case 'disc': inv.disc = true; inv.selected = 'disc'; break
     case 'smallKey': addKeys(s, 1); break

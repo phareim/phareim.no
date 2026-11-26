@@ -810,13 +810,16 @@ classic picture. `/?view=<id>` asks for one.
 - **Combos and arts** (`engine/moves.ts`, the numbers in `types.ts`: `AIR`, `MOVES`,
   `ARTS` and one table per art; 2026-11-25). The hero fights the way a small old
   master would: off the ground as much as on it.
-  - *In the air* (`Hero.air`, `heroZ`). Nothing harms the hero there; the arc's height
+  - *In the air* (`Hero.air`, `heroZ`). No foe harms the hero there (a blow, a shot:
+    `hurtHero`'s `foe`); a rolling stone or a blast still does, and throws him clear,
+    as on the ground. The arc's height
     lifts the figure off its shadow in every view (the classic painter draws it
     higher; the isometric card carries it; the modelled hero stands its quad up).
-    The air never crosses a pit, spikes or ice, and in a dungeon never leaves the
+    The air never crosses a pit, spikes or ice (the tiles' `pit` and `hurt` flags),
+    flown head on or along a wall, and in a dungeon never leaves the
     room: it stops at their edge, as the chain's lunge does, so no gap the hook is
     for and no ice lane is skipped. It never starts on ice. A shove (a shield, a gust)
-    brings the hero down; a hurt cannot land there. A press of A in the air (but the
+    brings the hero down. A press of A in the air (but the
     comet's) strikes as soon as the landing lets the blade go.
   - *The combos* (`MOVES`): TRIPLE CUT (A A A, the chain), WHIRL (hold A, let go:
     the spin), FLIP CUT (R, then A in the roll: a somersault along the roll that
@@ -829,11 +832,12 @@ classic picture. `/?view=<id>` asks for one.
     the nearest foe in a 54° cone, through everything in its way), TEMPEST (A from
     `TEMPEST_FROM` into the finisher, or `TEMPEST_WINDOW` after it: an aerial double
     whirl, each half turn a fresh blow all round), WALL SPRING (a roll that runs into
-    a wall, met head on: it kicks off it, the way it came reflected; water is no
-    wall), SLIP (a foe's blow or shot through the roll's first moments: the world
+    a wall, met head on: it kicks off it, the way it came reflected; water and the
+    map's own rim are no wall), SLIP (a foe's blow or shot through the roll's first moments: the world
     runs at `SLIP_SCALE` of its pace for `SLIP_TIME`, the hero at full pace, the
     screen tinted cool, and the next blow is critical, `Hero.edge`; once a roll,
-    `SLIP_COOL` between; spikes, a fall, a beam or the hero's own bomb are no blow).
+    `SLIP_COOL` between; spikes, a fall, a stone, the hero's own bomb and any harm
+    its caller does not mark a foe's are no blow).
   - *Mastery* (`Inventory.moves`, saved). A combo counts when it lands on a foe
     (BACKFLIP and WALL SPRING when done with one near, SLIP when it slips); `need` of
     them masters it, and a mastered one hits one harder (the finisher, the spin, the
@@ -842,15 +846,17 @@ classic picture. `/?view=<id>` asks for one.
     lands (`drawCallout`; the chain and the spin only their first and the mastering
     one), NEW MOVE the first time, MASTERED! with what it gives the last.
   - *The arts* (`ARTS`): sit on B among the items (`UseItem`, after them in the swap
-    round; learning one puts it in hand), each resting `cool` s after use (the B box
+    round; learning one puts it in hand, and the bomb bag found after goes in hand
+    over it, as its pickup says), each resting `cool` s after use (the B box
     and the B button dim and fill; ready again: a soft chime) and each landed blow of
     the blade taking `ART_FEED` off every rest. One may cut a hit of the chain short
     from 35 % in, or come straight out of a roll's second half. PULSE (the Keeper's,
     once the blade is in hand): a wave out of the palm across a cone, foes thrown back
     and stunned, shots turned round, the knight's shield no help and a zapper no
     shock. FLASH STEP (the Shrine's knight's): up to `FLASH.dist` tiles in a blink,
-    through the nearest foe that way, stopping short of walls, pits, spikes, ice and
-    the room's edge; what it passed is cut `FLASH.delay` later. STARFALL (the
+    through the nearest foe that way, stopping short of walls, pits, spikes, ice,
+    the room's edge and, on dug ground, a step up it could not walk; what it passed
+    is cut `FLASH.delay` later. STARFALL (the
     mistral's): a leap at the nearest foe within reach (else three tiles along the
     aim), a hang at the top, a slam all round that stuns. HALO (the twins'): three
     sparks circle the hero for `HALO.time` s, each foe they touch cut with a short
@@ -862,9 +868,11 @@ classic picture. `/?view=<id>` asks for one.
   - *The MOVES page* (N, the second of the menu's three pages; on touch the deck's
     page button goes round ITEMS, MOVES, MAP): every combo with its buttons (A the
     blade in the hot colour, R the roll in the cool one) and a bar to its mastery,
-    MASTER in gold once it is; the arts in four slots (dim while resting, the one in
-    hand underlined), `???` for one not learned, and under them where the next is to
-    be found (where to go, never how). It fits a phone on its side.
+    MASTER in gold once it is (a full gold bar where the word would run into the
+    buttons); the arts in four slots (dim while resting, the one in hand underlined,
+    a name too wide for its slot shortened), `???` for one not learned, and under
+    them where the next is to be found (where to go, never how). It fits a phone on
+    its side, and upright indoors (lab: `moves-hut`).
   - *What it looks like* (`render/renderer.ts`, all views alike). In the air the
     roll's ball turns a quarter at a time (lossless turns, `putRot`) the way the hero
     flies, tucked going up and crouched coming down; the FLIP CUT raises the blade

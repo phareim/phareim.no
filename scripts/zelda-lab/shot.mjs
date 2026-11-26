@@ -372,6 +372,8 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   // The MOVES page: a few combos under way, two mastered, two arts learned (one resting) and the hint for the next.
   case 'moves': give(); s.inv.moves = { triple: 20, flip: 5, backflip: 12, comet: 2, slip: 1 }; s.inv.arts = ['pulse', 'flash']; s.inv.selected = 'flash'; s.hero.artCool = { pulse: 1.2 }; run(10); ui.paused = true; ui.page = 'moves'; break
   // The B box with an art resting, and a combo called out over the world.
+  // Indoors on a phone held upright, the narrowest MOVES page: every art, and the widest combos mastered.
+  case 'moves-hut': give(); place('hut', 'door', 0, -5.5); s.inv.moves = { triple: 20, flip: 12, spring: 6, slip: 6 }; s.inv.arts = ['pulse', 'flash', 'star', 'halo']; s.inv.selected = 'star'; run(10); ui.paused = true; ui.page = 'moves'; break
   case 'm-hud': give(); s.inv.arts = ['pulse']; s.inv.selected = 'pulse'; run(10); s.hero.artCool = { pulse: 1.4 }; r.onEvents([{ type: 'move', id: 'flip', n: 1, first: true, mastered: false }]); run(5); break
   case 'f-pause': give(); for (const id of ['seterfell', 'sporelight', 'yulefjord']) place(id, 'camp'); run(10); ui.paused = true; break
   case 'hut': give(); place('hut', 'door', 0, -5.5); s.hero.dir = 'up'; run(5); break
@@ -633,6 +635,8 @@ const SHOTS = [
   ['moves-1280', 'moves', 1280, 800, 1, 0],
   ['moves-390', 'moves', 390, 844, 3, 0],
   ['moves-667', 'moves', 667, 375, 2, 0],
+  ['moves-hut-390', 'moves-hut', 390, 844, 3, 0],
+  ['moves-hut-414', 'moves-hut', 414, 896, 2, 0],
   ['m-hud-1280', 'm-hud', 1280, 800, 1, 0],
   ['m-hud-390', 'm-hud', 390, 844, 3, 0],
   ...['m-flip', 'm-chop', 'm-back', 'm-comet', 'm-tempest', 'm-pulse', 'm-flash', 'm-flashcut', 'm-star', 'm-starland', 'm-halo', 'm-slip'].map(m => [`${m}-1280`, m, 1280, 800, 1, 0]),

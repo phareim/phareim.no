@@ -3,10 +3,20 @@
 // and what a save keeps of them.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import { load } from './zelda-load.mjs'
 
 let Z
-before(async () => { Z = await load() })
+/** The B box's icon (`render/dig.ts`), bundled on its own. */
+let P
+before(async () => {
+  Z = await load()
+  const out = createRequire(import.meta.url)('esbuild').buildSync({
+    stdin: { contents: `export { itemIconName } from './render/dig'; export { WILD_RAW } from './render/spritesWild'`, resolveDir: new URL('../themes/zelda', import.meta.url).pathname, loader: 'ts' },
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+  })
+  P = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+})
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
 const A = () => inp({ aPress: true, a: true })
@@ -15,9 +25,9 @@ const B = (move = { x: 0, y: 0 }) => inp({ bPress: true, move })
 
 /**
  * An empty room, the hero in it with the blade, facing east; a foe `d` tiles east (0: none). `rows` replaces the
- * room ('@' the hero).
+ * room ('@' the hero); `extra` adds to its map (a `dig`).
  */
-function arena(d = 1.6, kind = 'blob', rows) {
+function arena(d = 1.6, kind = 'blob', rows, extra = {}) {
   const W = {
     start: { map: 'pit', entry: 'start' },
     maps: {
@@ -25,6 +35,7 @@ function arena(d = 1.6, kind = 'blob', rows) {
         id: 'pit', name: 'ARENA', kind: 'interior', track: 'indoor',
         rows: rows ?? ['##################', '#................#', '#................#', '#................#', '#.....@..........#', '#................#', '#................#', '#................#', '##################'],
         marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'right' } } },
+        ...extra,
       },
     },
   }
@@ -51,7 +62,7 @@ function arena(d = 1.6, kind = 'blob', rows) {
 }
 
 describe('the acrobatics: in the air', () => {
-  it('FLIP CUT: A in a roll flips over, nothing harms the hero in the air, and the chop lands on the foe', () => {
+  it('FLIP CUT: A in a roll flips over, no foe harms the hero in the air, and the chop lands on the foe', () => {
     const { W, s, ev, go, until, foe } = arena(3)
     go(R({ x: 1, y: 0 }))
     go(inp(), 4)
@@ -60,7 +71,7 @@ describe('the acrobatics: in the air', () => {
     assert.equal(s.hero.air.kind, 'flip')
     go(inp(), 6)
     assert.ok(Z.heroZ(s.hero) > 0.3, `only ${Z.heroZ(s.hero).toFixed(2)} up`)
-    assert.equal(Z.hurtHero(Z.ctx(W, s, []), 1, s.hero.x + 0.3, s.hero.y), false, 'hurt in the air')
+    assert.equal(Z.hurtHero(Z.ctx(W, s, []), 1, s.hero.x + 0.3, s.hero.y, false, true), false, 'a foe hurt him in the air')
     const hp0 = foe.hp
     assert.ok(until(() => !s.hero.air))
     assert.ok(ev.some(e => e.type === 'touchdown' && e.kind === 'flip' && e.heavy))
@@ -163,6 +174,50 @@ describe('the acrobatics: in the air', () => {
     assert.notEqual(s.hero.act, 'fall')
     assert.ok(s.hero.x < 9, `went over to ${s.hero.x.toFixed(2)}`)
   })
+
+  it('nor a pit that runs into a wall, flown along that wall', () => {
+    const rows = ['##################', '#................#', '#................#', '#OOOOOOOOOOOOOOOO#', '#................#', '#................#', '#.....@..........#', '#................#', '##################']
+    // A mastered BACKFLIP up and right, the hero flush with the east wall just south of the pit band.
+    for (const [y0, ang] of [[4.28, 0.68], [4.1, 0.5], [4.4, 0.8]]) {
+      const { s, ev, go, until, add } = arena(0, 'blob', rows)
+      s.inv.moves = { backflip: 99 }
+      s.hero.x = 17 - Z.HERO_R - 0.001
+      s.hero.y = y0
+      s.hero.aim = Math.PI - ang
+      s.hero.dir = 'left'
+      add(Math.cos(Math.PI - ang) * 0.9, Math.sin(Math.PI - ang) * 0.9)
+      go(A())
+      go(inp(), 4)
+      go(R())
+      assert.equal(s.hero.air?.kind, 'back')
+      until(() => !s.hero.air)
+      go(inp(), 3)
+      assert.ok(!ev.some(e => e.type === 'fall'), 'fell')
+      assert.ok(s.hero.y > 4, `crossed to ${s.hero.y.toFixed(2)}`)
+    }
+  })
+
+  it('WALL SPRING: the map\'s own rim is no wall', () => {
+    const rows = ['##################', '#.................', '#.................', '#.....@...........', '#.................', '##################']
+    const { s, ev, go } = arena(0, 'blob', rows)
+    s.hero.x = 16.2
+    go(R({ x: 1, y: 0 }))
+    go(inp(), 30)
+    assert.ok(!ev.some(e => e.type === 'air'), 'sprang off the rim')
+  })
+
+  it('harm that is not a foe\'s (a stone, a blast) lands in the air, and brings the hero down', () => {
+    const { W, s, ev, go } = arena(0)
+    go(R({ x: 1, y: 0 }))
+    go(inp(), 4)
+    go(A())
+    assert.equal(s.hero.air?.kind, 'flip')
+    const c = Z.ctx(W, s, ev)
+    assert.equal(Z.hurtHero(c, 1, s.hero.x - 1, s.hero.y, false, true), false, 'a foe\'s blow landed in the air')
+    assert.equal(Z.hurtHero(c, 2, s.hero.x - 1, s.hero.y), true, 'the stone passed through')
+    assert.equal(s.hero.air, null)
+    assert.equal(s.hero.act, 'hurt')
+  })
 })
 
 describe('SLIP and mastery', () => {
@@ -195,13 +250,19 @@ describe('SLIP and mastery', () => {
     assert.ok(Math.abs(p.x - 3 - 6 * 0.1 * Z.SLIP_SCALE) < 0.02, `the shot went ${(p.x - 3).toFixed(3)}`)
   })
 
-  it('spikes in a roll are no slip', () => {
+  it('spikes in a roll are no slip, nor any harm not marked a foe\'s', () => {
     const { W, s, ev } = arena(0)
     const c = Z.ctx(W, s, ev)
     s.hero.roll = { t: 0.05, vx: 7, vy: 0 }
     s.hero.act = 'roll'
-    Z.hurtHero(c, 1, s.hero.x, s.hero.y, false, false)
+    Z.hurtHero(c, 1, s.hero.x, s.hero.y)
     assert.ok(!ev.some(e => e.type === 'slip'))
+    const rows = ['##################', '#................#', '#................#', '#................#', '#.....@xxxxx.....#', '#................#', '#................#', '#................#', '##################']
+    const r = arena(0, 'blob', rows)
+    r.go(R({ x: 1, y: 0 }))
+    r.go(inp({ move: { x: 1, y: 0 } }), 40)
+    assert.ok(!r.ev.some(e => e.type === 'slip'), 'the spikes slipped')
+    assert.equal(r.s.slow ?? 0, 0)
   })
 
   it('a combo counted its need times is mastered, and a mastered finisher bites one harder', () => {
@@ -225,8 +286,8 @@ describe('SLIP and mastery', () => {
 })
 
 describe('the arts on B', () => {
-  function withArt(art, d = 2, kind = 'blob') {
-    const a = arena(d, kind)
+  function withArt(art, d = 2, kind = 'blob', rows, extra) {
+    const a = arena(d, kind, rows, extra)
     Z.grant(a.s, Z.ARTS.find(x => x.id === art).item)
     return a
   }
@@ -239,6 +300,22 @@ describe('the arts on B', () => {
     assert.equal(s.inv.selected, 'pulse')
     assert.deepEqual(s.inv.arts, ['pulse'])
     assert.deepEqual(Z.useItems(s, W), ['hook', 'pulse'])
+  })
+
+  it('an art in hand shows its own icon on B', () => {
+    const { W, s } = arena(0)
+    for (const a of Z.ARTS) {
+      Z.grant(s, a.item)
+      assert.equal(P.itemIconName(W, s), `item_${a.id}`)
+      assert.equal(P.WILD_RAW[`item_${a.id}`]?.length, 16, `no icon for ${a.id}`)
+    }
+  })
+
+  it('the bomb bag goes in hand over an art: its pickup says B sets one', () => {
+    const { s } = arena(0)
+    Z.grant(s, 'artPulse')
+    Z.grant(s, 'bombBag')
+    assert.equal(s.inv.selected, 'bombs')
   })
 
   it('PULSE throws a foe in front back, stuns it, and rests before the next', () => {
@@ -286,6 +363,18 @@ describe('the arts on B', () => {
     assert.ok(s.hero.x < 17 - Z.HERO_R + 1e-6)
   })
 
+  it('FLASH STEP on dug ground steps down a ledge, never up one', () => {
+    // Level 2 ground, a trench at level 1 two tiles wide, level 2 again past it: walking stops at the far side.
+    const rows = ['##################', '#................#', '#................#', '#.....@..........#', '#................#', '##################']
+    const heights = rows.map(r => r.split('').map((ch, x) => (x === 8 || x === 9 ? '1' : '2')).join(''))
+    const { s, go } = withArt('flash', 0, 'blob', rows, { dig: { heights } })
+    s.hero.x = 6.5
+    go(B({ x: 1, y: 0 }))
+    go(inp(), 40)
+    assert.ok(s.hero.x > 8.3 && s.hero.x < 10 - Z.HERO_R + 0.05, `ended at ${s.hero.x.toFixed(2)}`)
+    assert.equal(s.map.dig.z, 1)
+  })
+
   it('STARFALL leaps onto the nearest foe and slams it', () => {
     const { s, ev, go, until, foe } = withArt('star', 3.2)
     foe.y += 1
@@ -322,7 +411,9 @@ describe('the arts on B', () => {
 
 describe('who teaches the arts, and the save', () => {
   it('the Keeper teaches PULSE once the blade is in hand', () => {
-    const keeper = Z.WORLD.maps.overworld.marks['3'].ent
+    const keeper = Object.values(Z.WORLD.maps).flatMap(d => Object.values(d.marks)).map(m => m.ent)
+      .find(e => e.t === 'npc' && e.talk.some(b => b.give === 'artPulse'))
+    assert.ok(keeper, 'nobody teaches PULSE')
     const br = keeper.talk.find(b => b.give === 'artPulse')
     assert.ok(br, 'the Keeper teaches nothing')
     const s = Z.createGame(Z.WORLD)
@@ -403,23 +494,44 @@ describe('the flow between moves', () => {
 
 describe('the air and the field battles', () => {
   it('a comet into a field battle\'s foe starts the fight and leaves the air cleanly', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'arena', entry: 'start' } })
+    // A glade of its own: one group of foes, nothing else.
+    const rows = ['TTTTTTTTTTTTTTT', ...Array.from({ length: 12 }, (_, y) => (y === 9 ? 'T......@......T' : 'T.............T')), 'TTTTTTTTTTTTTTT']
+    const W = {
+      start: { map: 'glade', entry: 'start' },
+      maps: {
+        glade: {
+          id: 'glade', name: 'GLADE', kind: 'overworld', track: 'forest', rows,
+          marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'up' } } },
+          battle: { track: 'boss', groups: [{ id: 'g.goo', x: 7.5, y: 5, foes: [Object.keys(Z.FOES)[0]] }] },
+        },
+      },
+    }
+    const s = Z.createGame(W, { seed: 3 })
     s.mode = 'play'
     s.dialog = null
     s.inv.sword = true
-    const g = Z.WORLD.maps.arena.battle.groups[0]
-    Z.enterMap(Z.WORLD, s, 'arena', 'start', [], { x: g.x, y: g.y + 2.4 })
+    const g = W.maps.glade.battle.groups[0]
+    Z.enterMap(W, s, 'glade', 'start', [], { x: g.x, y: g.y + 2.4 })
+    // What a SLIP and the halo leave behind is cleared too.
+    s.slow = 0.5
+    s.hero.edge = true
+    s.hero.halo = { t: 3, turn: 0, mercy: {} }
     s.hero.dir = 'up'
     s.hero.aim = -Math.PI / 2
     const foe = s.map.enemies.find(e => e.group === g.id)
     s.hero.x = foe.x
     s.hero.cometT = 0.2
     let k = 0
-    Z.stepGame(Z.WORLD, s, 1 / 60, inp({ aPress: true, a: true, move: { x: 0, y: -1 } }))
+    Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, move: { x: 0, y: -1 } }))
     assert.equal(s.hero.air?.kind ?? s.mode, s.mode === 'battle' ? 'battle' : 'comet')
-    while (s.mode !== 'battle' && k++ < 40) Z.stepGame(Z.WORLD, s, 1 / 60, inp())
+    while (s.mode !== 'battle' && k++ < 40) Z.stepGame(W, s, 1 / 60, inp())
     assert.equal(s.mode, 'battle')
     assert.equal(s.hero.air, null)
-    for (let j = 0; j < 30; j++) Z.stepGame(Z.WORLD, s, 1 / 60, inp())
+    assert.equal(s.hero.dash, null)
+    assert.equal(s.hero.cometT, 0)
+    assert.equal(s.hero.halo, null)
+    assert.equal(s.hero.edge, false)
+    assert.equal(s.slow, 0)
+    for (let j = 0; j < 30; j++) Z.stepGame(W, s, 1 / 60, inp())
   })
 })
