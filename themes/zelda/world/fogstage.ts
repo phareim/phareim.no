@@ -16,7 +16,7 @@
  */
 import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
-import { at, BLIMP, bob, cycle, lantern, POSTER, prop, SPOT } from './scenery'
+import { at, BLIMP, bob, cycle, lantern, light, POSTER, prop, SPOT } from './scenery'
 
 type Npc = Extract<EntDef, { t: 'npc' }>
 const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Npc> = {}): Mark => ({ ent: { t: 'npc', id, look, talk, ...more } })
@@ -121,7 +121,7 @@ export const FOGSTAGE: MapDef = {
     spot(5, 69, 13),
     spot(7, 76, 13),
     spot(3, 66, 26),
-    prop('fogstage_poster_3', 65.5, 22.6, { lights: POSTER }),
+    prop('fogstage_poster_3', 65.5, 22.6, { lights: [light('pink', 1.5, 0.6, { z: 0.6, dy: 0.3 })] }),
     prop('camp_board_open', 79.6, 19.4),
     prop('fogstage_sandbags', 78.6, 25.4, at(78, 25)),
     prop('fogstage_sandbags', 69.6, 15.4, at(69, 15)),
@@ -140,7 +140,7 @@ export const FOGSTAGE: MapDef = {
     prop('camp_log', 48.6, 23.9),
     prop('camp_log', 50.4, 24.0),
     prop('camp_log', 52.5, 23.9),
-    prop('fogstage_poster_5', 41.5, 19.6, { lights: POSTER }),
+    prop('fogstage_poster_5', 41.5, 19.6, { lights: [light('pink', 1.5, 0.6, { z: 0.6, dy: 0.3 })] }),
     prop('fogstage_raincheck', 12.5, 17.4, { motion: bob, shadow: { tall: 1.7, wide: 1.5, deep: 0.6 }, lights: BLIMP }),
     prop('fogstage_gangway', 12.5, 18.6),
     prop('mast', 17.5, 17.5, { night: 'mast_on', ...at(17, 17) }),
@@ -162,7 +162,7 @@ export const FOGSTAGE: MapDef = {
     flat(73, 39),
     flat(77, 39),
     prop('fogstage_sandbags', 76.1, 40.4, at(76, 40)),
-    prop('fogstage_poster_6', 75.5, 38.6, { lights: POSTER }),
+    prop('fogstage_poster_6', 75.5, 38.6, { lights: [light('pink', 1.5, 0.6, { z: 0.6, dy: 0.3 })] }),
     lantern('gold', 81.5, 21.5),
     lantern('gold', 80.5, 19.5),
     lantern('pink', 57.5, 22.5),

@@ -12,7 +12,7 @@
  * Every other char is a tile (types.ts). A stamp's edge row should be open
  * ground, so the road can reach it from any side.
  */
-import type { Prop } from '../../types'
+import type { Prop } from '../../themes/zelda/types'
 
 export interface Stamp {
   rows: string[]
