@@ -298,36 +298,5 @@ export const UNIONHALL: MapDef = {
   },
 }
 
-/** THE UNDERGLOW, for now: the foot of the shaft, one dark room, the lift's cage at the top of the stair. */
-export const UNDERGLOW1: MapDef = {
-  id: 'underglow1',
-  name: 'THE UNDERGLOW',
-  kind: 'dungeon',
-  track: 'dungeon',
-  look: 'quarry',
-  realm: 'underglow',
-  cell: { w: 16, h: 12 },
-  cells: { '0,0': { dark: true } },
-  rows: [
-    '################',
-    '#..............#',
-    '#......>.......#',
-    '#....S.@.......#',
-    '#..............#',
-    '#..............#',
-    '#..............#',
-    '#..............#',
-    '#..............#',
-    '#..............#',
-    '#..............#',
-    '################',
-  ],
-  marks: {
-    '>': { tile: '>', ent: { t: 'warp', to: 'lumenby', entry: 'deep' } },
-    '@': { ent: { t: 'entry', id: 'up', dir: 'down' } },
-    S: { tile: 'S', ent: { t: 'sign', lines: ['THE UNDERGLOW. THE LIFT IS BEING MENDED.'] } },
-  },
-}
-
 /** This land's maps by id (`lands.ts` collects them into the world). */
-export const MAPS: Record<string, MapDef> = { lumenby: LUMENBY, unionhall: UNIONHALL, underglow1: UNDERGLOW1 }
+export const MAPS: Record<string, MapDef> = { lumenby: LUMENBY, unionhall: UNIONHALL }

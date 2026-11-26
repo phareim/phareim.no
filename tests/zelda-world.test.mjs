@@ -43,6 +43,18 @@ const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress
 const step = (s, i = inp()) => Z.stepGame(Z.WORLD, s, 1 / 60, i)
 const round = v => Math.round(v * 100) / 100
 const lands = () => Object.keys(Z.WORLD.maps).filter(id => Z.WORLD.maps[id].away)
+/** The lands and every map reached from them by a warp that is not on the coast or in the Wildwood (caves, rooms, the Underglow's floors). */
+function outThere() {
+  const home = new Set(Object.keys(Z.WORLD.maps).filter(id => !Z.WORLD.maps[id].away && Z.WORLD.atlas[id]))
+  const out = new Set(lands())
+  for (let grew = true; grew;) {
+    grew = false
+    for (const id of [...out]) for (const m of Object.values(Z.WORLD.maps[id].marks)) {
+      if (m.ent.t === 'warp' && !home.has(m.ent.to) && !out.has(m.ent.to) && Z.WORLD.maps[m.ent.to]) { out.add(m.ent.to); grew = true }
+    }
+  }
+  return [...out]
+}
 
 /** A hero with the blade, bombs and the hook, and every boulder and crack within three tiles of `warp` already blown. */
 function armed(map, entry, warp) {
@@ -356,7 +368,7 @@ describe('the lands', () => {
   })
 
   it('keeps foes off the ways in: none near a gate, a seam, the ferry or a stair, and never a crowd', () => {
-    for (const id of lands()) {
+    for (const id of outThere()) {
       const info = Z.mapInfo(Z.WORLD, id)
       const def = info.def
       let foes = 0
@@ -391,7 +403,7 @@ describe('the lands', () => {
   it('speaks in the pixel font out there, a page at most three rows of the narrowest box, each speaker named first', () => {
     const talkOf = e => (e.t === 'npc' ? e.talk.flatMap(b => [...b.lines, ...(b.ask ? [...b.ask.options, ...b.ask.replies.flat()] : [])]) : e.t === 'sign' ? e.lines : [])
     const OWN = new Set(['KEEPER', 'MOSSA', 'MAX', 'TOBY', 'OWL', 'DUSTY', 'TROLL', 'LUNA', 'PETTER', 'BARTENDER'])
-    const maps = Object.values(Z.WORLD.maps).filter(d => d.away || X.DEMOS.some(x => x.map === d.id))
+    const maps = outThere().map(id => Z.WORLD.maps[id])
     const lines = []
     const people = []
     for (const d of maps) {
