@@ -7,7 +7,6 @@ import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES } from '../type
 import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
-import { startBattle } from './battle/fight'
 import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
 
 export interface Ctx {
@@ -98,8 +97,6 @@ export interface HitOpts { knock?: number; stagger?: number; stop?: number; chai
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
   if (e.dead || e.invuln > 0) return false
-  // A field battle's foe struck in the field: the fight starts, the party first.
-  if (e.group) { startBattle(c, e.group, 'party'); return c.s.mode === 'battle' }
   const st = STATS[e.kind]
   if (st.invulnerable) {
     if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
@@ -119,6 +116,8 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
 function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
   const special = bossRules(c, e, dmg, fromX, fromY, src, opt)
   if (special !== null) return special
+  // A calm sentry struck or stunned turns angry for good, and goes for the hero as soon as it can.
+  if (e.calm && !e.ai.angry) { e.ai.angry = true; e.ai.mode = 'alert'; e.ai.t = 0.45 }
   // The hook stuns like the disc, and bites the frail.
   if (src === 'hook') {
     if (BIG.has(e.kind)) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
@@ -365,7 +364,6 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'tube': return ['A VACUUM TUBE, STILL GOOD.', "SOMEBODY'S RADIO NEEDS ONE OF THESE."]
     case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
     case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
-    case 'tonic3': return ['THREE NEON TONICS!', 'IN A FIGHT, ITEM HANDS ONE TO YOU OR A FRIEND: TWO HEARTS BACK. TASTES PINK.']
     case 'artHop': return ['YOU LEARNED HOP!', 'PRESS {B} TO HOP CLEAR OF A FOE, STILL FACING IT. NO BLOW REACHES YOU IN THE AIR.', 'PRESS {A} IN THE HOP AND YOU SPRING BACK IN WITH A CUT. THE CHAIN OF CUTS GOES ON THROUGH IT.', 'THE HOP SITS ON {B} WITH YOUR ITEMS: {CYCLE} SWAPS.']
   }
 }
@@ -395,7 +393,6 @@ export function grant(s: GameState, item: ItemId) {
     case 'arc': inv.arc = true; inv.sword = true; break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
-    case 'tonic3': inv.tonics = Math.min(9, inv.tonics + 3); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
     case 'artHop': learnArt(s, artOfItem(item)!); break
   }

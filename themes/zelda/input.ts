@@ -26,8 +26,6 @@ export interface InputHooks {
   /** Not playing: pointer taps are reported through `onIdleTap`, game keys are ignored. */
   idle(): boolean
   paused(): boolean
-  /** A field battle is on: a tap is reported where it landed (`Input.tap`), for the shell to turn into a pick. */
-  battle?(): boolean
   /** A dialog is open: any tap in the world presses A. */
   dialog(): boolean
   /** A pointer press and release that stayed within a few px, while idle. */
@@ -81,7 +79,6 @@ export function createInput(hooks: InputHooks): GameInput {
   let cyclePress = false
   let rollPress = false
   let tapSide: -1 | 1 | undefined
-  let tap: { x: number; y: number } | undefined
   let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
   let idleTap: { id: number; x: number; y: number } | null = null
   /** A finger that came down on the stick's side while a dialog was open: the stick, if it is still down when the lines close. */
@@ -111,10 +108,8 @@ export function createInput(hooks: InputHooks): GameInput {
       ...(rollPress ? { rollPress } : {}),
       autoFace: hooks.touch(),
       tapSide,
-      ...(tap ? { tap } : {}),
     }
     tapSide = undefined
-    tap = undefined
     aPress = false
     bPress = false
     cyclePress = false
@@ -131,7 +126,6 @@ export function createInput(hooks: InputHooks): GameInput {
     cyclePress = false
     rollPress = false
     tapSide = undefined
-    tap = undefined
     stick = null
     idleTap = null
     waiting = null
@@ -149,8 +143,6 @@ export function createInput(hooks: InputHooks): GameInput {
     const p = canvasPoint(e)
     if (hooks.idle()) { idleTap = { id: e.pointerId, x: p.x, y: p.y }; return }
     if (hooks.paused()) return
-    // In a field battle a tap picks a command or a target where it lands.
-    if (hooks.battle?.()) { tap = { x: p.x, y: p.y }; return }
     // Any tap moves a dialog on; its side answers a YES / NO line.
     if (hooks.dialog()) {
       aPress = true

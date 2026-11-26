@@ -278,14 +278,13 @@ const bossDown = scene === 'l-mistral-down'
 switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'start': run(30); break
   // The lands (docs/worlds/atlas.md): a place in each, beside its people, and the systems in the lands built for them:
-  // Stillsand's puzzles, the Sporelight's battle groups, Lumenby's benches.
-  case 'f-puzzle': case 'f-battle': case 'f-terrain': {
+  // Stillsand's puzzles, Lumenby's benches.
+  case 'f-puzzle': case 'f-terrain': {
     give()
-    const id = { 'f-puzzle': 'stillsand', 'f-battle': 'sporelight', 'f-terrain': 'lumenby' }[scene]
+    const id = { 'f-puzzle': 'stillsand', 'f-terrain': 'lumenby' }[scene]
     const d = WORLD.maps[id]
     let spot = d.entries.camp
     if (scene === 'f-puzzle') { const ch = Object.keys(d.marks).find(c => d.marks[c].ent.t === 'chest' && d.marks[c].ent.appear); const y = d.rows.findIndex(r => r.includes(ch)); spot = { x: d.rows[y].indexOf(ch) + 0.5, y: y + 2.5 } }
-    if (scene === 'f-battle') { const g = d.battle.groups[0]; spot = { x: g.x, y: g.y + 3.5 } }
     if (scene === 'f-terrain') { const y = d.rows.findIndex(r => r.includes('а')); spot = { x: d.rows[y].indexOf('а') + 0.5, y: y + 2.5 } }
     go(id, spot.x, spot.y, 'up'); run(20)
     break
@@ -608,28 +607,6 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'pz-sluice': give(); s.flags['lab.e.tide'] = true; go('puzzlelab', 24.5, 7.5, 'left'); run(30); break
   case 'pz-final': give(); s.flags['lab.f.roll'] = true; go('puzzlelab', 7.5, 6.5, 'right'); run(90); s.map.tiles[5 * s.map.w + 10] = 'α'; s.map.tiles[3 * s.map.w + 10] = 'ν'; run(10); break
   case 'd-gate': wild(true); s.inv.arc = true; s.flags.gemini = true; s.flags.gateShut = true; go('deep2', 23.5, 8.5, 'up'); run(20); break
-  // Field battles (docs/games/neon-shrine-battle.md) in the demo glade: b-field before a fight; the others in one,
-  // the menu open (b-menu), a target being picked (b-target), the tech list (b-tech), a blow landing (b-hit),
-  // the hero alone (b-solo).
-  case 'b-field': wild(true); s.inv.tonics = 3; go('arena', 15.5, 18.5, 'up'); run(30); break
-  case 'b-menu': case 'b-target': case 'b-tech': case 'b-hit': case 'b-solo': case 'b-marks': {
-    wild(scene !== 'b-solo'); s.inv.tonics = 3
-    const g = scene === 'b-hit' ? [18.5, 9.4] : scene === 'b-solo' ? [23.5, 14.6] : [8.5, 18.4]
-    go('arena', g[0], g[1], 'up'); run(2)
-    if (s.luna) { s.luna.x = s.hero.x + 0.6; s.luna.y = s.hero.y + 0.9 }
-    for (let k = 0; k < 400 && s.mode === 'play'; k++) run(1, inp({ move: { x: 0, y: -1 } }))
-    for (let k = 0; k < 900 && !(s.battle && s.battle.menu && s.battle.menu.who === 'hero'); k++) { run(1); if (s.battle && s.battle.menu && s.battle.menu.who !== 'hero') run(1, inp({ aPress: true })) }
-    if (scene === 'b-target') run(1, inp({ aPress: true }))
-    if (scene === 'b-tech') run(1, inp({ pick: { cmd: 1 } }))
-    if (scene === 'b-hit') { run(1, inp({ aPress: true })); run(1, inp({ aPress: true })); run(21) }
-    if (scene === 'b-marks') {
-      const [first, second] = s.battle.fighters.filter(f => f.side === 'foe')
-      first.status = { stun: 2, static: 2 }
-      second.status = { slow: 2, break: 2 }
-      run(1, inp({ aPress: true }))
-    }
-    break
-  }
 }
 if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
 if (bossDown) for (const e of s.map.enemies) if (e.kind === 'mistral') { e.ai.mode = 'down'; e.ai.t = 9 }
@@ -814,17 +791,6 @@ const SHOTS = [
   ['d-deepseek-hit-1280', 'd-deepseek-hit', 1280, 800, 1, 0],
   ['d-gemini-hit-1280', 'd-gemini-hit', 1280, 800, 1, 0],
   ['w-troll-1280', 'w-troll', 1280, 800, 1, 0],
-  // Field battles: a phone (375×667) and a laptop.
-  ['b-field-375', 'b-field', 375, 667, 2, 0],
-  ['b-menu-375', 'b-menu', 375, 667, 2, 0],
-  ['b-target-375', 'b-target', 375, 667, 2, 0],
-  ['b-tech-375', 'b-tech', 375, 667, 2, 0],
-  ['b-hit-375', 'b-hit', 375, 667, 2, 0],
-  ['b-solo-375', 'b-solo', 375, 667, 2, 0],
-  ['b-menu-1280', 'b-menu', 1280, 800, 1, 0],
-  ['b-marks-390', 'b-marks', 390, 844, 2, 0],
-  ['b-marks-1280', 'b-marks', 1280, 800, 1, 0],
-  ['b-hit-1280', 'b-hit', 1280, 800, 1, 0],
   ['pz-weights-1280', 'pz-weights', 1280, 800, 1, 0],
   ['pz-ice-1280', 'pz-ice', 1280, 800, 1, 0],
   ['pz-beam-1280', 'pz-beam', 1280, 800, 1, 0],
@@ -847,7 +813,6 @@ const SHOTS = [
   ['lake-1280', 'lake', 1280, 800, 1, 0],
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
   ['f-puzzle', 'f-puzzle', 1280, 800, 1, 0],
-  ['f-battle', 'f-battle', 1280, 800, 1, 0],
   ['f-terrain', 'f-terrain', 1280, 800, 1, 0],
   ...['sign-town', 'sign-town-lit', 'sign-hill', 'sign-tops'].flatMap(n => [[n, n, 1280, 800, 1, 0], [`${n}-390`, n, 390, 844, 2, 0]]),
   ['life', 'life', 1280, 800, 1, 0],

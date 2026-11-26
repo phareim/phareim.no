@@ -39,7 +39,7 @@ export function stepEnemies(c: Ctx, dt: number) {
     const e = list[i]!
     // The renderer's clock for a fallen foe's pop.
     if (e.dead && e.deathT !== undefined && e.deathT < 1) e.deathT += dt
-    if (!enemyActive(c, e) || e.group) continue
+    if (!enemyActive(c, e)) continue
     stepEnemy(c, e, dt)
   }
 }
@@ -143,7 +143,7 @@ function contact(c: Ctx, e: Enemy) {
   const h = c.s.hero
   const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||
     (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
-    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise'))
+    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry)
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper', true)
   }
@@ -235,6 +235,8 @@ function sentry(c: Ctx, e: Enemy, dt: number) {
     ai.t = rndRange(c.s, 1.2, 2.6)
     ai.mode = 'patrol'
   }
+  // A calm one pays the hero no mind until it has been struck.
+  if (e.calm && !ai.angry) return
   if (seesHero(c, e, 6)) {
     const dx = h.x - e.x
     const dy = h.y - e.y

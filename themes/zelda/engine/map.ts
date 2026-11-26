@@ -10,7 +10,6 @@ import { TILE_INFO, isTileChar } from '../world/tiles'
 import { puzzleMarkTile } from '../world/puzzles'
 import { loadPuzzleTiles } from './puzzles/load'
 import { spawnEnemy } from './spawn'
-import { fieldFoes } from './battle/field'
 import { terrainAbove, terrainLevel, terrainLoad } from './terrain'
 import { dirVec, opposite } from './util'
 
@@ -152,9 +151,9 @@ const ROAD = new Set<TileChar>([',', '='])
 /**
  * The tiles the map's landmarks stand on (`IsoLandmark.solid`), less those that must stay open: the run of a road,
  * the rim (where the passes are), a tile anyone or anything is placed on, the ring round an entry, a warp, a door,
- * stairs or an exit, and the ground a battle group's foes stand on. Already solid tiles are left out. A landmark
- * built over a way in (the headframe over its shaft) keeps the ground beside it: only the way in itself stays open.
- * Last, a tile that would shut off open ground the entries reached without the scenery (a path's dead end) is let go.
+ * stairs or an exit. Already solid tiles are left out. A landmark built over a way in (the headframe over its shaft)
+ * keeps the ground beside it: only the way in itself stays open. Last, a tile that would shut off open ground the
+ * entries reached without the scenery (a path's dead end) is let go.
  */
 function sceneryOf(info: MapInfo): Set<number> {
   const out = new Set<number>()
@@ -188,7 +187,6 @@ function sceneryOf(info: MapInfo): Set<number> {
         const i = y * w + x
         if (TILE_INFO[base[i]!].solid || marked.has(i) || road(x, y)) continue
         if (keep.some(k => near(x, y, k, pad))) continue
-        if (def.battle?.groups.some(g => Math.abs(g.x - (x + 0.5)) < 2.5 && Math.abs(g.y - (y + 0.5)) < 2.5)) continue
         out.add(i)
       }
     }
@@ -339,7 +337,9 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     const cy = m.y + 0.5
     if (e.t === 'enemy') {
       if (e.once && flag(e.once)) continue
-      enemies.push(spawnEnemy(`${id}:${m.x},${m.y}`, e.kind, cx, cy, e.dir ?? 'down', cellIndex(info, cx, cy), e.once, e.carries))
+      const foe = spawnEnemy(`${id}:${m.x},${m.y}`, e.kind, cx, cy, e.dir ?? 'down', cellIndex(info, cx, cy), e.once, e.carries)
+      if (e.calm) foe.calm = true
+      enemies.push(foe)
     } else if (e.t === 'npc') {
       if (e.hide && condMet(s, world, e.hide, -1)) continue
       npcs.push({ id: e.id, look: e.look, x: cx, y: cy, dir: e.dir ?? 'down', home: { x: cx, y: cy }, wander: !!e.wander, t: 0, vx: 0, vy: 0 })
@@ -351,7 +351,6 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       pickups.push({ id: e.id, item: e.item, x: cx, y: cy, shop: { price: e.price, once: !!e.once }, hidden: false })
     }
   }
-  if (info.def.battle) enemies.push(...fieldFoes(world, s, info, info.def.battle))
   // The ground's heights (`terrain.ts`).
   const terrain = info.def.terrain ? terrainLoad(info.def) : undefined
   return {

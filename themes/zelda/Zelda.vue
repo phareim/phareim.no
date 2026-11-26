@@ -428,7 +428,6 @@ const input: GameInput = createInput({
   idle: () => phase.value !== 'play',
   paused: () => paused.value || panel.value !== null,
   dialog: () => state.mode === 'dialog',
-  battle: () => state.mode === 'battle',
   onIdleTap: () => { if (phase.value === 'won') keepExploring() },
   onKey: shellKey,
 })
@@ -1290,12 +1289,6 @@ function handleEvents(events: GameEvent[]) {
       case 'exit': leave(e.id, e.to); return
       case 'startOver': askReset(); break
       case 'panel': openPanel(e.id, e.panel); break
-      // Field battles: their music, the turn's blip, the win's jingle.
-      case 'battle':
-        if (e.what === 'start') { a?.sfx('charge'); playTrack(e.track ?? 'boss') }
-        else if (e.what === 'turn') a?.sfx('select')
-        else if (e.what === 'won' || e.what === 'fled') { if (e.what === 'won') a?.jingle(e.boss ? 'fanfare' : 'secret'); else a?.sfx('menu'); playTrack(trackFor(state)); save = true }
-        break
     }
   }
   if (save) persist()
@@ -1394,10 +1387,8 @@ function frame(nowMs: number) {
   // The controls turn with the picture: up on the stick is up on the screen in every view.
   const raw = input.read()
   // Not in a dialog: there a direction picks YES or NO by its sign, whichever way the picture faces.
-  // (Nor in a field battle, where up and down move the cursor; a tap there is a pick on the overlay.)
-  const turn = state.mode === 'dialog' || state.mode === 'battle' ? 0 : renderer.viewState().turn
+  const turn = state.mode === 'dialog' ? 0 : renderer.viewState().turn
   const inp = turn ? { ...raw, move: turnMove(raw.move, turn) } : raw
-  if (raw.tap && state.mode === 'battle') inp.pick = renderer.battlePick(raw.tap.x, raw.tap.y) ?? { none: true }
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   // What the screen shows, so the woods' foes come and go past its edge (the turned view shows a diamond of the ground).
   const vt = renderer.viewTiles()

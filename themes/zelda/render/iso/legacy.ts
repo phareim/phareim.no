@@ -26,7 +26,7 @@
  */
 import type { GameState, MapKind, TileChar } from '../../types'
 import { SCROLL_TIME, TILE } from '../../types'
-import { battleFocus, mapInfo, raised } from '../../engine/index'
+import { mapInfo, raised } from '../../engine/index'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { bloomDecals, decalCover, drawDecals, lightDecals } from '../decals'
@@ -351,9 +351,7 @@ export default function isoView(kit: Kit): View {
     const cClassic = project(P, cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      // (In a field battle the camera frames the fight.)
-      const f0 = battleFocus(s)
-      const focus = { x: f0.x, y: f0.y + 6 / T }
+      const focus = { x: s.hero.x, y: s.hero.y + 6 / T }
       let ci: Vec
       if (s.scroll) {
         const a = centreIn(P, focus, s.scroll.from, vw, vh, RISE)
@@ -952,10 +950,7 @@ export default function isoView(kit: Kit): View {
     const near = nearExit(s)
     const ref = near ? shift(near.x, near.y) : shift(s.hero.x, s.hero.y)
     // The windows change dress halfway through the turn, with the picture.
-    // (A field battle's overlay sits by its fighters: a scene point S(x, y) is where the HUD's logical px meet it, z tiles up.)
-    const scr = kit.screen()
-    kit.hudLayer(s, ui, dt, bx - ref.x, by - ref.y, S(s.hero.x, s.hero.y).y, par.windows === '16-bit' && k > 0.5 ? WINDOW_SKIN : NEON_SKIN, undefined,
-      s.battle ? (x, y, z = 0) => { const p = S(x, y); return { x: scr.ox + p.x * scr.scale, y: scr.oy + (p.y - z * T) * scr.scale } } : undefined)
+    kit.hudLayer(s, ui, dt, bx - ref.x, by - ref.y, S(s.hero.x, s.hero.y).y, par.windows === '16-bit' && k > 0.5 ? WINDOW_SKIN : NEON_SKIN)
   }
 
   return { draw, turn: Math.PI / 4 }

@@ -64,7 +64,7 @@ export function credit(c: Ctx, id: MoveId) {
 /** A foe in the fight near the hero (BACKFLIP and WALL SPRING count towards mastery only then). */
 function foeNear(c: Ctx, d: number) {
   const h = c.s.hero
-  return c.s.map.enemies.some(e => enemyActive(c, e) && !e.group && Math.hypot(e.x - h.x, e.y - h.y) < d)
+  return c.s.map.enemies.some(e => enemyActive(c, e) && Math.hypot(e.x - h.x, e.y - h.y) < d)
 }
 
 /** Every art still resting rests a little less (a landed blow of the blade). */
@@ -82,7 +82,7 @@ export function endMoves(h: GameState['hero']) {
   h.hopDodged = false
 }
 
-/** Clear all of it, a SLIP's edge and its slow too: a new map, a field battle. */
+/** Clear all of it, a SLIP's edge and its slow too: a new map. */
 export function resetMoves(s: GameState) {
   endMoves(s.hero)
   s.hero.edge = false
@@ -150,7 +150,7 @@ function nearestFoe(c: Ctx, x: number, y: number, d: number, a?: number, cone = 
   let best: Enemy | null = null
   let bd = Infinity
   for (const e of c.s.map.enemies) {
-    if (!enemyActive(c, e) || e.group) continue
+    if (!enemyActive(c, e)) continue
     const dd = Math.hypot(e.x - x, e.y - y)
     if (dd > d + e.r || dd >= bd) continue
     if (a !== undefined && dd > 0.3 && angleDiff(Math.atan2(e.y - y, e.x - x), a) > cone) continue
@@ -357,7 +357,7 @@ export function stepAir(c: Ctx, inp: Input, dt: number) {
       break
     }
   }
-  // (A blow that started a field battle took the hero out of the air.)
+  // (A blow just struck may have taken the hero out of the air: a zapper's shock.)
   if (h.air !== a || s.mode !== 'play') return
   if (a.t >= d.time) land(c)
 }
@@ -385,7 +385,7 @@ function land(c: Ctx) {
     for (let j = 0; j <= 6; j++) n += bladeHits(c, at - FLIP_CHOP.arc / 2 + (FLIP_CHOP.arc * j) / 6, FLIP_CHOP.reach, dmg, 'sword', a.hit, opt)
     // And the ground shakes all round.
     for (const f of s.map.enemies) {
-      if (!enemyActive(c, f) || a.hit.includes(f.id) || f.group) continue
+      if (!enemyActive(c, f) || a.hit.includes(f.id)) continue
       if (Math.hypot(f.x - h.x, f.y - h.y) < FLIP_CHOP.ring + f.r && lineClear(c.w, s.map, h.x, h.y, f.x, f.y)) {
         a.hit.push(f.id)
         if (hitEnemy(c, f, mul, h.x, h.y, 'sword', { knock: 1, stagger: 0.3, stop: 40 })) n++

@@ -19,7 +19,6 @@ import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
-import { battleFocus, stepBattle, stepField } from './battle/index'
 import { terrainLevel } from './terrain'
 import { resetPuzzleRoom } from './puzzles/index'
 import { cleanExplored, revealAround, reveal } from './explore'
@@ -28,7 +27,7 @@ import { ART_IDS, endMoves, resetMoves, stepSlow } from './moves'
 function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
-    hook: false, arc: false, bigBag: false, shrooms: 0, keyrings: {}, tonics: 0,
+    hook: false, arc: false, bigBag: false, shrooms: 0, keyrings: {},
   }
 }
 
@@ -120,7 +119,6 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, h.x, h.y, HERO_R)
   s.disc = null
   s.hook = null
-  s.battle = null
   if (!at) s.entry = { map: mapId, entry: entryId }
   // A land walked into is drawn on the MAP page's chart of the world (and the QUEST line stops pointing at the gates).
   if (info.def.away) s.flags[`seen:${mapId}`] = true
@@ -227,7 +225,6 @@ function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEve
     case 'dialog': return dialog(c, dt, inp)
     case 'get': return getItem(c, dt, inp)
     case 'dying': return dying(c, dt)
-    case 'battle': return stepBattle(c, dt, inp)
     case 'won': case 'exit': return
   }
 }
@@ -253,7 +250,6 @@ function play(c: Ctx, dt: number, inp: Input) {
   stepSlow(s, dt)
   stepEnemies(c, wdt)
   stepObjects(c, wdt)
-  if (c.info.def.battle) stepField(c, wdt)
   if (s.mode !== 'play' || s.demo) return
   stepHook(c, dt)
   stepLuna(c, dt)
@@ -655,9 +651,9 @@ export function parseSave(raw: unknown): SaveData | null {
 /** B items a save may hold that the game has since dropped: dig & build's DIG and BUILD (gone 2026-11-26). */
 const OLD_ITEMS: readonly string[] = ['dig', 'build']
 
-/** A save's items without what the game no longer has: dig & build's materials and hammer kind, its B items. */
+/** A save's items without what the game no longer has: dig & build's materials and hammer kind, its B items; tonics. */
 function cleanOld(inv: Record<string, unknown>): Record<string, unknown> {
-  const { mats: _mats, build: _build, ...rest } = inv
+  const { mats: _mats, build: _build, tonics: _tonics, ...rest } = inv
   return OLD_ITEMS.includes(rest.selected as string) ? { ...rest, selected: null } : rest
 }
 
@@ -692,7 +688,7 @@ const isArtId = (x: unknown): x is ArtId => (ART_IDS as readonly unknown[]).incl
 
 /** Where the camera wants to be (tile units, top-left) for a view of vw×vh tiles. */
 export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y: number } {
-  const h = battleFocus(s)
+  const h = s.hero
   const clampTo = (z: { x: number; y: number; w: number; h: number }) => {
     const cx = z.w <= vw ? z.x + (z.w - vw) / 2 : Math.max(z.x, Math.min(z.x + z.w - vw, h.x - vw / 2))
     const cy = z.h <= vh ? z.y + (z.h - vh) / 2 : Math.max(z.y, Math.min(z.y + z.h - vh, h.y - vh / 2))

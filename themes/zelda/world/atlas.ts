@@ -43,6 +43,8 @@ const OLD_REALMS: Record<string, { map: string; entry?: string }> = {
 const GONE: Record<string, { map: string; entry: string }> = {
   // The Old Quarry, dig & build's first map (both gone 2026-11-26): back up in Lumenby's pit.
   quarry: { map: 'lumenby', entry: 'pit' },
+  // The glade under the Sporelight (`arena`): back up in the root hollow.
+  arena: { map: 'sporelight', entry: 'from-arena' },
 }
 
 /** Where a save made on a map that is gone continues now (`World.rescue`), or null for an id that never was one. */

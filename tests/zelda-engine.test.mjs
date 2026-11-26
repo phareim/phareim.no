@@ -823,3 +823,63 @@ describe('real-time combat: the chain, the roll (2026-11-25)', () => {
     assert.notEqual(s.hero.act, 'roll')
   })
 })
+
+describe('calm sentries (the grazer pen)', () => {
+  /** A bare room: the hero at the west, a sentry four tiles east of him, facing him. */
+  function pen(calm) {
+    const W = {
+      start: { map: 'pen', entry: 'start' },
+      maps: {
+        pen: {
+          id: 'pen', name: 'PEN', kind: 'interior', track: 'indoor',
+          rows: ['############', '#..........#', '#..........#', '#.@...z....#', '#..........#', '#..........#', '############'],
+          marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'right' } }, z: { ent: { t: 'enemy', kind: 'sentry', dir: 'left', ...(calm ? { calm: true } : {}) } } },
+        },
+      },
+    }
+    const s = Z.createGame(W, { seed: 3 })
+    s.mode = 'play'
+    s.dialog = null
+    s.inv.sword = true
+    const e = s.map.enemies[0]
+    const step = (n = 1) => { for (let k = 0; k < n; k++) Z.stepGame(W, s, 1 / 60, inp()) }
+    return { W, s, e, step }
+  }
+
+  it('a sentry that is not calm sees the hero and goes for him', () => {
+    const { e, step } = pen(false)
+    step()
+    assert.equal(e.ai.mode, 'alert')
+  })
+
+  it('a calm one only patrols, whatever it sees, and its touch does no harm', () => {
+    const { s, e, step } = pen(true)
+    const hp = s.hero.hp
+    for (let k = 0; k < 900; k++) {
+      // Every so often it is put right against the hero, facing him.
+      if (k % 150 === 0) { e.x = s.hero.x + 0.5; e.y = s.hero.y; e.dir = 'left' }
+      step()
+      assert.ok(e.ai.mode !== 'alert' && e.ai.mode !== 'chase', `frame ${k}: ${e.ai.mode}`)
+    }
+    assert.equal(s.hero.hp, hp)
+    assert.ok(!e.ai.angry)
+  })
+
+  for (const [src, dmg] of [['sword', 1], ['disc', 0], ['hook', 0], ['bomb', 2]]) {
+    it(`a calm one hit by the ${src} turns angry and goes for the hero`, () => {
+      const { W, s, e, step } = pen(true)
+      step()
+      assert.ok(Z.hitEnemy(Z.ctx(W, s, []), e, dmg, s.hero.x, s.hero.y, src))
+      assert.equal(e.ai.angry, true)
+      for (let k = 0; k < 300 && e.ai.mode !== 'chase'; k++) { s.hero.invuln = 1; step() }
+      assert.equal(e.ai.mode, 'chase')
+    })
+  }
+
+  it('the Shellyard keeps three calm grazers and one that is not, and they are calm again after a reload', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'sporelight', entry: 'shellyard' } })
+    const pen = s.map.enemies.filter(e => e.kind === 'sentry')
+    assert.deepEqual(pen.map(e => !!e.calm).sort(), [false, true, true, true])
+    assert.ok(pen.every(e => !e.ai.angry))
+  })
+})

@@ -15,14 +15,13 @@
  * that glows by itself lands in `emit` and is left at full brightness by the
  * light map.
  */
-import type { BattlePick, Dir, Enemy, GameEvent, GameState, World } from '../types'
+import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP } from '../types'
 import { airTime, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur } from '../engine/index'
 import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, drawPause, drawSlow, drawViewStrip, hudScale, NEON_SKIN, type Callout, type HudSkin, type MenuPage } from './hud'
 import { drawMapPage } from './worldMap'
-import { drawBattle, pickAt, type BattleBox } from './battle'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -58,6 +57,7 @@ const BIG_FOES: ReadonlySet<string> = new Set(['king', 'knight', 'llama', 'mistr
 /** Frontier skins for existing field enemy behaviours. The boss art has its own future encounters. */
 const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierCreature>>> = {
   lumenby: { skull: 'timberbeetle', zapper: 'orehopper' },
+  sporelight: { sentry: 'grazer' },
   yulefjord: { skull: 'draug', dasher: 'nokk' },
   stillsand: { bat: 'stonebird' },
   rerun: { hound: 'mowermob', drone: 'flamingomob', spitter: 'mailboxmob' },
@@ -125,8 +125,6 @@ const HANDOFF = 0.1
 const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', dark: '#1d1433', caveDark: '#2a1e44' }
 
 export interface SafeInsets { top: number; right: number; bottom: number; left: number }
-/** A world point (tiles, z up) on the screen, device px: how a view places the battle overlay by its fighters (none: the classic camera). */
-export type ScreenOf = (x: number, y: number, z?: number) => Vec
 const NO_INSETS: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 }
 
 export interface Renderer {
@@ -175,8 +173,6 @@ export interface Renderer {
    * HTML keeps the classic dress too.
    */
   fineUnit(): number
-  /** Field battles: what the battle overlay drew under a point (CSS px on the canvas), as of the last frame. */
-  battlePick(x: number, y: number): BattlePick | null
 }
 
 /**
@@ -307,7 +303,7 @@ export interface Kit {
    * one in over the second, instead of one giving way to the other in a
    * single frame. Their letters are never on top of each other.
    */
-  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }, screenOf?: ScreenOf): void
+  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }): void
   /**
    * Where a skin's HUD lies on the screen: device px per HUD logical px, where
    * its logical origin lands (device px) and its logical size. The classic HUD
@@ -924,6 +920,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (frontier) {
       if (frontier === 'stonebird') return { name: e.ai.mode === 'rest' ? 'stonebird_perch' : 'stonebird_fly', flip }
       if (frontier === 'nokk' && e.ai.mode === 'idle') return { name: 'nokk_eyes', flip }
+      // Pink eyes: every grazer but a calm one that nobody has struck.
+      if (frontier === 'grazer' && (!e.calm || e.ai.angry)) return { name: tick % 2 ? 'grazer_angryb' : 'grazer_angrya', flip }
       const prefix = `${frontier}_${key}`
       return { name: `${prefix}_${f(prefix)}`, flip }
     }
@@ -1479,8 +1477,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * keeps clear of it): both in scene px, whatever grid the skin's HUD is on.
    * `from`: see `Kit.hudLayer`.
    */
-  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }, screenOf?: ScreenOf) {
-    battleScreen = screenOf ?? null
+  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
     // The dialog box keeps the side it opened on: a turn of the view under it (the camera tipping, the hero's row moving
     // on the screen) never throws it from the bottom to the top in one frame.
     if (s.dialog) {
@@ -1506,10 +1503,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       screen.beginPath(); screen.arc(sx + ui.stick.dx * dpr, sy + ui.stick.dy * dpr, 16 * dpr, 0, Math.PI * 2); screen.fill()
     }
   }
-
-  /** Field battles: the view's own placing of world points this frame, and the overlay's touch boxes (device px). */
-  let battleScreen: ScreenOf | null = null
-  let battleBoxes: BattleBox[] = []
 
   /** The dialog the box's side was taken for, and the hero's row it was taken by. */
   let dialogRow: { of: unknown; y: number } = { of: null, y: 0 }
@@ -1551,17 +1544,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         else drawCallout(g, callout, sp.vw, sp.vh, skin, heroRow - 46)
       }
       drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
-      if (s.battle) {
-        const scr = battleScreen ?? ((x: number, y: number, z = 0) => ({ x: ox + (x * T - cx) * scale, y: oy + ((y - z) * T - cy) * scale }))
-        const place = (x: number, y: number, z?: number) => { const p = scr(x, y, z); return { x: (p.x - sp.ox) / sp.scale, y: (p.y - sp.oy) / sp.scale } }
-        // On touch the pads (bottom right, 168 × 142 CSS px 14 in from the edges) and the stick's corner stay clear of the strip.
-        const css = dpr / sp.scale
-        const padW = (168 + 18) * css
-        const padH = (142 + 18) * css + bottom
-        const avoid = ui.touch ? [{ x: sp.vw - padW, y: sp.vh - padH, w: padW, h: padH }, { x: 0, y: sp.vh - padH, w: 150 * css, h: padH }] : []
-        const boxes = drawBattle(g, s, place, sp.vw, sp.vh, (hud ? 30 : 2) + top, bottom + (ui.touch ? 8 : 2), time, skin, avoid)
-        if (alpha >= 0.5) battleBoxes = boxes.map(b => ({ ...b, x: sp.ox + b.x * sp.scale, y: sp.oy + b.y * sp.scale, w: b.w * sp.scale, h: b.h * sp.scale }))
-      } else if (alpha >= 0.5) battleBoxes = []
       // The view strip has the banner's place while it is up.
       if (ui.banner && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
       if (s.dialog) {
@@ -2350,6 +2332,5 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       views.clear()
     },
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
-    battlePick: (x, y) => pickAt(battleBoxes, x * dpr, y * dpr),
   }
 }

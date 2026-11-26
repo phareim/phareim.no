@@ -76,7 +76,6 @@ function drawMap(cv, def, ox, oy, s, detail) {
     if (r) cv.frame(ox + r.x * s, oy + r.y * s, r.w * s, r.h * s, [255, 255, 0])
     else cv.rect(ox + Math.floor(lm.x * s) - 1, oy + Math.floor(lm.y * s) - 1, 3, 3, [255, 255, 0])
   }
-  for (const g of def.battle?.groups ?? []) cv.frame(ox + Math.floor(g.x * s) - s, oy + Math.floor(g.y * s) - s, s * 2, s * 2, [255, 40, 40])
   for (const e of Object.values(def.entries ?? {})) cv.rect(ox + Math.floor(e.x * s) - 1, oy + Math.floor(e.y * s) - 1, 3, 3, MARK.entry)
   for (const a of def.areas ?? []) {
     cv.frame(ox + a.x * s, oy + a.y * s, a.w * s, a.h * s, [255, 255, 255])

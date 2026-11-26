@@ -11,8 +11,9 @@
  * from the beach, and from the pier's end the hook bites the island's post (the post on the pier brings the hero
  * back). Under the stage lie bombs for both cracks.
  *
- * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`. Field battles: the foes
- * stand in groups (`battle`), never as marks.
+ * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`, the foes among them
+ * (blobs at the Flats pond, skulls on the shore, bats at the ghost lights). A foe that walks, knocked into water,
+ * drowns (`physics`).
  */
 import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
@@ -41,13 +42,14 @@ export const FOGSTAGE: MapDef = {
   realm: 'fogstage',
   views: ['iso'],
   away: true,
+  physics: true,
   rows: [
     '######################################################################################TT',
     '######################################################################################TT',
     '~~~.##########.##########.###.#######;#.###..####.###.#######.##.###.######.########T#TT',
     '~~~~##########.########...#..##########.############.3.##########.#....:###########T##TT',
     '~~~~##########..######.......#########.:.....####.;.***##########.........###########TTT',
-    '~~~##########.....:.......,...;.............,...........#########:.....;.############TTT',
+    '~~~##########.....:.......,...;.............,.......7.7.#########:.....;.############TTT',
     '~~~.#######........:...;.,t,.........;.....,t,...............#.,t,..;.;...###########TTT',
     '~~~.....:.........;..:....,..,,,,,,,,.;..:..,,,,,,,,,........,,,,,,,......###########.TT',
     '~~~.....;..:.;......,,,,,,,,,,..:...,,,,,,,,,,....t:,,,,,,,,,,###..,,,,,.;...#####....TT',
@@ -81,13 +83,13 @@ export const FOGSTAGE: MapDef = {
     '~~~~~.|..~~~====----##-,U......:.....:...:..........;....:;..,,,,,,......:..~~~....T.TTT',
     '~~~~~....~~~=|==----R----...........:::.....,,,,,,,,,,,,,,,,,,.:..;.....:.;~~~~~.:;:.TTT',
     '~~~~~.1..~~~~~~~----##-,-.......:........,,,,............:....;..........;.:~~~.;:...TTT',
-    '~~~~~~..;~~~~~~~----##-,-.......:......,,,;.........;;;;;;;..............FF..FF.....TTTT',
-    '~~~~~~~~~~~###########-,-.;......;...,,,..;....FF.:.;;;;;;....:..................;:T.TTT',
+    '~~~~~~..;~~~~~~~----##-,-.......:......,,,;.........;;;;5;;..............FF..FF.....TTTT',
+    '~~~~~~~~~~~###########-,-.;......;...,,,..;....FF.:.;;5;;;....:..................;:T.TTT',
     '~~~~~~~~~~~###########-,,....:.;...:,,..:........M:.~;;;;.....~~~~~...;............TT.TT',
     '~~~~~~~~~~~~~~~~~~~~----,,---------,,............~~~~~~~....:~~~~~~....;:..;........:TTT',
     '~~~~~~~~~~~~~~~~~~~~-----,,,,,,,,,,.............~~~~~~~~~.....~~~~~;;;;.............T.TT',
     '~~~~~~~~~~~~~~~~~~~~--------FFN----....:.........~~~~~~~..........;;;;;;.........;.TTTTT',
-    '~~~~~~~~~~~~~~~~~~~~---------------.....:......:.:..~.............;;;;;....:.......:TTTT',
+    '~~~~~~~~~~~~~~~~~~~~---------6--6--.....:......:.:..~.............;;;;;....:.......:TTTT',
     '~~~~~~~~~~~~~~~~~~~~-----~--~~~-~--..........~.:..;...;......:...~~.~...:.;.......~TTTTT',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~..~~~;..~.~~..~.~.~~~.~~~;...~.~..~..~~~~.~.::~.TTTTT',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT',
@@ -162,7 +164,7 @@ export const FOGSTAGE: MapDef = {
     prop('fogstage_sandbags', 38.6, 24.4, at(38, 24)),
     prop('fogstage_sandbags', 27.1, 44.4, at(27, 44)),
     flat(28, 44),
-    // The prop store out east in the fog, where the knight keeps watch.
+    // The prop store out east in the fog.
     flat(73, 39),
     flat(77, 39),
     prop('fogstage_sandbags', 76.1, 40.4, at(76, 40)),
@@ -200,6 +202,11 @@ export const FOGSTAGE: MapDef = {
     'U': sign('THE WESTERN SHORE. THE SEA IS REAL. PLEASE DO NOT CLAP.', 'THE OLD PIER IS SHUT. A ROCK FELL ACROSS THE WAY IN, JUST WEST OF HERE.', '↑ THE RAINCHECK\'S MAST.\n→ THE FLATS.'),
     'W': sign('SCENERY: A DEEP, DARK FOREST. SQUINT A LITTLE, THEN SAY OOH.', '← THE RAINCHECK\'S MAST.\n→ BIRGER\'S BUCKET.'),
     'V': sign('THE TICKET HILL. QUIET, PLEASE. THE SHOW HAS ALREADY STARTED. IT ALWAYS HAS.'),
+    // Blobs on the cut-grass bank of the Flats pond, skulls on the shore, bats round the ghost lights' nook. The first
+    // two can be knocked into the water (`physics`); the bats fly.
+    '5': { tile: ';', ent: { t: 'enemy', kind: 'blob' } },
+    '6': { tile: '-', ent: { t: 'enemy', kind: 'skull' } },
+    '7': { ent: { t: 'enemy', kind: 'bat' } },
     '1': { ent: { t: 'chest', id: 'fogstage.island', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'fogstage.reeds', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'fogstage.nook', item: 'bits50' } },
@@ -214,18 +221,6 @@ export const FOGSTAGE: MapDef = {
     'h': npc('fogstage.stagehand', 'smoker', [{ lines: ['STAGEHAND: WE MOVE THE HILLS BETWEEN SCENES. NOT REALLY. BUT IT FEELS LIKE IT.', 'STAGEHAND: SAME SHOW EVERY NIGHT. I COULD DO IT IN MY SLEEP. LAST NIGHT I DID.'] }]),
     'i': npc('fogstage.nightwatch', 'stagemanager', [{ lines: ['NIGHT WATCH: NEVER LET THE STAGE GO DARK. NEVER.', 'NIGHT WATCH: ONE LAMP ON AN EMPTY STAGE KEEPS THE GHOSTS FROM PUTTING ON A SHOW.', 'NIGHT WATCH: I CHECK EVERY GHOST LIGHT TWICE A NIGHT. ONCE FOR ME, ONCE FOR THEM.'] }]),
     'k': npc('fogstage.understudy', 'stagepuppet', [{ lines: ['UNDERSTUDY: I\'M VILLAGER #3. I HAVE NO LINES YET.', 'UNDERSTUDY: MY CARD SAYS: ENTER, LOOK WORRIED, EXIT. I\'VE BEEN PRACTISING WORRIED.', 'UNDERSTUDY: THE BANGS FOR THE FINALE ARE KEPT UNDER THE STAGE. NO FINALE, NO BANGS.'] }]),
-  },
-  battle: {
-    groups: [
-      { id: 'fogstage.castle', x: 57.5, y: 31.0, foes: ['goo', 'flitter'], sight: 2.5 },
-      { id: 'fogstage.reeds', x: 55.5, y: 40.5, foes: ['goo', 'goo'], sight: 2 },
-      { id: 'fogstage.moon', x: 43.5, y: 42.0, foes: ['flitter', 'flitter', 'goo'], sight: 2.5 },
-      { id: 'fogstage.knight', x: 78.5, y: 42.5, foes: ['knight', 'goo'], sight: 2, once: true, prize: 'bits50' },
-      { id: 'fogstage.road', x: 59.5, y: 24.5, foes: ['goo', 'flitter', 'goo'], sight: 2.5 },
-      { id: 'fogstage.westfog', x: 33.5, y: 26.5, foes: ['goo', 'flitter', 'goo'], sight: 2.5 },
-      { id: 'fogstage.hills', x: 52.5, y: 5.5, foes: ['flitter', 'flitter'], sight: 3 },
-      { id: 'fogstage.shore', x: 31.5, y: 45.0, foes: ['goo', 'goo', 'flitter'], sight: 2, prize: 'bits20' },
-    ],
   },
 }
 

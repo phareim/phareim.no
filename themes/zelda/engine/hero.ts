@@ -7,7 +7,7 @@ import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '
 import {
   ARC_REACH, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
   HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
-  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
+  SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
@@ -581,9 +581,9 @@ function startSwing(c: Ctx, inp: Input) {
   c.ev.push({ type: 'swing', n, ...(hc ? { spring: { x: h.x, y: h.y, a: h.swing.a!, d: hc.dist } } : {}) })
 }
 
-/** How long a swing lasts: its hit of the chain's time, or SWING_TIME for one outside the chain (a field battle's). */
-export function swingDur(sw: { n?: number }): number {
-  return sw.n === undefined ? SWING_TIME : COMBO[sw.n as 0 | 1 | 2]!.time
+/** How long a swing lasts: its hit of the chain's time. */
+export function swingDur(sw: { n: 0 | 1 | 2 }): number {
+  return COMBO[sw.n]!.time
 }
 
 /**
@@ -682,7 +682,7 @@ function lunge(c: Ctx, dt: number): boolean {
   h.vy = 0
   const reach = (s.inv.arc ? ARC_REACH : SWORD_REACH) * 0.55
   for (const e of s.map.enemies) {
-    if (!enemyActive(c, e) || e.group) continue
+    if (!enemyActive(c, e)) continue
     const dx = e.x - h.x
     const dy = e.y - h.y
     if (dx * ca + dy * sa > 0 && Math.hypot(dx, dy) < reach + e.r) return true
@@ -711,7 +711,7 @@ function spring(c: Ctx, dt: number): boolean {
   const stop = () => { sw.t = 0; return true }
   const reach = (s.inv.arc ? ARC_REACH : SWORD_REACH) * 0.55
   for (const e of s.map.enemies) {
-    if (!enemyActive(c, e) || e.group) continue
+    if (!enemyActive(c, e)) continue
     const dx = e.x - h.x
     const dy = e.y - h.y
     if (dx * ca + dy * sa > 0 && Math.hypot(dx, dy) < reach + e.r) return stop()
@@ -860,7 +860,7 @@ export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 's
     if ((off < 0.5 || perp < e.r + 0.15) && dx * ca + dy * sa > -0.2 && lineClear(c.w, s.map, h.x, h.y, e.x, e.y)) {
       hit.push(e.id)
       // A landed blow shortens every art's rest (`moves.ts`).
-      if (hitEnemy(c, e, dmg, h.x, h.y, src, opt) && !e.group) { struck++; feedArts(s) }
+      if (hitEnemy(c, e, dmg, h.x, h.y, src, opt)) { struck++; feedArts(s) }
     }
   }
   for (let r = 0.6; r <= reach; r += 0.3) breakShards(c, h.x + ca * r, h.y + sa * r, 0.15)

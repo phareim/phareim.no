@@ -13,7 +13,6 @@ import { WILDWOOD } from './wildwood'
 import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
-import { ARENA } from './arena'
 import { PUZZLELAB } from './puzzlelab'
 import { linkBack } from './demos'
 import { ATLAS, rescueGone } from './atlas'
@@ -38,8 +37,6 @@ export const WORLD: World = {
     lab1b: LAB1B,
     deep1: DEEP1,
     deep2: DEEP2,
-    // Field battles' glade, down a root stair in the Sporelight (demos.ts).
-    arena: linkBack(ARENA),
     // The physical puzzles' lab (`engine/puzzles/`), inside Stillsand's gold pyramid.
     puzzlelab: linkBack(PUZZLELAB),
     // The lands around the coast and the Wildwood (docs/worlds/atlas.md).

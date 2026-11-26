@@ -5,14 +5,14 @@
  * camp of the people the town turned away. In the middle THE STEAMHOUSE, the spirits' bathhouse, stands on its pond,
  * a gold block of light seen from everywhere; north over the ridge OLA'S WINDMILL keeps the haze down; north-east
  * the grazers doze in THE SHELLYARD; south-east THE CLEAN WELL's stair goes down to THE UNDER, where the silent
- * spirit keeps the clean seed, and the roots end at Stillsand's pass. South, a hollow among the roots holds the
- * ROOT STAIR down to the Battle Glade; a cracked root joins it to the gate road for anyone with bombs, and east of it
- * the grazers drink at a pool while the Clinker's slag hounds stalk them. A heart piece
+ * spirit keeps the clean seed, and the roots end at Stillsand's pass. South lies THE ROOT HOLLOW, a hollow among the
+ * roots; a cracked root joins it to the gate road for anyone with bombs, and east of it the grazers drink at a pool
+ * while the Clinker's slag hounds stalk them. A heart piece
  * sits on an island in the pond, seen from the walkway: the hook bites the island's post from the north shore (or the
  * bath island), and the post on the north shore brings the hero back.
  *
- * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`. Field battles: the foes
- * stand in groups (`battle`), never as marks.
+ * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`, the foes among them
+ * (the slag hounds at the pool, the grazer pen in the Shellyard).
  */
 import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
@@ -34,7 +34,7 @@ const capS = (tone: Tone, x: number, y: number): IsoLandmark => prop(`sporelight
 const moss = (x: number, y: number): IsoLandmark => prop('sporelight_glow_moss', x, y, { lights: [light('teal', 1.5, 0.5, { z: 0.1 })] })
 const puff = (x: number, y: number): IsoLandmark => prop('sporelight_puff', x, y, { motion: cycle(3, 2) })
 /** A grazer dozing among the shells, eyes cyan (calm), solid where it stands. */
-const grazer = (x: number, y: number, mood: 'calm' | 'angry' = 'calm'): IsoLandmark => prop(`sporelight_grazer_${mood}`, x + 0.5, y + 0.45, { motion: cycle(2, 1), shadow: { tall: 0.8, wide: 0.46 }, ...at(x, y) })
+const grazer = (x: number, y: number): IsoLandmark => prop('sporelight_grazer_calm', x + 0.5, y + 0.45, { motion: cycle(2, 1), shadow: { tall: 0.8, wide: 0.46 }, ...at(x, y) })
 
 export const SPORELIGHT: MapDef = {
   id: 'sporelight',
@@ -51,17 +51,17 @@ export const SPORELIGHT: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
     'TTTTT...TTTT...TTTT.T..;TTT.T.T.TTT.:..TT.T.TT..TT.TTTTTTTT..TT....T.TTTT.T..TTT',
     'TT..T....T.T..........TTTTT.T................:;..T.TTTTT;....TT.;..;....:....TTT',
-    'TT.;;..T;......T......TTTTT.:...T...:..::.....;.T..TTTT.......................TT',
-    'TTT:...............;..TTTTT;.:.;...::::H::::.T..:...TTT..r............r..;...TTT',
+    'TT.;;..T;......T......TTTTT.:...T...:..::.....;.T..TTTT.................9.....TT',
+    'TTT:...............;..TTTTT;.:.;...::::H::::.T..:...TTT..r........0...r..;...TTT',
     'TT..r...............r............:::::::::::::.:...;............;.........T..TTT',
-    'TT..........................:....::::::::k:::...;........;..;........rrr......TT',
+    'TT..........................:....::::::::k:::...;........;0.;........rrr......TT',
     'TTT.........---..s.........,,,,,,,,,,,,,,,,,,,,,.............;......rrrrr.....TT',
     'TTT..:....v-----....,,,,,,,,.::;..:::::,::::;..,,,,,,,,.....u...r.;.r.2.r....TTT',
     'TT..:.....-----,,,,,,....:....y...:T..:,.V:.:..:..:...,,,,,.......;.rr.rr....TTT',
     'TT..:......e--,,a......;...#...##.#.##.,,.#..:##.:T.....;;,,,........r%r..r..TTT',
     'TT;.........--,..........:.############,,##########TT.......,,,...............TT',
     'TT...........,,..:....:...;############,,##########TT.......r.,.;.....;......TTT',
-    'TT;....:....,,:........................,....:...TTTT....;.....,..;T......;...TTT',
+    'TT;....:....,,:........................,....:...TTTT....;.....,..;T.....0;...TTT',
     'TT...r......,........r...........;.....,;.....................,W...;T;.......TTT',
     'TTT.T.......,........T;................,...;..................,.........;..r..TT',
     'TT..r......:,U.....r..T....;.;.........,,,,,,,..;......T......,..............TTT',
@@ -89,11 +89,11 @@ export const SPORELIGHT: MapDef = {
     'TT;**.**....,..;....~~....TT..;........,..;...;;..:~~~~~......:::.,.:::......;TT',
     'TT..***.....,.....~~~....;TT.;...TTTTT.,.TTTTT.:....~~~........:X:,:::;......TTT',
     'TTT....;...,,....~~~~~;...TT.....T.....,.....T;:;.................,..w....;..TTT',
-    'TTT........,.....~~~~~...TTT.....T.;.........T..;:..T;..........,,,..........TTT',
-    'TT......;..,....z.~~~.....TT.....;..;..,.....T.:...............,,............;TT',
-    'TT..;.....,,,,,,,,,,,,,,,,%%,,,,,,,,,,,7.P..;..:..;.........,,,,...........;.TTT',
+    'TTT........,.....~~~~~...TTT.....T.;.........T..;:4.T;..........,,,..........TTT',
+    'TT......;..,....z.~~~.....TT.....;..;..,.....T.:....4..........,,............;TT',
+    'TT..;.....,,,,,,,,,,,,,,,,%%,,,,,,,,,,,7....;..:..;.........,,,,...........;.TTT',
     'TTT.;;....,..8............TT.....;.;...,.,,,,,,.;:..........,.;.....;........TTT',
-    'TTTT.....,,.....;...;.....TT;;T..T.....6..;...,,,,,,,,,,,,,,,................TTT',
+    'TTTT.....,,.....;...;.....TT;;T..T.....,..;...,,,,,,,,,,,,,,,................TTT',
     'TT.T.;..;,.B..............TT..:..T.;.........T......;..;..;,,...;.............TT',
     'TT.T.....,......;.........TTTTT..TTTTTTTTTTTTTTTTTTTT..;...,.Q...;.....TTTTT.TTT',
     'TTT.TT;.,,,.T.T:T..T.....TTTTTTTT;.....T..;..TTTTTTTT...T;,,,....TTT.TTTTTTTTTTT',
@@ -106,7 +106,7 @@ export const SPORELIGHT: MapDef = {
     { name: 'THE SHELLYARD', x: 52, y: 0, w: 28, h: 26, entry: 'shellyard', intro: INTRO },
     { name: 'THE STEAMHOUSE', x: 26, y: 15, w: 26, h: 21, entry: 'camp', intro: INTRO },
     { name: 'THE CAPS', x: 0, y: 26, w: 26, h: 26, entry: 'gate-spore', intro: INTRO },
-    { name: 'THE ROOT STAIR', x: 26, y: 36, w: 26, h: 16, entry: 'from-arena', intro: INTRO },
+    { name: 'THE ROOT HOLLOW', x: 26, y: 36, w: 26, h: 16, entry: 'from-arena', intro: INTRO },
     { name: 'THE CLEAN WELL', x: 52, y: 26, w: 28, h: 26, entry: 'well', intro: INTRO },
   ],
   entries: {
@@ -139,10 +139,8 @@ export const SPORELIGHT: MapDef = {
     prop('tent', 20.5, 7.5, at(20, 7)),
     prop('camp_shelter', 8.4, 16.4),
     prop('camp_board_gold', 15.4, 15.1),
-    // The grazers dozing in the Shellyard.
-    grazer(58, 7), grazer(66, 5), grazer(72, 14), grazer(66, 18),
-    // One with pink eyes by the yard's elite fight: the sign's "PINK EYES: RUN" is true, and the corner is announced.
-    grazer(72, 4, 'angry'),
+    // One grazer dozing in the Shellyard (the live ones are marks: the pen).
+    grazer(66, 18),
     // The well: glowing moss round its head, spores rising out of the clean air below.
     moss(63.6, 36.4), moss(69.4, 38.6), moss(64.5, 39.6), moss(68.3, 34.4), moss(65.2, 35.3), moss(67.8, 35.6), puff(66.5, 36.3),
     // The clickers' ring round the well's stair, so it reads from the road as a place and not a grate in the moss.
@@ -151,10 +149,8 @@ export const SPORELIGHT: MapDef = {
     grazer(49, 38), grazer(57, 39), grazer(54, 36),
     moss(50.5, 41.3), moss(56.4, 37.3), moss(48.6, 40.5), moss(55.6, 41.4), puff(53.5, 38.6),
     capM('violet', 48, 35),
-    // The Root Stair's way down to the Battle Glade: stone steps into the earth between glowing roots, cyan light from
-    // below, over its stair tile (the warp stays on it); moss at its foot.
-    prop('sporelight_rootstair', 39.5, 46.5, { cover: { x: 38, y: 45, w: 3, h: 3 } }),
-    moss(38.3, 47.3), moss(40.7, 47.2), moss(36.6, 44.6),
+    // Moss in the root hollow.
+    moss(36.6, 44.6),
     // The Shellyard: the smelter's cart of shells, moss and spores among the grazers.
     prop('meadow_cart', 61.6, 8.3, at(61, 8)),
     moss(59.5, 11.5), moss(69.4, 14.6), moss(64.4, 7.6), moss(74.5, 20.4), puff(67.5, 12.5), puff(57.6, 17.4),
@@ -225,15 +221,13 @@ export const SPORELIGHT: MapDef = {
   marks: {
     'A': gateHome('spore'),
     '5': { ent: { t: 'warp', to: 'sporeunder', entry: 'door' }, tile: '>' },
-    '6': { ent: { t: 'warp', to: 'arena', entry: 'start' }, tile: '>' },
     '7': { ent: { t: 'entry', id: 'from-arena', dir: 'up' }, tile: ',' },
     'B': sign('THE SPORELIGHT.\n↑ THE STEAMHOUSE, THE CLINKER.\nNO FIRES. FIRE MAKES IT GROW.'),
-    '8': sign('→ THE ROOT STAIR.\n↑ THE STEAMHOUSE.\n↓ THE NIGHT MARKET.'),
+    '8': sign('→ THE ROOT HOLLOW.\n↑ THE STEAMHOUSE.\n↓ THE NIGHT MARKET.'),
     'E': sign('← SETER FELL.\n↑ THE CLINKER.\n↓ THE CAPS.'),
     'J': sign('→ THE STEAMHOUSE.\n↑ THE CLINKER.\n↓ THE NIGHT MARKET.'),
     'K': sign('THE STEAMHOUSE\nSHIFTS PAID IN TAGS.\nNAMES KEPT AT THE DESK.'),
     'N': sign('↑ THE SHELLYARD.\n↓ THE CLEAN WELL, STILLSAND.\n← THE STEAMHOUSE.'),
-    'P': sign('THE ROOT STAIR.\nDOWN: THE BATTLE GLADE.'),
     'Q': sign('↓ STILLSAND.\n↑ THE CLEAN WELL.'),
     'U': sign('THE CLINKER.\nNOBODY TURNED AWAY.\nMIND THE SPARKS.'),
     'V': sign('OLA\'S WINDMILL.\nWIND\'S UP. THE HAZE\nSTAYS DOWN THERE.'),
@@ -256,21 +250,15 @@ export const SPORELIGHT: MapDef = {
     'u': npc('sporelight.smelter2', 'guard', [{ lines: ['SMELTER: THE SHELLS MAKE GOOD WALLS. THE GRAZERS DON\'T MIND. THEY GROW NEW ONES.', 'SMELTER: OUR SMOKE MAKES THE FOREST GROW FASTER. NOBODY PLANNED THAT. NOBODY STOPS IT.'] }]),
     'w': npc('sporelight.watcher2', 'hippie', [{ lines: ['HAZE WATCHER: UNDER THE ROOTS THE SOIL IS CLEAN. THE FUNGUS DRANK THE POISON. GOOD FUNGUS.'] }]),
     'q': npc('sporelight.spirit3', 'ghost', [{ lines: ['(A SPIRIT DRIFTS PAST, HUMMING. ITS TOWEL IS DRY.)'] }], { wander: true }),
+    // The Clinker's slag hounds at the grazers' pool, on the road to the Clean Well.
+    '4': { ent: { t: 'enemy', kind: 'hound' } },
+    // The grazer pen in the Shellyard (sentries in a grazer's skin, `render/renderer.ts`): three calm ones that only
+    // patrol until struck, and the pink one by the shells, which charges on sight.
+    '0': { ent: { t: 'enemy', kind: 'sentry', calm: true } },
+    '9': { ent: { t: 'enemy', kind: 'sentry' } },
     '1': { ent: { t: 'chest', id: 'sporelight.pond', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'sporelight.shells', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'sporelight.puffballs', item: 'bombs5' } },
-  },
-  battle: {
-    groups: [
-      { id: 'sporelight.caps', x: 5.5, y: 29.5, foes: ['goo', 'flitter'], sight: 2.5 },
-      { id: 'sporelight.pool', x: 23.5, y: 41.5, foes: ['spitter', 'spitter', 'goo'], sight: 2 },
-      { id: 'sporelight.slag', x: 50.5, y: 42.5, foes: ['hound', 'hound'], sight: 3, prize: 'bits20' },
-      { id: 'sporelight.ridge', x: 48.5, y: 5.5, foes: ['flitter', 'flitter', 'flitter'], sight: 3 },
-      { id: 'sporelight.shells', x: 72.5, y: 18.5, foes: ['zapper', 'goo'], sight: 2.5 },
-      { id: 'sporelight.knight', x: 74.5, y: 5.5, foes: ['knight', 'skull'], once: true, prize: 'bits50' },
-      { id: 'sporelight.mould', x: 30.5, y: 40.5, foes: ['goo', 'goo', 'goo'], sight: 2 },
-      { id: 'sporelight.well', x: 73.5, y: 44.5, foes: ['spitter', 'flitter', 'goo'], sight: 2.5 },
-    ],
   },
 }
 

@@ -120,7 +120,7 @@ function heroMark(g: G, x: number, y: number, s: GameState, e: number, skin: Hud
 /** True where the corner map has something to show: a charted map (not a room indoors), in a game being played, not in a fight (its menus want the room). */
 export function hasMiniMap(world: World, s: GameState): boolean {
   const def = mapDef(world, s.map.id)
-  return !!def && charted(def) && !s.demo && s.mode !== 'battle'
+  return !!def && charted(def) && !s.demo
 }
 
 /** The corner map's size, in L. */

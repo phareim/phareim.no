@@ -249,8 +249,8 @@ export const LUMENBY: MapDef = {
     'h': npc('lumenby.liftop', 'liftlady', [{ lines: ['LIFT OPERATOR: THE LIFT IS OUT. THE CABLE WENT TO THE CITY WITH EVERYTHING ELSE.', 'LIFT OPERATOR: THE STAIR IN THE SHAFT STILL GOES DOWN. MIND YOUR THUMBS ON THE RAIL.'] }]),
     'k': npc('lumenby.miner', 'dusty', [{ lines: ['OLD MINER: PINK IN THE ROCK MEANS LUMEN. PINK ON YOUR HANDS MEANS YOU TOUCHED IT.', 'OLD MINER: THE DEEP DRIFT IS NORTH-WEST, PAST THE HILL SIGN. NOBODY GOES DOWN IT FOR FUN.', "OLD MINER: THE TALL STACK IN THE PIT'S SOUTH-WEST CORNER HAS A CHEST ON TOP. ITS RAMP FELL IN.", 'OLD MINER: A HOOK WOULD GET YOU UP THERE, IF THE ROCKS WERE NOT IN THE WAY.'] }]),
     'v': npc('lumenby.vending', 'robot', [
-      // The whole sign lit, the hill's power comes back on: one tonic, once.
-      { when: { flags: SIGN_LIT, not: ['lumenby.vended'] }, lines: ['VENDING UNIT: POWER RESTORED. THANK YOU FOR THE LIGHT.', 'VENDING UNIT: DISPENSING THE LAST OF THE STOCK. NO CHARGE.'], set: 'lumenby.vended', give: 'tonic3' },
+      // The whole sign lit, the hill's power comes back on: the unit pays out its last twenty bits, once.
+      { when: { flags: SIGN_LIT, not: ['lumenby.vended'] }, lines: ['VENDING UNIT: POWER RESTORED. THANK YOU FOR THE LIGHT.', 'VENDING UNIT: DISPENSING THE LAST OF THE STOCK. NO CHARGE.'], set: 'lumenby.vended', give: 'bits20' },
       { when: { flag: 'lumenby.vended' }, lines: ['VENDING UNIT: OUT OF STOCK. LIT, THOUGH. THANK YOU FOR THE LIGHT.'] },
       { lines: ['VENDING UNIT: LUMEN ACCEPTED. FEELINGS NOT.', 'VENDING UNIT: OUT OF STOCK SINCE THE SHIFT WHISTLE STOPPED. THANK YOU FOR WAITING.'] },
     ]),

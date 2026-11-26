@@ -9,9 +9,7 @@
  * Design: DESIGN.md next to this file; status and checks: docs/games/neon-shrine.md.
  */
 
-import type { BattlePick, BattleState, MapBattleDef } from './battleTypes'
 import type { FrontierNpcLook } from './render/frontierSprites'
-export type * from './battleTypes'
 
 // ---------------------------------------------------------------------------
 // Basics
@@ -35,8 +33,6 @@ export const HERO_R = 0.34
 export const HERO_SPEED = 5.4 // tiles/s
 export const CHARGE_SPEED = 2.8 // while holding a charged sword
 export const CARRY_SPEED = 4.2
-/** A swing without a place in the chain (a field battle's): its length. The chain's own hits are `COMBO`'s. */
-export const SWING_TIME = 0.2
 export const SWING_COOLDOWN = 0.06
 /**
  * The blade's three-hit chain (`engine/hero.ts`): two quick sweeps, the second back the other way, then a wider,
@@ -301,7 +297,6 @@ export type ItemId =
   | 'tube' // a vacuum tube for Dusty's radio
   | 'walkie' // Toby's lost walkie-talkie
   | 'hat' // the troll's hat
-  | 'tonic3' // three neon tonics (field battles: ITEM heals)
   // The art (`engine/moves.ts`), for the B button
   | 'artHop' // the Keeper
 
@@ -374,7 +369,11 @@ export interface TalkAsk { options: [string, string]; replies: [string[], string
 
 /** Entity placed by a marker char in the rows. */
 export type EntDef =
-  | { t: 'enemy'; kind: EnemyKind; dir?: Dir; once?: string; carries?: ItemId }
+  | {
+    t: 'enemy'; kind: EnemyKind; dir?: Dir; once?: string; carries?: ItemId
+    /** A sentry that only patrols, harmless, until a blow lands on it (`ai.angry`). */
+    calm?: boolean
+  }
   | { t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond }
   | { t: 'item'; id: string; item: ItemId; appear?: Cond } // lies on the floor, one-time
   | {
@@ -573,8 +572,6 @@ export interface MapDef {
    * as the hero is here, without changing the visitor's choice.
    */
   views?: Array<'classic' | 'iso'>
-  /** Field battles: foe groups here are fought in place, Chrono Trigger–style (`engine/battle/`). */
-  battle?: MapBattleDef
   /** The ground has heights here (`engine/terrain.ts`): benches, terraces and ramps. */
   terrain?: TerrainDef
   /** Physical combat (`engine/puzzles/`): foes knocked into pits, water or spikes fall, drown or are hurt. On by itself in a map with puzzle tiles. */
@@ -675,6 +672,8 @@ export interface Enemy {
   ai: { mode: string; t: number; tell: number; [k: string]: number | string | boolean }
   once?: string
   carries?: ItemId
+  /** A calm sentry (the mark's `calm`): it ignores the hero until struck (`ai.angry`). */
+  calm?: boolean
   /** Spawn point, for respawning on room re-entry. */
   home: Vec
   dead: boolean
@@ -686,8 +685,6 @@ export interface Enemy {
   away?: boolean
   /** Walking in to its home from past the screen's edge, or out past it. */
   trek?: { x: number; y: number; out: boolean; stuck: number }
-  /** A field battle's foe (`MapDef.battle`): the group it belongs to. It does not fight in real time. */
-  group?: string
   /** Seconds left reeling from a blow: it does nothing and harms no one (small foes only). */
   stagger?: number
   /** The reeling came from the blade's own chain (its quick hits): that does not make the finisher critical. */
@@ -910,11 +907,11 @@ export interface Hero {
    */
   aim?: number
   /**
-   * `a`: the angle the sweep is centred on. `n`: the hit of the chain (0, 1, 2: `COMBO`; none: a swing outside it,
-   * a field battle's); `side`: which way it sweeps (1 the first way, -1 back).
+   * `a`: the angle the sweep is centred on. `n`: the hit of the chain (0, 1, 2: `COMBO`); `side`: which way it
+   * sweeps (1 the first way, -1 back).
    */
   swing: null | {
-    t: number; dir: Dir; a?: number; hit: string[]; n?: 0 | 1 | 2; side?: 1 | -1; landed?: boolean
+    t: number; dir: Dir; a?: number; hit: string[]; n: 0 | 1 | 2; side?: 1 | -1; landed?: boolean
     /**
      * The HOP CUT (`engine/moves.ts`): tiles it springs back in before it cuts (its clock starts below 0 by the time
      * the spring takes), whether it was counted, and whether it is critical (a foe's blow passed under the hop).
@@ -982,8 +979,6 @@ export interface Inventory {
   shrooms: number
   /** Small keys per dungeon other than the Shrine (whose keys are `keys`), by MapDef.keyring. */
   keyrings: Record<string, number>
-  /** Field battles: neon tonics carried (ITEM heals with one). */
-  tonics: number
   /** The arts learned, in the order learned (`ArtId`; absent: none). */
   arts?: ArtId[]
   /** Each combo's count towards mastery (`MOVES`; absent: none yet). */
@@ -1020,7 +1015,7 @@ export interface Follower {
 }
 
 /** 'exit' is terminal like 'won': the screen stays dark and the shell navigates away. */
-export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won' | 'exit' | 'battle'
+export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won' | 'exit'
 
 export interface Dialog {
   lines: string[]
@@ -1080,8 +1075,6 @@ export interface GameState {
    * stuck on the horizon (before the Sun Prism).
    */
   daytime: number | null
-  /** A field battle under way (mode 'battle', and 'dying' when it was lost). */
-  battle?: BattleState | null
   /**
    * What the screen shows (the shell says, each frame): the classic view's
    * size in tiles, and whether the picture is turned (the 16-bit view, which
@@ -1121,18 +1114,13 @@ export interface Input {
   autoFace: boolean
   /** A tap this frame on the left (-1) or right (1) half of the screen; picks YES or NO. */
   tapSide?: -1 | 1
-  /** A tap this frame, CSS px on the canvas (field battles: the shell turns it into `pick`). */
-  tap?: Vec
-  /** Field battles: a command or a target touched. */
-  pick?: BattlePick
 }
 
 export const NO_INPUT: Input = { move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false }
 
 export type GameEvent =
-  /** `n`: the chain's hit (none: a field battle's swing). */
   /** A swing: its hit of the chain; `spring`: a HOP CUT springing back in from (x, y) along `a`, `d` tiles at most. */
-  | { type: 'swing'; n?: 0 | 1 | 2; spring?: { x: number; y: number; a: number; d: number } }
+  | { type: 'swing'; n: 0 | 1 | 2; spring?: { x: number; y: number; a: number; d: number } }
   | { type: 'spin' }
   | { type: 'roll' }
   | { type: 'charged' }
@@ -1196,7 +1184,6 @@ export type GameEvent =
   | { type: 'bark'; x: number; y: number }
   /** A lumen tube turned (`engine/puzzles/tubes.ts`). */
   | { type: 'tube'; x: number; y: number }
-  | { type: 'battle'; what: 'start' | 'won' | 'fled' | 'turn' | 'tech'; track?: TrackId; boss?: boolean }
   // The acrobatics and the arts (`engine/moves.ts`)
   | { type: 'air'; kind: AirKind }
   /** Down again: where, and whether the landing struck (the flip's chop). */

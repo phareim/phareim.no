@@ -223,18 +223,16 @@ describe('old saves', () => {
     assert.deepEqual(w.ops, [])
   })
 
-  it('knows the one-time bits of every map and its battle prizes', () => {
+  it('knows the one-time bits of every map', () => {
     const rewards = W.bitRewards(W.WORLD)
     const value = { bits5: 5, bits20: 20, bits50: 50 }
-    let chests = 0, prizes = 0
+    let chests = 0
     for (const def of Object.values(W.WORLD.maps)) {
       for (const m of Object.values(def.marks)) {
         if (m.ent.t === 'chest' && value[m.ent.item]) { chests++; assert.equal(rewards.get(`chest:${m.ent.id}`), value[m.ent.item], m.ent.id) }
       }
-      for (const g of def.battle?.groups ?? []) if (g.prize && value[g.prize]) { prizes++; assert.equal(rewards.get(`battle:${g.id}:prize`), value[g.prize], g.id) }
     }
     assert.ok(chests > 0, 'a chest with bits')
-    assert.ok(prizes > 0, 'the arena\'s battle prize')
     assert.equal(rewards.get('chest:fr:99,99.c0'), undefined)
   })
 })

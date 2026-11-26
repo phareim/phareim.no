@@ -8,8 +8,8 @@
  * common a bomb shelter nobody came up from. THE HEDGE MAZE fills the lots behind the avenue: six lanes by five behind
  * rails, the prize in the cell beside the way in, the cat in the middle.
  *
- * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`. Field battles: the foes
- * stand in groups (`battle`), never as marks.
+ * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`, the foes among them
+ * (mailboxes on the avenue, flamingos at the drive-in, mowers by the fountain).
  */
 import type { AreaIntro, EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { gateHome } from './gates'
@@ -56,16 +56,16 @@ export const RERUN: MapDef = {
     'T****.HHH...s*HHH....*HHH....*HHH....*...HHH--,,,-V-HHH...5F......T...T...T....T',
     'T****.HHH....*HHH....*HHH....*HHH....*..:HHH.-,,,,..HHH....F...............:...T',
     'T****.HHH....*HHH....*HHH....*HHH....*...HHH.,,,,,,.HHH....F...................T',
-    'T.....:,:.FFF.:,:.FFF.:,:.FFF.:,:.FFF.....,.,,,,,,,,,,.,,,,,,,.................T',
-    'A,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,::,,,...z...F.,.................T',
+    'T.....:,:.FFF.:,:.FFF.6,:.FFF.6,:.FFF.+...,.,,,,,,,,,,.,,,,,,,.................T',
+    'A,,,,,,,,,,+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,::,,,...z...F.,.................T',
     'T....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,::,,,,,,,HHHF.,.................T',
     'T...E..,..FFF..,,......,a.FFF..,..FFFQ,,U...,,,,,,,,,,,,HHHF.,.................T',
     'T*****HHH...:*.,,.J..*HHH....*HHH....*,,.....,,,,,,.....HHHF.,.................T',
     'T*****HHH....*.,,....*HHH....*HHH....*,,......,,,,.........F.,.................T',
     'T*****HHH....*.,,....*HHH....*HHH..*.*,,.HHH..:...:HHH.....F.,................3T',
-    'T*****.......*.,,N...*..:....*....*4**,,.HHH..*::*.HHH.....F.,.......:....:....T',
+    'T*****.......*.,,N...*..:....*....*4**,,.HHH..*::*.HHH.....F.,.......:...&:....T',
     'TFFFFFFFFFFFFFF,,FFFFFFFFFFFFFFFFFFFFF,,.HHH..::::.HHH.....F.,.................T',
-    'TTTTTTTTTTTTTTT..TTTTT................,,F.,...*::*..,.....:F.,.................T',
+    'TTTTTTTTTTTTTTT..TTTTT................,,F.,...*::*..,.....:F.,...........&.....T',
     'TTT.:...F.....F..F2.FT..HHH...HHH.....,,F.,.........,......F.,.................T',
     'TTT.....F.....F..F..FT..HHH...HHH..:..,,FFFFFF..FFFFFFF....F.,....:............T',
     'TTT..F..F..F..F..F..FT..HHH...HHH.:...,,....:.........****.F.,.................T',
@@ -78,7 +78,7 @@ export const RERUN: MapDef = {
     'TTT*.F.....F......:.FT...............p,,.....8..............:.:.:::............T',
     'TTT*.F.....F........FT.T..............,,......###.........e....................T',
     'TTT..F..FFFF..FFFF..FTT............:..,,......#v#.........................:....T',
-    'TTT.......:...F.....FT............T...,,......#%#......:......T................T',
+    'TTT.......:...F.....FT.......7.7..T...,,......#%#......:......T................T',
     'TTT....:......F**...FT..T......:......,,...T.............T.........T.....T.....T',
     'TTTTTTTTTTTTTTTTTTTTTT................,,......:................:...............T',
     '~#####################################,,##############################%########~',
@@ -217,23 +217,18 @@ export const RERUN: MapDef = {
     '0': npc('rerun.cat', 'cat', [{ lines: ['MRRP.', '(THE CAT HAS FOUND THE MIDDLE OF THE MAZE. IT HAS NO PLANS TO LEAVE.)'] }]),
     '9': npc('rerun.gardener', 'mossa', [{ lines: ['GARDENER: MOW ON SATURDAY, WATER ON SUNDAY. EVERY WEEK. THE GRASS NEVER GROWS.', 'GARDENER: MY ROSES WIN THE SHOW EVERY YEAR. NOBODY ELSE ENTERS. THAT\'S NOT MY FAULT.'] }]),
     '8': npc('rerun.kid', 'kid', [{ lines: ['NEIGHBOUR KID: I DUG A HOLE IN THE COMMON. NEXT DAY IT WAS FILLED IN. NOBODY DID IT.', 'NEIGHBOUR KID: THE PHONE BOOTH RINGS AT NIGHT. NOBODY ANSWERS. I\'M NOT ALLOWED.'] }]),
+    // The lawn answers back: a mailbox spitter on each of the avenue's lots, flamingo drones at the drive-in, mower
+    // hounds by the fountain (the skins: `render/renderer.ts`).
+    '6': { tile: ':', ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
+    '+': { ent: { t: 'enemy', kind: 'spitter', dir: 'down' } },
+    '&': { ent: { t: 'enemy', kind: 'drone' } },
+    '7': { ent: { t: 'enemy', kind: 'hound' } },
     '1': { ent: { t: 'chest', id: 'rerun.island', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'rerun.maze', item: 'bits50' } },
     '5': { ent: { t: 'chest', id: 'rerun.close', item: 'bits20' } },
     '3': { ent: { t: 'chest', id: 'rerun.screen', item: 'bits20' } },
     '4': { ent: { t: 'chest', id: 'rerun.lawn', item: 'bits20' } },
     'v': { tile: '>', ent: { t: 'warp', to: 'bombshelter', entry: 'door' } },
-  },
-  battle: {
-    groups: [
-      { id: 'rerun.dogs', x: 26.5, y: 11.0, foes: ['hound', 'hound'], sight: 3 },
-      { id: 'rerun.sprinklers', x: 75.5, y: 26.0, foes: ['spitter', 'spitter', 'spitter'], sight: 2 },
-      { id: 'rerun.cars', x: 66.5, y: 11.0, foes: ['drone', 'drone', 'zapper'], sight: 3 },
-      { id: 'rerun.yard', x: 31.0, y: 27.0, foes: ['hound', 'hound', 'hound'], sight: 2.5, prize: 'bits20' },
-      { id: 'rerun.gulls', x: 22.0, y: 31.0, foes: ['flitter', 'flitter', 'flitter'], sight: 3 },
-      { id: 'rerun.dish', x: 65.5, y: 31.0, foes: ['drone', 'zapper'], sight: 2.5, once: true, prize: 'bits50' },
-      { id: 'rerun.common', x: 56.0, y: 27.0, foes: ['spitter', 'goo'], sight: 2 },
-    ],
   },
 }
 

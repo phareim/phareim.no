@@ -217,16 +217,16 @@ describe('Neon Shrine, Relight the Sign', () => {
     assert.equal(at(4, 4), '─', 'and only that one')
   })
 
-  it('pays for the whole sign: Gunn a heart piece, the vending unit its last tonics', () => {
+  it('pays for the whole sign: Gunn a heart piece, the vending unit its last twenty bits', () => {
     const all = Object.fromEntries([...LETTERS].map((_, i) => [`q.lumenby.sign${i + 1}`, true]))
     const gunn = Object.values(Z.WORLD.maps.unionhall.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'q.gunn').ent
     const pay = gunn.talk.find(t => t.set === 'q.lumenby.sign.done')
     assert.deepEqual(pay.when.flags, Object.keys(all))
     assert.equal(pay.give, 'heartPiece')
     const vend = Object.values(Z.WORLD.maps.lumenby.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'lumenby.vending').ent
-    const tonic = vend.talk.find(t => t.give)
-    assert.deepEqual(tonic.when.flags, Object.keys(all))
-    assert.equal(tonic.give, 'tonic3')
+    const last = vend.talk.find(t => t.give)
+    assert.deepEqual(last.when.flags, Object.keys(all))
+    assert.equal(last.give, 'bits20')
     // The last letter's words say where to go.
     const { s, go } = lumenby({ ...all, 'q.lumenby.sign7': undefined })
     delete s.flags['q.lumenby.sign7']

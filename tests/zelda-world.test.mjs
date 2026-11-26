@@ -19,7 +19,7 @@ const zelda = join(here, '..', 'themes', 'zelda')
 const esbuild = createRequire(import.meta.url)('esbuild')
 let Z
 let P
-/** The font, the touch deck's key names, the name plate, the pickups' words, and the gates and lands as data. */
+/** The font, the touch deck's key names, the name plate, and the gates and lands as data. */
 let X
 /** Every art kit, loaded from its own art pack as the view does (the packs from the .art-cache, tests/helpers/art.mjs). */
 let KITS
@@ -30,7 +30,7 @@ before(async () => {
   const out = esbuild.buildSync({
     stdin: {
       contents: `export { wrapText } from '../base/pixel/font'; export { subst, TOUCH_KEYS } from './keys'; export { speakerOf } from './render/hud';
-        export { itemText } from './engine/combat'; export { GATES } from './world/gates'; export { ATLAS, rescueFrontier } from './world/atlas';
+        export { GATES } from './world/gates'; export { ATLAS, rescueFrontier } from './world/atlas';
         export { DEMOS } from './world/demos'; export { LANDS } from './world/lands';
         export { REALM_ART_LOADERS, loadRealmArt, kitsFor } from './render/iso/frontierArt'; export { THING_ART } from './render/iso/thingArt'`,
       resolveDir: zelda, loader: 'ts',
@@ -360,6 +360,23 @@ describe('the lands', () => {
     }
   })
 
+  it('loads a save made in the glade under the Sporelight in the root hollow, without its tonics', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'start' } })
+    s.inv.sword = true
+    s.inv.bombs = 4
+    const raw = JSON.parse(JSON.stringify(Z.toSave(s)))
+    const old = { ...raw, map: 'arena', entry: 'start', inv: { ...raw.inv, tonics: 3 }, explored: { arena: '1', overworld: '1' } }
+    const save = Z.parseSave(old)
+    assert.ok(save, 'the save is read')
+    assert.ok(!('tonics' in save.inv))
+    const t = Z.createGame(Z.WORLD, { save })
+    assert.deepEqual([t.map.id, t.entry.entry], ['sporelight', 'from-arena'])
+    assert.deepEqual([t.inv.sword, t.inv.bombs], [true, 4], 'the rest of the items are kept')
+    assert.ok(!('tonics' in t.inv))
+    assert.ok(!('tonics' in Z.toSave(t).inv), 'and none are written back')
+    assert.ok(Z.awayMap(Z.WORLD, 'arena', 'start'), 'a reload knows it is out there')
+  })
+
   it('points a hero with a blade past the coast until a land is walked into, in what the QUEST box holds', () => {
     const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'start' } })
     assert.ok(!Z.objective(s).includes(Z.LANDS_HINT), 'not before the blade')
@@ -384,11 +401,6 @@ describe('the lands', () => {
         for (const d of doors) assert.ok(Math.abs(x + 0.5 - d.x) + Math.abs(y + 0.5 - d.y) >= 8, `${id}: ${e.kind} at ${x},${y} by an entry`)
       }))
       assert.ok(foes <= 24, `${id}: ${foes} field foes`)
-      assert.ok((def.battle?.groups.length ?? 0) <= 10, `${id}: ${def.battle?.groups.length} battle groups`)
-      for (const g of def.battle?.groups ?? []) {
-        assert.ok(g.id.startsWith(`${id}.`), `${g.id}: a group's id starts with its map's`)
-        for (const d of doors) assert.ok(Math.hypot(g.x - d.x, g.y - d.y) > (g.sight ?? 0) + 4, `${g.id} too near an entry`)
-      }
     }
   })
 
@@ -418,7 +430,6 @@ describe('the lands', () => {
     for (const d of Object.values(Z.WORLD.maps)) for (const m of Object.values(d.marks)) {
       if (m.ent.t === 'npc' && m.ent.id.startsWith('q.') && !d.away) { lines.push(...talkOf(m.ent)); people.push(m.ent) }
     }
-    for (const item of ['tonic3']) lines.push(...X.itemText({ inv: { pieces: 1, shrooms: 0 } }, item))
     for (const l of new Set(lines)) {
       const shown = X.subst(l, X.TOUCH_KEYS)
       assert.match(shown, /^[A-Z0-9ÆØÅ .,!?'":;\-()/#%&+=*·↑↓←→\n]*$/, `not in the font: ${l}`)

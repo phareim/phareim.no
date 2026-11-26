@@ -446,6 +446,61 @@ describe('physical combat', () => {
     })
   }
 
+  /** A bank over a pond: the hero swings south at a blob on the tile beside the water. */
+  const bank = physics => room([
+    '#######',
+    '#.....#',
+    '#.@...#',
+    '#.m...#',
+    '#.~~..#',
+    '#.....#',
+    '#######',
+  ], { m: { ent: { t: 'enemy', kind: 'blob' } } }, physics ? { physics: true } : {})
+
+  /** One press of A, facing the foe; it is held still until the blade lands. */
+  function strike(w, e) {
+    e.stun = 99
+    w.s.hero.dir = 'down'
+    w.s.hero.aim = Math.PI / 2
+    step(w, w.s, inp({ aPress: true, a: true }))
+    step(w, w.s, inp(), 40)
+  }
+
+  for (const physics of [true, false]) {
+    it(physics ? 'one sword blow knocks a foe on the bank into the water, and it drowns' : 'without physics the same blow leaves it on the bank', () => {
+      const w = bank(physics)
+      const e = w.s.map.enemies[0]
+      strike(w, e)
+      assert.equal(e.dead, physics)
+      assert.equal(e.hp, physics ? e.hp : 1, 'the blow landed')
+      if (physics) assert.deepEqual([Math.floor(e.x), Math.floor(e.y)], [2, 4], 'in the water')
+      else assert.equal(Math.floor(e.y), 3)
+    })
+  }
+
+  it('on the Flats pond in Fogstage a blob and a skull on the shore are knocked in and drown', () => {
+    const info = Z.mapInfo(Z.WORLD, 'fogstage')
+    assert.ok(Z.puzzleInfo(info).physical)
+    // (The tile each stands on here is beside the water to its south.)
+    for (const [kind, x, y] of [['blob', 54, 41], ['skull', 29, 45]]) {
+      const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'fogstage', entry: 'flats' } })
+      s.inv.sword = true
+      s.flags['realm:fogstage'] = true
+      Z.enterMap(Z.WORLD, s, 'fogstage', 'flats', [])
+      s.mode = 'play'
+      s.dialog = null
+      assert.equal(tile(s, x, y + 1), '~')
+      const e = s.map.enemies.find(f => f.kind === kind)
+      e.x = x + 0.5
+      e.y = y + 0.5
+      put(s, x, y - 1)
+      s.hero.invuln = 2
+      strike({ world: Z.WORLD, s }, e)
+      assert.ok(e.dead, `the ${kind} drowned`)
+      assert.equal(Math.floor(e.y), y + 1)
+    }
+  })
+
   it('a bomb shoves a block beside it, and on ice it slides', () => {
     const w = room([
       '#########',
@@ -720,8 +775,9 @@ describe('the older maps', () => {
       if (id === 'puzzlelab' || PUZZLE_REALMS.has(def.realm)) continue
       const p = Z.puzzleInfo(Z.mapInfo(Z.WORLD, id))
       assert.equal(p.on, id === 'lumenby', id)
-      assert.equal(p.physical, false, id)
-      assert.equal(def.physics, undefined, id)
+      // Fogstage has no puzzle tiles, only its ponds to knock foes into (`MapDef.physics`).
+      assert.equal(p.physical, id === 'fogstage', id)
+      assert.equal(def.physics, id === 'fogstage' ? true : undefined, id)
     }
   })
 })
