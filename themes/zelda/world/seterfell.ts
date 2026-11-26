@@ -5,7 +5,10 @@
  * MOUNDS, where the tusse keep their pantry and the road goes on to Lumenby; east the TROLL HUMPS, sleeping trolls
  * with birches on their backs, and the pass down to the Sporelight; north CAIRN RIDGE, the tarn, the lookout and
  * the way over the tops to Yule Fjord. The LOWER PASTURE's hay fields, mill and pond run to the fell's edge over
- * the town. A heart piece waits on a ledge the seter can see and only the ridge can reach.
+ * the town. A heart piece waits on a ledge the seter can see and only the ridge can reach. The elder's mound has a
+ * hole in its roof under a cracked boulder (UNDER THE FELL); every other barrow keeps a pantry under its doorstep for
+ * the shovel (`dig`, caches only). The gorge east of the fell road is crossed by two hook posts, the herder's quick
+ * way home from the humps.
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
  */
@@ -63,39 +66,50 @@ export const SETERFELL: MapDef = {
     ',,,,,,,,,,,,,,,=,,,,,,,,,,,,,,,,..:.............F....:.T.;;.v..;;*,*;;TT',
     ',,.....T..;...~.....;.T.;.,...,,..HHH..HHH..HHH.F.T;:....:..:...;;,;;.TT',
     'TTT..;;;;;...~~...........F...,,..HHH..HHH..HHH.F..;...:........;...T.TT',
-    'TT..;;***;;..~....;...;...F.:.,,:.HHH.hHHH:.HHH.F;......T......T...T..TT',
-    'TT..;**5**;k.~.......T.TT.F...,,...a:...g.......F:........p...T...M..TTT',
-    'TT..;;*,*;;.;~........T...F..:,,,,,,,,,,,,,,,::.,............,,,,,,,..,,',
+    'TT..;;###;;..~....;...;...F.:.,,:.HHH.hHHH:.HHH.F;......T......T...T..TT',
+    'TT..;*#5#*;k.~.......T.TT.F...,,...a:...g.......F:........p...T...M..TTT',
+    'TT..;;#R#;;.;~........T...F..:,,,,,,,,,,,,,,,::.,............,,,,,,,..,,',
     'TT...;;,;;...~~.....;.....F....:.....,......,,,,,,,,,,,,,,,,,.T...;.,,,,',
     'TTTT..:...;...~...;;;;;...F..........,...:d.....,...;.;...,...........,,',
     'TT..T;.....:..~~.;;***;;..F.HHH......,.:.....:..F...;..T..,......;;...TT',
-    'TTT.T:.;....T..~.;**G**;..F.HHH:.....,....:.:...F..OO...T.,.......T...TT',
+    'TTT.T:.;....T..~.;**G**;..F.HHH:.....,....:.:...F...O...T.,.......T...TT',
     'TT....;;;;;.:..~~;;*,*;;.;F.HHH..r...,:....r....F;.OO;...,...;T;......TT',
-    'TT...;;***;;T;..~.;;,;;...F.......j..,..........F..OO.T..,..;;;;;...TTTT',
-    'TT...;**G**;.T..~....;...;F........::,.......r:.F..OO....,.T;;;;;...:.TT',
-    'TT...;;*,*;;.:.~~..:....:;F:....:.:..,..........F..OO....,..;;;;;.....TT',
-    'TTT.:.;;,;;....~....;.....FFFFFFFFFF,,,FFFFFFFFFF..OO..T.,...;;;.7....TT',
-    'TT...T..;T.....~.....................,.E.......;..:OO...,..T..T.......TT',
-    'TT..T6T.T......~;;................T..,;......T.....OO...,...#.2.#.....TT',
-    'TT.;....;......~.......:.......:.;.:,,.;T.:...;T..TOO;..,...#...#T....TT',
+    'TT...;;***;;T;..~.;;,;;...F.......j..,..........F..OOOT..,..;;;;;...TTTT',
+    'TT...;**G**;.T..~....;...;F........::,.......r:.F...OO...,.T;;;;;...:.TT',
+    'TT...;;*,*;;.:.~~..:....:;F:....:.:..,..........F...OOO..,..;;;;;.....TT',
+    'TTT.:.;;,;;....~....;.....FFFFFFFFFF,,,FFFFFFFFFF...OOOT.,...;;;.7....TT',
+    'TT...T..;T.....~.....................,.E.......;..:OOO..,..T..T.......TT',
+    'TT..T6T.T......~;;................T..,;......T....OOO...,...#.2.#.....TT',
+    'TT.;....;......~.......:.......:.;.:,,.;T.:...;T..OOO;..,...#...#T....TT',
     'TT.FFFFFFFFFF..~~...:::::.....:...,,.;,J...........OO..,...T##R##.....TT',
     'TT.F;;;;;;;;F..T~..:::::::......,,..;;.;,.;.T......OO;.,.;..;....T:...TT',
-    'TT.F;;;;;;;;,,,,=,,,,,,,,,,,,,,,........,;y...T....OO..:..............TT',
-    'TT.F;;;;;;;;F...~~....,...;.............,..T...;...OO:.....;T;...;.T.;TT',
-    'TT.F;;;;;;;;FT...~..s.,,..:...........T..,;TT....|.OO.|...;;;;;.......TT',
-    'TT.FFFFFFFFFF....~.....;,,,.............;,...T...;.OO....T;;;;;..:....TT',
-    'TT......:;...:.;.........HHH...;..T...;.;,..;......OO..;..;;;;;;;;;;..TT',
-    'TT................;.....THHH......TT......,,..T;...OO......;;;;;***;;.TT',
-    'TT....:..:;.;.:...:~~~.;.HHH.....:..........,;.....OO;........;**G**;.TT',
-    'TT********......u~~~~~~~;........T.T......:T;,,....OO....T...T;;*,*;;TTT',
-    'TT*......*.....;.~~~~~~~;..:..6.....T.:...T:;,,...;OO..;.......;;,;;:.TT',
-    'TT*..3...*.......~~~~~~~;....:...T..T........,,....OO........7...;....TT',
-    'TT*......*..:......~~~...;.T;.........T....;;,,...TOO......T........;TTT',
+    'TT.F;;;;;;;;,,,,=,,,,,,,,,,,,,,,........,;y...T....OOO.,..............TT',
+    'TT.F;;;;;;;;F...~~....,...;.............,..T...;...OO:,....;T;...;.T.;TT',
+    'TT.F;;;;;;;;FT...~..s.,,..:...........T..,;TT....|,OO,|...;;;;;.......TT',
+    'TT.FFFFFFFFFF....~.....;,,,.............;,...T.,,,,OO....T;;;;;..:....TT',
+    'TT......:;...:.;.........HHH...;..T...;.;,..,,,...OOO..;..;;;;;;;;;;..TT',
+    'TT................;.....THHH......TT......,,..T;..OOOO.....;;;;;***;;.TT',
+    'TT....:..:;.;.:...:~~~.;.HHH.....:..........,;.....OOO........;**G**;.TT',
+    'TT********......u~~~~~~~;........T.T......:T;,,....OOOO..T...T;;*,*;;TTT',
+    'TT*......*.....;.~~~~~~~;..:..6.....T.:...T:;,,...;.OOO;.......;;,;;:.TT',
+    'TT*..3...*.......~~~~~~~;....:...T..T........,,.....OO.......7...;....TT',
+    'TT*......*..:......~~~...;.T;.........T....;;,,...TOOO.....T........;TTT',
     'TT********.....;............;...P.........;B.,,....OO......;..........TT',
     'TT;..........:....;..;...................:..,,,.;.;OOT...T..:.:..;T...TT',
     '############################################t,t#########################',
     '#############################################A##########################',
   ],
+  // The pantries (atlas: dig, caches only): the tools work here, the hammer builds nothing. Each headstone barrow
+  // keeps its pantry under the doorstep, the path tile in front of its stone; the mound elder says so.
+  dig: {
+    build: false,
+    caches: [
+      { x: 20, y: 27, id: 'seterfell.pantry1', item: 'bits20' },
+      { x: 8, y: 30, id: 'seterfell.pantry2', item: 'bits50' },
+      { x: 66, y: 17, id: 'seterfell.pantry3', item: 'bits20' },
+      { x: 65, y: 44, id: 'seterfell.pantry4', item: 'bits50' },
+    ],
+  },
   areas: [
     { name: 'CAIRN RIDGE', x: 0, y: 0, w: 72, h: 14, entry: 'ridge', intro: INTRO },
     { name: 'THE MOUNDS', x: 0, y: 14, w: 25, h: 20, entry: 'mounds', intro: INTRO },
@@ -111,7 +125,7 @@ export const SETERFELL: MapDef = {
     'mounds': { x: 12.5, y: 17.5, dir: 'right' },
     'humps': { x: 56.5, y: 23.5, dir: 'right' },
     'pasture': { x: 22.5, y: 38.5, dir: 'down' },
-    'fellcave': { x: 7.5, y: 22.5, dir: 'down' },
+    'fellcave': { x: 7.5, y: 23.5, dir: 'down' },
   },
   isoLandmarks: [
     // The realm's arch over the gate road, lit at night.
@@ -120,6 +134,9 @@ export const SETERFELL: MapDef = {
     hut(34, 18), hut(44, 18), hut(28, 25),
     prop('seter_byre', 40.5, 19.5, { cover: { x: 39, y: 18, w: 3, h: 3 } }),
     prop('seter_churns', 33.5, 24.45, at(33, 24)),
+    // The yard's fire where its paths meet, lit all the last week of summer, and two logs to sit on.
+    prop('campfire', 40.5, 26.5, { motion: cycle(3, 5), light: { r: 2.4, tone: 'gold', a: 0.65 }, ...at(40, 26) }),
+    prop('camp_log', 39.55, 26.95), prop('camp_log', 41.45, 27.1),
     // The hay barn in the Lower Pasture, the mill on its knoll, the haystacks.
     prop('seter_byre', 26.5, 42.5, { cover: { x: 25, y: 41, w: 3, h: 3 } }),
     prop('meadow_mill', 22.5, 35.5, { ...at(22, 35), motion: cycle(4, 2), shadow: { tall: 1.45, wide: 0.44 } }),
@@ -163,9 +180,9 @@ export const SETERFELL: MapDef = {
     'g': npc('seterfell.dairymaid', 'dairymaid', [{ lines: ['DAIRYMAID: THREE COWS MISSING, AND FIVE DAYS TILL WE WALK THE HERDS DOWN.', 'DAIRYMAID: CHEESE ON EVERY SHELF, BUTTER IN THE CHURN. HANDS OFF BOTH.'] }]),
     'h': npc('seterfell.nisse', 'troll', [{ lines: ['BARN NISSE: NO BUTTER. NO BUTTER! NOT A SCRAP OF BUTTER IN MY PORRIDGE.', 'BARN NISSE: SOMEONE WILL HEAR ABOUT THIS PORRIDGE. SOMEONE WITH COWS.'] }]),
     'j': npc('seterfell.goat', 'fellgoat', [{ lines: ['(THE GOAT EYES YOUR COAT.)', 'MAA.'] }], { wander: true }),
-    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY. I WOULD LIKE A WORD WITH THEM.', 'MOUND ELDER: WE LIVE UNDER THE MOUNDS AND HEAR EVERY FOOTSTEP. YOURS ARE LOUD.'] }]),
+    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.', 'MOUND ELDER: EVERY MOUND KEEPS ITS PANTRY UNDER THE DOORSTEP. KEEP YOUR SHOVEL OUT.', 'MOUND ELDER: WE LIVE UNDER THE MOUNDS AND HEAR EVERY FOOTSTEP. YOURS ARE LOUD.'] }]),
     'm': npc('q.map.cairn', 'owl', [{ when: { flag: 'q.map.p3' }, lines: ['STEINAR: THAT PAGE BELONGS TO SOMEONE IN STILLSAND.', 'STEINAR: SOUTH-EAST, PAST THE GRAVES. I PUT A STONE DOWN FOR YOU.'] }, { lines: ['STEINAR: I KEEP THE CAIRNS. A PAGE BLEW INTO THIS ONE. IT HAS DUNES ON IT.', 'STEINAR: WE HAVE NO DUNES UP HERE. TAKE IT.'], set: 'q.map.p3' }]),
-    'p': npc('seterfell.herder', 'oldherder', [{ lines: ['OLD HERDER: DON\'T WHISTLE NEAR THE HUMPS. THEY\'RE ONLY HILLS IN THE DAYTIME.', 'OLD HERDER: FIFTY SUMMERS UP HERE. EVERY ONE ENDS THE SAME: WE WALK DOWN, THEY MOVE IN.'] }]),
+    'p': npc('seterfell.herder', 'oldherder', [{ lines: ['OLD HERDER: DON\'T WHISTLE NEAR THE HUMPS. THEY\'RE ONLY HILLS IN THE DAYTIME.', 'OLD HERDER: FIFTY SUMMERS UP HERE. EVERY ONE ENDS THE SAME: WE WALK DOWN, THEY MOVE IN.', 'OLD HERDER: THE QUICK WAY DOWN IS SOUTH: TWO POSTS OVER THE GORGE, AND A HOOK.'] }]),
     's': npc('seterfell.ashlad', 'kid', [{ lines: ['ASH LAD: THAT HILL HAS A NOSE. I POKED IT. IT SNEEZED.', 'ASH LAD: MY BROTHERS SAY I\'M NO GOOD FOR ANYTHING. I\'M GOOD AT POCKETS.'] }], { wander: true }),
     'y': npc('seterfell.walker', 'keeper', [{ lines: ['WALKER: FORTY YEARS ON THESE PATHS. THE CAIRNS MOVE ABOUT. I DON\'T ASK.', 'WALKER: YULE FJORD IS NORTH, OVER THE TOPS. I DON\'T GO. TOO DARK UP THERE FOR ME.'] }]),
     'u': npc('seterfell.sitter', 'tree', [{ lines: ['SITTER: I\'LL WALK ON. TOMORROW. PROBABLY.', 'SITTER: I STOPPED HERE FOR A REST. THE MOSS WAS VERY WELCOMING.'] }]),
@@ -173,7 +190,7 @@ export const SETERFELL: MapDef = {
     '1': { ent: { t: 'chest', id: 'seterfell.ledge', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'seterfell.nostril', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'seterfell.hedge', item: 'bits20' } },
-    '5': { ent: { t: 'warp', to: 'fellcave', entry: 'door' }, tile: 'D' },
+    '5': { ent: { t: 'warp', to: 'fellcave', entry: 'door' }, tile: '>' },
     '6': { ent: { t: 'enemy', kind: 'blob' } },
     '7': { ent: { t: 'enemy', kind: 'hound' } },
     '8': { ent: { t: 'enemy', kind: 'bat' } },
@@ -181,7 +198,8 @@ export const SETERFELL: MapDef = {
   },
 }
 
-/** UNDER THE FELL: the tusse's pantry under the elder's mound, through the hole somebody dug in its roof. */
+/** UNDER THE FELL: the tusse's pantry under the elder's mound, through the hole somebody dug in its roof (a cracked
+ * boulder over it, outside); the pantry's chest is in the shelf corner behind the pots. */
 export const FELLCAVE: MapDef = {
   id: 'fellcave',
   name: 'UNDER THE FELL',
@@ -190,13 +208,13 @@ export const FELLCAVE: MapDef = {
   cells: { '0,0': { dark: true } },
   rows: [
     '################',
-    '#[[[..oo..[[[..#',
-    '#..............#',
+    '#[[[..oo..[[[o1#',
+    '#............oo#',
     '#.o..t....t..o.#',
     '#......a.......#',
     '#..nn.....nn...#',
     '#..............#',
-    '#.....1........#',
+    '#..............#',
     '#..............#',
     '#......@.......#',
     '#######D########',
@@ -205,7 +223,7 @@ export const FELLCAVE: MapDef = {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
     D: { tile: 'D', ent: { t: 'warp', to: 'seterfell', entry: 'fellcave' } },
     '1': { ent: { t: 'chest', id: 'fellcave.pantry', item: 'bits50' } },
-    a: npc('fellcave.tusse', 'kid', [{ lines: ['TUSSE: THE PANTRY IS SHUT FOR STOCKTAKING. THE CHEESE IS BEING COUNTED.', 'TUSSE: SOMEBODY DUG A HOLE IN THE ROOF. THE ELDER IS VERY CROSS ABOUT IT.'] }]),
+    a: npc('fellcave.tusse', 'kid', [{ lines: ['TUSSE: THE PANTRY IS SHUT FOR STOCKTAKING. THE CHEESE IS BEING COUNTED.', 'TUSSE: FIRST SOMEBODY DUG A HOLE IN THE ROOF. NOW SOMEBODY HAS BLOWN UP THE BOULDER.'] }]),
   },
 }
 
