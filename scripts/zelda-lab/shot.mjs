@@ -49,6 +49,7 @@ import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 import { kitFor, loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
+import { loadMachineArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/machines.ts'))}
 import { mapDef } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
@@ -524,6 +525,8 @@ function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.
 ;(async () => {
   // (A realm's scenery is a chunk of its own, fetched when the view first needs it: the lab waits for it.)
   await loadRealmArt(kitFor(mapDef(world, s.map.id)))
+  // (So are the machines drawn by hand, part 25.)
+  await loadMachineArt()
   if (q.get('t')) r.draw(s, ui, +q.get('t'))
   const frames = +(q.get('frames') || 40)
   for (let k = 0; k < frames; k++) {

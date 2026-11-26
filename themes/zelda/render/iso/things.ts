@@ -41,8 +41,9 @@ const hex = (s: string): [number, number, number] => {
 }
 
 /** Paints one thing into the atlas at (ox, oy): colour, its depth in the colour's alpha, its normal and its glow. */
-export function paintThing(t: ThingArt, albedo: Uint8ClampedArray, normal: Uint8ClampedArray, aw: number, ox: number, oy: number): void {
-  const geo = t.like ? THING_ART[t.like]! : t
+export function paintThing(t: ThingArt, albedo: Uint8ClampedArray, normal: Uint8ClampedArray, aw: number, ox: number, oy: number, kit?: Record<string, ThingArt>): void {
+  // (A frame of a kit's drawing, a machine's style (part 25), finds the drawing in its kit.)
+  const geo = t.like ? (THING_ART[t.like] ?? kit?.[t.like])! : t
   const deep = bytes(geo.deep!)
   const pal = new Map(Object.entries(t.pal).map(([k, v]) => [k, hex(v)]))
   const npal = geo.npal!.map(hex)
@@ -100,7 +101,7 @@ function packThings(props: PropAtlas, art: Record<string, ThingArt>): PropAtlas 
   for (const id of ids) {
     const t = art[id]!
     const [ox, oy] = at[id]!
-    paintThing(t, albedo, normal, w, ox, oy)
+    paintThing(t, albedo, normal, w, ox, oy, art)
     sprites[thingKey(id)] = { x: ox, y: oy, w: t.w, h: t.h, ax: t.ax, ay: t.ay, top: 0 }
   }
   return { w, h, albedo, normal, sprites: sprites as PropAtlas['sprites'] }

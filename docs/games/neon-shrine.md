@@ -395,6 +395,34 @@ classic picture. `/?view=<id>` asks for one.
     sprite the studio has changed since is its classic card again (`src`, `thingFresh`). Off, every one is
     the classic card again, pixel for pixel. The job's tools, sheets and archive are in
     `tmp/iso-figures-23/` on the Mac (`REPORT.md`).
+  - *Machines drawn by hand* (`machines`, on by default, needs `things`; `iso/machines.ts`,
+    `iso/machineArt.ts`, `iso/machineGlass.ts`; part 25, 2026-11-26). The arcade cabinets (all nineteen
+    placed: fourteen in the arcade, four in the VIP hall, NEW GAME in Petter's house), Petter's three
+    terminals and the LOGIN console stand in the round as hand-made pixel art. The NEW GAME cabinet is the
+    master, drawn by Codex over a guide from solids (a tall box, a marquee hood, the screen set back between
+    the side panels, the control panel jutting, the coin door) with its glass a flat key colour; every other
+    cabinet is a Codex edit of that drawing on its grid (its body colours, trim and glow, its marquee logo),
+    so the styles share the master's silhouette, normals and depth (`like`; `paintThing` finds the drawing
+    in the kit). The terminal and the console are one sheet of their own. **The screens stay live:** the
+    exit's item names the regions of its classic drawing that are screens (`Item.screens`: a cabinet's
+    attract loop, a terminal's screen, the console's screen and its status lights), the classic painter
+    draws the item into its cell every frame as before, and `view.ts` stands those regions over the dark
+    glass of the drawing (`machineScreens`): the glass was measured per drawing (`MACHINE_SCREENS`: the
+    largest box inside it that runs down half a px a column with the front), and `screenFit` puts the
+    classic picture at the largest whole scale that fits with no more than a px off each edge (2: the
+    classic's px at the view's density, as the people's cards), in the middle, sheared with the front and
+    risen with the drawing, on the drawing's own card brought forward along the line of sight: each side a px
+    nearer than the glass behind it, its depth read from the drawing at that column (one depth for the whole
+    card left the nearer, right-hand side of the glass over the screen). It glows as the box's front did
+    (picture 1's neon), and the drawn marquee, buttons and coin slots glow by their own (`glow`); the lights
+    and the CRT flicker are the classic painter's, as before. The art (about 190 KB) is a chunk of its own,
+    fetched the first time the view is in a room with a machine (`hasMachines`, `machineArt`) and packed
+    beside the realm's kit, and kept packed while no realm's kit comes in (a door out of the arcade does not
+    pack the atlas again); until it is here, with the value off, and for a cabinet whose style has no
+    drawing (`galaga`, `default`, a new game's cabinet), the box below stands. Each cabinet records the
+    hash of the classic style it was drawn from (`MACHINE_FROM`, against `CAB_STYLES` in `exits.ts`):
+    `tests/zelda-machines.test.mjs` fails when a style changes, so it is redrawn. The job's tools, sheets
+    and archive are in `tmp/iso-figures-25/` on the Mac (`REPORT.md`).
   - *Cabinets and booths with a body.* An item whose drawing is the front
     of a box says so (`Item.box` in `wild.ts`: the front's width and height
     in the drawing, and how deep the body is; the arcade's cabinets, the
@@ -403,7 +431,9 @@ classic picture. `/?view=<id>` asks for one.
     along the wall it faces, as it does a board on a wall, and closes a
     body behind it on top and to the east with a plain patch of the
     drawing's own edge, so a cabinet is a cabinet seen from the corner,
-    its screen running away to the right, and not a card.
+    its screen running away to the right, and not a card. Since part 25 the machines stand drawn
+    (above) and the box is their fallback and their first part of the turn; the newsstand and the two
+    stalls are still boxes.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable
     over its east wall, so what is painted on it stays whole. The sun's
@@ -997,7 +1027,10 @@ classic picture. `/?view=<id>` asks for one.
   (the cone is drawn still), the desk's screen and lamp and the consoles' lights are drawn frames rather
   than the classic live pixels, and the art adds about 490 KB to the view’s lazy chunk (148 KB gzipped together); the built things (lamps,
   counters, chests: *Standing things in the round*) are crisp flat-stepped solids, which reads as pixel art
-  beside the drawn things but plainer; the eight keyboard directions are the
+  beside the drawn things but plainer; the newsstand and the two stalls on the square are still a classic
+  front on a plain box, beside the drawn booths and machines; the machines' screens are the classic
+  pictures doubled in their glass, a px off a cabinet's top and bottom edge, and their art arrives a moment
+  after the view enters a room with them (the boxes stand until then); the eight keyboard directions are the
   eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>

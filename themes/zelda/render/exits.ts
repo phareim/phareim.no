@@ -9,6 +9,10 @@
  * centres). A solid exit's sprite stands on its tile with its bottom on the
  * tile's bottom edge and may reach up over the tile above, like trees and
  * buildings do. The tile painter leaves those tiles bare (`exitTiles`).
+ *
+ * The isometric view may stand a cabinet, a terminal or the login console drawn by hand in the round (part 25,
+ * `iso/machines.ts`): the item names the drawing (`things`) and the regions of this painter's picture that are
+ * its screens (`screens`), which that view stands in the drawing's glass, live. `CAB_STYLES` is read by its test.
  */
 import type { Dir, ExitLook, ExitSpot, GameState, World } from '../types'
 import { TILE } from '../types'
@@ -18,7 +22,7 @@ import { lookCanvases, makeCanvas, sprite } from './sheet'
 import { DRAWN_LOOK, GIRL_LOOK, type HeroLook } from './heroLook'
 import { PAL } from './sprites'
 import type { Light } from './tiles'
-import type { ThingPart, ThingShade } from './wild'
+import type { ThingPart, ThingScreen, ThingShade } from './wild'
 import { hudFont, NEON_SKIN, type HudSkin } from './hud'
 
 type G = CanvasRenderingContext2D
@@ -64,7 +68,7 @@ const CAB_H = 28
 /** Screen glass, relative to the cabinet's top-left. */
 const SCR = { x: 3, y: 10, w: 10, h: 8 }
 
-interface CabStyle {
+export interface CabStyle {
   body: string; bodyL: string; bodyD: string; trim: string
   /** Marquee: 12×7 pixel map ('.' = background) over per-row background colours. */
   marquee: string[]; bg: string[]
@@ -360,6 +364,9 @@ CABS.horizon = {
 
 // Adventure, Eventyrland's open instance in the arcade: the same castle on a warmer cabinet, so the two are told apart.
 CABS.adventure = { ...CABS.eventyrland!, body: '#a8542a', bodyL: '#f0a060', bodyD: '#5e2a12', trim: '#2ff3ff' }
+
+/** The cabinet styles, read by the tests (part 25: a cabinet drawn by hand for the isometric view was drawn from its style). */
+export const CAB_STYLES: Readonly<Record<string, Readonly<CabStyle>>> = CABS
 
 function cabStyle(art?: string): CabStyle {
   return (art && CABS[art]) || CABS.default!
@@ -1412,7 +1419,7 @@ function lookTop(look: ExitLook): number {
 // Drawing
 // ---------------------------------------------------------------------------
 
-interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number; px?: readonly [number, number] }; things?: readonly ThingPart[]; bare?: () => void; bareBack?: number; shade?: ThingShade }
+interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number; px?: readonly [number, number] }; things?: readonly ThingPart[]; bare?: () => void; bareBack?: number; shade?: ThingShade; screens?: readonly ThingScreen[] }
 
 /**
  * Queue every visible exit's sprite into the y-sorted list and collect its
@@ -1441,6 +1448,11 @@ export function queueExits(
           x: e.x,
           y: e.y + 0.5,
           box: { w: CAB_W, h: CAB_H, d: 11 },
+          // A turned view may stand the cabinet in the round, drawn by hand (part 25, `iso/machines.ts`; a style with no
+          // drawing keeps the box), its middle 12 px behind the front, with this painter's screen in its glass.
+          things: [{ id: `cab_${e.art ?? 'default'}`, dy: -12 / 32 }],
+          screens: [{ u: SCR.x - CAB_W / 2, v: SCR.y - CAB_H, w: SCR.w, h: SCR.h }],
+          shade: { dx: 0, dy: -0.35, tall: 1.4, wide: 0.5, deep: 0.36 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, CAB_W - 2, 2)
@@ -1535,6 +1547,10 @@ export function queueExits(
           x: e.x,
           y: e.y + 0.5,
           box: { w: TERM_W, h: 11, d: 9, px: [1, 5] },
+          // (Drawn by hand for a turned view, part 25: the desk and the CRT, this painter's screen in its glass.)
+          things: [{ id: 'home_terminal', dy: -10 / 32 }],
+          screens: [{ u: 5 - TERM_W / 2, v: 3 - TERM_H, w: 6, h: 6 }],
+          shade: { dx: 0, dy: -0.3, tall: 1.2, wide: 0.5, deep: 0.3 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.4)'
             g.fillRect(left + 1, bottom - 1, TERM_W - 2, 2)
@@ -1589,6 +1605,10 @@ export function queueExits(
           x: e.x,
           y: e.y + 0.5,
           box: { w: CON_W, h: CON_H, d: 10 },
+          // (Drawn by hand for a turned view, part 25: the tower, its screen and its status lights this painter's.)
+          things: [{ id: 'login_console', dy: -10 / 32 }],
+          screens: [{ u: CON_SCR.x - CON_W / 2, v: CON_SCR.y - CON_H, w: CON_SCR.w, h: CON_SCR.h }, { u: 11 - CON_W / 2, v: 19 - CON_H, w: 1, h: 5 }],
+          shade: { dx: 0, dy: -0.32, tall: 1.4, wide: 0.48, deep: 0.33 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, CON_W - 2, 2)

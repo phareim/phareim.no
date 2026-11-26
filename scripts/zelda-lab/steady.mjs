@@ -83,6 +83,9 @@ const CASES = {
   'grove-stand': ['w-grove', ``, [[90, STILL]]],
   // By the beach tree on the coast road (part 17; --tree sets its counts).
   'tree-stand': ['r-tree', ``, [[90, STILL]]],
+  // The arcade's and Petter's house's machines, their screens running (part 25).
+  'arcade-stand': ['r-arcade', ``, [[90, STILL]]],
+  'home-stand': ['r-home', ``, [[90, STILL]]],
 }
 const SIZES = { 1280: [1280, 800, 1], 390: [390, 844, 3] }
 const [W0, H0, DPR] = SIZES[SIZE]

@@ -6,7 +6,8 @@
  * People, things and everything with a meaning of its own start as the
  * classic painters' art (the people, the hero and the bosses in this view's
  * own drawn art, `folk.ts`; standing things built as solids, `props.ts`, or
- * drawn by hand in the round, `things.ts`); the ground, the walls and the roofs are this view's
+ * drawn by hand in the round, `things.ts`, the machines `machines.ts` with the classic
+ * painter's live screens in their glass); the ground, the walls and the roofs are this view's
  * own materials (`materials.ts`), laid where the classic art has that
  * surface's colours. Each frame the painters draw the map round
  * the camera into top-down pictures (ground, and what stands on it), every
@@ -44,6 +45,7 @@ import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engi
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
 import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
+import { hasMachines, machineArt, MACHINE_SCREENS, screenFit, withMachines } from './machines'
 import { kitFor, realmArt as realmKit, warmRealmArt } from './frontierArt'
 import { FRONTIER_PREFIX, realmAt } from '../../world/gen/frontier'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
@@ -182,15 +184,18 @@ export default function isoView(kit: Kit): View {
   /** The things built for this view (`props.ts`), once they are painted. */
   let propAtlas: PropAtlas | null = null
   let realmArt: string | undefined
+  /** Are the machines drawn by hand (part 25, `machines.ts`) packed beside the realm's kit. */
+  let machinesIn = false
   let coverDef: ReturnType<typeof mapInfo>['def'] | null = null
   const covered = new Set<number>()
   /** Solid scenery whose art is on the GPU: its classic stand-in (`../standIns.ts`) stands down for it. */
   const propped = new Set<number>()
   /** The realm look whose materials are on the GPU ('' the coast's). */
   let matLook = ''
-  const sendProps = (realm?: string) => {
+  const sendProps = (realm?: string, machines = machinesIn) => {
     realmArt = realm
-    propAtlas = withThings(buildProps(), realm ? realmKit(realm) : undefined)
+    machinesIn = machines
+    propAtlas = withThings(buildProps(), withMachines(realm ? realmKit(realm) : undefined, machines ? machineArt() : undefined))
     engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
     // (The landmarks that cover classic scenery are counted again with the kit that is on the GPU now.)
     coverDef = null
@@ -215,7 +220,10 @@ export default function isoView(kit: Kit): View {
     const want = kitFor(def)
     const kit = want ? realmKit(want) : undefined
     const have = kit ? want : undefined
-    if (have !== realmArt) sendProps(have)
+    // (A room with machines packs their art beside it once its chunk is here: part 25. Meanwhile they stand as boxes. Once
+    // packed they stay where no realm's kit comes in, so a door out of the arcade does not pack and send the atlas again.)
+    const machines = (hasMachines(def) || (machinesIn && !kit)) && !!machineArt()
+    if (have !== realmArt || machines !== machinesIn) sendProps(have, machines)
     if (warmedFor !== def) {
       warmedFor = def
       for (const to of Object.values(def.edges ?? {})) {
@@ -666,6 +674,54 @@ export default function isoView(kit: Kit): View {
    */
   function stand(kind: PropKind | `thing:${string}`, x: number, y: number, px: number, rise = 1, z = 0) {
     stood.push([kind, x, y, px, rise, z])
+  }
+  /**
+   * A machine drawn by hand (part 25): the classic painter's own screens, drawn in the item's cell, stood in the glass of its
+   * drawing (`MACHINE_SCREENS`, measured per drawing; placed by `screenFit`), running down half a px a column with the drawn
+   * front, and risen with it. On the drawing's own card, each side of the screen brought a px nearer than the glass behind
+   * it (the glass's depth read from the drawing, `depthCode`, at the screen's left and right column), along the line of
+   * sight, so it stays where it is on the screen: one depth for the whole card left the nearer, right-hand side of the
+   * glass over it. The hero in front still hides it.
+   */
+  function machineScreens(it: SceneItem, ux: number, uy: number, ay: number, px: number, rise: number, cam: Cam) {
+    const p = it.things![0]!
+    const sp = (propAtlas!.sprites as Record<string, PropSprite>)[thingKey(p.id)]
+    const boxes = MACHINE_SCREENS[p.id]
+    if (!sp || !boxes || !it.screens) return
+    const TD = T * DENSITY
+    const sink = (sp.h - Math.round(sp.h * rise)) / TD
+    const x = it.x + (p.dx ?? 0)
+    const y = ay + (p.dy ?? 0)
+    const [lx, ly, lz] = cam.dv
+    // (A pixel `q` px nearer than its card is drawn that much nearer along (1, 1, 1) / 32: the engine's `uDeep`.)
+    const perPx = (lx + ly + lz) / TD
+    const al = propAtlas!.albedo
+    const aw = propAtlas!.w
+    /** How far along the line of sight a corner comes forward: a px past the glass at that column of the drawing. */
+    const ahead = (col: number, row: number): number => {
+      const a = al[((sp.y + Math.round(row)) * aw + sp.x + col) * 4 + 3]!
+      return ((a ? (a - 128) / 4 : 4.8) + 1) * perPx
+    }
+    it.screens.forEach((sc, i) => {
+      const b = boxes[i]
+      if (!b) return
+      const { S, c, r, sw, sh, du, dv } = screenFit(b, sc.w, sc.h)
+      const zt = (sp.ay - r) / TD - sink
+      const zr = zt - sw / 2 / TD
+      const l = (c - sp.ax) * px
+      const rr = (c + sw - sp.ax) * px
+      const fl = ahead(c, r + sh / 2)
+      const fr = ahead(c + sw - 1, r + (sw - 1) / 2 + sh / 2)
+      const u0 = ux + sc.u + du
+      const v0 = uy + sc.v + dv
+      quad(
+        x + lx * fl, y + ly * fl, zt + lz * fl, l,
+        x + lx * fr, y + ly * fr, zr + lz * fr, rr,
+        x + lx * fr, y + ly * fr, zr - sh / TD + lz * fr, rr,
+        x + lx * fl, y + ly * fl, zt - sh / TD + lz * fl, l,
+        u0, v0, u0 + sw / S, v0 + sh / S, 4, 1,
+      )
+    })
   }
   function standAll(): { start: number; count: number } | null {
     if (!stood.length) return null
@@ -1451,13 +1507,18 @@ export default function isoView(kit: Kit): View {
       let draw = it.draw
       /** How far back along the line of sight the card stands (a DJ behind the table): the same place on the screen. */
       let back = 0
-      if (drawn && it.things?.every(p => hasThing(p.id))) {
+      /** A machine drawn by hand (part 25, value `machines`) stands, and the classic painter's screens go in its glass. */
+      let lit = false
+      if (drawn && it.things?.every(p => it.screens ? machinesIn && thingKey(p.id) in propAtlas!.sprites : hasThing(p.id)) && (!it.screens || par.machines !== false)) {
         for (const p of it.things) stand(thingKey(p.id), it.x + (p.dx ?? 0), ay + (p.dy ?? 0), px, rise)
         if (it.shade) cards.push({ x: it.x + it.shade.dx, y: ay + it.shade.dy, tall: it.shade.tall * rise, wide: it.shade.wide, deep: it.shade.deep, dark: 0.9 })
         if (rise >= 0.5) {
-          if (!it.bare) continue
-          draw = it.bare
-          back = it.bareBack ?? 0
+          if (it.screens) lit = true
+          else if (!it.bare) continue
+          else {
+            draw = it.bare
+            back = it.bareBack ?? 0
+          }
         }
       }
       // The item draws itself the classic way; its anchor lands on the cell's.
@@ -1476,6 +1537,11 @@ export default function isoView(kit: Kit): View {
       const v1 = cellY + C.h
       const top = C.ay / T
       const foot = -(C.h - C.ay) / T
+      if (lit) {
+        machineScreens(it, cellX + C.ax, cellY + C.ay, ay, px, rise, cam)
+        bearers.push(it.x, ay)
+        continue
+      }
       if (it.box && par.props) {
         // A cabinet, a booth: its drawing is its front, stood along the wall it faces, and behind it a body the
         // classic art never drew, closed on top and to the east with a plain patch of the drawing's own edge.
