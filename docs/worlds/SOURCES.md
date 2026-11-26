@@ -22,7 +22,7 @@
 - Kittelsen: Pesta with rake and broom (Svartedauen), Soria Moria, trolls — https://www.nasjonalmuseet.no/en/stories/explore-the-collection/theodor-kittelsen-the-master-of-horror/ · https://www.nasjonalmuseet.no/en/guide/collection/64/233/
 - Seter and kulokk (UNESCO 2024) — https://www.immateriellkulturarv.no/en/bidrag/summer-dairy-farming-at-seter-and-stol/ · Hedal wood trolls' one eye — https://nasjonalmuseet.no/en/collection/object/NG.K_H.B.05023
 
-## JRPGs (realms: fogstage, rerun; battle-notes)
+## JRPGs (realms: fogstage, rerun)
 - Chrono Trigger: battles on the map, foes that move, line/circle techs, double/triple techs, eras and the End of Time — https://en.wikipedia.org/wiki/Chrono_Trigger · https://kotaku.com/chrono-trigger-s-excellent-battle-system-returns-1764916527 · Millennial Fair games — https://strategywiki.org/wiki/Chrono_Trigger/The_Millennial_Fair
 - Final Fantasy IX: the Mist over the lowlands (and its fighting instinct), Tantalus' theatre ship, Black Mage Village and its cemetery, Trance, ATEs — https://en.wikipedia.org/wiki/Final_Fantasy_IX · https://jegged.com/Games/Final-Fantasy-IX/Walkthrough/Disc-2/20-Black-Mage-Village.html
 - Final Fantasy VI: the opera and the rafters dash, Zozo's liars and clock, magitek armor, Cid's fish on the Solitary Island — https://en.wikipedia.org/wiki/Opera_House_(Final_Fantasy_VI) · https://guides.gamercorner.net/ffvi/walkthrough/zozo · https://www.thonky.com/final-fantasy-vi/solitary-island

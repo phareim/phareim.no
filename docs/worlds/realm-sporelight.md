@@ -16,8 +16,8 @@ Sources: *Nausicaä of the Valley of the Wind*, *Princess Mononoke*, *Spirited A
   (no haze, white sand, stone trees, pools that heal). **Fire spreads spores, wind holds them off**: burnt fungus
   regrows bigger by dawn; the clean places are ridge-top windmill hamlets.
 - **Great insects whose eyes go red in rage and blue when calm, soothed by a bullroarer**: **grazers** with eyes in
-  our tones, pink rage and cyan calm, readable across the screen; the **hum-reed**, a spun reed that is the CALM
-  action in field battles. Their shed shells lie about as building material.
+  our tones, pink rage and cyan calm, readable across the screen; the **hum-reed**, a spun reed that calms
+  them. Their shed shells lie about as building material.
 - **Kodama, tiny clicking tree spirits that guide and mark a living forest**: **clickers**, thumb-high cap spirits
   that turn their heads with a click; their number is a region's health, and a line of them points to secrets.
 - **The god of life and death whose steps bloom and wither, and a god maddened by an iron ball in its side**: the
@@ -72,25 +72,16 @@ Regions are 48×48 tiles, each with an Under map of the same size below (joined 
 
 - Reused: **bat** (spore moths), **blob** (mould blob, splits once in haze), **spitter** (puffball; reflect it).
 - **Grazer** (new): never attacks while cyan; turns pink when it or a herd-mate is hurt or burnt; a pink grazer
-  charges in a line and a touch starts a field battle. Calm it to cyan and it sheds a shell.
+  charges in a line. Calm it to cyan and it sheds a shell.
 - **Burstcap** (new): struck in melee, bursts into a 3×3 haze cloud for 4 s; hit it from range, or calm it.
 - **Slag hound** (new, a hound of Clinker scrap): circles and lunges; fungus dies where it walks; cannot be calmed.
-- **Boss BLOOM**: the forest's god, gentle and vast, a slag nail in its side, growing faster than it can think. A
-  field battle in its grove: each turn it blooms a ring of tiles that wilts to haze two turns later. It can only be
-  calmed; calm stalls while the nail is in; a CALM at a bloom's end makes it kneel, the hook pulls the nail, then
-  every CALM counts double.
+- **Boss BLOOM**: the forest's god, gentle and vast, a slag nail in its side, growing faster than it can think. In
+  its grove it blooms rings of tiles that wilt to haze a moment later. It can only be calmed: the hum-reed at a
+  bloom's end makes it kneel, and the hook pulls the nail.
 
 ## Mechanic hook
 
-**Field battles (ATB)** on the isometric field, not a separate screen: touching a pink grazer, a Steamhouse
-troublemaker or BLOOM freezes the area into a battle ring; the hero (and Luna, if along) fill ATB bars: STRIKE,
-ITEM, CALM (hum-reed), GUARD. Every foe has HP and a **calm** gauge; a calmed foe leaves alive and gives its drop
-plus a shell or a tag. Killing works too, but costs the region health.
-
-- **The stampede:** a smelter fire upwind turns a herd pink one grazer at a time (eyes flip in sequence); battle the
-  lead while the rest close in each turn; calm it and the herd turns cyan together.
-- **The Steamhouse shift:** a mud spirit where STRIKE does nothing: CALM loosens it and each ITEM (the rope) pulls
-  out one piece of junk (a pram, a bicycle, an arcade cabinet); empty, it rises as a river spirit, paying gold tags.
+Fights are the real-time ones; what stands in the land is in [`atlas.md`](atlas.md), "The lands".
 
 ## Quest hooks
 
@@ -112,5 +103,5 @@ plus a shell or a tag. Killing works too, but costs the region health.
   head-click, pointing line).
 - Steamhouse (desk and register, boiler room, baths), tags, puffballs with charcoal; Clinker smelter, bellows
   platform with dancers, chimney (before/after); windmill hamlet and sail.
-- Battle ring, ATB bars, calm gauge, hum-reed spin; mud spirit and its junk; river spirit.
+- Hum-reed spin; mud spirit and its junk; river spirit.
 - BLOOM (standing, kneeling, blooming ring, nail in and pulled, calm and walking off).

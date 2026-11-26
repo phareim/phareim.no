@@ -741,7 +741,7 @@ classic picture. `/?view=<id>` asks for one.
     as here); and `live.ts` handing the `folk` entry to `folk.ts` (a setter
     beside `setSpriteOverrides`, with the same checks of size and run).
 - **Real-time combat** (`engine/hero.ts`, `engine/combat.ts`, the numbers in
-  `types.ts`; field battles are their own, see `neon-shrine-battle.md`).
+  `types.ts`): the one combat, in every map.
   - *Aim* (`aimOf`). The hero keeps the exact way the stick last pushed
     (`hero.aim`; on touch with the stick at rest, the way to the foe the
     blade turned to), so walking on a diagonal (every single key in the
@@ -759,9 +759,8 @@ classic picture. `/?view=<id>` asks for one.
     the finisher 0.5) unless a foe is already within half the reach ahead
     or a pit or spikes are, or the hero is on ice or about to step onto it
     (there the hit lands in place and only a slide moves him). A press within `COMBO_WINDOW` (0.32 s) of a
-    hit's end goes on with the chain; later, it starts over. A swing outside
-    the chain (a field battle's) has no `n` and is the plain 171° sweep of
-    `SWING_TIME`; `swingDur(swing)` is either length.
+    hit's end goes on with the chain; later, it starts over. Every swing is
+    a hit of the chain (`swing.n`), and `swingDur(swing)` is its time.
   - *The buffer.* A press that cannot act yet (mid-swing, in a roll, while
     shoved) waits `BUFFER_A` (0.18 s) and starts the next hit as soon as it
     may: from 60 % into a chain hit (`CHAIN_CANCEL`, never cutting the
@@ -778,6 +777,15 @@ classic picture. `/?view=<id>` asks for one.
     disc, the hook) or reeling from some other blow (a pot, a bomb, the
     spin), not on one reeling only from the chain's own hits (`reelChain`).
     Bosses and the knight (`BIG`) neither reel nor stop harming.
+  - *Calm sentries* (`calm` on the enemy mark). A sentry that only patrols: it
+    never goes alert and its touch does no harm, until a blow or a stun lands
+    on it (`ai.angry`); from then on it is a sentry like any other, and goes
+    for the hero. Loading the map again leaves it calm.
+  - *The lands' foes* are ordinary foe marks, drawn in the realm's own skins
+    (`FRONTIER_FOE_LOOKS` in `render/renderer.ts`): which stand where is in
+    `docs/worlds/atlas.md`, "The lands". The Sporelight's sentries are
+    grazers, cyan-eyed while calm and pink otherwise (three calm ones and a
+    pink one are the Shellyard's pen).
   - *Hitstop* (the shell's freeze, none under reduced motion): chain hit 35
     ms, finisher 85, spin 55, any other hit 40, a boss hit 60, a kill 90,
     a boss's second phase 120, the hero hurt 70. A struck foe is solid white
@@ -1167,8 +1175,9 @@ every outdoor map; interiors and dungeons keep their own light.
   tiles, and one that leaves in view walks out of it. The shell tells the
   engine what the screen shows (`GameState.sight`: the classic view's
   rectangle, or the turned view's diamond of ground round the hero). A foe killed stays down until it has left for the day; next
-  evening it comes back fresh. Only outdoor maps and only placed foes: the
-  town has none, dungeons, bosses and key carriers are untouched.
+  evening it comes back fresh. Only outdoor maps and only placed foes, the
+  lands' among them: the town has none, dungeons, bosses and key carriers are
+  untouched. A sentry (a grazer too) leaves at noon and has no night twin.
 - **Trying it.** `/?daytime=dusk|night|dawn|noon|<seconds>` starts the
   clock at that hour (light and woods): after the prism, and before it only
   in development. Lab and live checks used `scripts/zelda-lab/cdp.mjs` on the
@@ -1202,7 +1211,7 @@ classic view, a diamond lying as the ground does in the isometric one
 - **The corner map**: a window round the hero in the top-right corner, in
   the view's own dress (its panel, the HUD's pixel), the hero a blinking
   mark with a pixel the way they face; its dress changes with the canvas
-  HUD's, half way through a turn. Not indoors, not in a field battle.
+  HUD's, half way through a turn. Not indoors.
   A press opens the MAP page, as M does. C on the MAP page (or its button
   on touch) turns it off and on, kept in localStorage `zelda.cornerMap`.
 - **The MAP page** of the menu (M): the name of the place, what has been

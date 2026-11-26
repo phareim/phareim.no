@@ -47,10 +47,6 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
   `frontierArt/building.ts`, baked at 32 scene pixels per tile. Player-built stone
   and timber stack one cube per level, and the placed lamp uses the kit's cyan lantern.
   The sheet includes the other materials, two ramps, two stairs, a bridge and a door.
-- [x] **S3 · Battle marks (P2, `3e8ba94`).** `battleMarks.ts` supplies the 12×12
-  command icons, 7×7 status glyphs and target diamond. The current battle strip uses
-  strike, skill, duo for combo techs, item and step for flee. Fog, quick and lifted
-  have artwork ready for when those statuses arrive.
 - [x] **S4 · The ferry (P2, `3e8ba94`).** A neon ferry at both piers via
   `THING_ART`. The in-game sprite was drawn on the renderer's grid from an
   `image_gen` concept, with per-pixel depth and normals. The boat bobs one pixel
@@ -125,7 +121,7 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
   Stone bird perched and flying, plus FALCON’s takeoff, dive, blinded and exposed-quartz
   boss poses.
 
-## SPORELIGHT (`sporelight`, field battles)
+## SPORELIGHT (`sporelight`)
 
 - [x] **P1 · Giant mushrooms (P1, `62ad0c9`).**
   Tree-sized teal and violet mushrooms in three sizes each, glow-moss and three spore-puff
@@ -136,7 +132,7 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
   Two grazer steps each with calm cyan and angry pink eyes. BLOOM has standing, kneeling,
   ring and calm boss art.
 
-## FOGSTAGE (`fogstage`, field battles)
+## FOGSTAGE (`fogstage`)
 
 - [x] **G1 · Stage country (P1, `62ad0c9`).**
   Lit stage spotlight, painted house front with braces, sandbags and rope, and eight
@@ -147,7 +143,7 @@ Priority: **P1** makes a realm read as itself; **P2** gives it its people; **P3*
   Wind-up extra with two key poses, a stage manager, and BARD’s prompter box with singing
   and dazed curtain poses.
 
-## RERUN ESTATES (`rerun`, field battles)
+## RERUN ESTATES (`rerun`)
 
 - [x] **R1 · The cul-de-sac (P1, `62ad0c9`).**
   Two garage houses, mailbox, glowing booth, station wagon, lawn flamingo, two sprinkler

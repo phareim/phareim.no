@@ -1,8 +1,8 @@
 ## Neon Shrine — physical puzzles
 
 Ice, light beams, weights, rolling stones and sluices, plus a little more physical combat. Every rule is switched
-on by the map: by its puzzle tiles, or (combat only) by `MapDef.physics`. A map with none plays exactly as before
-(a test checks every older map is off). Code: `engine/puzzles/` (rules, kits), `world/puzzles.ts` (the tiles as
+on by the map: by its puzzle tiles, or (combat only) by `MapDef.physics` (Fogstage, whose ponds drown the foes
+knocked into them). A map with none plays exactly as before (a test checks every older map is off). Code: `engine/puzzles/` (rules, kits), `world/puzzles.ts` (the tiles as
 data), `render/puzzleTiles.ts` (classic painter, beams), `render/iso/puzzleProps.ts` (the things in the round).
 Demo: `world/puzzlelab.ts`. Tests: `tests/zelda-puzzles.test.mjs`.
 

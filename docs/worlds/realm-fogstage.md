@@ -1,16 +1,15 @@
 # FOGSTAGE
 
 Below the cliffs south of the coast lies a lowland drowned to the knees of its hills in pink stage fog. In the
-fog everything happens on cue: foes and folk wait their turn, step forward, act and step back, so this is where
-the field battles live. The hilltops stand out of the fog like islands, each a small town with a ticket booth,
-and a patched touring blimp, the RAINCHECK, moors at a different hill every night to play the same musical.
-Tonight it cannot finish: something came up through a stage trap and stole the last act, and the fog is rising.
+fog everything is theatre, and everyone out here waits for their cue. The hilltops stand out of the fog like
+islands, each a small town with a ticket booth, and a patched touring blimp, the RAINCHECK, moors at a different
+hill every night to play the same musical. Tonight it cannot finish: something came up through a stage trap and
+stole the last act, and the fog is rising.
 
 ## Inspiration
 
-- **FFIX's Mist, which blankets the lowlands and stirs a fighting instinct in whoever breathes it**: here the fog
-  is why fights turn into turns. Inside it every body waits for its cue (the ATB gauge); above the fog line it is
-  real-time Zelda play again. One rule the player can see: the fog's edge on the ground.
+- **FFIX's Mist, which blankets the lowlands**: here it is stage fog, up to the knees of the hills; above the fog
+  line the towns stand clear.
 - **FFIX's mist engines and its theatre ship run by a troupe of thieves**: fog engines (bellows and tanks) fill
   the RAINCHECK's lift bags; its cast act by night and pick pockets in the interval (bits only, given back if you
   catch one from behind).
@@ -23,27 +22,27 @@ Tonight it cannot finish: something came up through a stage trap and stole the l
 - **Secret of Mana's cannon travel**: star traps (the stage trapdoor that pops an actor up through the floor) on
   the hilltops fling the hero to the next hill in a 1.2 s arc over the fog.
 - **The theatre ghost light** (a bare bulb left burning on an empty stage, a real custom): a lone lamp in the fog
-  is a continue point and a pool where no battle starts.
+  is a continue point and a pool no foe enters.
 
 ## Look & sound
 
 - Palette: **rose** fog (alpha 0.55, 0.8 in hollows), **violet** hills and cliffs, **gold** footlights on every
-  cliff lip, **cyan** rigging and ropes, **pink** danger and cue rings.
+  cliff lip, **cyan** rigging and ropes, **pink** danger.
 - Ground mix (lowland): ground 45 %, tall grass 20 %, water 10 %, path/bridge 10 %, rock 5 %, flats 5 %, lamp 1 %.
 - Light: footlights from below on the cliffs, fog lit pink from within, the blimp's searchlight sweeping a hill.
-- Music: a slow waltz on a detuned theatre organ; on a cue the same bar adds kettle drums and a synth bass.
+- Music: a slow waltz on a detuned theatre organ.
 - `views: iso` (the fog is a volume and needs height; it does not read flat).
 
 ## Procedural recipe
 
 - **Size**: 160×120, 12 regions of 40×40; value noise (scales 24/8, weights .75/.25), 0–3 plateaus (r 6–10, +0.3).
-- **Bands**: h < 0.22 water (fog ponds); 0.22–0.52 fog lowland (battles on); 0.52–0.62 cliff, a lamp every 4 tiles
+- **Bands**: h < 0.22 water (fog ponds); 0.22–0.52 fog lowland; 0.52–0.62 cliff, a lamp every 4 tiles
   along the lip; h > 0.62 hilltop (no fog).
 - **Hill towns**: each hilltop of ≥ 60 tiles (cap 6): a ramp cut on its lowest side, 3–6 buildings on a 5-tile
   grid, a ticket booth (building + sign) at the ramp head, a fog engine prop, flowers between doors.
 - **Boardwalks**: an MST over the ramp heads (path; bridge on water), +1 loop edge per 3 towns, reeds cleared.
 - **Features**: reed beds (tall grass blobs of 8–30 tiles, 2–4 per region); scenery flats (3–5 tiles of fence with a
-  painted sign: castle, moon, ship; 1–2 per region; block lines in battle); trap floors (3×3 planks hiding a
+  painted sign: castle, moon, ship; 1–2 per region; block the view); trap floors (3×3 planks hiding a
   Prompter, 0–1 per region); star traps (1 per town, aimed at the nearest town).
 - **POIs per region**: 3 encounter groups (2–4 foes, never within 6 tiles of a ghost light); 1 chest; 1 libretto
   poster (8 words in 8 regions); 1 ghost light (75 %); a town on every other region on average.
@@ -64,26 +63,22 @@ Tonight it cannot finish: something came up through a stage trap and stole the l
 
 ## Foes
 
-- **blob** (fog blob), reused: steps toward other blobs; two adjacent ones merge, HP summed (bursts pay).
-- **bat** (footlight moth), reused: spreads out, always flies to a lit tile; Fogged does not touch it.
-- **knight** (swashbuckler), reused: the shield front takes 0; after a lunge it shows its back for one cue.
-- **Sandbag** (new): on its cue a whole row along one iso axis gets a pink shadow; on the next it drops there
-  (2 damage). Step out, or have Luna lift it first.
-- **Prompter** (new): hides under a trap floor and cannot be targeted; its whisper makes one party member Cueless
-  (skips a turn). A bomb or Luna lifting the trapdoor pulls it out (3 HP).
-- **Heckler** (new): floating opera glasses; gains 25 % gauge whenever anyone else is hit. Silence it first.
+- **blob** (fog blob), reused: steps toward other blobs; two adjacent ones merge, HP summed.
+- **bat** (footlight moth), reused: spreads out, always flies to a lit tile.
+- **knight** (swashbuckler), reused: the shield front takes 0; after a lunge it shows its back.
+- **Sandbag** (new): a whole row along one iso axis gets a pink shadow, and a moment later the bags drop there
+  (2 damage). Step out, or have Luna lift one first.
+- **Prompter** (new): hides under a trap floor and cannot be targeted. A bomb or Luna lifting the trapdoor pulls
+  it out (3 HP).
+- **Heckler** (new): floating opera glasses; they jeer and grow bolder whenever anyone else is hit. Silence them first.
 - **Boss: BARD** (the RAINCHECK's stage, 30 HP): a towering prompter's box with a curtain for a mouth, singing the
-  stolen act. Every third cue it sings a line with a word gone and a three-word ring opens: the posters' word
-  clears the fog (BARD Dazed 6 s, double damage), a wrong one calls a Heckler. Between songs it pulls the fly lines
-  (Sandbag rows); below half it swaps the hero's and Luna's places each song.
+  stolen act. Between verses it sings a line with a word gone: the posters' word clears the fog (BARD dazed, double
+  damage), a wrong one calls a Heckler. Between songs it pulls the fly lines (Sandbag rows); below half it swaps
+  the hero's and Luna's places each song.
 
 ## Mechanic hook
 
-**Field battles, on cue.** In the fog, touch a foe group (or be touched) and a pink ring closes round the spot: an
-arena diamond of radius 4 where you stand. Gauges fill, the four-petal ring opens on whoever is ready, Luna joins
-in duos; win and the ring opens out again. Rules: `battle-notes.md`. The fog line is the switch: on a hilltop or
-in a ghost light's pool no fight can start. The first boardwalk teaches it (two blobs and a moth), and BARD tests
-every part: shapes, positions, duos, status.
+Fights are the real-time ones; what stands in the land is in [`atlas.md`](atlas.md), "The lands".
 
 ## Quest hooks
 
@@ -95,7 +90,7 @@ every part: shapes, positions, duos, status.
   match lines to the scene signs and the ticket-taker's door opens (heart piece).
 - **The fog engines**: a Prompter nest under the boardwalks drinks the fog; clear it for a star-trap shortcut.
 - **Cross-realm, the rerun**: the stolen act was broadcast; RERUN ESTATES' TV repairman has it on tape, and it
-  gives BARD's song its last verse (a fourth word in the ring).
+  gives BARD's song its last verse (a fourth word to sing).
 - **Cross-realm, the outing**: the Understudies have never seen a real sunset. After the Sun Prism, walk one to
   Mirror Lake at dusk; the Hollow then plays the organ waltz on the site radio.
 
@@ -107,4 +102,4 @@ every part: shapes, positions, duos, status.
   mouth, 3 sing frames, dazed, swap effect).
 - Folk: cast (2 colourways), Understudy (key turning, stopped), stoker, ticket-taker, prompter, program kid,
   keeper. Foes: fog blob (merged), moth, swashbuckler, Sandbag + rope + row shadow, Prompter, Heckler.
-- Battle chrome: arena ring, cue ring, petals, BARD's word ring. Tracks: fog waltz + battle stem; BARD's song.
+- BARD's word choice. Tracks: fog waltz; BARD's song.

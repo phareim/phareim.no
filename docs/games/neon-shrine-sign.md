@@ -60,7 +60,7 @@ saved but the sockets' flags: leaving the map puts an unsolved board back out of
 The hill sign's letters (`quarry_letter_<ch>_on`) light by the same flags, in order: L is `q.lumenby.sign1`, Y
 `q.lumenby.sign7`. People: the sign at the foot of the hill, the apprentice (a line runs by the bench), NEON NILS in
 the hall (lumen will not glow in a leaky line), GUNN (seven letters, seven lines). **All seven lit:** GUNN gives a
-heart piece (`q.lumenby.sign.done`), the vending unit its last neon tonics (`lumenby.vended`).
+heart piece (`q.lumenby.sign.done`), the vending unit the last of its stock, 20 bits (`lumenby.vended`).
 
 ## Looks and sound
 

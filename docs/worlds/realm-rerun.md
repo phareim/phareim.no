@@ -12,11 +12,6 @@ passenger seat and nobody at the wheel.
 - **EarthBound's small-town America seen slightly wrong** (yo-yos, hamburgers, a mad taxi, a cranky lady, an
   unassuming local guy as foes): here the suburb's things have gone touchy (a mower, a sprinkler, a flamingo
   flock, a mailbox that bites). People are fine; things are not.
-- **EarthBound's visible foes, green swirl for a back touch and red when they get you, and weaker foes that flee
-  and lose on contact**: battles start on the lawn where you stand; a back touch gives the first cue; a group the
-  hero outclasses runs, and catching one is an instant win.
-- **EarthBound's HP that rolls down like an odometer**: hearts tick down like a gas-pump counter; win before the
-  roll ends and the rest never lands (a core rule, `battle-notes.md`).
 - **EarthBound's Dad on the phone who saves, and its band stuck in debt to a crooked theatre**: phone booths call
   Petter's house to save (an answering machine). The Overdue Four, a cover band, owe the drive-in "one more gig"
   every night, and their bassist is lost in another decade.
@@ -68,16 +63,16 @@ passenger seat and nobody at the wheel.
 
 ## Foes
 
-- **spitter** (sprinkler), reused: sprays pellets in a ring of 4; wet tiles are slick (knockback +1) for a cue.
-- **hound** (loose dog), reused: circles, then lunges at whoever acted last.
+- **spitter** (sprinkler), reused: sprays pellets in a ring of 4; wet tiles are slick (knockback +1) for a while.
+- **hound** (loose dog), reused: circles, then lunges.
 - **drone** (2086 satellite dish), reused: fires along one iso line; Luna can turn it to face its friends.
-- **Mower** (new): rolls straight on its cue, turns only at fences, mows tall grass away, hits all in its row.
+- **Mower** (new): rolls straight, turns only at fences, mows tall grass away, hits all in its row.
 - **Flamingo flock** (new, 3–5 plastic birds): when one is hit, all the others turn to face the attacker; hits
   from behind do double, so the order of blows matters.
-- **Mailbox** (new): looks like a sign; reading it starts a battle with its cue full; flag up, it is about to
+- **Mailbox** (new): looks like a sign until someone reads it; flag up, it is about to
   bite (2 damage); flag down, it can be hit.
-- **Boss: COPILOT** (the station wagon, 36 HP): laps its cul-de-sac with a cardboard passenger. Every third cue
-  it honks and the arena jumps year: 1958 (new paint, fast, only the engine at the front can be hit, saplings give
+- **Boss: COPILOT** (the station wagon, 36 HP): laps its cul-de-sac with a cardboard passenger. Every few laps
+  it honks and the cul-de-sac jumps year: 1958 (new paint, fast, only the engine at the front can be hit, saplings give
   no cover), 1986 (the side doors are weak, parked cars to hide behind), 2086 (rusted, slow, tyres weak, and the
   big tree falls on it if you planted the acorn). Below half the cut-out gives "directions": a lane is telegraphed.
 
@@ -86,7 +81,7 @@ passenger seat and nobody at the wheel.
 **Three years, one street.** Phone booths jump between 1958, 1986 and 2086 on the same corner, and save. One seed,
 a per-tile era transform, a small carry-forward map of what the player changed. The puzzles are physical and slow:
 plant, bury, push a flamingo, break a fence, then go forward and use the result (a tree bridge, a dug-up chest, a
-gap in a hedge). Field battles run as in FOGSTAGE: back touch first cue, outclassed groups flee, rolling hearts.
+gap in a hedge). Fights are the real-time ones; what stands in the land is in [`atlas.md`](atlas.md), "The lands".
 
 ## Quest hooks
 

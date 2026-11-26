@@ -6,7 +6,7 @@ what is in them and which stories run through them: [`atlas.md`](atlas.md). This
 
 They replaced a generated frontier (89 regions made from a seed, 2026-11-25) that was reached both north of the
 coast by gates and south across the bay by ferry, so no place had a where. The realm sketches (`realm-*.md`), the
-concept pictures (`img/`) and the battle and dig notes are still the design behind the lands (dig & build itself left
+concept pictures (`img/`) and the dig notes are still the design behind the lands (dig & build itself left
 the game on 2026-11-26; the ideas parked since are in [`mechanic-ideas.md`](mechanic-ideas.md)).
 
 ## One grid
@@ -25,8 +25,7 @@ the overworld's top-left at (0, 0), the Wildwood at (−84, −12). A land's pla
   (`world/gates.ts`): each is a short road between two lamp posts with a warden who stands aside only for the blade,
   and its two ends lie side by side on the grid. Both ends name the entry `gate-<id>`; ids never change.
 - **The ferry.** The pier's warp sails to Yule Fjord's harbour (entry `ferry`) and back (overworld `ferry`).
-- **Stairs** lead from two lands to the systems' teaching maps (`world/demos.ts`): a root stair in the Sporelight to
-  THE BATTLE GLADE, Stillsand's gold pyramid to THE PUZZLE LAB.
+- **Stairs** lead from Stillsand's gold pyramid to a system's teaching map, THE PUZZLE LAB (`world/demos.ts`).
 - **The MAP page** draws the whole world's chart beside the map of where the hero is (`render/worldMap.ts`): each
   map of the grid where it lies, the coast and the Wildwood always, a land once walked into (flag `seen:<id>`).
 
@@ -48,9 +47,11 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
   `realm:<realm>`, so they open once in whichever area the hero arrives). `camp` is the land's heart: a save out
   there that lost its spot continues there.
 - The realm's system lives in a place built for it: relighting the hill sign in Lumenby (its tubes, on ground with
-  heights: `MapDef.terrain`), field battles in the
-  Sporelight, Rerun Estates and Fogstage (`MapDef.battle` groups instead of field foes), physical puzzles in Yule
-  Fjord and Stillsand (puzzle tiles in the rows, chests that appear once a puzzle is solved).
+  heights: `MapDef.terrain`), physical puzzles in Yule Fjord and Stillsand (puzzle tiles in the rows, chests that
+  appear once a puzzle is solved).
+- Fights are the real-time ones everywhere: foe marks in the rows, at most 24 a land and none near an entry, drawn in
+  the realm's skins where it has them (`render/renderer.ts`, `FRONTIER_FOE_LOOKS`). Fogstage's ponds drown the foes
+  knocked into them (`MapDef.physics`).
 - Scenery: `world/scenery.ts` has the helpers (`prop`, `light`, `at`, `cycle`, `lantern`) and the presets the
   realms' places were drawn with (`sceneryAt(realm, place, x, y)`); the classic tiles under a building are an `H`
   block its landmark covers, a body on open ground gets a `solid` footprint and a classic stand-in
@@ -63,10 +64,11 @@ A land is an ordinary `MapDef` in `themes/zelda/world/<land>.ts` that exports it
 Saves name a map and an entry. A save made in the generated frontier (`fr:<x>,<y>…`) continues in the land that took
 its region's place, at the same gate when it was made at one, else at the land's `camp`; the Green Miles' at the
 Crossroads, the Landing's at the pier, the Underglow's at Lumenby's deep drift; one made in THE OLD QUARRY (gone with
-dig & build) at Lumenby's pit (`rescueGone` in `world/atlas.ts`, called by `rescueSave` through `World.rescue`).
+dig & build) at Lumenby's pit; one made in the glade under the Sporelight (`arena`) in the root hollow
+(`rescueGone` in `world/atlas.ts`, called by `rescueSave` through `World.rescue`).
 Items, hearts and flags are kept; explored tiles of maps that no longer exist are dropped, so they do not count
 against the caps. A save made with dig & build's DIG or BUILD out comes back with nothing out; its materials and
-edits are dropped.
+edits are dropped, and so are tonics a save holds.
 
 ## Checks and tools
 

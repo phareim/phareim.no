@@ -50,11 +50,11 @@ land's place is its top-left on the grid; local = global − origin.
 | `wildwood` | THE WILDWOOD | (−84, −12) | 84×52 | wild | | coast | forest | | all |
 | `seterfell` | SETER FELL | (0, −52) | 72×52 | wild | seterfell | meadow | forest | | iso, classic |
 | `yulefjord` | YULE FJORD | (−40, −104) | 88×52 | snow | yulefjord | | static | puzzles | iso |
-| `sporelight` | THE SPORELIGHT | (72, −52) | 80×52 | spore | sporelight | | lab | battle | iso, classic |
+| `sporelight` | THE SPORELIGHT | (72, −52) | 80×52 | spore | sporelight | | lab | | iso, classic |
 | `stillsand` | STILLSAND | (104, 0) | 88×32 | dune | stillsand | | beach | puzzles | iso |
-| `rerun` | RERUN ESTATES | (104, 32) | 80×40 | suburb | rerun | | village | battle | iso, classic |
+| `rerun` | RERUN ESTATES | (104, 32) | 80×40 | suburb | rerun | | village | | iso, classic |
 | `lumenby` | LUMENBY QUARRY | (−84, −52) | 84×40 | quarry | lumenby | | static | terrain, the sign | iso |
-| `fogstage` | FOGSTAGE | (−172, −12) | 88×52 | fog | fogstage | | indoor | battle | iso |
+| `fogstage` | FOGSTAGE | (−172, −12) | 88×52 | fog | fogstage | | indoor | | iso |
 
 The overworld's and the Wildwood's rows never change size: blown boulders,
 doors and explored tiles are saved by tile index.
@@ -93,11 +93,8 @@ rims are cliff, sea or forest.
 entry `ferry` (the harbour); the harbour's warp sails back to overworld
 `ferry`. The ferryman stands aside for the blade, as before.
 
-**Stairs** to the two hand-made teaching maps, now places with a reason (THE OLD QUARRY, dig & build's, went
-with it on 2026-11-26; a save made there continues in Lumenby's pit):
-
-- THE BATTLE GLADE (`arena`): down a root stair in the Sporelight.
-- THE PUZZLE LAB (`puzzlelab`): inside Stillsand's gold pyramid.
+**Stairs** lead to the hand-made teaching map, a place with a reason: THE PUZZLE LAB (`puzzlelab`), inside
+Stillsand's gold pyramid.
 
 ## Loops
 
@@ -155,8 +152,11 @@ Giant glowing fungus over clean white roots. From the market gate THE CAPS
 rise; THE STEAMHOUSE is the spirit bathhouse on its pond (MS. B, PUFFER); THE
 CLINKER is the smelter camp of the people the town turned away (RAGNA,
 TRIXIE); OLA's WINDMILL; THE SHELLYARD with grazers; THE CLEAN WELL, whose
-stair goes down to THE UNDER (the silent spirit and the seed); the root stair
-down to THE BATTLE GLADE. Foes stand in calm field-battle groups.
+stair goes down to THE UNDER (the silent spirit and the seed); THE ROOT HOLLOW
+in the south, with the grazers' pool to its east.
+Fights: two slag hounds stalk the grazers' pool, on the road to the Clean
+Well; in the Shellyard's pen three calm grazers patrol and leave the hero be
+until struck, and a pink one by the shells chest charges on sight.
 
 ### STILLSAND (`stillsand`)
 A pastel desert after sunrise. From the graves gate the BONE ROAD runs east
@@ -169,8 +169,10 @@ south they fall to Rerun's lawns.
 One nice street, over and over, down to the sea. From the lake gate the
 avenue runs to THE CUL-DE-SAC; THE DRIVE-IN (LENNY, ROSE); RALF's TV van;
 THE HEDGE MAZE; THE PHONE BOOTH that rings at night; THE MARINA on the shore.
-OTTO delivers the paper. A bomb shelter under a lawn. Foes in field-battle
-groups.
+OTTO delivers the paper. A bomb shelter under a lawn.
+Fights, the lawn answering back along a line: four mailbox spitters along the
+north side of the avenue, two flamingo drones between the drive-in's lot and its
+screen, two mower hounds by the fountain on the way to the marina.
 
 ### LUMENBY QUARRY (`lumenby`)
 The town that dug every neon tube on the coast. From the grove gate the road
@@ -186,7 +188,10 @@ A lowland drowned in pink stage fog, hill towns standing out of it like
 islands. From the deep woods gate: THE TICKET HILL; THE FLATS (painted
 scenery); BIRGER's bucket; THE RAINCHECK's MAST, where the blimp is moored
 (VEGA, FINGERS); the GHOST LIGHTS; UNDER THE STAGE, the trap where act three
-was stolen; the western shore. Foes in field-battle groups.
+was stolen; the western shore.
+Fights, by the water (`physics`): two blobs on the cut-grass bank of the Flats
+pond and two skulls on the western shore, which drown when knocked in; two
+bats by the ghost lights' nook, where the water is no help.
 
 ### THE UNDERGLOW (`underglow1`…`underglow3`)
 Three hand-made floors under the deep drift, two of the old six layers on
@@ -196,8 +201,8 @@ and the HERDSMAN live down there.
 
 ## Rules for every land
 
-- Ids: map id as above; chests `<map>.<name>`, battle groups `<map>.<name>`,
-  never reusing a chest id from another map.
+- Ids: map id as above; chests `<map>.<name>`, never reusing a chest id from
+  another map.
 - Dialogue: whole sentences, at most three rows of the 180 px box, a name
   plate first, the pixel font's letters, one name per place (its banner).
 - No new systems in this pass; a sketch's hook is only placed where the art
