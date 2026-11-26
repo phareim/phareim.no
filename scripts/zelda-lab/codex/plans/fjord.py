@@ -1,5 +1,5 @@
-# Yule Fjord's kit (frontierArt/fjord.ts -> fjordData.ts). The lighthouse's beam frames (fjord_lighthouse_0..3) are
-# not drawn here: their baked beam is a long trail of light, held back on the solids.
+# Yule Fjord's kit (frontierArt/fjord.ts -> fjordData.ts). The lighthouse's beam frames (fjord_lighthouse_0..3) were
+# held back in round 1; round 2 draws their beams over the drawn lens tower (sheets beam0..3 below, kitbeam.py).
 from head import HEAD  # noqa: F401
 
 REFS = {'concept.png': 'docs/worlds/img/concept-yulefjord.jpg', 'style.png': 'scripts/zelda-lab/codex/style.png'}
@@ -33,3 +33,14 @@ Right: a small dark wooden lantern post with an iron arm and a hanging lantern g
  'edges2': dict(size=(1536, 1024), pitch=11.5, ids=['fjord_edge_s', 'fjord_edge_w'], n='two objects', every='both pieces', what='two pieces of the frozen edge of a fjord, where the ice breaks off toward open water',
    desc="""Two pieces of the edge of the sea ice: each a flat strip of pale blue-cyan ice (#1a6a8a, #2a9ac0, #6ad0e8, #c4f4ff) with snow patches (#f4f0ff, #c8c0e8) and cracks, broken off along one side into a jagged edge with a few loose chunks beside it, exactly the shape of the guide. Only the ice: no water."""),
 }
+
+# Round 2 (2026-11-26): the beam frames fjord_lighthouse_0..3. The guide is the lens tower Codex already drew (baked
+# fjord_lighthouse_lens_<k>, placed in frame k's box) with the solids' beam as a flat cream cone; Codex draws the beam.
+# kitbeam.py keeps the baked tower's own px and takes only the beam from this drawing.
+_BEAM_WAY = {0: 'out to the lower right', 1: 'out to the lower left', 2: 'away to the upper left', 3: 'away to the upper right'}
+for _k in range(4):
+    SHEETS[f'beam{_k}'] = dict(size=(1024, 1024) if _k < 2 else (1024, 1536), pitch=9.5, ids=[f'fjord_lighthouse_{_k}'],
+        guide={f'fjord_lighthouse_{_k}': f'fjord_lighthouse_beam_{_k}'}, n='one object', every='the lighthouse and its beam',
+        what='a red and white lighthouse already drawn as pixel art, and a flat cream placeholder where its light beam goes',
+        names={f'fjord_lighthouse_{_k}': 'lighthouse with its beam'},
+        desc=f"""{WINTER} The lighthouse tower in guide.png is ALREADY finished pixel art: copy it exactly as it is, pixel for pixel, same colours. Your job is the BEAM: where the guide has the flat cream placeholder shape, draw the lighthouse's beam of light shining {_BEAM_WAY[_k]} from the lamp room: one long straight cone of warm cream light, narrow and brightest at the lamp (#fffbe8 white-cream core, #fff1c0), widening and fading toward its far end (#f4dc98, #e0c078 at the edges), with a few dithered checkerboard pixels where it fades out at the far end and along its edges. It fills the placeholder's shape and stays inside it. Pixel art light: flat bands of colour along the cone, hand-placed dither, NO blur, NO soft glow, NO outline around the beam.""")

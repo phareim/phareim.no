@@ -88,9 +88,13 @@ const gateWorld = gateMap && { ...WORLD, maps: { ...WORLD.maps, [gateMap.id]: { 
 // kit-<kit>: every piece of a realm kit stood in rows on the seterfell stub (ground and a road), the hero by them, so a
 // kit's drawing shows in the game's light at day (DAY=noon) and in the stuck dusk; a night variant (\`night\`) and an
 // arch's lit lanterns show after dusk. kit-seterfell: the Seter Fell kit and its arches; kit-meadow: the meadow kit;
-// kit-yulefjord: the Yule Fjord kit, on the yulefjord stub.
+// kit-yulefjord: the Yule Fjord kit, on the yulefjord stub. kit-sporelight: the Sporelight kit on the sporelight land;
+// kit-lumenby: the quarry kit (the hill letters lit after dusk) and kit-gates: the realm arches (lit after dusk), on
+// the lumenby land. (Those three stand 20 tiles further in on both axes: their lands' open ground starts there.)
 // (A row on the screen: tiles with x + y = r, spread by d along x - y.)
 const onRow = (r, d, lm) => ({ ...lm, x: r / 2 + d, y: r / 2 - d })
+const inLand = (r, d, lm) => onRow(r + 40, d, lm)
+const LETTERS = ['l', 'u', 'm', 'e', 'n', 'b', 'y']
 const KIT_ROWS = {
   'kit-seterfell': [
     onRow(18, -4.2, { art: 'seter_hut', night: 'seter_hut_night', motion: { frames: 2, fps: 1 } }),
@@ -121,11 +125,36 @@ const KIT_ROWS = {
     onRow(25, 1.9, { art: 'fjord_edge_n' }), onRow(25, 3.4, { art: 'fjord_edge_s' }),
     onRow(28, 3.0, { art: 'fjord_lighthouse', motion: { frames: 4, fps: 1 } }),
   ],
+  'kit-sporelight': [
+    inLand(16, -3.3, { art: 'sporelight_bathhouse', night: 'sporelight_bathhouse_night' }),
+    inLand(17, -0.6, { art: 'sporelight_mushroom_large_teal' }), inLand(17, 1.2, { art: 'sporelight_mushroom_large_violet' }),
+    inLand(18, 2.6, { art: 'sporelight_mushroom_medium_teal' }), inLand(18, 3.5, { art: 'sporelight_mushroom_medium_violet' }),
+    inLand(19, 4.2, { art: 'sporelight_mushroom_small_teal' }), inLand(19, 4.7, { art: 'sporelight_mushroom_small_violet' }),
+    inLand(25, -3.6, { art: 'sporelight_grazer_calm', motion: { frames: 2, fps: 2 } }),
+    inLand(25, -2.2, { art: 'sporelight_grazer_angry', motion: { frames: 2, fps: 2 } }),
+    inLand(25, -0.8, { art: 'sporelight_glow_moss' }), inLand(26, -0.2, { art: 'sporelight_glow_moss' }),
+    inLand(25, 1.0, { art: 'sporelight_puff', motion: { frames: 3, fps: 2 } }),
+    inLand(25, 2.0, { art: 'sporelight_puff_0' }), inLand(25, 2.8, { art: 'sporelight_puff_1' }), inLand(25, 3.7, { art: 'sporelight_puff_2' }),
+  ],
+  'kit-lumenby': [
+    ...LETTERS.map((l, i) => inLand(17, -4.2 + i * 1.2, { art: 'quarry_letter_' + l + '_off', night: 'quarry_letter_' + l + '_on' })),
+    inLand(17, 4.6, { art: 'quarry_headframe' }),
+    inLand(25, -4.6, { art: 'quarry_cart_empty' }), inLand(25, -3.4, { art: 'quarry_cart_full' }),
+    inLand(25, -1.8, { art: 'quarry_ramp_n' }), inLand(25, 0.4, { art: 'quarry_ramp_w' }),
+    inLand(25, 2.4, { art: 'quarry_vein' }), inLand(25, 3.8, { art: 'quarry_crate' }),
+  ],
+  'kit-gates': [
+    ...['lumenby', 'sporelight', 'stillsand', 'fogstage'].map((realm, i) => inLand(15, -3.6 + i * 2.4, { art: 'gate_' + realm + '_ns_off', night: 'gate_' + realm + '_ns_on' })),
+    inLand(21, -3.4, { art: 'gate_rerun_ns_off', night: 'gate_rerun_ns_on' }), inLand(21, 3.4, { art: 'gate_rerun_ew_off', night: 'gate_rerun_ew_on' }),
+    ...['lumenby', 'sporelight', 'stillsand', 'fogstage'].map((realm, i) => inLand(29, -3.6 + i * 2.4, { art: 'gate_' + realm + '_ew_off', night: 'gate_' + realm + '_ew_on' })),
+  ],
 }
 const kitArt = KIT_ROWS[scene]
 // (the fjord's kit stands on the yulefjord stub, the others on seterfell's)
-const kitMap = scene === 'kit-yulefjord' ? 'yulefjord' : 'seterfell'
-const kitWorld = kitArt && { ...WORLD, maps: { ...WORLD.maps, [kitMap]: { ...WORLD.maps[kitMap], isoLandmarks: kitArt } } }
+const kitMap = { 'kit-yulefjord': 'yulefjord', 'kit-sporelight': 'sporelight', 'kit-lumenby': 'lumenby', 'kit-gates': 'lumenby' }[scene] ?? 'seterfell'
+// (kit-gates names the other realms' kits on the map, so each realm's arch is fetched: \`MapDef.kits\`)
+const kitKits = scene === 'kit-gates' ? { kits: ['sporelight', 'stillsand', 'fogstage', 'rerun'] } : {}
+const kitWorld = kitArt && { ...WORLD, maps: { ...WORLD.maps, [kitMap]: { ...WORLD.maps[kitMap], ...kitKits, isoLandmarks: kitArt } } }
 const world = gateWorld ?? kitWorld ?? (scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD)
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
@@ -268,6 +297,9 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'kit-seterfell': give(); go('seterfell', 11.2, 10.6, 'down'); run(30); break
   case 'kit-meadow': give(); go('seterfell', 11.6, 11.2, 'up'); run(30); break
   case 'kit-yulefjord': give(); go('yulefjord', 11.2, 10.6, 'down'); run(30); break
+  case 'kit-sporelight': give(); go('sporelight', 31.2, 30.6, 'down'); run(30); break
+  case 'kit-lumenby': give(); go('lumenby', 31.2, 30.6, 'down'); run(30); break
+  case 'kit-gates': give(); go('lumenby', 31.2, 30.6, 'down'); run(30); break
   case 'f-seter-windows': give(); nearArt('fr:4,1', 'seter_hut', 0.5, 2.5); run(30); break
   case 'f-stage-light': give(); nearArt('fr:1,6', 'fogstage_spotlight_3', -0.5, 1.75); run(30); break
   case 'f-gate-seter':
@@ -780,7 +812,7 @@ const SHOTS = [
   ...['gunn', 'folk', 'roads', 'cross', 'intro'].map(k => [`f-say-${k}-390`, `f-say-${k}`, 390, 844, 2, 0]),
   ...['f-fjord-cottage', 'f-fjord-lens', 'f-seter-windows', 'f-stage-light', 'f-gate-waymark', 'f-gate-seter'].map(scene => [scene, scene, 1280, 800, 1, 0]),
   ['f-gate-seter-390', 'f-gate-seter', 390, 844, 2, 0],
-  ...['kit-seterfell', 'kit-meadow', 'kit-yulefjord'].flatMap(k => [[`${k}-1280`, k, 1280, 800, 1, 0], [`${k}-390`, k, 390, 844, 2, 0]]),
+  ...['kit-seterfell', 'kit-meadow', 'kit-yulefjord', 'kit-sporelight', 'kit-lumenby', 'kit-gates'].flatMap(k => [[`${k}-1280`, k, 1280, 800, 1, 0], [`${k}-390`, k, 390, 844, 2, 0]]),
   ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
     [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
     [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],
