@@ -7,6 +7,7 @@
 #   <step>    the turn from one frame to the next, in degrees (the solids': a quarter of the sails' symmetry), e.g. 22.5
 # The part lies in a plane facing the viewer's lower left (y = const in the scene): a px (sx, sy) there is the point
 # x = sx + c, z = (x + c)/2 - sy, so the turn is done in (x, z) and drawn back, nearest px. The hub stays put on top.
+# PLANE=east: a plane facing the viewer's lower right instead (x = const; the turn is done in (y, z)).
 # Every frame shares ONE normal and depth map (the frames' union): the part's plane wherever any frame has the part,
 # the hub's own, the bare drawing's guide elsewhere. Writes <work>/build/<frame>.json and .png.
 import json, math, os, sys
@@ -17,6 +18,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kitlib import guide, record, work
 
 kit, base, bare, frames, parts, step = sys.argv[1:7]
+# PLANE=east (round 3): the part lies in a plane facing the viewer's lower right (x = const in the scene: the Underglow
+# lift's wheel, its axle east-west), where a px (sx, sy) is the point y = -(sx + c), z = -(sx + c)/2 - sy.
+E = {'east': -1, 'screen': 0}.get(os.environ.get('PLANE', ''), 1)   # screen: a part Codex drew facing the viewer, turned flat on the screen
 frames = frames.split(','); step = math.radians(float(step))
 p0, p1, hubk = [int(v) for v in parts.replace(':', '-').split('-')]
 load = lambda i: np.asarray(Image.open(work(kit, 'build', f'{i}.png')).convert('RGBA')).astype(int)
@@ -24,6 +28,13 @@ load = lambda i: np.asarray(Image.open(work(kit, 'build', f'{i}.png')).convert('
 import shutil
 if not os.path.exists(work(kit, 'build', f'{base}.drawn.png')): shutil.copy(work(kit, 'build', f'{base}.png'), work(kit, 'build', f'{base}.drawn.png'))
 B, T = load(f'{base}.drawn'), load(bare)
+# (round 3) The light each drawing had (kitbuild.py --glows: the lift head's lamp): carried with its px into every frame.
+def litmask(i):
+    f = work(kit, 'build', f'{i}.json')
+    if not os.path.exists(f): return None
+    R = json.load(open(f)); return np.array([[ch in R['glow'] for ch in row] for row in R['rows']])
+if not os.path.exists(work(kit, 'build', f'{base}.drawn.json')): shutil.copy(work(kit, 'build', f'{base}.json'), work(kit, 'build', f'{base}.drawn.json'))
+LB, LT = litmask(f'{base}.drawn'), litmask(bare)
 G, Gt = guide(kit, base), guide(kit, bare)
 H, W = G['h'], G['w']
 Ab, At = B[..., 3] > 0, T[..., 3] > 0
@@ -36,6 +47,9 @@ differs = np.abs(B[..., :3] - T[..., :3]).sum(-1) > int(os.environ.get('DIFF', 6
 sail = Ab & near & (differs | ~At) & ~hub_g
 hub = Ab & ndimage.binary_dilation(hub_g, iterations=1) & ~(sail_g & ~hub_g)
 hy, hx = [v.mean() + 0.5 for v in np.nonzero(hub_g)]
+if os.environ.get('HUB'):   # (round 3) the drawn part's own middle, where Codex put it off the guide's hub: HUB=x,y (box px)
+    hx, hy = map(float, os.environ['HUB'].split(','))
+_sy, _sx = np.nonzero(sail); print('drawn part box', _sx.min(), _sx.max(), _sy.min(), _sy.max())
 print('hub at', round(hx, 1), round(hy, 1), 'part px', int(sail.sum()), 'hub px', int(hub.sum()))
 
 def turned(theta):
@@ -44,9 +58,9 @@ def turned(theta):
     c, s = math.cos(theta), math.sin(theta)
     for y in range(H):
         for x in range(W):
-            dX = x + 0.5 - hx; dZ = dX / 2 - (y + 0.5 - hy)       # target px in the plane
+            dX = x + 0.5 - hx; dZ = E * dX / 2 - (y + 0.5 - hy)   # target px in the plane
             sX = c * dX + s * dZ; sZ = -s * dX + c * dZ          # turned back
-            sx = int(math.floor(hx + sX)); sy = int(math.floor(hy + sX / 2 - sZ))
+            sx = int(math.floor(hx + sX)); sy = int(math.floor(hy + E * sX / 2 - sZ))
             if 0 <= sx < W and 0 <= sy < H and sail[sy, sx]: out[y, x] = B[sy, sx, :3]; a[y, x] = True
     return out, a
 
@@ -56,10 +70,12 @@ for k, f in enumerate(frames):
     srgb, sa = turned(k * step)
     rgb[sa] = srgb[sa]; A |= sa
     rgb[hub] = B[hub, :3]; A |= hub
-    pics.append((f, rgb, A, sa))
+    lit = (LT.copy() if LT is not None else np.zeros((H, W), bool)) & ~sa & ~hub
+    if LB is not None: lit |= LB & hub
+    pics.append((f, rgb, A, sa, lit))
 # One normal and depth map for all frames.
 U = np.zeros((H, W), bool)
-for _, _, _, sa in pics: U |= sa
+for _, _, _, sa, _ in pics: U |= sa
 plane_n = np.median(G['normal'][sail_g], axis=0).astype(int)
 ys, xs = np.nonzero(sail_g)
 coef, *_ = np.linalg.lstsq(np.c_[xs, ys, np.ones(len(xs))], G['deep'][sail_g].astype(float), rcond=None)
@@ -73,14 +89,14 @@ nrm = gn[iy, ix].copy()
 q = (gd[iy, ix].astype(float) - 128) / 4 + (YY - iy)
 dep = np.clip(np.round(q * 4) + 128, 1, 255)
 nrm[U & ~hub_g] = plane_n; dep = np.where(U & ~hub_g, plane_d, dep)
-for f, rgb, A, _ in pics:
+for f, rgb, A, _, lit in pics:
     g = guide(kit, f)
     dx = G['ax'] - g['ax']; dy = G['ay'] - g['ay']                 # frame px (x, y) is base px (x + dx, y + dy)
     sl = (slice(dy, dy + g['h']), slice(dx, dx + g['w']))
     assert dy >= 0 and dx >= 0 and dy + g['h'] <= H and dx + g['w'] <= W, (f, 'box outside the base box')
     fa = A[sl]
     deep = np.where(fa, dep[sl], 0).astype(np.uint8)
-    out = record(rgb[sl], fa, np.zeros_like(fa), nrm[sl], deep, g,
+    out = record(rgb[sl], fa, lit[sl] & fa, nrm[sl], deep, g,
                  f'codex image_gen, sheet of {base} and {bare}: the drawn part turned {round(math.degrees(frames.index(f) * step), 1)} degrees about its hub (kitturn.py); normals and depth shared by all frames')
     json.dump(out, open(work(kit, 'build', f'{f}.json'), 'w'))
     Image.fromarray(np.dstack([rgb[sl], fa * 255]).astype(np.uint8), 'RGBA').save(work(kit, 'build', f'{f}.png'))

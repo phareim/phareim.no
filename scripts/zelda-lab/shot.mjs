@@ -97,6 +97,7 @@ const gateWorld = gateMap && { ...WORLD, maps: { ...WORLD.maps, [gateMap.id]: { 
 const onRow = (r, d, lm) => ({ ...lm, x: r / 2 + d, y: r / 2 - d })
 const inLand = (r, d, lm) => onRow(r + 40, d, lm)
 const LETTERS = ['l', 'u', 'm', 'e', 'n', 'b', 'y']
+const TONES = ['pink', 'cyan', 'violet', 'gold', 'rose']
 const KIT_ROWS = {
   'kit-seterfell': [
     onRow(18, -4.2, { art: 'seter_hut', night: 'seter_hut_night', motion: { frames: 2, fps: 1 } }),
@@ -150,12 +151,53 @@ const KIT_ROWS = {
     inLand(21, -3.4, { art: 'gate_rerun_ns_off', night: 'gate_rerun_ns_on' }), inLand(21, 3.4, { art: 'gate_rerun_ew_off', night: 'gate_rerun_ew_on' }),
     ...['lumenby', 'sporelight', 'stillsand', 'fogstage'].map((realm, i) => inLand(29, -3.6 + i * 2.4, { art: 'gate_' + realm + '_ew_off', night: 'gate_' + realm + '_ew_on' })),
   ],
+  // (round 3, 2026-11-26) the roadside kit, Rerun's, Fogstage's, the Underglow's, the coast's and the landing's, each on
+  // the seterfell stub with its kit named in the map's \`kits\`.
+  'kit-roadside': [
+    ...TONES.map((t, i) => onRow(18, -4.4 + i * 0.8, { art: 'road_lantern_' + t + '_off', night: 'road_lantern_' + t + '_on' })),
+    onRow(18, 0.6, { art: 'camp_fire', motion: { frames: 4, fps: 5 } }), onRow(18, 1.6, { art: 'camp_tripod' }), onRow(19, 1.6, { art: 'camp_log' }),
+    onRow(18, 3.4, { art: 'camp_shelter' }),
+    ...['pink', 'cyan', 'gold', 'violet', 'open', 'inn', 'blank'].map((b, i) => onRow(23, -4.2 + i * 1.4, { art: 'camp_board_' + b })),
+    ...[0, 1, 2, 3].map(n => onRow(27, -2 + n * 1.2, { art: 'camp_fire_' + n })),
+  ],
+  'kit-rerun': [
+    onRow(14, -5.2, { art: 'rerun_house_1958', night: 'rerun_house_1958_night' }), onRow(14, -1.7, { art: 'rerun_house_1986', night: 'rerun_house_1986_night' }),
+    onRow(14, 1.8, { art: 'rerun_house_2086', night: 'rerun_house_2086_night' }),
+    onRow(21, -3.4, { art: 'rerun_house_0', night: 'rerun_house_0_night' }), onRow(21, 0.1, { art: 'rerun_house_1', night: 'rerun_house_1_night' }),
+    onRow(21, 2.6, { art: 'rerun_station_wagon' }), onRow(21, 4.0, { art: 'rerun_phone_booth' }),
+    onRow(26, -3.0, { art: 'rerun_mailbox' }), onRow(26, -2.0, { art: 'rerun_flamingo' }), onRow(26, -1.0, { art: 'rerun_lawnmower' }),
+    onRow(26, 0.2, { art: 'rerun_sprinkler', motion: { frames: 2, fps: 2 } }), onRow(26, 1.2, { art: 'rerun_sprinkler_0' }), onRow(26, 2.0, { art: 'rerun_sprinkler_1' }),
+  ],
+  'kit-fogstage': [
+    onRow(15, -3.4, { art: 'fogstage_raincheck' }), onRow(17, 0.2, { art: 'fogstage_flat' }), onRow(17, 2.2, { art: 'fogstage_gangway' }), onRow(17, 3.8, { art: 'fogstage_sandbags' }),
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map(n => onRow(22, -4.4 + n * 1.25, { art: 'fogstage_poster_' + n })),
+    onRow(27, -4.6, { art: 'fogstage_spotlight' }),
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map(n => onRow(27, -3.6 + n * 1.0, { art: 'fogstage_spotlight_' + n })),
+  ],
+  'kit-underglow': [
+    onRow(16, -4.0, { art: 'underglow_ledge_s' }), onRow(16, -1.8, { art: 'underglow_ledge_e' }), onRow(16, 0.4, { art: 'underglow_ledge_se' }),
+    onRow(16, 2.4, { art: 'underglow_lift_wheel', motion: { frames: 4, fps: 2 } }), onRow(16, 3.8, { art: 'underglow_lift_cage' }), onRow(17, 4.4, { art: 'underglow_lift_rope' }),
+    ...['rose', 'pink', 'cyan', 'violet', 'gold'].map((t, i) => onRow(22, -4.4 + i * 0.6, { art: 'underglow_glowstick_' + t })),
+    onRow(22, -0.8, { art: 'underglow_cabinet' }), onRow(22, 1.0, { art: 'underglow_roots' }), onRow(22, 2.8, { art: 'underglow_shards_0' }), onRow(22, 3.8, { art: 'underglow_shards_1' }),
+    onRow(28, -4.0, { art: 'underglow_mast_0' }), onRow(28, -2.8, { art: 'underglow_mast_1' }), onRow(28, -1.6, { art: 'underglow_mast_2' }),
+    onRow(28, 1.6, { art: 'underglow_sun', motion: { frames: 2, fps: 1 } }),
+  ],
+  'kit-coast': [
+    ...['lumenby_n', 'seterfell_n', 'sporelight_n'].map((w, i) => onRow(16, -4.0 + i * 2.6, { art: 'waymark_' + w, motion: { frames: 2, fps: 0.75 } })),
+    ...['stillsand_e', 'fogstage_w', 'rerun_e'].map((w, i) => onRow(21, -4.0 + i * 2.6, { art: 'waymark_' + w, motion: { frames: 2, fps: 0.75 } })),
+    onRow(27, -4.0, { art: 'border_ns_down' }), onRow(27, -1.6, { art: 'border_ns_up' }), onRow(27, 1.0, { art: 'border_ew_down' }), onRow(27, 3.4, { art: 'border_ew_up' }),
+  ],
+  'kit-landing': [
+    onRow(18, -3.0, { art: 'landing_pier' }), onRow(18, 1.6, { art: 'landing_harbour_light' }), onRow(18, 2.6, { art: 'landing_net_rack' }), onRow(18, 3.6, { art: 'landing_crates' }),
+    onRow(24, -3.0, { art: 'landing_breakwater' }), onRow(24, -1.6, { art: 'landing_breakwater_end' }), onRow(24, 0.2, { art: 'landing_bollard' }), onRow(24, 0.8, { art: 'landing_bollard' }),
+  ],
 }
 const kitArt = KIT_ROWS[scene]
 // (the fjord's kit stands on the yulefjord stub, the others on seterfell's)
 const kitMap = { 'kit-yulefjord': 'yulefjord', 'kit-sporelight': 'sporelight', 'kit-lumenby': 'lumenby', 'kit-gates': 'lumenby' }[scene] ?? 'seterfell'
 // (kit-gates names the other realms' kits on the map, so each realm's arch is fetched: \`MapDef.kits\`)
-const kitKits = scene === 'kit-gates' ? { kits: ['sporelight', 'stillsand', 'fogstage', 'rerun'] } : {}
+const kitKits = scene === 'kit-gates' ? { kits: ['sporelight', 'stillsand', 'fogstage', 'rerun'] }
+  : { 'kit-rerun': { kits: ['rerun'] }, 'kit-fogstage': { kits: ['fogstage'] }, 'kit-underglow': { kits: ['underglow'] }, 'kit-coast': { kits: ['coast'] }, 'kit-landing': { kits: ['landing'] } }[scene] ?? {}
 const kitWorld = kitArt && { ...WORLD, maps: { ...WORLD.maps, [kitMap]: { ...WORLD.maps[kitMap], ...kitKits, isoLandmarks: kitArt } } }
 const world = gateWorld ?? kitWorld ?? (scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD)
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
@@ -301,6 +343,8 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'kit-sporelight': give(); go('sporelight', 31.2, 30.6, 'down'); run(30); break
   case 'kit-lumenby': give(); go('lumenby', 31.2, 30.6, 'down'); run(30); break
   case 'kit-gates': give(); go('lumenby', 31.2, 30.6, 'down'); run(30); break
+  case 'kit-roadside': case 'kit-rerun': case 'kit-fogstage': case 'kit-underglow': case 'kit-coast': case 'kit-landing':
+    give(); go('seterfell', 11.2, 10.6, 'down'); run(30); break
   case 'f-seter-windows': give(); nearArt('seterfell', 'seter_hut', 0.5, 2.5); run(30); break
   case 'f-stage-light': give(); nearArt('fogstage', 'fogstage_spotlight', -0.5, 1.75); run(30); break
   case 'f-gate-seter':
@@ -841,7 +885,7 @@ const SHOTS = [
   ...['gunn', 'folk', 'roads', 'cross', 'intro'].map(k => [`f-say-${k}-390`, `f-say-${k}`, 390, 844, 2, 0]),
   ...['f-fjord-cottage', 'f-fjord-lens', 'f-seter-windows', 'f-stage-light', 'f-gate-waymark', 'f-gate-seter'].map(scene => [scene, scene, 1280, 800, 1, 0]),
   ['f-gate-seter-390', 'f-gate-seter', 390, 844, 2, 0],
-  ...['kit-seterfell', 'kit-meadow', 'kit-yulefjord', 'kit-sporelight', 'kit-lumenby', 'kit-gates'].flatMap(k => [[`${k}-1280`, k, 1280, 800, 1, 0], [`${k}-390`, k, 390, 844, 2, 0]]),
+  ...['kit-seterfell', 'kit-meadow', 'kit-yulefjord', 'kit-sporelight', 'kit-lumenby', 'kit-gates', 'kit-roadside', 'kit-rerun', 'kit-fogstage', 'kit-underglow', 'kit-coast', 'kit-landing'].flatMap(k => [[`${k}-1280`, k, 1280, 800, 1, 0], [`${k}-390`, k, 390, 844, 2, 0]]),
   ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
     [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
     [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],

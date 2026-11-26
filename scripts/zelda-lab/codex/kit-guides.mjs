@@ -11,7 +11,8 @@
 // plus <out>/index.json (every id with its box). Default <out>: tmp/codex-kits/<kit>/guides in the repo.
 // --part <id>=<name>:<from>-<to>[,...] also writes a guide <name> of piece <id> built from only its solid calls
 // <from>..<to> (build order, as `solid` numbers them), in <id>'s box: a part to draw on its own (a mill's tower
-// without its sails, to stand behind sails that turn).
+// without its sails, to stand behind sails that turn). Several ranges joined by `+` (`<from>-<to>+<from>-<to>`) build
+// the part from all of them (the lift head without its wheel, whose calls lie in the middle of the build).
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -82,9 +83,9 @@ mkdirSync(out, { recursive: true })
 const index = {}
 const parts = {}
 for (const p of opt('--part')?.split(',') ?? []) {
-  const [, id, name, a, b] = p.match(/^(\w+)=(\w+):(\d+)-(\d+)$/) ?? []
-  if (!id) throw new Error(`--part ${p}: want <id>=<name>:<from>-<to>`)
-  ;(parts[id] ??= []).push({ name, from: +a, to: +b })
+  const [, id, name, spans] = p.match(/^(\w+)=(\w+):(\d+-\d+(?:\+\d+-\d+)*)$/) ?? []
+  if (!id) throw new Error(`--part ${p}: want <id>=<name>:<from>-<to>[+<from>-<to>...]`)
+  ;(parts[id] ??= []).push({ name, spans: spans.split('+').map(r => r.split('-').map(Number)) })
 }
 for (const [id, build] of Object.entries(art)) {
   if (only && !only.some(p => id.startsWith(p)) && !parts[id]) continue
@@ -97,7 +98,7 @@ for (const [id, build] of Object.entries(art)) {
   }
   const crop = { W: right - left + 1, H: bottom - top + 1, left, top, ax: full.ax, ay: full.ay }
   if (!only || only.some(p => id.startsWith(p))) emit(id, full, crop)
-  for (const p of parts[id] ?? []) emit(p.name, guide(build, k => k >= p.from && k <= p.to), crop)
+  for (const p of parts[id] ?? []) emit(p.name, guide(build, k => p.spans.some(([a, b]) => k >= a && k <= b)), crop)
 }
 writeFileSync(resolve(out, 'index.json'), JSON.stringify(index, null, 1))
 console.log(out)

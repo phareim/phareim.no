@@ -146,6 +146,29 @@ the sheet's grid puts it (`--nudge dx,dy` moves it), and crops or pads it to the
   map in every frame rather than as `like`. The kit's `withThings` and `tests/zelda-things.test.mjs` read each kit
   record's own `nrows` and `deep`, and `paintThing` resolves `like` only in `THING_ART`.
 
+### Round 3 (2026-11-26): roadside, rerun, fogstage, underglow, coast, landing, stillsand and the gold pyramid
+Build commands: `tmp/art3/build-<kit>.sh` (Mac job, git-ignored; copied in its report). New here:
+- `--glows box=x0/y0/x1/y1`: a mask by an explicit rectangle of the target's px, for a lamp Codex added that no guide
+  material marks (the RAINCHECK blimp's red belly lamp, the lift head's lamp). New ramps `rose` and `red`; the ramps now
+  live in `kitlib.RAMPS`.
+- `kit-guides.mjs --part id=name:a-b+c-d`: a part from several ranges of solid calls (the lift head without its wheel).
+- `kitturn.py`: PLANE=east (a part in a plane facing the viewer's lower right), PLANE=screen (a part Codex drew facing
+  the viewer), HUB=x,y, NEAR/DIFF; the drawings' glow travels into the frames. The Underglow lift's turn was tried and
+  held back: the two drawings differ round the jib and the turned frames smeared.
+- `kitspin.py <kit> <from> <to> <deg|mirror>`: a flat round thing's second frame from one drawing: turned in the
+  ground plane ring by ring, or mirrored about its anchor (the Sun Below: turning mixed the drawn shading, the mirror
+  moves the rays and keeps the light).
+- `kitscale.py <kit> <sheet> <f>`: a piece too big for one image at the game's px (the gold pyramid, 416x305) is drawn on
+  its guide shrunk by f (`guide` map in the plan: `stillsand_pyramid_half`, f = 2), cut, then made ready for kitbuild.py
+  at full size (`<sheet>x<f>`, every art px f x f game px).
+- `kittext.py <kit> <id> <mats> <ramp>`: if Codex misspells a sign, lay the guide's letters again as neon on the drawn
+  board. Not needed in round 3: every word came out right (CAMP, OPEN, INN, PHONE, THE END, RAINCHECK, the six land
+  names, BORDER).
+- `kit-check.mjs`: boxes of all 13 kits against before-data (new ids allowed: `stillsand_pyramid`), the road lanterns'
+  off/on, Rerun's houses by night, the waymarks' blink frames.
+- Lab scenes: `kit-roadside`, `kit-rerun`, `kit-fogstage`, `kit-underglow`, `kit-coast`, `kit-landing` (seterfell stub,
+  the kit named in the map's `kits`).
+
 ### 7. The bake: `kit-bake.mjs <kit> [--build dir] [--only ids] [--drop ids] [--check]`
 Every `build/<id>.json` whose id the kit has replaces that id's record. Every other record stays as it is. The data
 file is packed as `frontier-art.mjs` packs it: gzip + base64 of the JSON of ThingArt records (`rows/pal/glow/nrows/
@@ -179,12 +202,13 @@ game scale. They were redrawn without the band and shipped.
 |---|---|
 | `kitlib.py` | paths (repo root from this folder), work dirs, plans, guides, the key, `record()` (palette, glow, normals → a ThingArt record) |
 | `kit-guides.mjs` | guides from a kit's solids (1) |
-| `plans/head.py`, `plans/<kit>.py` (seter, meadow, fjord, gates, sporelight, quarry) | the shared prompt; each kit's sheets and words |
+| `plans/head.py`, `plans/<kit>.py` (seter, meadow, fjord, gates, sporelight, quarry, roadside, rerun, fogstage, underglow, coast, landing, stillsand) | the shared prompt; each kit's sheets and words |
 | `sheet.py` | sheets, prompts, references (2) |
 | `codex.sh`, `draw.sh`, `drawall.sh` | one Codex call; a sheet's drawing in a temp dir; ≤ 4 at once (3) |
 | `cut2.py`, `parity.py` | the cut at the drawing's grid; edge parity (4) |
 | `kitbuild.py`, `kitturn.py`, `kitlineup.py` | a piece fitted, frame variants (`--edit`, `--glows`); turning parts; guide-over-drawing sheet (5, 6) |
 | `kitbeam.py` | the lighthouse's beam frames over the drawn lens tower |
+| `kitspin.py`, `kitscale.py`, `kittext.py` | a flat thing's turned/mirrored frame; a sheet drawn on a shrunk guide; a sign's words laid again (round 3) |
 | `kit-bake.mjs`, `kit-check.mjs` | into `<kit>Data.ts`; the kit checks (7, 8) |
 | `style.png` | the target pixel style (figures from Part 22) |
 | `things/` | Part 23's tools for `thingArt.ts`: `things.py`+`solids.py` (ray-cast guides), `sheet_things.py`, `prompts_things.py`, `build.py`, `composite.py`, `align.py`, `emit.py`, `archive.py`, `lineup.py`, `classic.py`, `dump.mjs`, `dumpsolids.py`; work dir `tmp/codex-kits/things` |
