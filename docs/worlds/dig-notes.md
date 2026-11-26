@@ -1,5 +1,8 @@
 # Dig & build: design notes
 
+> **Gone from the game (2026-11-26).** Dig & build played badly and was taken out; Lumenby keeps its heights as
+> fixed terrain and relights its sign instead (`docs/games/neon-shrine-sign.md`). These notes stay as history.
+
 The dig & build system for the realms (first home: `realm-lumenby.md`; a lean version in `realm-underglow.md`).
 Not voxels: a tile grid where each tile has a **height 0–4** and a **top block** of one material. Digging lowers
 a tile by one level and hands you its block; placing raises a tile by one level (or puts a fixture on it).

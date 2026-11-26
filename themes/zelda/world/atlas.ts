@@ -39,6 +39,17 @@ const OLD_REALMS: Record<string, { map: string; entry?: string }> = {
   G: { map: 'overworld', entry: 'crossroads' }, L: { map: 'overworld', entry: 'ferry' },
 }
 
+/** Hand-made maps the world no longer has, and where a save made in one continues. */
+const GONE: Record<string, { map: string; entry: string }> = {
+  // The Old Quarry, dig & build's first map (both gone 2026-11-26): back up in Lumenby's pit.
+  quarry: { map: 'lumenby', entry: 'pit' },
+}
+
+/** Where a save made on a map that is gone continues now (`World.rescue`), or null for an id that never was one. */
+export function rescueGone(map: string, entry: string): { map: string; entry: string } | null {
+  return GONE[map] ?? rescueFrontier(map, entry)
+}
+
 /** Where a save made in the generated frontier continues now, or null for an id that never was one. */
 export function rescueFrontier(map: string, entry: string): { map: string; entry: string } | null {
   const m = /^fr:(\d+),(\d+)(?::(cave|deep)\d+)?$/.exec(map)

@@ -2,7 +2,7 @@
  * The grappling hook (B, once found in Horizon Lab). It flies straight
  * along the hero's facing. It bites into a hook post, pillar, torch or
  * chest and reels the hero over whatever lies between (pits, water,
- * spikes); it stuns what it strikes and drags small loot back. It never
+ * spikes), and up onto a ledge where it bit (`terrain.ts`); it stuns what it strikes and drags small loot back. It never
  * leaves the hero's camera room, so a pull never crosses a doorway.
  * While the chain is out the hero stands still.
  */
@@ -12,6 +12,7 @@ import { collectDrop, hitEnemy, type Ctx } from './combat'
 import { enemyActive } from './enemies'
 import { toggleCrystal, throwLever } from './hero'
 import { cellIndex, circleBlocked, solidTile, tileAt } from './map'
+import { terrainLevel } from './terrain'
 import { dirVec } from './util'
 
 export function fireHook(c: Ctx) {
@@ -126,11 +127,15 @@ function clank(c: Ctx) {
   k.phase = 'back'
 }
 
-/** After a pull: never end inside a wall, over a pit or in water — back off along the chain. */
+/**
+ * After a pull: never end inside a wall, over a pit or in water — back off along the chain. On terrain the hero
+ * stands at the level of where he came down (a ledge the chain reached is his to stand on).
+ */
 function settle(c: Ctx, bx: number, by: number) {
   const h = c.s.hero
   const m = c.s.map
   for (let i = 0; i < 40; i++) {
+    if (m.terrain) m.terrain.z = terrainLevel(m, h.x, h.y, HERO_R)
     const t = tileAt(m, Math.floor(h.x), Math.floor(h.y))
     if (!circleBlocked(c.w, m, h.x, h.y, HERO_R) && t !== 'O' && t !== '~') return
     h.x += bx * 0.25

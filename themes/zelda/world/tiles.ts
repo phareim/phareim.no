@@ -76,7 +76,7 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '-': OPEN,
   q: S,
   '¤': LOW,
-  // Dig & build (`engine/dig.ts`): open to the tile table; a map's heights do the blocking.
+  // Terrain (`engine/terrain.ts`): open to the tile table; a map's heights do the blocking.
   а: OPEN, б: OPEN, в: OPEN, д: OPEN, е: OPEN, ж: OPEN, з: OPEN, и: OPEN, й: OPEN, к: OPEN,
   // Physical puzzles (world/puzzles.ts, engine/puzzles/)
   'α': OPEN,

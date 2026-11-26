@@ -2,13 +2,13 @@
  * LUMENBY QUARRY: the hill town that dug every neon tube on the coast, half empty now (docs/worlds/atlas.md; its
  * place on the grid is world/atlas.ts). THE GROVE ROAD climbs through the rust-pines from the Wildwood's gate to
  * LUMENBY, the union hall and seven chalk lots round a square, under THE HILL SIGN, whose seven letters stand dark
- * on their terrace. West of the town THE PIT steps down in benches to a floor of rain and stone, with the stair to
- * THE OLD QUARRY, where the last shift left its tools; north-west, under the cliffs, the headframe of THE DEEP DRIFT
+ * on their terrace. West of the town THE PIT steps down in benches to a floor of rain and stone; north-west, under
+ * the cliffs, the headframe of THE DEEP DRIFT
  * stands over the shaft to the Underglow, and a cracked boulder shuts the cut from the drift into the pit. East
  * along the road to Seter Fell lies THE TRUCK YARD and the dead shift whistle; north-east THE TOPS carry the road
- * over to Yule Fjord past a gully. Dig & build is on (`dig`): the heights are the pit's benches and the hill's
- * terrace; the town's roads lie at the ground's level. A heart piece waits on a stack on the pit's highest bench
- * where the old ramp fell in.
+ * over to Yule Fjord past a gully. The ground has heights (`terrain`): the pit's benches and the hill's terrace;
+ * the town's roads lie at the ground's level. A heart piece waits on a stack on the pit's highest bench where the
+ * old ramp fell in: blow the rock off the bench and the hook reels the hero up onto it.
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
  */
@@ -65,7 +65,7 @@ export const LUMENBY: MapDef = {
     '##аааааадаааааааажааа,еееажа.,...,.----------v-;.;..........,,,,,,......;..:.;..,,,,',
     '##аааадаааааададааааа,аааада.,;....k-----------,,,,,,,,,,,,,,..;..,.....;.......TT##',
     '##аааааааааееежаааада,аааааа.,,,,,.------------.....;..i..........,......:........##',
-    '##аааааааа.......W.......аай.......------------.,,.,.,,.,,.;----s-,---Y-.-------:T##',
+    '##аааааааа...............аай.......------------.,,.,.,,.,,.;----s-,---Y-.-------:T##',
     '##адаааааа.а....Q,.......ааа...T..---y---------.,....,...,..------,.---.--------..##',
     '##аааааааа...----,,....а..........,------------.,....,...,..====================..##',
     '##ааааеааа..------,..:.....P..;.:,,...J,,............,,,,,..--=-----------------..##',
@@ -85,7 +85,7 @@ export const LUMENBY: MapDef = {
     '#######################################,############################################',
     '#######################################A############################################',
   ],
-  dig: {
+  terrain: {
     // The ground is level 1. The pit's floor lies at it, its benches step up to 2 and 3 round it (a stack at 4);
     // the hill's terrace stands at 2 under its crest at 3. Ramps (ж и) join the levels where the haul roads ran.
     heights: [
@@ -130,11 +130,6 @@ export const LUMENBY: MapDef = {
       '....................................................................................',
       '....................................................................................',
     ],
-    caches: [
-      { x: 22, y: 27, id: 'lumenby.cache1', item: 'bits20' },
-      { x: 8, y: 30, id: 'lumenby.cache2', item: 'bits50' },
-      { x: 19, y: 33, id: 'lumenby.cache3', item: 'bits20' },
-    ],
   },
   areas: [
     { name: 'THE DEEP DRIFT', x: 0, y: 0, w: 23, h: 12, entry: 'deep', intro: INTRO },
@@ -148,7 +143,6 @@ export const LUMENBY: MapDef = {
   entries: {
     'gate-quarry': { x: 39.5, y: 37.5, dir: 'up' },
     'camp': { x: 40.5, y: 20.5, dir: 'down' },
-    'from-quarry': { x: 17.5, y: 22.5, dir: 'down' },
     'deep': { x: 9.5, y: 5.5, dir: 'down' },
     'pit': { x: 25.5, y: 25.5, dir: 'left' },
     'hill': { x: 34.5, y: 9.5, dir: 'down' },
@@ -223,7 +217,6 @@ export const LUMENBY: MapDef = {
   ],
   marks: {
     'A': gateHome('quarry'),
-    'W': { ent: { t: 'warp', to: 'quarry', entry: 'start' }, tile: '>' },
     'V': { ent: { t: 'warp', to: 'underglow1', entry: 'up' }, tile: '>' },
     'U': { ent: { t: 'warp', to: 'unionhall', entry: 'door' }, tile: 'D' },
     'B': sign('LUMENBY QUARRY.\nEVERY NEON TUBE ON THE COAST STARTED HERE.'),
@@ -232,7 +225,7 @@ export const LUMENBY: MapDef = {
     'K': sign('↓ LUMENBY.\n↑ YULE FJORD.'),
     'M': sign('← LUMENBY.\n→ SETER FELL.'),
     'L': sign('THE HILL SIGN. ONE LETTER LIT\nFOR EVERY HOUSE IN TOWN.\nNOT ONE IS LIT.'),
-    'Q': sign('THE OLD QUARRY ↓\nTHE LAST SHIFT LEFT ITS\nTOOLS DOWN THERE.'),
+    'Q': sign('THE PIT FLOOR.\nTHE LAST SHIFT LEFT\nIN A HURRY.'),
     'P': sign('THE PIT. HARD HATS PAST THIS\nPOINT. HATS NOT PROVIDED.'),
     'G': sign('THE DEEP DRIFT\nNAMES THAT NEVER CAME UP:\nBROR, GUNN\'S BROTHER.'),
     'E': sign('← THE DEEP DRIFT.\n→ THE HILL SIGN.\n↓ THE PIT, PAST THE ROCK.'),
@@ -243,7 +236,7 @@ export const LUMENBY: MapDef = {
     'i': sign('LOT FOR A MINER\'S HOUSE.\nTHE MINER LEFT FIRST.'),
     'g': npc('l.deep.mag', 'mossa', [{ lines: ['MOTHER MAG: WELCOME TO THE DELVERS\' CLUB. ROSE STICK, ROSE LEDGE, HOME BY TEA.', "MOTHER MAG: EACH FLOOR'S WAY ON HAS A GLOWSTICK. ROSE, THEN PINK, THEN CYAN."] }]),
     'h': npc('lumenby.liftop', 'liftlady', [{ lines: ['LIFT OPERATOR: THE LIFT IS OUT. THE CABLE WENT TO THE CITY WITH EVERYTHING ELSE.', 'LIFT OPERATOR: THE STAIR IN THE SHAFT STILL GOES DOWN. MIND YOUR THUMBS ON THE RAIL.'] }]),
-    'k': npc('lumenby.miner', 'dusty', [{ lines: ['OLD MINER: PINK IN THE ROCK MEANS LUMEN. PINK ON YOUR HANDS MEANS YOU TOUCHED IT.', 'OLD MINER: THE DEEP DRIFT IS NORTH-WEST, PAST THE HILL SIGN. NOBODY GOES DOWN IT FOR FUN.', "OLD MINER: THE TALL STACK IN THE PIT'S SOUTH-WEST CORNER HAS A CHEST ON TOP. ITS RAMP FELL IN."] }]),
+    'k': npc('lumenby.miner', 'dusty', [{ lines: ['OLD MINER: PINK IN THE ROCK MEANS LUMEN. PINK ON YOUR HANDS MEANS YOU TOUCHED IT.', 'OLD MINER: THE DEEP DRIFT IS NORTH-WEST, PAST THE HILL SIGN. NOBODY GOES DOWN IT FOR FUN.', "OLD MINER: THE TALL STACK IN THE PIT'S SOUTH-WEST CORNER HAS A CHEST ON TOP. ITS RAMP FELL IN.", 'OLD MINER: A HOOK WOULD GET YOU UP THERE, IF THE ROCKS WERE NOT IN THE WAY.'] }]),
     'v': npc('lumenby.vending', 'robot', [{ lines: ['VENDING UNIT: LUMEN ACCEPTED. FEELINGS NOT.', 'VENDING UNIT: OUT OF STOCK SINCE THE SHIFT WHISTLE STOPPED. THANK YOU FOR WAITING.'] }]),
     'y': npc('lumenby.cat', 'cat', [{ lines: ['MRRP.', '(A QUARRY CAT, GREY WITH DUST. IT WATCHES THE PIT AS IF THE PIT OWES IT MONEY.)'] }], { wander: true }),
     'p': { tile: 'д', ...npc('lumenby.apprentice', 'tubeblower', [{ lines: ['APPRENTICE: I BLOW GLASS. I SPEAK FONT. THIS WHOLE HILL IS SET IN CAPITALS.', 'APPRENTICE: NILS SAYS I BLOW GLASS LIKE A KETTLE. HE MEANS IT KINDLY. I THINK.'] }]) },

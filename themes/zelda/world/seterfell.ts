@@ -6,8 +6,7 @@
  * with birches on their backs, and the pass down to the Sporelight; north CAIRN RIDGE, the tarn, the lookout and
  * the way over the tops to Yule Fjord. The LOWER PASTURE's hay fields, mill and pond run to the fell's edge over
  * the town. A heart piece waits on a ledge the seter can see and only the ridge can reach. The elder's mound has a
- * hole in its roof under a cracked boulder (UNDER THE FELL); every other barrow keeps a pantry under its doorstep for
- * the shovel (`dig`, caches only). The gorge east of the fell road is crossed by two hook posts, the herder's quick
+ * hole in its roof under a cracked boulder (UNDER THE FELL). The gorge east of the fell road is crossed by two hook posts, the herder's quick
  * way home from the humps.
  *
  * Laid out with a script once (tmp), then edited by hand; marker chars are listed in `marks`.
@@ -99,17 +98,6 @@ export const SETERFELL: MapDef = {
     '############################################t,t#########################',
     '#############################################A##########################',
   ],
-  // The pantries (atlas: dig, caches only): the tools work here, the hammer builds nothing. Each headstone barrow
-  // keeps its pantry under the doorstep, the path tile in front of its stone; the mound elder says so.
-  dig: {
-    build: false,
-    caches: [
-      { x: 20, y: 27, id: 'seterfell.pantry1', item: 'bits20' },
-      { x: 8, y: 30, id: 'seterfell.pantry2', item: 'bits50' },
-      { x: 66, y: 17, id: 'seterfell.pantry3', item: 'bits20' },
-      { x: 65, y: 44, id: 'seterfell.pantry4', item: 'bits50' },
-    ],
-  },
   areas: [
     { name: 'CAIRN RIDGE', x: 0, y: 0, w: 72, h: 14, entry: 'ridge', intro: INTRO },
     { name: 'THE MOUNDS', x: 0, y: 14, w: 25, h: 20, entry: 'mounds', intro: INTRO },
@@ -180,7 +168,7 @@ export const SETERFELL: MapDef = {
     'g': npc('seterfell.dairymaid', 'dairymaid', [{ lines: ['DAIRYMAID: THREE COWS MISSING, AND FIVE DAYS TILL WE WALK THE HERDS DOWN.', 'DAIRYMAID: CHEESE ON EVERY SHELF, BUTTER IN THE CHURN. HANDS OFF BOTH.'] }]),
     'h': npc('seterfell.nisse', 'troll', [{ lines: ['BARN NISSE: NO BUTTER. NO BUTTER! NOT A SCRAP OF BUTTER IN MY PORRIDGE.', 'BARN NISSE: SOMEONE WILL HEAR ABOUT THIS PORRIDGE. SOMEONE WITH COWS.'] }]),
     'j': npc('seterfell.goat', 'fellgoat', [{ lines: ['(THE GOAT EYES YOUR COAT.)', 'MAA.'] }], { wander: true }),
-    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.', 'MOUND ELDER: EVERY MOUND KEEPS ITS PANTRY UNDER THE DOORSTEP. KEEP YOUR SHOVEL OUT.', 'MOUND ELDER: WE LIVE UNDER THE MOUNDS AND HEAR EVERY FOOTSTEP. YOURS ARE LOUD.'] }]),
+    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.', 'MOUND ELDER: EVERY MOUND KEEPS A PANTRY UNDER IT. NONE OF THEM IS FOR YOU.', 'MOUND ELDER: WE LIVE UNDER THE MOUNDS AND HEAR EVERY FOOTSTEP. YOURS ARE LOUD.'] }]),
     'm': npc('q.map.cairn', 'owl', [{ when: { flag: 'q.map.p3' }, lines: ['STEINAR: THAT PAGE BELONGS TO SOMEONE IN STILLSAND.', 'STEINAR: SOUTH-EAST, PAST THE GRAVES. I PUT A STONE DOWN FOR YOU.'] }, { lines: ['STEINAR: I KEEP THE CAIRNS. A PAGE BLEW INTO THIS ONE. IT HAS DUNES ON IT.', 'STEINAR: WE HAVE NO DUNES UP HERE. TAKE IT.'], set: 'q.map.p3' }]),
     'p': npc('seterfell.herder', 'oldherder', [{ lines: ['OLD HERDER: DON\'T WHISTLE NEAR THE HUMPS. THEY\'RE ONLY HILLS IN THE DAYTIME.', 'OLD HERDER: FIFTY SUMMERS UP HERE. EVERY ONE ENDS THE SAME: WE WALK DOWN, THEY MOVE IN.', 'OLD HERDER: THE QUICK WAY DOWN IS SOUTH: TWO POSTS OVER THE GORGE, AND A HOOK.'] }]),
     's': npc('seterfell.ashlad', 'kid', [{ lines: ['ASH LAD: THAT HILL HAS A NOSE. I POKED IT. IT SNEEZED.', 'ASH LAD: MY BROTHERS SAY I\'M NO GOOD FOR ANYTHING. I\'M GOOD AT POCKETS.'] }], { wander: true }),

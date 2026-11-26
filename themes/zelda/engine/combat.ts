@@ -366,14 +366,10 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
     case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
     case 'tonic3': return ['THREE NEON TONICS!', 'IN A FIGHT, ITEM HANDS ONE TO YOU OR A FRIEND: TWO HEARTS BACK. TASTES PINK.']
-    case 'pickaxe': return ['YOU GOT THE PICKAXE!', 'DIG WITH {B}: STONE, ORE AND ROCK BREAK, AND WHAT FALLS OUT IS YOURS.']
-    case 'shovel': return ['YOU GOT THE SHOVEL!', 'DIG WITH {B}: EARTH AND SAND GO DOWN A LEVEL. A HOLE AT YOUR FEET FILLS WITH DIRT.']
-    case 'axe': return ['YOU GOT THE AXE!', 'DIG WITH {B}: TREES AND BUSHES COME DOWN AS WOOD.']
     case 'artPulse': return ['YOU LEARNED PULSE!', 'PRESS {B} TO PUSH A WAVE FROM YOUR PALM. IT THROWS FOES BACK, STUNS THEM AND TURNS THEIR SHOTS ROUND.', 'ARTS SIT ON {B} WITH YOUR ITEMS: {CYCLE} SWAPS. EACH NEEDS A MOMENT BETWEEN USES.']
     case 'artFlash': return ['THE KNIGHT\'S CHARGE IS YOURS: FLASH STEP!', 'PRESS {B} TO CROSS FOUR TILES IN A BLINK. WHATEVER STOOD IN THE WAY IS CUT A MOMENT LATER.']
     case 'artStar': return ['THE MISTRAL\'S SKY IS YOURS: STARFALL!', 'PRESS {B} TO LEAP HIGH AT THE NEAREST FOE AND COME DOWN ON IT LIKE A FALLING STAR.']
     case 'artHalo': return ['THE TWINS\' ORBIT IS YOURS: HALO!', 'PRESS {B} AND THREE SPARKS CIRCLE YOU FOR A WHILE, CUTTING WHATEVER COMES TOO CLOSE.']
-    case 'hammer': return ['YOU GOT THE HAMMER!', 'BUILD WITH {B}: A BLOCK, A RAMP UP A STEP OR A PLANK OVER WATER.', '{CYCLE} PICKS STONE, WOOD OR A LAMP. HAMMER WHAT YOU BUILT AND IT COMES BACK WHOLE.']
   }
 }
 
@@ -404,8 +400,6 @@ export function grant(s: GameState, item: ItemId) {
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'tonic3': inv.tonics = Math.min(9, inv.tonics + 3); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
-    case 'pickaxe': case 'shovel': case 'axe': inv.selected = 'dig'; break
-    case 'hammer': inv.selected = 'build'; break
     case 'artPulse': case 'artFlash': case 'artStar': case 'artHalo': learnArt(s, artOfItem(item)!); break
   }
   setFlag(s, `item:${item}`)

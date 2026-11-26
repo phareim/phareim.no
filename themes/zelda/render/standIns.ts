@@ -44,10 +44,10 @@ export function standIns(world: World, mapId: string): ReadonlyMap<number, Stand
 }
 
 /**
- * Does a stand-in stand on tile `i` of the map now? Not on dig ground raised above the map's level: that rock is
+ * Does a stand-in stand on tile `i` of the map now? Not on terrain raised above the map's level: that rock is
  * in the way and in the picture already.
  */
 export function standsIn(m: MapState, i: number): boolean {
   if (!m.scenery?.has(i)) return false
-  return !m.dig || m.dig.h[i]! <= m.dig.g
+  return !m.terrain || m.terrain.h[i]! <= m.terrain.g
 }

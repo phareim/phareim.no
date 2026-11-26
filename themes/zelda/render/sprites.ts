@@ -15,7 +15,6 @@
 import { PAL as BASE_PAL } from '../../base/pixel/palette'
 import { WILD_RAW } from './spritesWild'
 import { BEACH_RAW } from './spritesBeach'
-import { DIG_RAW } from './spritesDig'
 import { intermediateBlades } from './bladeAngles'
 import { COMBAT_MARK_RAW } from './combatMarks'
 import { FOE_HURT_RAW } from './foeHurtSprites'
@@ -1608,7 +1607,6 @@ const RAW: Record<string, Rows> = {
   ...WILD_RAW,
   ...BEACH_RAW,
   ...TREE_RAW,
-  ...DIG_RAW,
   ...FRONTIER_RAW,
 }
 

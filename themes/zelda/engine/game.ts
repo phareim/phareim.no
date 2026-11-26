@@ -10,7 +10,7 @@ import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, 
 import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
-import { beginExit, openDialog, settleItem, stepHero, WALK_OUT_TIME } from './hero'
+import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapDef, mapInfo, moveCircle, tileAt } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
@@ -20,8 +20,7 @@ import { stepHook } from './hook'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { battleFocus, stepBattle, stepField } from './battle/index'
-import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
-import { digLevel } from './digGround'
+import { terrainLevel } from './terrain'
 import { resetPuzzleRoom } from './puzzles/index'
 import { cleanExplored, revealAround, reveal } from './explore'
 import { ART_IDS, artsFromFlags, endMoves, resetMoves, stepSlow, stepTeach } from './moves'
@@ -76,8 +75,6 @@ export function createGame(
     luna: null,
     daytime: save?.inv.prism ? (typeof save.day === 'number' ? save.day : 0) : null,
   }
-  const edits = save ? decodeDig(save.dig) : undefined
-  if (edits) s.digEdits = edits
   const seen = save ? cleanExplored(save.explored) : null
   if (seen) s.explored = seen
   if (save) for (const f of save.flags) s.flags[f] = true
@@ -102,7 +99,6 @@ export function createGame(
 export function enterMap(world: World, s: GameState, mapId: string, entryId: string, ev: GameEvent[], at?: Vec) {
   const info = mapInfo(world, mapId)
   s.map = loadMap(world, s, mapId)
-  settleItem(s, world)
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   h.x = spot.x
@@ -123,13 +119,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
     const v = dirVec(spot.dir)
     h.auto = { dir: spot.dir, t: WALK_OUT_TIME + 0.1, x: spot.x + v.x, y: spot.y + v.y }
   } else h.auto = null
-  if (s.map.dig) {
-    // A dig map's way in may have been built on or flooded since (an older save, a pass): step off onto clear ground.
-    const m = s.map
-    m.dig!.z = digLevel(m, h.x, h.y, HERO_R)
-    if (circleBlocked(world, { ...m, npcs: [] }, h.x, h.y, HERO_R) && stepClear(world, s)) h.auto = null
-    m.dig!.z = digLevel(m, h.x, h.y, HERO_R)
-  }
+  if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, h.x, h.y, HERO_R)
   s.disc = null
   s.hook = null
   s.battle = null
@@ -254,7 +244,8 @@ function play(c: Ctx, dt: number, inp: Input) {
       s.daytime = (s.daytime + dt) % DAY_LENGTH
       stepFoes(c.w, s)
     }
-    if (s.map.dig) stepDig(c, dt)
+    // On terrain, the level the hero stands at before moving (`terrain.ts`).
+    if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, s.hero.x, s.hero.y, HERO_R)
     stepHero(c, inp, dt)
     revealAround(s, c.info.def, c.info.w, c.info.h)
     // A boss's art, once the room is calm.
@@ -586,7 +577,6 @@ export function toSave(s: GameState): SaveData | null {
     rng: s.rng,
     elapsed: s.elapsed,
     ...(s.daytime !== null ? { day: Math.round(s.daytime * 10) / 10 } : {}),
-    ...(s.digEdits && encodeDig(s.digEdits) ? { dig: encodeDig(s.digEdits) } : {}),
     ...(s.explored && cleanExplored(s.explored) ? { explored: cleanExplored(s.explored)! } : {}),
   }
 }
@@ -596,7 +586,7 @@ export function toSave(s: GameState): SaveData | null {
  * land, `loadSpot`; otherwise the shell starts in town and the save gives the items and flags). Where that spot
  * has gone (an entry renamed), it continues at the map's first entry; on a map the world no longer has, where
  * `World.rescue` says (the generated frontier's regions: the land that took their place), or at the start. The
- * items, hearts and flags are never thrown away for it; dig edits and explored tiles of maps that are gone are.
+ * items, hearts and flags are never thrown away for it; explored tiles of maps that are gone are.
  */
 function rescueSave(world: World, v: SaveData): SaveData {
   if (hasEntry(world, v.map, v.entry)) return v
@@ -604,9 +594,8 @@ function rescueSave(world: World, v: SaveData): SaveData {
   const to = world.rescue?.(v.map, v.entry)
   const spot = to && hasEntry(world, to.map, to.entry) ? to : world.start
   const gone = (id: string) => !mapDef(world, id)
-  const dig = v.dig ? Object.fromEntries(Object.entries(v.dig).filter(([id]) => !gone(id))) : undefined
   const explored = v.explored ? Object.fromEntries(Object.entries(v.explored).filter(([id]) => !gone(id))) : undefined
-  return { ...v, map: spot.map, entry: spot.entry, ...(dig ? { dig } : {}), ...(explored ? { explored } : {}) }
+  return { ...v, map: spot.map, entry: spot.entry, ...(explored ? { explored } : {}) }
 }
 
 /** A map out past the hand-made coast (`MapDef.away`), or one a save names that the world moved out there. */
@@ -648,7 +637,7 @@ export function parseSave(raw: unknown): SaveData | null {
   const OLD_KEYS = ['sword', 'bombBag', 'bombs', 'disc', 'bits', 'keys', 'bigKey', 'pieces', 'selected', 'prism']
   for (const k of Object.keys(base) as Array<keyof Inventory>) {
     const want = typeof base[k]
-    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && inv[k] !== 'dig' && inv[k] !== 'build' && !(ART_IDS as readonly unknown[]).includes(inv[k])) return null; continue }
+    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && !OLD_ITEMS.includes(inv[k] as string) && !(ART_IDS as readonly unknown[]).includes(inv[k])) return null; continue }
     if (inv[k] === undefined && !OLD_KEYS.includes(k)) continue
     if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
@@ -656,12 +645,20 @@ export function parseSave(raw: unknown): SaveData | null {
   const maxHp = Math.max(START_HP, Math.min(MAX_HP, Math.round(r.maxHp as number)))
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
-    inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanDigInv(inv), ...cleanArts(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
+    inv: { ...base, ...(cleanOld(inv) as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanArts(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
     ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
-    ...(decodeDig(r.dig) ? { dig: encodeDig(decodeDig(r.dig)) } : {}),
     ...(cleanExplored(r.explored) ? { explored: cleanExplored(r.explored)! } : {}),
   }
+}
+
+/** B items a save may hold that the game has since dropped: dig & build's DIG and BUILD (gone 2026-11-26). */
+const OLD_ITEMS: readonly string[] = ['dig', 'build']
+
+/** A save's items without what the game no longer has: dig & build's materials and hammer kind, its B items. */
+function cleanOld(inv: Record<string, unknown>): Record<string, unknown> {
+  const { mats: _mats, build: _build, ...rest } = inv
+  return OLD_ITEMS.includes(rest.selected as string) ? { ...rest, selected: null } : rest
 }
 
 /** The arts and the combos' counts as a save has them, with anything unknown dropped (`moves.ts`). */

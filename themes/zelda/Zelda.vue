@@ -207,7 +207,7 @@ import { drawMiniMap, hasMiniMap, MINI_H, MINI_W } from './render/worldMap'
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
-import { itemIconName } from './render/dig'
+import { itemIconName } from './render/itemIcon'
 import { startLiveSprites } from './render/live'
 import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
 import { createZeldaAudio, flavorForView, type SfxName, type ZeldaAudio } from './audio'
@@ -278,7 +278,7 @@ const touchUI = ref(false)
 const padItem = ref('')
 /** 0..1: how rested the art on B is (1: ready, or an item); the pad dims and fills while it rests. */
 const padRest = ref(1)
-/** The hero has a B item to use here (bombs, the disc, the hook, a dig tool on a dig map): B, SWAP and Tab have a job. */
+/** The hero has a B item (bombs, the disc, the hook, an art): B, SWAP and Tab have a job. */
 const hasItem = ref(false)
 /** The hero has the blade: the deck's roll pad is there (before it the town stays quiet). */
 const hasSword = ref(false)
@@ -541,7 +541,7 @@ function syncSound() {
 let fitMap = ''
 let heldView: ViewId | null = null
 
-/** May this map be shown in that view? (MapDef.views; the frontier's dig realms are isometric only.) */
+/** May this map be shown in that view? (MapDef.views; Lumenby's terrain is isometric only.) */
 function allows(id: ViewId): boolean {
   const only = state ? mapInfo(WORLD, state.map.id).def.views : undefined
   const def = viewDef(id)
@@ -992,12 +992,12 @@ function dropSave(extra: { best?: number, won?: boolean } = {}) {
 }
 
 function syncDeck() {
-  const pad = itemIconName(WORLD, state)
+  const pad = itemIconName(state)
   if (pad !== padItem.value) padItem.value = pad
   const sel = state.inv.selected
   const rest = isArt(sel) ? Math.floor(artRest(state, sel) * 20) / 20 : 1
   if (rest !== padRest.value) padRest.value = rest
-  const item = useItems(state, WORLD).length > 0
+  const item = useItems(state).length > 0
   if (item !== hasItem.value) hasItem.value = item
   if (state.inv.sword !== hasSword.value) {
     hasSword.value = state.inv.sword
@@ -1262,8 +1262,6 @@ function handleEvents(events: GameEvent[]) {
       case 'join': a?.jingle('friend'); save = true; break
       case 'wait': save = true; break
       case 'lever': save = true; break
-      // Dig & build: the edit is kept at once.
-      case 'dig': a?.sfx(e.verb === 'build' ? 'push' : 'жзийаеrR%'.includes(e.tile) ? 'shatter' : 'cut'); save = true; break
       case 'collect': a?.sfx(e.kind === 'heart' ? 'heart' : e.kind === 'key' ? 'key' : 'coin'); break
       case 'chest': a?.sfx('chest'); break
       case 'itemGet':

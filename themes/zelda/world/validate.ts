@@ -12,8 +12,6 @@ import { puzzleMarkTile } from './puzzles'
 
 // Tiles that eventually let the hero through.
 const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ'])
-// On a dig map (`MapDef.dig`) the axe fells trees and the hammer lays planks over water.
-const DIG_FELLED = new Set<TileChar>(['T', '~'])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */
@@ -180,7 +178,7 @@ function reachability(id: string, world: World): string[] {
     for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
       const j = ny * w + nx
-      if (seen[j] || !(PASSABLE.has(tile(nx, ny)) || (def.dig && DIG_FELLED.has(tile(nx, ny))))) continue
+      if (seen[j] || !PASSABLE.has(tile(nx, ny))) continue
       seen[j] = 1
       stack.push(j)
     }

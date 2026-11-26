@@ -243,12 +243,12 @@ export type TileChar =
   // The VIP hall's door
   | 'q' // the bar's back shelf of bottles (solid, wall)
   | '¤' // velvet rope (solid, projectiles pass; gone while `GameState.session` is true)
-  // Dig & build (`engine/dig.ts`; only on maps with `MapDef.dig`, where heights do the blocking)
-  | 'а' // stone: a rock column's top, a placed stone block (the pickaxe digs it)
-  | 'б' // timber: a placed wooden block (the axe takes it)
-  | 'в' // turf: raised earth with grass on it (the shovel digs it)
-  | 'д' // dug earth: bare dirt, at any height
-  | 'е' // lumen ore: stone with a pink vein (the pickaxe digs it for lumen)
+  // Terrain (`engine/terrain.ts`; only on maps with `MapDef.terrain`, where heights do the blocking)
+  | 'а' // stone: a rock column's top
+  | 'б' // timber: a wooden block
+  | 'в' // turf: raised earth with grass on it
+  | 'д' // bare earth, at any height
+  | 'е' // lumen ore: stone with a pink vein
   | 'ж' // ramp rising north
   | 'з' // ramp rising south
   | 'и' // ramp rising east
@@ -297,38 +297,23 @@ export type ItemId =
   | 'walkie' // Toby's lost walkie-talkie
   | 'hat' // the troll's hat
   | 'tonic3' // three neon tonics (field battles: ITEM heals)
-  // Dig & build tools (`engine/dig.ts`): each unlocks one verb on a map with `MapDef.dig`
-  | 'pickaxe' // stone, ore, rocks, boulders
-  | 'shovel' // dig earth and sand, fill a hole
-  | 'axe' // fell trees and bushes, take wooden blocks and planks
-  | 'hammer' // build: blocks, ramps, planks over water, lamps
   // The arts (`engine/moves.ts`): each teaches one, for the B button
   | 'artPulse' // the Keeper
   | 'artFlash' // the knight's charge
   | 'artStar' // the mistral's sky
   | 'artHalo' // the twins' orbit
 
-/** `dig`: the pickaxe, shovel or axe, whichever the tile in front asks for; `build`: the hammer. */
-export type UseItem = 'disc' | 'bombs' | 'hook' | 'dig' | 'build' | ArtId
-
-/** Dig & build materials, carried in `Inventory.mats`. */
-export type DigMat = 'dirt' | 'stone' | 'wood' | 'lumen'
-/** What the hammer builds on open ground (`Inventory.build`). */
-export type DigKind = 'stone' | 'wood' | 'lamp'
+export type UseItem = 'disc' | 'bombs' | 'hook' | ArtId
 
 /**
- * A map that can be dug and built on (`engine/dig.ts`; docs/games/neon-shrine-dig.md). Every tile gets a
- * height 0–4: walking crosses equal heights, steps down freely and goes up only by a ramp.
+ * A map whose ground has heights (`engine/terrain.ts`). Every tile gets a height 0–4: walking crosses equal
+ * heights, steps down freely and goes up only by a ramp.
  */
-export interface DigDef {
+export interface TerrainDef {
   /** Heights, a digit per tile in rows like `rows`; any other char (or no rows) is `ground`. */
   heights?: string[]
   /** The ground's level (default 1): one below it is a hole. */
   ground?: number
-  /** False: the tools dig, the hammer builds nothing. */
-  build?: boolean
-  /** Hidden caches: digging tile (x, y) turns up `item`, once (flag `took:<id>`). */
-  caches?: Array<{ x: number; y: number; id: string; item: ItemId }>
 }
 
 // ---------------------------------------------------------------------------
@@ -587,8 +572,8 @@ export interface MapDef {
   views?: Array<'classic' | 'iso'>
   /** Field battles: foe groups here are fought in place, Chrono Trigger–style (`engine/battle/`). */
   battle?: MapBattleDef
-  /** Dig & build is on here (`engine/dig.ts`). */
-  dig?: DigDef
+  /** The ground has heights here (`engine/terrain.ts`): benches, terraces and ramps. */
+  terrain?: TerrainDef
   /** Physical combat (`engine/puzzles/`): foes knocked into pits, water or spikes fall, drown or are hurt. On by itself in a map with puzzle tiles. */
   physics?: boolean
 }
@@ -850,8 +835,8 @@ export interface MapState {
   onGlyph: number
   /** MapDef.keyring, resolved. */
   ring: string
-  /** Dig & build (`MapDef.dig`): the height of every tile, the ground's level, the hero's standing level. */
-  dig?: DigState
+  /** `MapDef.terrain`: the height of every tile, the ground's level, the hero's standing level. */
+  terrain?: TerrainState
   /** The physical puzzles' live state (`engine/puzzles/`), made on first use; absent on maps without them. */
   phys?: PhysState
   /** Tiles the map's landmarks stand on (`MapInfo.scenery`): solid to walkers, whatever the tile is. */
@@ -878,7 +863,7 @@ export interface PhysState {
   cool: number
 }
 
-export interface DigState { h: number[]; g: number; z: number }
+export interface TerrainState { h: number[]; g: number; z: number }
 
 export type HeroAct =
   | 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'throw' | 'push'
@@ -973,10 +958,6 @@ export interface Inventory {
   keyrings: Record<string, number>
   /** Field battles: neon tonics carried (ITEM heals with one). */
   tonics: number
-  /** Dig & build materials carried (absent: none). */
-  mats?: Partial<Record<DigMat, number>>
-  /** What the hammer builds on open ground. */
-  build?: DigKind
   /** The arts learned, in the order learned (`ArtId`; absent: none). */
   arts?: ArtId[]
   /** Each combo's count towards mastery (`MOVES`; absent: none yet). */
@@ -1086,8 +1067,6 @@ export interface GameState {
     y: number
     turned?: boolean
   }
-  /** Dig & build edits per map id: tile index → tile char + height digit (`engine/dig.ts`). */
-  digEdits?: Record<string, Record<number, string>>
   /** Where the hero has been, per map (`engine/explore.ts`): what the map (M) shows. */
   explored?: Record<string, string>
   /** The hero's last place as explore.ts noted it (map and 2-tile square); nothing is looked at again until it changes. */
@@ -1191,7 +1170,6 @@ export type GameEvent =
   | { type: 'wait' } // Luna sat down at her fort
   | { type: 'bark'; x: number; y: number }
   | { type: 'battle'; what: 'start' | 'won' | 'fled' | 'turn' | 'tech'; track?: TrackId; boss?: boolean }
-  | { type: 'dig'; x: number; y: number; verb: 'dig' | 'fill' | 'build' | 'take'; tile: TileChar; z: number }
   // The acrobatics and the arts (`engine/moves.ts`)
   | { type: 'air'; kind: AirKind }
   /** Down again: where, and whether the landing struck (the flip's chop, the starfall's slam). */
@@ -1223,8 +1201,6 @@ export interface SaveData {
   savedAt?: number
   /** Seconds into the day, once the prism is home (`GameState.daytime`). */
   day?: number
-  /** Dig & build edits, per map id (`engine/dig.ts` encodeDig). */
-  dig?: Record<string, string>
   /** Where the hero has been, per map (`engine/explore.ts`). */
   explored?: Record<string, string>
 }

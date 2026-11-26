@@ -14,7 +14,7 @@ import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitO
 import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
-import { digCycle, digItems, digOutOfReach, isDigItem, useDigTool } from './dig'
+import { outOfReach } from './terrain'
 import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
@@ -367,8 +367,8 @@ function interact(c: Ctx): boolean {
   const tx = Math.floor(fx)
   const ty = Math.floor(fy)
   const t = tileAt(s.map, tx, ty)
-  // On a dig map, what stands higher than the hero is out of reach (a chest on a ledge).
-  if (digOutOfReach(s, tx, ty)) return false
+  // On terrain, what stands higher than the hero is out of reach (a chest on a ledge).
+  if (outOfReach(s, tx, ty)) return false
 
   // Luna, a step behind — she talks only when nothing is attacking (in a fight, A swings).
   const L = s.luna
@@ -935,35 +935,21 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
 // B items
 // ---------------------------------------------------------------------------
 
-/** The B items the hero can use here, in the cycle's order: the hook, the disc, bombs, and on a dig map DIG and BUILD. */
-export function useItems(s: GameState, world: World): UseItem[] {
+/** The B items the hero has, in the cycle's order: the hook, the disc, bombs, then the arts. */
+export function useItems(s: GameState): UseItem[] {
   const inv = s.inv
   const owned: UseItem[] = []
   if (inv.hook) owned.push('hook')
   if (inv.disc) owned.push('disc')
   if (inv.bombBag) owned.push('bombs')
-  owned.push(...digItems(s, world))
   // The arts learned (`moves.ts`), after the items.
   for (const a of inv.arts ?? []) owned.push(a)
   return owned
 }
 
-/**
- * A map just entered: DIG or BUILD out where it has no use gives way to another B item the hero has here (none:
- * nothing out), and a dig map with nothing out hands DIG back.
- */
-export function settleItem(s: GameState, world: World) {
-  const inv = s.inv
-  const here = useItems(s, world)
-  if (isDigItem(inv.selected) && !here.includes(inv.selected)) inv.selected = here.find(isDigItem) ?? here[0] ?? null
-  else if (inv.selected === null) inv.selected = here.find(isDigItem) ?? null
-}
-
 export function cycleItem(c: Ctx) {
   const inv = c.s.inv
-  // With the hammer out, the cycle steps through what it builds first (`dig.ts`).
-  if (digCycle(c)) return
-  const owned = useItems(c.s, c.w)
+  const owned = useItems(c.s)
   if (!owned.length) return
   const i = inv.selected ? owned.indexOf(inv.selected) : -1
   inv.selected = owned[(i + 1) % owned.length]!
@@ -997,8 +983,6 @@ function useItem(c: Ctx, inp: Input) {
     h.act = 'use'
     h.actT = 0
     c.ev.push({ type: 'disc' })
-  } else if (isDigItem(inv.selected)) {
-    useDigTool(c)
   } else if (isArt(inv.selected)) {
     useArt(c, inp, inv.selected)
   } else if (s.inv.sword) c.ev.push({ type: 'error' }) // no buzz for a visitor who has nothing yet

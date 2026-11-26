@@ -32,7 +32,6 @@ import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { chestStar, createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { MOOD, realmLook } from './looks'
-import { drawDigCursor } from './dig'
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, facingDir, fireflies, queueLuna, queueProps, setLunaFacing, type Item } from './wild'
 import { drawBeams, drawMovingMirror, queuePuzzles } from './puzzleTiles'
@@ -592,14 +591,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; pulse(e.x, e.y, 2.5, '#b6ff4a', 0.2); break
         case 'glyph': if (e.ok) fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.4, color: '#2ff3ff', size: 0.6 }); break
         case 'join': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.8, color: '#ff8ae0', size: 1.6, name: 'hero' }); break
-        case 'dig': {
-          // Dig & build: chips of what was dug, or a puff where a block went down.
-          const c = digChip(e.tile)
-          const n = e.verb === 'dig' ? 8 : 5
-          for (let i = 0; i < n; i++) fx.push({ kind: 'leaf', x: e.x + (Math.random() - 0.5) * 0.5, y: e.y, vx: (Math.random() - 0.5) * 5, vy: -1 - Math.random() * 4, t: 0, life: 0.4 + Math.random() * 0.25, color: i % 3 ? c[0] : c[1], size: e.verb === 'dig' ? 2 : 1 })
-          if (e.tile === 'е') spark(e.x, e.y, 6, '#ff2fa0', 3, 0.4)
-          break
-        }
       }
     }
     if (fx.length > 260) fx = fx.slice(fx.length - 260)
@@ -927,14 +918,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     blit(g, bs.name, bs.fh, bs.fv, x + Math.cos(a) * 12, y + Math.sin(a) * 11)
   }
 
-  /** A dug tile's chips: its colour and its light. */
-  function digChip(t: string): [string, string] {
-    if (t === 'а' || t === 'е' || t === 'r' || t === 'R' || t === '%' || 'жзий'.includes(t)) return ['#6f6aa0', '#9690c4']
-    if (t === 'T' || t === '*' || t === 'б' || t === '=') return ['#6e3d4e', '#8e5566']
-    if (t === 't') return ['#ff2fa0', '#ffd23f']
-    return ['#4e3148', '#654061']
-  }
-
   function itemIcon(item: string): string {
     switch (item) {
       case 'sword': return 'item_sword'
@@ -954,7 +937,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'tube': return 'item_tube'
       case 'walkie': return 'item_walkie'
       case 'hat': return 'item_hat'
-      case 'pickaxe': case 'shovel': case 'axe': case 'hammer': return `item_${item}`
       // An art learned (`engine/moves.ts`): its own icon.
       case 'artPulse': return 'item_pulse'
       case 'artFlash': return 'item_flash'
@@ -1687,8 +1669,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.fillRect(0, 0, vw, vh)
     g.drawImage(layer.canvas, -cx, -cy)
     drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion, kind === 'overworld' ? nightOf(dayOf('classic')) : 0)
-    // Dig & build: the tile a tool would work (`dig.ts`; the isometric view outlines it at its height).
-    drawDigCursor(g, world, s, cx, cy, ui.reducedMotion ? 0 : time)
     drawDecals(g, info.def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }, lights)
 
     const items = queue(g, s, ui, cx, cy, vw, vh, lights)

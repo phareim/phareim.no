@@ -1,8 +1,7 @@
 /**
- * The three systems' first maps, set into the lands as places with a reason: the Old Quarry down from Lumenby's
- * pit (dig & build: the four tools are there), the Battle Glade down a root stair in the Sporelight (field
- * battles), the Puzzle Lab inside Stillsand's gold pyramid (the physical puzzles). Each is a hand-made map
- * (`quarry.ts`, `arena.ts`, `puzzlelab.ts`); the land has the way down (a warp to the map's `start`) and the entry
+ * The systems' first maps, set into the lands as places with a reason: the Battle Glade down a root stair in the
+ * Sporelight (field battles), the Puzzle Lab inside Stillsand's gold pyramid (the physical puzzles). Each is a
+ * hand-made map (`arena.ts`, `puzzlelab.ts`); the land has the way down (a warp to the map's `start`) and the entry
  * `from-<map>` beside it, and `linkBack` gives the map its way back up.
  */
 import type { MapDef } from '../types'
@@ -10,7 +9,6 @@ import type { MapDef } from '../types'
 export interface Demo { map: string; land: string }
 
 export const DEMOS: Demo[] = [
-  { map: 'quarry', land: 'lumenby' },
   { map: 'arena', land: 'sporelight' },
   { map: 'puzzlelab', land: 'stillsand' },
 ]

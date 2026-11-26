@@ -236,15 +236,15 @@ const bossDown = scene === 'l-mistral-down'
 switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'start': run(30); break
   // The lands (docs/worlds/atlas.md): a place in each, beside its people, and the systems in the lands built for them:
-  // Stillsand's puzzles, the Sporelight's battle groups, Lumenby's dig benches.
-  case 'f-puzzle': case 'f-battle': case 'f-dig': {
+  // Stillsand's puzzles, the Sporelight's battle groups, Lumenby's benches.
+  case 'f-puzzle': case 'f-battle': case 'f-terrain': {
     give()
-    const id = { 'f-puzzle': 'stillsand', 'f-battle': 'sporelight', 'f-dig': 'lumenby' }[scene]
+    const id = { 'f-puzzle': 'stillsand', 'f-battle': 'sporelight', 'f-terrain': 'lumenby' }[scene]
     const d = WORLD.maps[id]
     let spot = d.entries.camp
     if (scene === 'f-puzzle') { const ch = Object.keys(d.marks).find(c => d.marks[c].ent.t === 'chest' && d.marks[c].ent.appear); const y = d.rows.findIndex(r => r.includes(ch)); spot = { x: d.rows[y].indexOf(ch) + 0.5, y: y + 2.5 } }
     if (scene === 'f-battle') { const g = d.battle.groups[0]; spot = { x: g.x, y: g.y + 3.5 } }
-    if (scene === 'f-dig') { const y = d.rows.findIndex(r => r.includes('а')); spot = { x: d.rows[y].indexOf('а') + 0.5, y: y + 2.5 }; for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true }
+    if (scene === 'f-terrain') { const y = d.rows.findIndex(r => r.includes('а')); spot = { x: d.rows[y].indexOf('а') + 0.5, y: y + 2.5 } }
     go(id, spot.x, spot.y, 'up'); run(20)
     break
   }
@@ -570,22 +570,6 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
     }
     break
   }
-  // Dig & build (docs/games/neon-shrine-dig.md): Lumenby Quarry with every tool, a ramp up the plateau, a block, a
-  // hole, planks over the lake and a lamp already built. q-quarry: on the ground, the hammer out (the target
-  // outlined); q-ledge: up on the plateau by the ramp; q-hole: down in a hole, the shovel out.
-  case 'q-quarry': case 'q-ledge': case 'q-hole': {
-    give()
-    for (const t of ['pickaxe', 'shovel', 'axe', 'hammer']) s.flags['item:' + t] = true
-    s.inv.mats = { dirt: 4, stone: 6, wood: 3, lumen: 2 }
-    const W = 32, e = (x, y, v) => [y * W + x, v]
-    s.digEdits = { quarry: Object.fromEntries([e(16, 8, 'ж2'), e(19, 11, 'б2'), e(20, 11, 'а2'), e(20, 10, 'а3'), e(12, 9, 'к0'), e(13, 9, 'к0'), e(22, 4, '=1'), e(23, 4, '=1'), e(21, 6, 't1'), e(16, 10, 't1'), e(5, 13, 'д1'), e(13, 8, 'ж2')]) }
-    if (scene === 'q-quarry') { s.inv.selected = 'build'; s.inv.build = 'stone'; go('quarry', 17.5, 10.5, 'up') }
-    else if (scene === 'q-ledge') { s.inv.selected = 'dig'; go('quarry', 16.5, 5.6, 'left') }
-    else { s.inv.selected = 'dig'; go('quarry', 12.5, 9.5, 'right') }
-    for (const f of s.map.enemies) if (f.kind === 'hound') { f.x = 18.5; f.y = 14.5 }
-    run(20)
-    break
-  }
 }
 if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
 if (bossDown) for (const e of s.map.enemies) if (e.kind === 'mistral') { e.ai.mode = 'down'; e.ai.t = 9 }
@@ -803,7 +787,7 @@ const SHOTS = [
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
   ['f-puzzle', 'f-puzzle', 1280, 800, 1, 0],
   ['f-battle', 'f-battle', 1280, 800, 1, 0],
-  ['f-dig', 'f-dig', 1280, 800, 1, 0],
+  ['f-terrain', 'f-terrain', 1280, 800, 1, 0],
   ['life', 'life', 1280, 800, 1, 0],
   ['life-390', 'life', 390, 844, 2, 0],
   ['f-landing', 'f-landing', 1280, 800, 1, 0],
@@ -821,11 +805,6 @@ const SHOTS = [
   ...['fell', 'spore', 'sand', 'lawns', 'quarry', 'fog', 'in-fell', 'in-sand'].map(g => [`g-${g}`, `g-${g}`, 1280, 800, 1, 0]),
   ['g-map', 'g-map', 1280, 800, 1, 0],
   ['g-map-390', 'g-map', 390, 844, 2, 0],
-  // Dig & build's quarry (VIEW=iso is the one that matters).
-  ['q-quarry-1280', 'q-quarry', 1280, 800, 1, 0],
-  ['q-quarry-390', 'q-quarry', 390, 844, 3, 0],
-  ['q-ledge-1280', 'q-ledge', 1280, 800, 1, 0],
-  ['q-hole-1280', 'q-hole', 1280, 800, 1, 0],
   ['f-lumenby', 'f-lumenby', 1280, 800, 1, 0],
   ['f-lumenby-390', 'f-lumenby', 390, 844, 2, 0],
   ['f-underglow', 'f-underglow', 1280, 800, 1, 0],

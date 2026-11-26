@@ -345,6 +345,8 @@ describe('the lands', () => {
       ['fr:6,7', 'camp', ['overworld', 'crossroads']],
       ['fr:6,8', 'camp', ['overworld', 'ferry']],
       ['fr:99,99', 'camp', [Z.WORLD.start.map, Z.WORLD.start.entry]],
+      // The Old Quarry went with dig & build: a save down there comes back up in Lumenby's pit.
+      ['quarry', 'start', ['lumenby', 'pit']],
       ['nowhere', 'door', [Z.WORLD.start.map, Z.WORLD.start.entry]],
     ]) {
       const save = { ...base, map, entry, dig: { [map]: 'x', overworld: base.dig?.overworld ?? '' }, explored: { [map]: '1', overworld: '1' } }
@@ -414,7 +416,7 @@ describe('the lands', () => {
     for (const d of Object.values(Z.WORLD.maps)) for (const m of Object.values(d.marks)) {
       if (m.ent.t === 'npc' && m.ent.id.startsWith('q.') && !d.away) { lines.push(...talkOf(m.ent)); people.push(m.ent) }
     }
-    for (const item of ['pickaxe', 'shovel', 'axe', 'hammer', 'tonic3']) lines.push(...X.itemText({ inv: { pieces: 1, shrooms: 0 } }, item))
+    for (const item of ['tonic3']) lines.push(...X.itemText({ inv: { pieces: 1, shrooms: 0 } }, item))
     for (const l of new Set(lines)) {
       const shown = X.subst(l, X.TOUCH_KEYS)
       assert.match(shown, /^[A-Z0-9ÆØÅ .,!?'":;\-()/#%&+=*·↑↓←→\n]*$/, `not in the font: ${l}`)

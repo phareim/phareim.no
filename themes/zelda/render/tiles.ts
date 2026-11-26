@@ -15,7 +15,7 @@ import { exitTiles } from './exits'
 import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
-import { isDigChar, paintDigTile, setDigPaint } from './dig'
+import { isTerrainChar, paintTerrainTile, setTerrainPaint } from './terrain'
 import { atlasBeyond, beyondTile, type Beyond } from './beyond'
 import { drawPuzzleLive, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
 import { CLASSIC, MOOD, realmLook } from './looks'
@@ -245,7 +245,7 @@ function ground(kind: MapKind, g: G, px: number, py: number, tx: number, ty: num
 }
 
 function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At) {
-  if (paintDigTile(kind, g, t, px, py, tx, ty, at, 'base', () => grass(g, px, py, tx, ty, at))) return
+  if (paintTerrainTile(kind, g, t, px, py, tx, ty, at, 'base', () => grass(g, px, py, tx, ty, at))) return
   switch (t) {
     case '~':
       water(g, px, py, tx, ty, at, kind === 'overworld' ? OW.waterD : '#0a1440', kind === 'overworld' ? OW.water : '#101d58')
@@ -296,7 +296,7 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
 export type GroundKind = 'grass' | 'path' | 'sand' | 'floor' | 'boards' | null
 
 export function groundKindOf(kind: MapKind, t: TileChar, at: At): GroundKind {
-  if (isDigChar(t)) return t === 'в' ? 'grass' : null
+  if (isTerrainChar(t)) return t === 'в' ? 'grass' : null
   // The puzzles' ice and sluices are their own ground (`puzzleTiles.ts`).
   if (t === 'α' || t === 'ω' || t === 'ψ') return null
   const ground: GroundKind = kind === 'overworld' ? 'grass' : kind === 'dungeon' ? 'floor' : 'boards'
@@ -808,7 +808,7 @@ function plateBase(g: G, px: number, py: number) {
 }
 
 function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, marquee: boolean, bare: boolean, look?: string) {
-  if (paintDigTile(kind, g, t, px, py, tx, ty, at, 'objects', () => grass(g, px, py, tx, ty, at))) return
+  if (paintTerrainTile(kind, g, t, px, py, tx, ty, at, 'objects', () => grass(g, px, py, tx, ty, at))) return
   if (paintPuzzleObject(g, t, px, py)) return
   if (paintNewObject(look, g, t, px, py, tx, ty)) return
   if (look === 'lab' && paintLabObject(g, t, px, py, tx, ty, at)) return
@@ -913,8 +913,8 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   const own = exitTiles(world, m.id)
   // Only the arcade's signs are high-score marquees; other rooms get a plain plaque.
   const marquee = m.id === 'arcade'
-  // A dig map's heights draw the edges of what stands (`dig.ts`).
-  setDigPaint(m)
+  // Terrain's heights draw the edges of what stands (`terrain.ts`).
+  setTerrainPaint(m)
   // Walls behind painted lettering keep their windows dark.
   const cover = decalCover(mapInfo(world, m.id).def, m.w)
   const X0 = Math.max(0, x0)
@@ -943,7 +943,7 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
     if (prop && standsIn(m, ty * m.w + tx)) standIn(g, prop, tx * T, ty * T)
   }
   g.restore()
-  setDigPaint(null)
+  setTerrainPaint(null)
 }
 
 export function createTileLayer(world: World, m: MapState, pass: LayerPass = 'all'): TileLayer {

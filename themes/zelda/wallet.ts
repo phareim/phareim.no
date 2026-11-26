@@ -62,7 +62,7 @@ export interface PaidFlags {
 const BIT_ITEMS: Record<string, number> = { bits5: 5, bits20: 20, bits50: 50 }
 
 /**
- * The world's one-time bits: chest and floor-item flags, dig caches (`took:<id>`) and battle prizes
+ * The world's one-time bits: chest and floor-item flags and battle prizes
  * (`battle:<id>:prize`) → bits.
  */
 export function bitRewards(world: Pick<World, 'maps'>): Map<string, number> {
@@ -76,7 +76,6 @@ function addRewards(out: Map<string, number>, map: MapDef) {
     const e = mark.ent
     if ((e.t === 'chest' || e.t === 'item') && BIT_ITEMS[e.item]) out.set(`${e.t === 'chest' ? 'chest' : 'took'}:${e.id}`, BIT_ITEMS[e.item]!)
   }
-  for (const c of map.dig?.caches ?? []) if (BIT_ITEMS[c.item]) out.set(`took:${c.id}`, BIT_ITEMS[c.item]!)
   for (const g of map.battle?.groups ?? []) if (g.prize && BIT_ITEMS[g.prize]) out.set(`battle:${g.id}:prize`, BIT_ITEMS[g.prize]!)
 }
 

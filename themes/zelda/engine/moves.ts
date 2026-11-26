@@ -24,7 +24,7 @@ import {
 import { acquire, BIG, hitEnemy, type Ctx, type HitOpts } from './combat'
 import { enemyActive, breakShards } from './enemies'
 import { cellIndex, circleBlocked, has, lineClear, moveCircle, tileAt } from './map'
-import { digLevel } from './digGround'
+import { terrainLevel } from './terrain'
 import { iceUnder } from './puzzles/index'
 import { angleDiff, toDir } from './util'
 import { TILE_INFO } from '../world/tiles'
@@ -581,13 +581,13 @@ function clearRun(c: Ctx, a: number, dist: number): number {
   const room = cellIndex(c.info, h.x, h.y)
   const dungeon = c.info.def.kind === 'dungeon'
   let ok = 0
-  // On dug ground, the level the trace stands on, carried along as walking carries it: down a ledge, not up one.
-  let lv = s.map.dig ? digLevel(s.map, h.x, h.y, HERO_R) : undefined
+  // On terrain, the level the trace stands on, carried along as walking carries it: down a ledge, not up one.
+  let lv = s.map.terrain ? terrainLevel(s.map, h.x, h.y, HERO_R) : undefined
   for (let r = 0.1; r <= dist + 1e-6; r += 0.1) {
     const x = h.x + ca * r
     const y = h.y + sa * r
     if (circleBlocked(c.w, s.map, x, y, HERO_R, 'hero', lv)) break
-    if (s.map.dig) lv = digLevel(s.map, x, y, HERO_R)
+    if (s.map.terrain) lv = terrainLevel(s.map, x, y, HERO_R)
     if (hazard(c, x + ca * HERO_R, y + sa * HERO_R)) break
     if (dungeon && cellIndex(c.info, x + ca * (HERO_R + 0.2), y + sa * (HERO_R + 0.2)) !== room) break
     ok = r

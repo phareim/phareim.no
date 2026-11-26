@@ -1,19 +1,18 @@
 /**
- * Dig & build in the picture (`engine/dig.ts`): the tile painters for its
- * ground (stone, timber, turf, dug earth, ore, ramps, holes), the outline on
- * the tile a tool would work, and the B item's icon. Both views paint from
- * these; the isometric view stands the heights up itself (`iso/dig.ts`).
+ * Terrain in the picture (`engine/terrain.ts`): the tile painters for its ground (stone, timber, turf, earth, ore,
+ * ramps, holes) and the lit and dark edges where the height changes. Both views paint from these; the isometric
+ * view stands the heights up itself (`iso/terrain.ts`).
  */
-import type { GameState, MapKind, MapState, TileChar, World } from '../types'
+import type { MapKind, MapState, TileChar } from '../types'
 import { TILE } from '../types'
-import { digPlan, hasTool, isArt, isRamp, RAMPS } from '../engine/index'
+import { isRamp, RAMPS } from '../engine/index'
 
 type G = CanvasRenderingContext2D
 type At = (dx: number, dy: number) => TileChar
 const T = TILE
 
-const DIG_CHARS = new Set<TileChar>(['а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к'])
-export const isDigChar = (t: TileChar): boolean => DIG_CHARS.has(t)
+const TERRAIN_CHARS = new Set<TileChar>(['а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к'])
+export const isTerrainChar = (t: TileChar): boolean => TERRAIN_CHARS.has(t)
 
 const C = {
   stone: '#6f6aa0', stoneL: '#9690c4', stoneD: '#443f72', stoneDD: '#2c2852',
@@ -32,14 +31,14 @@ function hash(x: number, y: number, s: number): number {
 
 /** The map being painted: its heights draw the edges of what stands up. */
 let painting: MapState | null = null
-export function setDigPaint(m: MapState | null) { painting = m && m.dig ? m : null }
+export function setTerrainPaint(m: MapState | null) { painting = m && m.terrain ? m : null }
 function rise(tx: number, ty: number): number {
   const m = painting
   if (!m || tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return 0
-  return m.dig!.h[ty * m.w + tx]! - m.dig!.g - (isRamp(m.tiles[ty * m.w + tx]!) ? 1 : 0)
+  return m.terrain!.h[ty * m.w + tx]! - m.terrain!.g - (isRamp(m.tiles[ty * m.w + tx]!) ? 1 : 0)
 }
 /** Does tile (tx, ty) stand above the ground (its picture then goes with what stands, not with the ground)? */
-export const digRaised = (tx: number, ty: number): boolean => rise(tx, ty) > 0
+export const terrainRaised = (tx: number, ty: number): boolean => rise(tx, ty) > 0
 
 function stone(g: G, px: number, py: number, tx: number, ty: number) {
   r(g, C.stone, px, py, T, T)
@@ -118,15 +117,15 @@ function edges(g: G, px: number, py: number, tx: number, ty: number) {
 }
 
 /**
- * Paint a dig tile (either pass). `pass`: 'base' paints what lies on the ground, 'objects' what stands up
+ * Paint a terrain tile (either pass). `pass`: 'base' paints what lies on the ground, 'objects' what stands up
  * (anything above the ground's level). `grass` paints the coast's grass, for the turf. True when painted.
  */
-export function paintDigTile(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, pass: 'base' | 'objects', grass: () => void): boolean {
-  if (!DIG_CHARS.has(t)) return false
+export function paintTerrainTile(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, pass: 'base' | 'objects', grass: () => void): boolean {
+  if (!TERRAIN_CHARS.has(t)) return false
   void kind
   // A tile that stands up (and a ramp, which rises off the ground) is painted with what stands; under it the
   // ground is plain earth.
-  const up = digRaised(tx, ty) || isRamp(t)
+  const up = terrainRaised(tx, ty) || isRamp(t)
   if (pass === 'base' && up) { dirt(g, px, py, tx, ty); return true }
   if (pass === 'objects' && !up) return true
   switch (t) {
@@ -140,43 +139,4 @@ export function paintDigTile(kind: MapKind, g: G, t: TileChar, px: number, py: n
   }
   edges(g, px, py, tx, ty)
   return true
-}
-
-/** The outline's colour: cyan to dig (or take back), pink to build, rose when it cannot. */
-export function cursorColor(p: { ok: boolean; verb: string | null }): string {
-  return !p.ok ? '#ff3b5c' : p.verb === 'build' ? '#ff2fa0' : '#2ff3ff'
-}
-
-/** The tile a tool would work, outlined (the classic view; the isometric one draws it at its height, `iso/dig.ts`). */
-export function drawDigCursor(g: G, world: World, s: GameState, cx: number, cy: number, time: number) {
-  if (s.mode !== 'play' || !s.map.dig) return
-  const p = digPlan(world, s)
-  if (!p) return
-  const px = p.tx * T - cx
-  const py = p.ty * T - cy
-  g.globalAlpha = (p.ok ? 0.75 : 0.45) + 0.2 * Math.sin(time * 6)
-  g.strokeStyle = cursorColor(p)
-  g.lineWidth = 1
-  g.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1)
-  // Corner ticks, so the outline reads on any ground.
-  g.fillStyle = g.strokeStyle
-  for (const [x, y] of [[1, 1], [T - 3, 1], [1, T - 3], [T - 3, T - 3]] as const) g.fillRect(px + x, py + y, 2, 2)
-  g.globalAlpha = 1
-}
-
-/** The B item's icon for DIG or BUILD: the tool for the tile in front (or the first one found), or the hammer. */
-/** The icon of the B item out (the HUD's box, the touch B pad): for DIG, `digIcon`; '' with nothing out. */
-export function itemIconName(world: World, s: GameState): string {
-  const u = s.inv.selected
-  if (!u) return ''
-  if (isArt(u)) return `item_${u}`
-  return u === 'dig' || u === 'build' ? digIcon(world, s) : u === 'disc' ? 'item_disc' : u === 'hook' ? 'item_hook' : 'item_bombbag'
-}
-
-export function digIcon(world: World, s: GameState): string {
-  if (s.inv.selected === 'build') return 'item_hammer'
-  const p = s.map.dig ? digPlan(world, s) : null
-  if (p?.tool && p.tool !== 'hammer' && hasTool(s, p.tool)) return `item_${p.tool}`
-  for (const t of ['pickaxe', 'shovel', 'axe'] as const) if (hasTool(s, t)) return `item_${t}`
-  return 'item_pickaxe'
 }

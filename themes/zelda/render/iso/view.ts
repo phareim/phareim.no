@@ -60,7 +60,7 @@ import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind, type
 import { puzzlePropOf, rollKind } from './puzzleProps'
 import { puzzleInfo } from '../../engine/index'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
-import { digCapOf, digCursor, digFoot, digLift, digMaterial, digPlinth, digShape, heroFootEase, rampSides, rampSlope } from './dig'
+import { heroFootEase, rampSides, rampSlope, terrainCapOf, terrainFoot, terrainLift, terrainMaterial, terrainPlinth, terrainShape } from './terrain'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -317,7 +317,7 @@ export default function isoView(kit: Kit): View {
   let fig: FigureSprite | null = null
   let yawShown: number | null = null
   let yawMap = ''
-  /** The hero's height as last drawn on a dig map (`dig.ts`). */
+  /** The hero's height as last drawn on a map with terrain (`terrain.ts`). */
   let heroFoot: number | null = null
   let floraLook = ''
   /** The atlas rows in use last frame: what must be cleared, and what is sent to the GPU. */
@@ -406,8 +406,8 @@ export default function isoView(kit: Kit): View {
       if (inside && standsIn(m, ty * m.w + tx)) sh = CARD
       // The rock beyond the edge rises in steps the further out it lies.
       if (!inside && sh === WALL_TOP) sh = MASSIF[massifHeight(m.w, m.h, tx, ty + sh.f) - 1]!
-      // Dig & build: ground above its level stands up as a column (`dig.ts`).
-      if (inside && m.dig) sh = digShape(m, tx, ty, sh)
+      // Terrain: ground above its level stands up as a column (`terrain.ts`).
+      if (inside && m.terrain) sh = terrainShape(m, tx, ty, sh)
       shapes[ey * ew + ex] = sh
     }
   }
@@ -1150,7 +1150,7 @@ export default function isoView(kit: Kit): View {
     // What stands in this view's own materials (`materials.ts`): a roof's shingles, a wall's boards, a cliff's
     // rock, the Shrine's bricks. The number rides with the picture's in a quad's meta (picture + 8 × material).
     const builtOf = (t: TileChar, top: boolean): number => {
-      if (m.dig) { const dm = digMaterial(t, top, def.look === 'wild'); if (dm) return 8 * materialId(dm) }
+      if (m.terrain) { const dm = terrainMaterial(t, top, def.look === 'wild'); if (dm) return 8 * materialId(dm) }
       if (def.look === 'lab') return t === '#' || t === '%' || t === '^' ? 8 * materialId(top ? 'plates' : 'steel') : 0
       if (kind === 'overworld') {
         if (t === 'H' || t === 'M' || t === 'D') return 8 * materialId(top ? 'shingles' : 'siding')
@@ -1162,34 +1162,25 @@ export default function isoView(kit: Kit): View {
       if (t !== '#' && t !== '%' && t !== '^') return 0
       return 8 * materialId(kind === 'dungeon' ? (top ? 'blocks' : 'bricks') : (top ? 'slab' : 'panel'))
     }
-    /** Dig & build (`dig.ts`): a ramp, and the column under a thing that stands on raised ground. True: the tile is drawn. */
-    const digTile = (tx: number, ty: number, t: TileChar, shp: Shape): boolean => {
-      if (drawn && k >= 1 && shp.k === 'top' && (t === 'а' || t === 'б')
-          && tx >= 0 && tx < m.w && ty >= 0 && ty < m.h && s.digEdits?.[m.id]?.[ty * m.w + tx]?.startsWith(t)) {
-        const height = digLift(m, tx, ty)
-        if (height > 0) {
-          const block = thingKey(t === 'а' ? 'building_stone' : 'building_timber')
-          bare((tx - R.x) * T, (ty - R.y) * T, T, T)
-          for (let z = 0; z < height; z++) stand(block, tx + 0.5, ty + 0.5, px, 1, z)
-          return true
-        }
-      }
-      const n = digPlinth(m, tx, ty, shp)
+    /** Terrain (`terrain.ts`): a ramp, and the column under a thing that stands on raised ground. True: the tile is drawn. */
+    const terrainTile = (tx: number, ty: number, t: TileChar, shp: Shape): boolean => {
+      void t
+      const n = terrainPlinth(m, tx, ty, shp)
       const slope = rampSlope(m, tx, ty)
       if (!n && !slope) return false
       const sx = (tx - R.x) * T
       const sy = (ty - R.y) * T
-      const own = (q: TileChar, top: boolean) => { const dm = digMaterial(q, top, def.look === 'wild'); return dm ? 8 * materialId(dm) : 0 }
+      const own = (q: TileChar, top: boolean) => { const dm = terrainMaterial(q, top, def.look === 'wild'); return dm ? 8 * materialId(dm) : 0 }
       if (n > 0) {
         // The column, capped with a plain neighbour's picture (under a chest lies turf, not chest).
-        const [cx, cy] = digCapOf(m, tx, ty)
+        const [cx, cy] = terrainCapOf(m, tx, ty)
         const cap = m.tiles[cy * m.w + cx]!
         const ux = (cx - R.x) * T
         const uy = (cy - R.y) * T
         const side = own(cap, false)
         quad(tx, ty, n, 0, tx + 1, ty, n, 0, tx + 1, ty + 1, n, 0, tx, ty + 1, n, 0, ux, uy, ux + T, uy + T, 0, own(cap, true))
-        if (digLift(m, tx, ty + 1) < n) quad(tx, ty + 1, n, 0, tx + 1, ty + 1, n, 0, tx + 1, ty + 1, 0, 0, tx, ty + 1, 0, 0, ux, uy, ux + T, uy + T, 1, side, southShade, 0, 1)
-        if (digLift(m, tx + 1, ty) < n) quad(tx + 1, ty, n, 0, tx + 1, ty + 1, n, 0, tx + 1, ty + 1, 0, 0, tx + 1, ty, 0, 0, ux, uy, ux + T, uy + T, 2, side, eastShade, 0, 1)
+        if (terrainLift(m, tx, ty + 1) < n) quad(tx, ty + 1, n, 0, tx + 1, ty + 1, n, 0, tx + 1, ty + 1, 0, 0, tx, ty + 1, 0, 0, ux, uy, ux + T, uy + T, 1, side, southShade, 0, 1)
+        if (terrainLift(m, tx + 1, ty) < n) quad(tx + 1, ty, n, 0, tx + 1, ty + 1, n, 0, tx + 1, ty + 1, 0, 0, tx + 1, ty, 0, 0, ux, uy, ux + T, uy + T, 2, side, eastShade, 0, 1)
       }
       if (!slope) return false
       // The ramp: its steps on a slope, and its sides where they face the viewer.
@@ -1216,7 +1207,7 @@ export default function isoView(kit: Kit): View {
       const ownThing = solid && ((t === 'n' && def.look !== 'lab') || (t === 'F' && outdoors))
       /** Furniture drawn by hand for this view stands for this tile (part 23, `furnitureAt`). */
       const piece = drawn && (kind === 'interior' || def.look === 'lab') && !(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && exitTiles(world, m.id).has(ty * m.w + tx)) ? furnitureAt(tileOf, tx, ty, room) : null
-      if (m.dig && digTile(tx, ty, t, shp)) continue
+      if (m.terrain && terrainTile(tx, ty, t, shp)) continue
       if (shp.k === 'flat' && !ownThing && !piece && !(green && (t === '.' || t === ';' || t === ':'))) continue
       // The ground rectangle is the box round a diamond: about half of it is off the screen.
       const midX = cam.ox + (tx + 0.5) * cam.ex.x + (ty + 0.5) * cam.ey.x
@@ -1406,12 +1397,6 @@ export default function isoView(kit: Kit): View {
           prop = puzzlePropOf(t, { lit: !!m.phys?.lit.includes(i) || (t === 'ρ' && !!flag && has(s, flag)), open: !!flag && has(s, flag), dir: pz.emitters.find(e => e.idx === i)?.dir })
         }
         else if (t === 't' && kind !== 'dungeon') {
-          if (drawn && rise >= 0.5 && m.dig && s.digEdits?.[m.id]?.[ty * m.w + tx]?.startsWith('t')) {
-            stand(thingKey('building_lamp'), tx + 0.5, ty + 0.62, px, rise, digLift(m, tx, ty))
-            cards.push({ x: tx + 0.5, y: ty + 0.66, tall: rise, wide: 0.14 })
-            bare(sx, sy - up, T, T + up)
-            continue
-          }
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
           const sandy = (tileOf(tx + 1, ty) === '-' ? 1 : 0) + (tileOf(tx - 1, ty) === '-' ? 1 : 0) + (tileOf(tx, ty + 1) === '-' ? 1 : 0) + (tileOf(tx, ty - 1) === '-' ? 1 : 0) >= 2
           if (!(outdoors && sandy)) {
@@ -1429,7 +1414,7 @@ export default function isoView(kit: Kit): View {
           }
         }
         if (prop) {
-          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' || prop.startsWith('pz') ? ty + 0.5 : ty + 0.62, px, rise, digLift(m, tx, ty))
+          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' || prop.startsWith('pz') ? ty + 0.5 : ty + 0.62, px, rise, terrainLift(m, tx, ty))
           const post = prop.startsWith('lamp')
           cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (post ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : post ? 0.14 : 0.24 })
           if (rise >= 1) { bare(sx, sy - up, T, T + up); continue }
@@ -1442,7 +1427,7 @@ export default function isoView(kit: Kit): View {
       const fy0 = ty + 1 - FOOT / T
       const rows = Math.round((T + up) * sunk)
       if (rows <= 0) continue
-      const foot = -FOOT / T + digLift(m, tx, ty)
+      const foot = -FOOT / T + terrainLift(m, tx, ty)
       const top = foot + rows / T
       const half = (T / 2) * zoom
       quad(fx0, fy0, top, -half, fx0, fy0, top, half, fx0, fy0, foot, half, fx0, fy0, foot, -half, sx, sy - up, sx + T, sy - up + rows, 3, 0)
@@ -1470,8 +1455,8 @@ export default function isoView(kit: Kit): View {
       large.sort((a, b) => Math.hypot(a.x - hx, a.y - hy) - Math.hypot(b.x - hx, b.y - hy))
     }
     let used = 1
-    // (The hero's height on a dig map, eased down off a ledge.)
-    heroFoot = m.dig ? heroFootEase(yawMap === m.id ? heroFoot : null, s, ui.paused ? 0 : dt) : null
+    // (The hero's height on terrain, eased down off a ledge.)
+    heroFoot = m.terrain ? heroFootEase(yawMap === m.id ? heroFoot : null, s, ui.paused ? 0 : dt) : null
     const heroLift = heroFoot ?? 0
     standing.length = 0
     bearers.length = 0
@@ -1573,8 +1558,8 @@ export default function isoView(kit: Kit): View {
         const p = world3(it.x, ay - 0.01)
         if (p[2] > 0 || shapeAt(Math.floor(it.x), Math.floor(ay - 0.01)).k !== 'flat') { fx0 = p[0]; fy0 = p[1]; z0 = p[2] + 0.04 }
       } else if (!it.hero || s.hero.act !== 'fall') standing.push(it.x, ay)
-      // Dig & build: on raised ground, up a ramp, down in a hole (`dig.ts`).
-      if (m.dig && !it.tile) z0 += it.hero ? heroLift : digFoot(m, it.x, ay - 0.01)
+      // Terrain: on raised ground, up a ramp, down in a hole (`terrain.ts`).
+      if (m.terrain && !it.tile) z0 += it.hero ? heroLift : terrainFoot(m, it.x, ay - 0.01)
       fx0 -= back
       fy0 -= back
       z0 -= back
@@ -1635,7 +1620,7 @@ export default function isoView(kit: Kit): View {
       }
       const key = thingKey(motion && !motion.bob ? `${art}_${frame}` : art)
       if (!Object.prototype.hasOwnProperty.call(propAtlas!.sprites, key)) continue
-      const z = (lm.z ?? digLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
+      const z = (lm.z ?? terrainLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
       stand(key, lm.x, lm.y, px, rise, z)
       if (lm.shadow) cards.push({ x: lm.x, y: lm.y, ...lm.shadow })
       // What it shines with (`types.ts` `LandmarkLight`): it comes up with the landmark over the turn's end.
@@ -1773,8 +1758,6 @@ export default function isoView(kit: Kit): View {
     }
     kit.projectiles(xg, s, S1, (dx, dy) => ({ x: dx * P.ex.x + dy * P.ey.x, y: dx * P.ex.y + dy * P.ey.y }))
     kit.fx(xg, s, dt, S1, ui.paused, 1 - 0.5 * k)
-    // Dig & build: the tile a tool would work, outlined at its height (`dig.ts`).
-    if (m.dig && k > 0.5) digCursor(xg, world, s, (x, y, z) => { const p = toScene(cam, x, y, z); return { x: p.x / zoom, y: p.y / zoom } }, reduced ? 0 : time)
     // --- the air: dust at the hero's heels, sparks rising in the lamplight, leaves on the wind ----
     if (!reduced && k > 0.5 && (par.air as boolean)) {
       const h = s.hero

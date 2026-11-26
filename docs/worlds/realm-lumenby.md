@@ -1,5 +1,9 @@
 # LUMENBY QUARRY
 
+> **What was built differs (2026-11-26).** Dig & build was taken out of the game. Lumenby keeps the pit's benches
+> as fixed terrain, and its realm system is relighting the hill sign: lumen tubes turned into place, one letter a
+> puzzle (`docs/games/neon-shrine-sign.md`). The sketch below is the original design.
+
 Every neon tube on the coast was once a pink vein in this hill. Lumenby was the quarry town that dug the
 lumen out, blew it into glass and shipped it down the coast road; when the static came the shift whistle
 stopped, the miners left, and the big hillside sign that spelled L U M E N B Y went dark one letter at a time.

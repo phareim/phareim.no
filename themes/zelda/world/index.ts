@@ -14,10 +14,9 @@ import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
 import { ARENA } from './arena'
-import { QUARRY } from './quarry'
 import { PUZZLELAB } from './puzzlelab'
 import { linkBack } from './demos'
-import { ATLAS, rescueFrontier } from './atlas'
+import { ATLAS, rescueGone } from './atlas'
 import { LANDS } from './lands'
 
 export { INTRO } from './intro'
@@ -41,8 +40,6 @@ export const WORLD: World = {
     deep2: DEEP2,
     // Field battles' glade, down a root stair in the Sporelight (demos.ts).
     arena: linkBack(ARENA),
-    // Dig & build's first map (`MapDef.dig`), down from Lumenby's pit: the tools are here.
-    quarry: linkBack(QUARRY),
     // The physical puzzles' lab (`engine/puzzles/`), inside Stillsand's gold pyramid.
     puzzlelab: linkBack(PUZZLELAB),
     // The lands around the coast and the Wildwood (docs/worlds/atlas.md).
@@ -51,8 +48,8 @@ export const WORLD: World = {
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,
   atlas: ATLAS,
-  // Saves made in the generated frontier (gone since 2026-11) continue in the land that took its place.
-  rescue: rescueFrontier,
+  // Saves made on a map the world no longer has (the generated frontier, the Old Quarry) continue nearby.
+  rescue: rescueGone,
 }
 
 /** Every exit in the world with the map it stands in, in authoring order (the page's hidden link list reads it). */

@@ -10,8 +10,7 @@ import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
-import { buildKind, DIG_MATS, isDigItem, matCount } from '../engine/dig'
-import { itemIconName } from './dig'
+import { itemIconName } from './itemIcon'
 import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
 import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
 
@@ -209,18 +208,13 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   const keys = keyCount(s)
   if (keys > 0 || s.map.ring !== 'shrine' || s.map.id === 'shrine') counter('hud_key', keys, 1, skin.prize)
   if (hasBigKey(s)) { icon(g, skin, 'hud_bigkey', cx, cy); cx += 12 }
-  // Dig & build: the materials, while a tool is out (the hammer's kind lit).
-  if (isDigItem(inv.selected) && s.map.dig) {
-    const lit = inv.selected === 'build' ? buildKind(s) : null
-    for (const k of DIG_MATS) if (matCount(s, k) > 0 || k === lit) counter(`hud_${k}`, matCount(s, k), 1, k === lit || (lit === 'lamp' && (k === 'lumen' || k === 'wood')) ? skin.prize : skin.text)
-  }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
   // its pause chip owns the top-right corner). An art resting shows dim, its rest filling a bar under it.
   if (!touch && inv.selected) {
     const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
-    const item = world ? itemIconName(world, s) : inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
+    const item = itemIconName(s)
     const rest = isArt(inv.selected) ? artRest(s, inv.selected) : 1
     if (rest < 1) g.globalAlpha = 0.35
     icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)

@@ -855,7 +855,7 @@ classic picture. `/?view=<id>` asks for one.
     and stunned, shots turned round, the knight's shield no help and a zapper no
     shock. FLASH STEP (the Shrine's knight's): up to `FLASH.dist` tiles in a blink,
     through the nearest foe that way, stopping short of walls, pits, spikes, ice,
-    the room's edge and, on dug ground, a step up it could not walk; what it passed
+    the room's edge and, on terrain, a step up it could not walk; what it passed
     is cut `FLASH.delay` later. STARFALL (the
     mistral's): a leap at the nearest foe within reach (else three tiles along the
     aim), a hang at the top, a slam all round that stuns. HALO (the twins'): three

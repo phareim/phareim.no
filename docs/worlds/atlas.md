@@ -48,12 +48,12 @@ land's place is its top-left on the grid; local = global − origin.
 |---|---|---|---|---|---|---|---|---|---|
 | `overworld` | THE NEON COAST | (0, 0) | 104×48 | coast | | coast | overworld | | all |
 | `wildwood` | THE WILDWOOD | (−84, −12) | 84×52 | wild | | coast | forest | | all |
-| `seterfell` | SETER FELL | (0, −52) | 72×52 | wild | seterfell | meadow | forest | dig (caches only) | iso, classic |
+| `seterfell` | SETER FELL | (0, −52) | 72×52 | wild | seterfell | meadow | forest | | iso, classic |
 | `yulefjord` | YULE FJORD | (−40, −104) | 88×52 | snow | yulefjord | | static | puzzles | iso |
 | `sporelight` | THE SPORELIGHT | (72, −52) | 80×52 | spore | sporelight | | lab | battle | iso, classic |
 | `stillsand` | STILLSAND | (104, 0) | 88×32 | dune | stillsand | | beach | puzzles | iso |
 | `rerun` | RERUN ESTATES | (104, 32) | 80×40 | suburb | rerun | | village | battle | iso, classic |
-| `lumenby` | LUMENBY QUARRY | (−84, −52) | 84×40 | quarry | lumenby | | static | dig | iso |
+| `lumenby` | LUMENBY QUARRY | (−84, −52) | 84×40 | quarry | lumenby | | static | terrain, the sign | iso |
 | `fogstage` | FOGSTAGE | (−172, −12) | 88×52 | fog | fogstage | | indoor | battle | iso |
 
 The overworld's and the Wildwood's rows never change size: blown boulders,
@@ -93,9 +93,9 @@ rims are cliff, sea or forest.
 entry `ferry` (the harbour); the harbour's warp sails back to overworld
 `ferry`. The ferryman stands aside for the blade, as before.
 
-**Stairs** to the three hand-made teaching maps, now places with a reason:
+**Stairs** to the two hand-made teaching maps, now places with a reason (THE OLD QUARRY, dig & build's, went
+with it on 2026-11-26; a save made there continues in Lumenby's pit):
 
-- THE OLD QUARRY (`quarry`, the four dig tools): down from Lumenby's pit.
 - THE BATTLE GLADE (`arena`): down a root stair in the Sporelight.
 - THE PUZZLE LAB (`puzzlelab`): inside Stillsand's gold pyramid.
 
@@ -138,7 +138,7 @@ BIG SETER is the hub (huts round a meadow, churns, the byre, Sigrid's home,
 Solveig, the barn nisse); TROLL HUMPS in the east are sleeping trolls as hills
 (the old herder, the pass down to the Sporelight); CAIRN RIDGE in the north
 carries the path to Yule Fjord past STEINAR's cairns; THE MOUNDS in the west
-(the mound elder, buried pantries for the shovel) lead to Lumenby. UNDER THE
+(the mound elder and the barrows) lead to Lumenby. UNDER THE
 FELL is a cave behind a cracked boulder. The heart piece sits on a ledge seen
 from the Big Seter and reached from Cairn Ridge.
 
@@ -176,8 +176,10 @@ groups.
 The town that dug every neon tube on the coast. From the grove gate the road
 climbs to LUMENBY under the dark hill sign (seven letters, `quarry_letter_*`,
 lit by the lots' flags); THE UNION HALL (GUNN); THE PIT, terraced, with the
-stair down to THE OLD QUARRY; THE DEEP DRIFT under its headframe (MOTHER MAG)
-down to THE UNDERGLOW; chalk lots waiting for houses. Dig & build is on.
+heart piece on its stack (bombs, then the hook); THE DEEP DRIFT under its
+headframe (MOTHER MAG) down to THE UNDERGLOW; chalk lots waiting for houses.
+The ground has heights (`terrain`), and the realm's system is relighting the
+hill sign letter by letter (`docs/games/neon-shrine-sign.md`).
 
 ### FOGSTAGE (`fogstage`)
 A lowland drowned in pink stage fog, hill towns standing out of it like

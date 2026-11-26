@@ -7,12 +7,12 @@ import { createRequire } from 'node:module'
 import { load } from './zelda-load.mjs'
 
 let Z
-/** The B box's icon (`render/dig.ts`), bundled on its own. */
+/** The B box's icon (`render/itemIcon.ts`), bundled on its own. */
 let P
 before(async () => {
   Z = await load()
   const out = createRequire(import.meta.url)('esbuild').buildSync({
-    stdin: { contents: `export { itemIconName } from './render/dig'; export { WILD_RAW } from './render/spritesWild'`, resolveDir: new URL('../themes/zelda', import.meta.url).pathname, loader: 'ts' },
+    stdin: { contents: `export { itemIconName } from './render/itemIcon'; export { WILD_RAW } from './render/spritesWild'`, resolveDir: new URL('../themes/zelda', import.meta.url).pathname, loader: 'ts' },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
   })
   P = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
@@ -25,7 +25,7 @@ const B = (move = { x: 0, y: 0 }) => inp({ bPress: true, move })
 
 /**
  * An empty room, the hero in it with the blade, facing east; a foe `d` tiles east (0: none). `rows` replaces the
- * room ('@' the hero); `extra` adds to its map (a `dig`).
+ * room ('@' the hero); `extra` adds to its map (a `terrain`).
  */
 function arena(d = 1.6, kind = 'blob', rows, extra = {}) {
   const W = {
@@ -299,14 +299,14 @@ describe('the arts on B', () => {
     Z.grant(s, 'artPulse')
     assert.equal(s.inv.selected, 'pulse')
     assert.deepEqual(s.inv.arts, ['pulse'])
-    assert.deepEqual(Z.useItems(s, W), ['hook', 'pulse'])
+    assert.deepEqual(Z.useItems(s), ['hook', 'pulse'])
   })
 
   it('an art in hand shows its own icon on B', () => {
     const { W, s } = arena(0)
     for (const a of Z.ARTS) {
       Z.grant(s, a.item)
-      assert.equal(P.itemIconName(W, s), `item_${a.id}`)
+      assert.equal(P.itemIconName(s), `item_${a.id}`)
       assert.equal(P.WILD_RAW[`item_${a.id}`]?.length, 16, `no icon for ${a.id}`)
     }
   })
@@ -363,16 +363,16 @@ describe('the arts on B', () => {
     assert.ok(s.hero.x < 17 - Z.HERO_R + 1e-6)
   })
 
-  it('FLASH STEP on dug ground steps down a ledge, never up one', () => {
+  it('FLASH STEP on terrain steps down a ledge, never up one', () => {
     // Level 2 ground, a trench at level 1 two tiles wide, level 2 again past it: walking stops at the far side.
     const rows = ['##################', '#................#', '#................#', '#.....@..........#', '#................#', '##################']
     const heights = rows.map(r => r.split('').map((ch, x) => (x === 8 || x === 9 ? '1' : '2')).join(''))
-    const { s, go } = withArt('flash', 0, 'blob', rows, { dig: { heights } })
+    const { s, go } = withArt('flash', 0, 'blob', rows, { terrain: { heights } })
     s.hero.x = 6.5
     go(B({ x: 1, y: 0 }))
     go(inp(), 40)
     assert.ok(s.hero.x > 8.3 && s.hero.x < 10 - Z.HERO_R + 0.05, `ended at ${s.hero.x.toFixed(2)}`)
-    assert.equal(s.map.dig.z, 1)
+    assert.equal(s.map.terrain.z, 1)
   })
 
   it('STARFALL leaps onto the nearest foe and slams it', () => {

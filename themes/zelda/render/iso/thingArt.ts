@@ -12,7 +12,6 @@
  * Edit by redrawing and regenerating, never the hashes by hand.
  */
 import { FERRY_ART } from './ferryArt'
-import { BUILDING_ART } from './frontierArt/buildingData'
 import { ROADSIDE_ART } from './frontierArt/roadsideData'
 
 export interface ThingArt {
@@ -32,7 +31,6 @@ export interface ThingArt {
 }
 
 export const THING_ART: Record<string, ThingArt> = {
-  ...BUILDING_ART,
   ...ROADSIDE_ART,
   ferry: FERRY_ART,
   "bed": {

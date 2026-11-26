@@ -11,8 +11,7 @@ import { puzzleMarkTile } from '../world/puzzles'
 import { loadPuzzleTiles } from './puzzles/load'
 import { spawnEnemy } from './spawn'
 import { fieldFoes } from './battle/field'
-import { digAbove, digLevel } from './digGround'
-import { digLoad } from './dig'
+import { terrainAbove, terrainLevel, terrainLoad } from './terrain'
 import { dirVec, opposite } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
@@ -353,10 +352,10 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     }
   }
   if (info.def.battle) enemies.push(...fieldFoes(world, s, info, info.def.battle))
-  // Dig & build: the heights, and this run's edits over the tiles (`dig.ts`).
-  const dig = info.def.dig ? digLoad(info.def, s, id, tiles) : undefined
+  // The ground's heights (`terrain.ts`).
+  const terrain = info.def.terrain ? terrainLoad(info.def) : undefined
   return {
-    ...(dig ? { dig } : {}),
+    ...(terrain ? { terrain } : {}),
     id, w: info.w, h: info.h, tiles, version: 1,
     enemies, projectiles: [], drops: [], bombs: [], blasts: [], thrown: [], moving: [],
     npcs, pickups, exits: [...info.exits.values()].map(x => ({ ...x })), plates: [], pending: [], crystal: {},
@@ -418,18 +417,18 @@ function circleHitsTile(x: number, y: number, r: number, tx: number, ty: number)
 }
 
 /**
- * On a dig map a tile higher than the mover's level blocks it too (`digGround.ts`): `lv` is that level, by
- * default the one it stands at there (the hero's, kept in `MapState.dig.z`).
+ * On a map with terrain a tile higher than the mover's level blocks it too (`terrain.ts`): `lv` is that level, by
+ * default the one it stands at there (the hero's, kept in `MapState.terrain.z`).
  */
 export function circleBlocked(world: World, m: MapState, x: number, y: number, r: number, mode: MoveMode = 'hero', lv?: number): boolean {
-  const z = m.dig && mode !== 'fly' ? lv ?? (mode === 'hero' ? m.dig.z : digLevel(m, x, y, r)) : -1
+  const z = m.terrain && mode !== 'fly' ? lv ?? (mode === 'hero' ? m.terrain.z : terrainLevel(m, x, y, r)) : -1
   const x0 = Math.floor(x - r)
   const x1 = Math.floor(x + r)
   const y0 = Math.floor(y - r)
   const y1 = Math.floor(y + r)
   for (let ty = y0; ty <= y1; ty++) {
     for (let tx = x0; tx <= x1; tx++) {
-      if ((solidTile(world, m, tx, ty, mode) || (z >= 0 && digAbove(m, tx, ty, z))) && circleHitsTile(x, y, r, tx, ty)) return true
+      if ((solidTile(world, m, tx, ty, mode) || (z >= 0 && terrainAbove(m, tx, ty, z))) && circleHitsTile(x, y, r, tx, ty)) return true
     }
   }
   if (mode === 'hero') {
@@ -452,7 +451,7 @@ export function moveCircle(
 ): { x: number; y: number; hitX: boolean; hitY: boolean } {
   let hitX = false
   let hitY = false
-  const lv = m.dig && mode !== 'fly' ? digLevel(m, x, y, r) : undefined
+  const lv = m.terrain && mode !== 'fly' ? terrainLevel(m, x, y, r) : undefined
   if (dx !== 0) {
     if (!circleBlocked(world, m, x + dx, y, r, mode, lv)) x += dx
     else {
