@@ -505,16 +505,10 @@ export function drawViewStrip(g: G, strip: { views: ReadonlyArray<{ name: string
   F.draw(g, count, Math.round((vw - F.width(count)) / 2), y + h + 4, skin.dim, skin.outline)
 }
 
-/** Where an art not yet learned is to be found (said on the MOVES page; where to go, never how). */
-const ART_HINT: Record<ArtId, string> = {
-  pulse: 'THE KEEPER HAS ONE MORE THING TO TEACH.',
-  flash: 'A KNIGHT IN THE SHRINE FIGHTS THIS WAY.',
-  star: 'SOMETHING IN HORIZON LAB RIDES THE SKY.',
-  halo: 'TWINS IN THE DEEP LAB CIRCLE THIS WAY.',
+/** The art on the MOVES page: where it is to be found before it is learned (where to go, never how), what it does after. */
+const ART_HINT: Record<ArtId, { find: string; does: string }> = {
+  hop: { find: 'THE KEEPER HAS ONE MORE THING TO TEACH.', does: 'HOP CLEAR OF A BLOW. NO FOE CAN HIT YOU IN THE AIR.' },
 }
-
-/** A short name for an art whose name and first word are both too wide for its slot on a narrow screen. */
-const ART_SHORT: Partial<Record<ArtId, string>> = { star: 'STAR' }
 
 /** How wide a combo's buttons are drawn (`drawKeys`). */
 const keysWidth = (F: HudFont, keys: string) => keys.split(' ').reduce((sum, tok, i) => sum + F.width(tok) + (i ? 4 : 0), 0)
@@ -531,7 +525,7 @@ function drawKeys(g: G, F: HudFont, keys: string, x: number, y: number, skin: Hu
 
 /**
  * The MOVES page (`N`): every combo with its buttons and how far it is from mastered (a gold MASTER once it is),
- * and the arts on B, learned or where to look for the next. Laid out to fit a phone on its side.
+ * and the art on B, learned (what it does) or where to look for it. Laid out to fit a phone on its side.
  */
 export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, skin: HudSkin = NEON_SKIN) {
   g.fillStyle = skin.veil
@@ -540,9 +534,12 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const w = Math.min(vw - 12, 248)
   const x = Math.round((vw - w) / 2)
   const row = vh < 230 ? 9 : 10
-  const next = ARTS.find(a => !knowsArt(s, a.id))
-  const tip = F.wrap(next ? ART_HINT[next.id] : 'EVERY ART IS YOURS.', w - 14).slice(0, 2)
-  const panelH = 16 + MOVES.length * row + 6 + 12 + 30 + 4 + tip.length * 10
+  const art = ARTS[0]!
+  const known = knowsArt(s, art.id)
+  const textX = 7 + 22
+  const tip = F.wrap(known ? ART_HINT[art.id].does : ART_HINT[art.id].find, w - textX - 7).slice(0, 3)
+  const artH = Math.max(20, tip.length * 10)
+  const panelH = 16 + MOVES.length * row + 6 + 12 + artH + 6
   let y = drawMenuTabs(g, 'moves', vw, Math.max(4, Math.round((vh - panelH - 14) / 2)), keys, skin)
   skin.panel(g, x, y, w, panelH, 'cool')
   // The combos.
@@ -571,34 +568,23 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
     }
     ry += row
   }
-  // The arts on B.
+  // The art on B: its icon in a slot (dim while it rests, underlined when in hand), its name and what it does.
   ry += 4
   const use = keys.touch ? 'ON THE ITEM BUTTON' : `ON ${keys.b}, ${keys.cycle} SWAPS`
-  F.draw(g, 'ARTS', x + 7, ry, skin.prize)
+  F.draw(g, known ? art.name : 'THE ART', x + 7, ry, skin.prize)
   F.draw(g, use, x + w - 7 - F.width(use), ry, skin.faint)
   ry += 11
-  const slot = Math.floor((w - 14) / ARTS.length)
-  ARTS.forEach((a, i) => {
-    const ix = x + 7 + i * slot
-    g.fillStyle = skin.slot
-    g.fillRect(ix, ry, slot - 4, 30)
-    const known = knowsArt(s, a.id)
-    if (known) {
-      const name = `item_${a.id}`
-      const rest = artRest(s, a.id)
-      if (rest < 1) g.globalAlpha = 0.4
-      icon(g, skin, name, Math.round(ix + (slot - 4) / 2 - sprite(name).width / 2), ry + 2)
-      g.globalAlpha = 1
-      if (s.inv.selected === a.id) { g.fillStyle = skin.prize; g.fillRect(ix, ry + 29, slot - 4, 1) }
-    }
-    const label = known ? a.name : '???'
-    // (A name too wide for its box on a narrow screen: its first word, or its short name.)
-    const short = known ? ART_SHORT[a.id] : undefined
-    const fit = [label, label.split(' ')[0]!, short].find(l => l && F.width(l) <= slot - 4) ?? short ?? label.split(' ')[0]!
-    F.draw(g, fit, Math.round(ix + (slot - 4) / 2 - F.width(fit) / 2), ry + 21, known ? skin.dim : skin.faint)
-  })
-  ry += 34
-  tip.forEach((line, i) => F.draw(g, line, Math.round(x + (w - F.width(line)) / 2), ry + i * 10, next ? skin.dim : skin.ok))
+  g.fillStyle = skin.slot
+  g.fillRect(x + 7, ry, 20, 20)
+  if (known) {
+    const name = `item_${art.id}`
+    if (artRest(s, art.id) < 1) g.globalAlpha = 0.4
+    icon(g, skin, name, Math.round(x + 17 - sprite(name).width / 2), ry + 2)
+    g.globalAlpha = 1
+    if (s.inv.selected === art.id) { g.fillStyle = skin.prize; g.fillRect(x + 7, ry + 19, 20, 1) }
+  } else F.draw(g, '?', Math.round(x + 17 - F.width('?') / 2), ry + 7, skin.faint)
+  tip.forEach((line, i) => F.draw(g, line, x + textX, ry + (tip.length === 1 ? 7 : 2 + i * 10), known ? skin.dim : skin.faint))
+  void artH
 }
 
 /** A combo's name called out where it lands: what it is, and once its first or its mastery. */

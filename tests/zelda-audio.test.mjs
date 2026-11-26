@@ -133,7 +133,7 @@ const SFX_NAMES = ['sword', 'spin', 'charge', 'hit', 'kill', 'clank', 'hurt', 's
   'crystal', 'push', 'bombPlace', 'boom', 'disc', 'discHit', 'fall', 'pellet', 'laser',
   'reflect', 'warp', 'stairs', 'text', 'menu', 'select', 'error', 'bossRoar', 'bossHit',
   'bossDie', 'lowHp', 'gate', 'hook', 'hookHit', 'pull', 'psi', 'glyph', 'lever', 'land', 'beam', 'gust', 'bark',
-  'flip', 'comet', 'rise', 'slam', 'pulse', 'flash', 'halo', 'slip', 'ready',
+  'flip', 'comet', 'hop', 'slip',
   'sword2', 'swordHeavy', 'hitHeavy', 'roll']
 
 test('the 16-bit tables are whole: a patch per track, a lead per jingle, sane gains, a kit that renders', () => {

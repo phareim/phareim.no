@@ -23,7 +23,7 @@ import { battleFocus, stepBattle, stepField } from './battle/index'
 import { terrainLevel } from './terrain'
 import { resetPuzzleRoom } from './puzzles/index'
 import { cleanExplored, revealAround, reveal } from './explore'
-import { ART_IDS, artsFromFlags, endMoves, resetMoves, stepSlow, stepTeach } from './moves'
+import { ART_IDS, endMoves, resetMoves, stepSlow } from './moves'
 
 function freshInv(): Inventory {
   return {
@@ -78,8 +78,6 @@ export function createGame(
   const seen = save ? cleanExplored(save.explored) : null
   if (seen) s.explored = seen
   if (save) for (const f of save.flags) s.flags[f] = true
-  // A boss down before the arts were: its art, quietly (`moves.ts`).
-  if (save) artsFromFlags(s)
   const ev: GameEvent[] = []
   enterMap(world, s, map, entry, ev)
   // A new game's intro waits until the hero has stepped out of the start door.
@@ -248,8 +246,6 @@ function play(c: Ctx, dt: number, inp: Input) {
     if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, s.hero.x, s.hero.y, HERO_R)
     stepHero(c, inp, dt)
     revealAround(s, c.info.def, c.info.w, c.info.h)
-    // A boss's art, once the room is calm.
-    if (s.mode === 'play') stepTeach(c, dt)
   }
   if (s.mode !== 'play') return
   // A SLIP: the world runs slow a moment, the hero at full pace (`moves.ts`).
@@ -637,15 +633,19 @@ export function parseSave(raw: unknown): SaveData | null {
   const OLD_KEYS = ['sword', 'bombBag', 'bombs', 'disc', 'bits', 'keys', 'bigKey', 'pieces', 'selected', 'prism']
   for (const k of Object.keys(base) as Array<keyof Inventory>) {
     const want = typeof base[k]
-    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && !OLD_ITEMS.includes(inv[k] as string) && !(ART_IDS as readonly unknown[]).includes(inv[k])) return null; continue }
+    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && !OLD_ITEMS.includes(inv[k] as string) && !OLD_ARTS.includes(inv[k] as string) && !(ART_IDS as readonly unknown[]).includes(inv[k])) return null; continue }
     if (inv[k] === undefined && !OLD_KEYS.includes(k)) continue
     if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
   }
   const maxHp = Math.max(START_HP, Math.min(MAX_HP, Math.round(r.maxHp as number)))
+  const arts = cleanArts(inv)
+  const flags = r.flags as string[]
+  // Whoever knew an art the game has dropped knows the HOP, as if the Keeper had taught it.
+  const taught = !!arts.arts?.includes('hop') && !flags.includes('item:artHop')
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
-    inv: { ...base, ...(cleanOld(inv) as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanArts(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
+    inv: { ...base, ...(cleanOld(inv) as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...arts }, flags: taught ? [...flags, 'item:artHop'] : flags, rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
     ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
     ...(cleanExplored(r.explored) ? { explored: cleanExplored(r.explored)! } : {}),
@@ -661,11 +661,18 @@ function cleanOld(inv: Record<string, unknown>): Record<string, unknown> {
   return OLD_ITEMS.includes(rest.selected as string) ? { ...rest, selected: null } : rest
 }
 
+/**
+ * The arts a save may know that the game has since dropped: PULSE, FLASH STEP, STARFALL and HALO (gone 2026-11-26,
+ * the HOP in their place). A save that knew one knows the HOP, and one in hand is the HOP in hand.
+ */
+const OLD_ARTS: readonly string[] = ['pulse', 'flash', 'star', 'halo']
+
 /** The arts and the combos' counts as a save has them, with anything unknown dropped (`moves.ts`). */
-function cleanArts(inv: Record<string, unknown>): Pick<Inventory, 'arts' | 'moves'> & { selected?: null } {
-  const out: Pick<Inventory, 'arts' | 'moves'> & { selected?: null } = { arts: undefined, moves: undefined }
+function cleanArts(inv: Record<string, unknown>): Pick<Inventory, 'arts' | 'moves'> & { selected?: Inventory['selected'] } {
+  const out: Pick<Inventory, 'arts' | 'moves'> & { selected?: Inventory['selected'] } = { arts: undefined, moves: undefined }
   if (Array.isArray(inv.arts)) {
-    const arts = [...new Set(inv.arts.filter((a): a is ArtId => (ART_IDS as readonly unknown[]).includes(a)))]
+    const old: ArtId[] = inv.arts.some(a => OLD_ARTS.includes(a)) ? ['hop'] : []
+    const arts = [...new Set([...old, ...inv.arts.filter((a): a is ArtId => (ART_IDS as readonly unknown[]).includes(a))])]
     if (arts.length) out.arts = arts
   }
   if (inv.moves && typeof inv.moves === 'object' && !Array.isArray(inv.moves)) {
@@ -676,8 +683,9 @@ function cleanArts(inv: Record<string, unknown>): Pick<Inventory, 'arts' | 'move
     }
     if (Object.keys(moves).length) out.moves = moves
   }
-  // An art in hand that is not learned is nothing in hand.
-  if (isArtId(inv.selected) && !out.arts?.includes(inv.selected)) out.selected = null
+  // An art in hand that is not learned is nothing in hand; a dropped one in hand is the HOP.
+  if (OLD_ARTS.includes(inv.selected as string)) out.selected = out.arts?.includes('hop') ? 'hop' : null
+  else if (isArtId(inv.selected) && !out.arts?.includes(inv.selected)) out.selected = null
   return out
 }
 const isArtId = (x: unknown): x is ArtId => (ART_IDS as readonly unknown[]).includes(x)

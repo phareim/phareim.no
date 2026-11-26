@@ -100,7 +100,7 @@
         <button v-if="hasSword" class="zelda-pad zelda-pad-roll" aria-label="Roll" @pointerdown.prevent.stop="pressRoll" @contextmenu.prevent>
           <img v-if="rollIcon" :src="rollIcon" alt="" class="zelda-pad-icon">
         </button>
-        <button v-if="hasItem" class="zelda-pad zelda-pad-b" :class="{ 'zelda-pad--rest': padRest < 1 }" :style="padRest < 1 ? { '--rest': padRest } : undefined" aria-label="Use item or art" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
+        <button v-if="hasItem" class="zelda-pad zelda-pad-b" :class="{ 'zelda-pad--rest': padRest < 1 }" :style="padRest < 1 ? { '--rest': padRest } : undefined" aria-label="Use item or hop" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
           <img v-if="itemIcon" :src="itemIcon" alt="" class="zelda-pad-icon">
         </button>
         <button
@@ -278,7 +278,7 @@ const touchUI = ref(false)
 const padItem = ref('')
 /** 0..1: how rested the art on B is (1: ready, or an item); the pad dims and fills while it rests. */
 const padRest = ref(1)
-/** The hero has a B item (bombs, the disc, the hook, an art): B, SWAP and Tab have a job. */
+/** The hero has a B item (bombs, the disc, the hook, the hop): B, SWAP and Tab have a job. */
 const hasItem = ref(false)
 /** The hero has the blade: the deck's roll pad is there (before it the town stays quiet). */
 const hasSword = ref(false)
@@ -1241,7 +1241,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',
   hook: 'hook', hookHit: 'hookHit', pull: 'pull', psi: 'psi', glyph: 'glyph', lever: 'lever', land: 'land',
   gust: 'gust', bark: 'bark', tube: 'tube',
-  slip: 'slip', artReady: 'ready',
+  slip: 'slip',
 }
 
 function handleEvents(events: GameEvent[]) {
@@ -1253,10 +1253,9 @@ function handleEvents(events: GameEvent[]) {
     switch (e.type) {
       // The chain's hits climb a step, and the finisher swings heavy; a heavy blow lands heavy, a critical one rings.
       case 'swing': a?.sfx(e.n === 1 ? 'sword2' : e.n === 2 ? 'swordHeavy' : 'sword'); break
-      // The acrobatics and the arts (`engine/moves.ts`).
-      case 'air': a?.sfx(e.kind === 'comet' ? 'comet' : e.kind === 'tempest' ? 'spin' : e.kind === 'star' ? 'rise' : 'flip'); break
-      case 'touchdown': if (e.kind === 'star') a?.sfx('slam'); else if (e.heavy) a?.sfx('swordHeavy'); else a?.sfx('land'); break
-      case 'art': if (e.art === 'pulse') a?.sfx('pulse'); else if (e.art === 'flash') a?.sfx('flash'); else if (e.art === 'halo') a?.sfx('halo'); break
+      // The acrobatics and the hop (`engine/moves.ts`).
+      case 'air': a?.sfx(e.kind === 'comet' ? 'comet' : e.kind === 'tempest' ? 'spin' : e.kind === 'hop' ? 'hop' : 'flip'); break
+      case 'touchdown': if (e.heavy) a?.sfx('swordHeavy'); else a?.sfx('land'); break
       case 'move': if (e.mastered) { a?.jingle('secret'); save = true } else if (e.first) save = true; break
       case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : e.crit ? 'bossHit' : e.heavy ? 'hitHeavy' : 'hit'); break
       case 'join': a?.jingle('friend'); save = true; break

@@ -1,6 +1,6 @@
-// Neon Shrine's acrobatics and arts (engine/moves.ts, docs/games/neon-shrine.md "Combos and arts"):
-// FLIP CUT, BACKFLIP, COMET, TEMPEST, WALL SPRING, SLIP, mastery, the four arts on B, who teaches them,
-// and what a save keeps of them.
+// Neon Shrine's acrobatics and its art (engine/moves.ts, docs/games/neon-shrine.md "Combos and the hop"):
+// FLIP CUT, BACKFLIP, COMET, TEMPEST, WALL SPRING, SLIP, mastery, the HOP on B and the HOP CUT out of it, who
+// teaches it, and what a save keeps of it (and of the four arts it replaced).
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -285,175 +285,263 @@ describe('SLIP and mastery', () => {
   })
 })
 
-describe('the arts on B', () => {
-  function withArt(art, d = 2, kind = 'blob', rows, extra) {
+describe('HOP, on B', () => {
+  function withHop(d = 1.6, kind = 'blob', rows, extra) {
     const a = arena(d, kind, rows, extra)
-    Z.grant(a.s, Z.ARTS.find(x => x.id === art).item)
+    Z.grant(a.s, 'artHop')
     return a
   }
+  const landed = a => a.until(() => !a.s.hero.air, 60)
 
-  it('learning an art puts it in hand, after the items in the swap round', () => {
-    const { W, s } = arena(0)
+  it('learning the hop puts it in hand, after the items in the swap round', () => {
+    const { s } = arena(0)
     s.inv.hook = true
     s.inv.selected = 'hook'
-    Z.grant(s, 'artPulse')
-    assert.equal(s.inv.selected, 'pulse')
-    assert.deepEqual(s.inv.arts, ['pulse'])
-    assert.deepEqual(Z.useItems(s), ['hook', 'pulse'])
+    Z.grant(s, 'artHop')
+    assert.equal(s.inv.selected, 'hop')
+    assert.deepEqual(s.inv.arts, ['hop'])
+    assert.deepEqual(Z.useItems(s), ['hook', 'hop'])
+    assert.deepEqual(Z.ARTS.map(a => a.id), ['hop'], 'the one art')
   })
 
-  it('an art in hand shows its own icon on B', () => {
-    const { W, s } = arena(0)
-    for (const a of Z.ARTS) {
-      Z.grant(s, a.item)
-      assert.equal(P.itemIconName(s), `item_${a.id}`)
-      assert.equal(P.WILD_RAW[`item_${a.id}`]?.length, 16, `no icon for ${a.id}`)
-    }
-  })
-
-  it('the bomb bag goes in hand over an art: its pickup says B sets one', () => {
+  it('the hop in hand shows its own icon on B', () => {
     const { s } = arena(0)
-    Z.grant(s, 'artPulse')
+    Z.grant(s, 'artHop')
+    assert.equal(P.itemIconName(s), 'item_hop')
+    assert.equal(P.WILD_RAW.item_hop?.length, 16)
+    for (const old of ['pulse', 'flash', 'star', 'halo']) assert.equal(P.WILD_RAW[`item_${old}`], undefined, `item_${old} left behind`)
+  })
+
+  it('the bomb bag goes in hand over the hop', () => {
+    const { s } = arena(0)
+    Z.grant(s, 'artHop')
     Z.grant(s, 'bombBag')
     assert.equal(s.inv.selected, 'bombs')
   })
 
-  it('PULSE throws a foe in front back, stuns it, and rests before the next', () => {
-    const { s, ev, go, foe } = withArt('pulse', 1.5)
-    go(B())
-    assert.ok(ev.some(e => e.type === 'art' && e.art === 'pulse'))
-    go(inp(), 20)
-    assert.ok(foe.x - foe.home.x > 1, `thrown only ${(foe.x - foe.home.x).toFixed(2)}`)
-    assert.ok(foe.stun > 0)
-    go(B())
-    assert.ok(ev.some(e => e.type === 'error'), 'no buzz while it rests')
-    go(inp(), Math.ceil(Z.ARTS.find(a => a.id === 'pulse').cool * 60) + 2)
-    assert.ok(ev.some(e => e.type === 'artReady' && e.art === 'pulse'))
-  })
-
-  it('PULSE turns a shot round', () => {
-    const { s, go } = withArt('pulse', 0)
-    const p = { id: 7, kind: 'pellet', x: s.hero.x + 1.5, y: s.hero.y, vx: -3, vy: 0, r: 0.2, t: 0, life: 9 }
-    s.map.projectiles.push(p)
-    go(B())
-    assert.equal(p.friendly, true)
-    assert.ok(p.vx > 0)
-  })
-
-  it('FLASH STEP crosses through a foe and cuts it a moment later', () => {
-    const { s, ev, go, until, foe } = withArt('flash', 2)
+  it('hops away from the foe, still facing it, and no blow of its lands in the air; then it rests a moment', () => {
+    const a = withHop(1.6)
+    const { s, ev, go, foe } = a
     const x0 = s.hero.x
+    s.hero.dir = 'left'; s.hero.aim = Math.PI
     go(B())
-    assert.equal(s.hero.act, 'dash')
-    const hp0 = foe.hp
+    assert.equal(s.hero.air?.kind, 'hop')
+    assert.equal(s.hero.dir, 'right', 'turned to face the foe')
+    go(inp(), 4)
+    assert.ok(Z.heroZ(s.hero) > 0.2, 'not off the ground')
+    const hp = s.hero.hp
+    assert.equal(Z.hurtHero(Z.ctx(a.W, s, []), 1, foe.x, foe.y, false, true), false, 'a foe\'s blow landed in the hop')
+    assert.equal(s.hero.hp, hp)
+    assert.ok(landed(a))
+    assert.ok(x0 - s.hero.x > 1.5 && x0 - s.hero.x < 2.4, `hopped ${(x0 - s.hero.x).toFixed(2)}`)
+    assert.equal(s.hero.dir, 'right')
+    assert.ok(ev.some(e => e.type === 'touchdown' && e.kind === 'hop'))
+    // Resting: a press is the buzz; rested, it hops again.
+    go(B())
+    assert.ok(!s.hero.air && ev.at(-1)?.type === 'error', 'hopped again at once')
+    go(inp(), Math.ceil(Z.ARTS[0].cool * 60))
+    go(B())
+    assert.equal(s.hero.air?.kind, 'hop')
+  })
+
+  it('with the stick pushed it hops that way, still facing the foe; with no foe, straight back', () => {
+    const a = withHop(1.6)
+    const y0 = a.s.hero.y
+    a.go(B({ x: 0, y: 1 }))
+    assert.ok(landed(a))
+    assert.ok(a.s.hero.y - y0 > 1.4, `sideways ${(a.s.hero.y - y0).toFixed(2)}`)
+    assert.equal(a.s.hero.dir, 'right')
+    const b = withHop(0)
+    b.s.hero.dir = 'up'; b.s.hero.aim = -Math.PI / 2
+    const by = b.s.hero.y
+    b.go(B())
+    assert.ok(landed(b))
+    assert.ok(b.s.hero.y - by > 1.4, 'not back')
+    assert.equal(b.s.hero.dir, 'up')
+  })
+
+  it('a stone or a blast still lands in the hop; the air never crosses a pit', () => {
+    const a = withHop(0)
+    const { s, go } = a
+    go(B())
     go(inp(), 3)
-    assert.ok(s.hero.x > foe.home.x, 'did not pass the foe')
-    assert.equal(foe.hp, hp0, 'cut at once')
-    assert.ok(until(() => !s.hero.dash))
-    assert.ok(foe.hp < hp0, 'never cut')
-    assert.ok(s.hero.x - x0 <= Z.FLASH.dist + 1e-6)
-    assert.ok(ev.some(e => e.type === 'art' && e.art === 'flash'))
+    assert.equal(Z.hurtHero(Z.ctx(a.W, s, []), 1, s.hero.x + 1, s.hero.y), true)
+    assert.equal(s.hero.air, null)
+    const rows = ['##########', '#........#', '#..OO.@..#', '#........#', '##########']
+    const b = withHop(0, 'blob', rows)
+    b.go(B())
+    assert.ok(landed(b))
+    assert.ok(b.s.hero.x > 5 - 1e-6 + Z.HERO_R - 0.1, `over the pit: ${b.s.hero.x.toFixed(2)}`)
+    assert.equal(b.s.hero.act === 'fall', false)
   })
 
-  it('FLASH STEP stops short of a wall', () => {
-    const { s, go, until } = withArt('flash', 0)
-    s.hero.x = 15
+  it('the chain goes on through the hop: A out of it is the HOP CUT, the next hit sprung back in at the foe', () => {
+    const a = withHop(1.2)
+    const { s, ev, go, until, foe } = a
+    go(A())
+    go(inp(), 5)
     go(B())
-    if (s.hero.dash) until(() => !s.hero.dash)
-    assert.ok(s.hero.x < 17 - Z.HERO_R + 1e-6)
-  })
-
-  it('FLASH STEP on terrain steps down a ledge, never up one', () => {
-    // Level 2 ground, a trench at level 1 two tiles wide, level 2 again past it: walking stops at the far side.
-    const rows = ['##################', '#................#', '#................#', '#.....@..........#', '#................#', '##################']
-    const heights = rows.map(r => r.split('').map((ch, x) => (x === 8 || x === 9 ? '1' : '2')).join(''))
-    const { s, go } = withArt('flash', 0, 'blob', rows, { terrain: { heights } })
-    s.hero.x = 6.5
-    go(B({ x: 1, y: 0 }))
-    go(inp(), 40)
-    assert.ok(s.hero.x > 8.3 && s.hero.x < 10 - Z.HERO_R + 0.05, `ended at ${s.hero.x.toFixed(2)}`)
-    assert.equal(s.map.terrain.z, 1)
-  })
-
-  it('STARFALL leaps onto the nearest foe and slams it', () => {
-    const { s, ev, go, until, foe } = withArt('star', 3.2)
-    foe.y += 1
-    foe.home.y += 1
-    go(B())
-    assert.equal(s.hero.air?.kind, 'star')
-    go(inp(), 14)
-    assert.ok(Z.heroZ(s.hero) > 1.5, 'not high')
+    assert.equal(s.hero.air?.kind, 'hop', 'the hop cut the hit short')
+    assert.equal(s.hero.swing, null)
+    const far = foe.x - s.hero.x
+    go(inp(), 2)
+    go(A())
+    assert.ok(landed(a))
+    assert.ok(until(() => !!s.hero.swing, 20), 'no cut out of the hop')
+    assert.equal(s.hero.swing.n, 1, 'the chain started over')
+    assert.ok(s.hero.swing.spring > 1, `sprang only ${s.hero.swing.spring}`)
+    const fromFoe = foe.x - s.hero.x
+    assert.ok(fromFoe > far, 'did not hop away')
     const hp0 = foe.hp
-    assert.ok(until(() => !s.hero.air))
-    assert.ok(hp0 - foe.hp >= Z.STARFALL.dmg)
-    assert.ok(Math.hypot(foe.home.x - s.hero.x, foe.home.y - s.hero.y) < 1, 'came down away from the foe')
-    assert.ok(ev.some(e => e.type === 'touchdown' && e.kind === 'star' && e.heavy))
+    assert.ok(until(() => foe.hp < hp0, 30), 'the cut never landed')
+    assert.ok(foe.x - s.hero.x < fromFoe - 0.8, 'did not spring back in')
+    assert.ok(ev.some(e => e.type === 'move' && e.id === 'hopcut'))
+    assert.ok(ev.some(e => e.type === 'swing' && e.spring))
+    // And the chain's finisher follows.
+    assert.ok(until(() => !s.hero.swing, 30))
+    go(A())
+    assert.ok(until(() => s.hero.swing?.n === 2, 10), 'the finisher')
   })
 
-  it('HALO: sparks round the hero cut a foe beside them, not every frame', () => {
-    const { s, go, foe } = withArt('halo', 1.15)
+  it('A just after the hop lands is still the HOP CUT; a while after it is a plain hit', () => {
+    const a = withHop(1.6)
+    a.go(B())
+    assert.ok(landed(a))
+    a.go(A())
+    assert.ok(a.until(() => !!a.s.hero.swing, 10))
+    assert.ok(a.s.hero.swing.spring !== undefined, 'no spring')
+    const b = withHop(1.6)
+    b.go(B())
+    assert.ok(landed(b))
+    b.go(inp(), Math.ceil(Z.HOP.window * 60) + 2)
+    b.go(A())
+    assert.ok(b.until(() => !!b.s.hero.swing, 10))
+    assert.equal(b.s.hero.swing.spring, undefined)
+  })
+
+  it('out of the finisher the hop starts the chain over (no tempest out of it)', () => {
+    const a = withHop(1.2)
+    const { s, go, until } = a
+    go(A()); go(inp(), 11); go(A()); go(inp(), 11); go(A())
+    assert.equal(s.hero.swing?.n, 2)
+    go(inp(), 5)
     go(B())
-    assert.ok(s.hero.halo)
-    go(inp(), 60)
-    const lost = 99 - foe.hp
-    assert.ok(lost >= 1 && lost <= 6, `lost ${lost}`)
-    go(inp(), Math.ceil(Z.HALO.time * 60))
-    assert.equal(s.hero.halo, null)
+    assert.equal(s.hero.air?.kind, 'hop')
+    go(A())
+    assert.ok(landed(a))
+    assert.ok(until(() => !!s.hero.swing, 20))
+    assert.equal(s.hero.swing.n, 0)
+    assert.notEqual(s.hero.air?.kind, 'tempest')
   })
 
-  it('a landed blow shortens the arts\' rest', () => {
-    const { s, go } = withArt('pulse', 1.2)
-    s.hero.artCool = { pulse: 2 }
+  it('a foe\'s blow that passed under the hop makes the HOP CUT critical', () => {
+    const a = withHop(1.6)
+    const { s, ev, go, until, foe } = a
+    go(B())
+    go(inp(), 3)
+    Z.hurtHero(Z.ctx(a.W, s, []), 1, foe.x, foe.y, false, true)
+    go(A())
+    assert.ok(landed(a))
+    const hp0 = foe.hp
+    assert.ok(until(() => foe.hp < hp0, 40))
+    const hit = ev.filter(e => e.type === 'hit').at(-1)
+    assert.equal(hit?.crit, true)
+    assert.equal(hp0 - foe.hp, Z.COMBO[0].dmg + 1)
+  })
+
+  it('the HOP CUT\'s spring stops short of a pit', () => {
+    // A foe across a pit: the spring would carry the hero into it, and stops at its edge.
+    const rows = ['################', '#..............#', '#..@.....OO....#', '#..............#', '################']
+    const a = withHop(0, 'blob', rows)
+    a.go(B())
+    assert.ok(landed(a))
+    a.s.hero.x = 7.5
+    a.add(4.1)
+    a.go(A())
+    assert.ok(a.until(() => a.s.hero.swing?.spring !== undefined, 10))
+    assert.ok(a.s.hero.swing.spring > 2, `a short spring: ${a.s.hero.swing.spring}`)
+    assert.ok(a.until(() => !a.s.hero.swing, 40))
+    assert.ok(a.s.hero.x > 8.2 && a.s.hero.x < 9 - Z.HERO_R + 0.05, `ended at ${a.s.hero.x.toFixed(2)}`)
+    a.go(inp(), 30)
+    assert.notEqual(a.s.hero.act, 'fall')
+  })
+
+  it('a charge held into the hop is kept: let go once down, and the spin comes', () => {
+    const a = withHop(0)
+    const { s, ev, go, until } = a
+    go(A())
+    assert.ok(until(() => !s.hero.swing, 20, inp({ a: true })))
+    go(inp({ a: true }), 40)
+    assert.ok(s.hero.charge >= Z.CHARGE_TIME)
+    go(inp({ a: true, bPress: true }))
+    assert.equal(s.hero.air?.kind, 'hop')
+    assert.ok(until(() => !s.hero.air, 60, inp({ a: true })))
+    go(inp())
+    assert.ok(until(() => !!s.hero.spin, 5), 'no spin')
+    assert.ok(ev.some(e => e.type === 'spin'))
+  })
+
+  it('a landed blow shortens the hop\'s rest', () => {
+    const { s, go } = withHop(1.2)
+    s.hero.artCool = { hop: 0.6 }
     go(A()); go(inp(), 3)
-    assert.ok(s.hero.artCool.pulse < 2 - Z.ART_FEED + 0.1)
+    assert.ok(s.hero.artCool.hop < 0.6 - Z.ART_FEED + 0.1)
   })
 })
 
-describe('who teaches the arts, and the save', () => {
-  it('the Keeper teaches PULSE once the blade is in hand', () => {
+describe('who teaches the hop, and the save', () => {
+  it('the Keeper teaches the HOP once the blade is in hand', () => {
     const keeper = Object.values(Z.WORLD.maps).flatMap(d => Object.values(d.marks)).map(m => m.ent)
-      .find(e => e.t === 'npc' && e.talk.some(b => b.give === 'artPulse'))
-    assert.ok(keeper, 'nobody teaches PULSE')
-    const br = keeper.talk.find(b => b.give === 'artPulse')
-    assert.ok(br, 'the Keeper teaches nothing')
+      .find(e => e?.t === 'npc' && e.talk.some(b => b.give === 'artHop'))
+    assert.ok(keeper, 'nobody teaches the hop')
+    const br = keeper.talk.find(b => b.give === 'artHop')
     const s = Z.createGame(Z.WORLD)
     s.flags['item:sword'] = true
     assert.equal(keeper.talk.find(b => Z.condMet(s, Z.WORLD, b.when, -1)), br)
-    s.flags['item:artPulse'] = true
+    s.flags['item:artHop'] = true
     assert.notEqual(keeper.talk.find(b => Z.condMet(s, Z.WORLD, b.when, -1)), br)
   })
 
-  it('a boss down teaches its art once the room is calm', () => {
-    const { s, go, until } = arena(0)
+  it('a boss down teaches nothing now', () => {
+    const { s, go } = arena(0)
     s.flags.miniboss = true
-    go(inp(), 30)
-    assert.equal(s.mode, 'play', 'taught at once')
-    assert.ok(until(() => s.mode === 'get', 200))
-    assert.equal(s.get.item, 'artFlash')
-    assert.deepEqual(s.inv.arts, ['flash'])
-  })
-
-  it('an old save with the boss down has the art, quietly; arts and counts survive a save', () => {
-    const { s } = arena(0)
     s.flags.mistral = true
-    s.flags.gemini = true
-    s.inv.selected = null
-    const raw = JSON.parse(JSON.stringify(Z.toSave(s)))
-    const back = Z.createGame(Z.WORLD, { save: Z.parseSave(raw) })
-    assert.deepEqual([...back.inv.arts].sort(), ['halo', 'star'])
-    back.inv.moves = { flip: 3, nonsense: 4 }
-    const again = Z.parseSave(JSON.parse(JSON.stringify({ ...Z.toSave(back), inv: { ...Z.toSave(back).inv, arts: ['star', 'bogus', 'star'], selected: 'pulse' } })))
-    assert.deepEqual(again.inv.arts, ['star'])
-    assert.deepEqual(again.inv.moves, { flip: 3 })
-    assert.equal(again.inv.selected, null, 'an art not learned in hand')
+    go(inp(), 300)
+    assert.equal(s.mode, 'play')
+    assert.equal(s.inv.arts, undefined)
   })
 
-  it('a save with an art in hand loads', () => {
+  it('a save from the days of the four arts knows the hop, in hand where an art was; counts survive', () => {
     const { s } = arena(0)
-    Z.grant(s, 'artHalo')
+    s.flags['item:artPulse'] = true
+    s.inv.moves = { flip: 3 }
+    const raw = JSON.parse(JSON.stringify(Z.toSave(s)))
+    for (const sel of ['pulse', 'flash', 'star', 'halo']) {
+      const old = Z.parseSave({ ...raw, inv: { ...raw.inv, arts: ['pulse', sel, 'bogus'], selected: sel, moves: { flip: 3, nonsense: 4 } } })
+      assert.ok(old, `a save with ${sel} in hand loads`)
+      assert.deepEqual(old.inv.arts, ['hop'])
+      assert.equal(old.inv.selected, 'hop')
+      assert.deepEqual(old.inv.moves, { flip: 3 })
+      assert.ok(old.flags.includes('item:artHop'), 'the Keeper would teach it again')
+      const g = Z.createGame(Z.WORLD, { save: old })
+      assert.deepEqual(Z.useItems(g), ['hop'])
+    }
+    // An old art in hand that the save never knew: nothing in hand.
+    const odd = Z.parseSave({ ...raw, inv: { ...raw.inv, selected: 'halo' } })
+    assert.equal(odd.inv.selected, null)
+    assert.equal(odd.inv.arts, undefined)
+    // Something that never was an art still makes a save unreadable.
+    assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, selected: 'nova' } }), null)
+  })
+
+  it('a save with the hop in hand loads as it was', () => {
+    const { s } = arena(0)
+    Z.grant(s, 'artHop')
     const back = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
     assert.ok(back)
-    assert.equal(back.inv.selected, 'halo')
+    assert.equal(back.inv.selected, 'hop')
+    assert.deepEqual(back.inv.arts, ['hop'])
+    assert.equal(back.flags.filter(f => f === 'item:artHop').length, 1)
   })
 })
 
@@ -470,14 +558,23 @@ describe('the flow between moves', () => {
     assert.ok(ev.some(e => e.type === 'swing' && e.n === 0))
   })
 
-  it('an art cuts a hit of the chain short, as the roll may', () => {
-    const { s, ev, go } = arena(1.5)
-    Z.grant(s, 'artPulse')
+  it('the hop cuts a hit of the chain short from a third in, as the roll may, and comes out of a roll\'s second half', () => {
+    const { s, go } = arena(1.5)
+    Z.grant(s, 'artHop')
     go(A())
-    go(inp(), 5)
     go(B())
-    assert.ok(ev.some(e => e.type === 'art' && e.art === 'pulse'))
+    assert.ok(!s.hero.air, 'cut the hit short at once')
+    go(inp(), 4)
+    go(B())
+    assert.equal(s.hero.air?.kind, 'hop')
     assert.equal(s.hero.swing, null)
+    const b = arena(0)
+    Z.grant(b.s, 'artHop')
+    b.go(R({ x: 1, y: 0 }))
+    b.go(inp(), 9)
+    b.go(B())
+    assert.equal(b.s.hero.air?.kind, 'hop')
+    assert.equal(b.s.hero.roll, null)
   })
 
   it('a shove (a shield, a gust) brings the hero down out of the air', () => {
@@ -527,9 +624,8 @@ describe('the air and the field battles', () => {
     while (s.mode !== 'battle' && k++ < 40) Z.stepGame(W, s, 1 / 60, inp())
     assert.equal(s.mode, 'battle')
     assert.equal(s.hero.air, null)
-    assert.equal(s.hero.dash, null)
     assert.equal(s.hero.cometT, 0)
-    assert.equal(s.hero.halo, null)
+    assert.equal(s.hero.hopT, 0)
     assert.equal(s.hero.edge, false)
     assert.equal(s.slow, 0)
     for (let j = 0; j < 30; j++) Z.stepGame(W, s, 1 / 60, inp())

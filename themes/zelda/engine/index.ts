@@ -4,7 +4,7 @@ export { mapDef, mapInfo, cellIndex, cellRect, cellDef, tileAt, raised, crystalA
 export { shardPos, SHARD_R, enemyActive } from './enemies'
 export { aimOf, swingAngle, swingDur, useItems } from './hero'
 // The acrobatics and the arts (`moves.ts`)
-export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artReady, artRest, isArt, haloSparks, ART_IDS, TEACHERS } from './moves'
+export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artReady, artRest, isArt, ART_IDS } from './moves'
 export { STATS } from './spawn'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'

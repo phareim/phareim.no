@@ -224,7 +224,7 @@ function stepProjectiles(c: Ctx, dt: number) {
     }
     if (!dead && !p.friendly && p.kind === 'gust') {
       // Wind: no harm, a hard shove (towards the pits, if Mistral has aimed well).
-      if (Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R && h.act !== 'fall' && !s.hook && !h.air && !h.dash) {
+      if (Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R && h.act !== 'fall' && !s.hook && !h.air) {
         const len = Math.hypot(p.vx, p.vy) || 1
         h.knock = { vx: (p.vx / len) * 9, vy: (p.vy / len) * 9, t: 0.32 }
         h.swing = null

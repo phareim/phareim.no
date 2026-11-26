@@ -8,7 +8,7 @@ import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
 import { startBattle } from './battle/fight'
-import { artOfItem, endMoves, isArt, learnArt, slip } from './moves'
+import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
 
 export interface Ctx {
   w: World
@@ -26,8 +26,8 @@ export function ctx(w: World, s: GameState, ev: GameEvent[]): Ctx {
 // ---------------------------------------------------------------------------
 
 /**
- * `foe`: the harm is a foe's (a blow, a shot). Only a foe's harm passes over the hero in the air or the flash
- * step, and only a foe's that passes through the roll's first moments is a SLIP (`moves.ts`). Any other harm
+ * `foe`: the harm is a foe's (a blow, a shot). Only a foe's harm passes over the hero in the air (a hop it passes
+ * under makes the HOP CUT after it critical), and only a foe's that passes through the roll's first moments is a SLIP (`moves.ts`). Any other harm
  * (spikes, a fall, a stone, the hero's own bomb, whatever a land adds) is not a foe's unless its caller says so.
  */
 export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shock = false, foe = false): boolean {
@@ -38,8 +38,8 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
   if (s.mode !== 'play' || h.invuln > 0 || h.act === 'fall' || h.act === 'dead' || h.act === 'get') return false
   // The first moments of a dodge roll: nothing lands.
   if (h.roll && h.roll.t < ROLL_IFRAMES) { if (foe) slip(c, fromX, fromY); return false }
-  // In the air and in the flash step: no foe's blow lands. A stone or a blast still does, and throws him clear.
-  if ((h.air || h.dash) && foe) return false
+  // In the air no foe's blow lands. A stone or a blast still does, and throws him clear.
+  if (h.air && foe) { hopDodge(h); return false }
   h.hp = Math.max(0, h.hp - dmg)
   h.invuln = INVULN
   let dx = h.x - fromX
@@ -78,7 +78,7 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 // ---------------------------------------------------------------------------
 
 /** `art`: one of the arts on B (`moves.ts`). */
-export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit' | 'art'
+export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit'
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
@@ -107,7 +107,7 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
   }
   // After a SLIP the hero's next blow is critical (`moves.ts`).
   const h0 = c.s.hero
-  if (h0.edge && (src === 'sword' || src === 'spin' || src === 'art')) {
+  if (h0.edge && (src === 'sword' || src === 'spin')) {
     opt = { ...opt, crit: true }
     const landed = hitEnemyPlain(c, e, dmg, fromX, fromY, src, opt)
     if (landed) h0.edge = false
@@ -366,10 +366,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
     case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
     case 'tonic3': return ['THREE NEON TONICS!', 'IN A FIGHT, ITEM HANDS ONE TO YOU OR A FRIEND: TWO HEARTS BACK. TASTES PINK.']
-    case 'artPulse': return ['YOU LEARNED PULSE!', 'PRESS {B} TO PUSH A WAVE FROM YOUR PALM. IT THROWS FOES BACK, STUNS THEM AND TURNS THEIR SHOTS ROUND.', 'ARTS SIT ON {B} WITH YOUR ITEMS: {CYCLE} SWAPS. EACH NEEDS A MOMENT BETWEEN USES.']
-    case 'artFlash': return ['THE KNIGHT\'S CHARGE IS YOURS: FLASH STEP!', 'PRESS {B} TO CROSS FOUR TILES IN A BLINK. WHATEVER STOOD IN THE WAY IS CUT A MOMENT LATER.']
-    case 'artStar': return ['THE MISTRAL\'S SKY IS YOURS: STARFALL!', 'PRESS {B} TO LEAP HIGH AT THE NEAREST FOE AND COME DOWN ON IT LIKE A FALLING STAR.']
-    case 'artHalo': return ['THE TWINS\' ORBIT IS YOURS: HALO!', 'PRESS {B} AND THREE SPARKS CIRCLE YOU FOR A WHILE, CUTTING WHATEVER COMES TOO CLOSE.']
+    case 'artHop': return ['YOU LEARNED HOP!', 'PRESS {B} TO HOP CLEAR OF A FOE, STILL FACING IT. NO BLOW REACHES YOU IN THE AIR.', 'PRESS {A} IN THE HOP AND YOU SPRING BACK IN WITH A CUT. THE CHAIN OF CUTS GOES ON THROUGH IT.', 'THE HOP SITS ON {B} WITH YOUR ITEMS: {CYCLE} SWAPS.']
   }
 }
 
@@ -400,7 +397,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'tonic3': inv.tonics = Math.min(9, inv.tonics + 3); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
-    case 'artPulse': case 'artFlash': case 'artStar': case 'artHalo': learnArt(s, artOfItem(item)!); break
+    case 'artHop': learnArt(s, artOfItem(item)!); break
   }
   setFlag(s, `item:${item}`)
 }

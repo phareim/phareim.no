@@ -343,12 +343,12 @@ export const OVERWORLD: MapDef = {
             ],
           },
           {
-            // The first art (`engine/moves.ts`): once, as soon as the blade is in hand.
-            when: { flags: ['item:sword'], not: ['item:artPulse'] },
-            give: 'artPulse',
+            // The art (`engine/moves.ts`): once, as soon as the blade is in hand.
+            when: { flags: ['item:sword'], not: ['item:artHop'] },
+            give: 'artHop',
             lines: [
               'KEEPER: ONE MORE THING. THE BLADE IS ONLY HALF OF IT.',
-              'KEEPER: HOLD OUT YOUR PALM. FEEL THE STATIC HUMMING IN THE AIR? NOW PUSH.',
+              'KEEPER: WHEN SOMETHING SWINGS AT YOU, DO NOT BE THERE. HOP CLEAR, KEEP YOUR EYES ON IT, AND COME STRAIGHT BACK IN.',
             ],
           },
           {

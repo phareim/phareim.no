@@ -52,7 +52,7 @@ and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 `validate.ts`; the Wildwood: `wildwood.ts`, `lab1.ts`, `lab2.ts`, `luna.ts`,
 `cells.ts`. `index.ts` holds `WORLD` (start: the plaza), `worldExits()`
 and `worldStartingAt()`. `engine/` — pure simulation split by concern
-(`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `moves.ts` (the acrobatics and the arts), `enemies.ts`,
+(`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `moves.ts` (the acrobatics and the hop), `enemies.ts`,
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
 `bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the
 classic view, and the turn between views), `iso/` (the isometric view),
@@ -807,8 +807,8 @@ classic picture. `/?view=<id>` asks for one.
     standing (`extraFallback`), never to the classic hero. The lab's
     `swing1`, `swing2`, `swing3`, `roll`, `hit` and `kill` scenes show each
     moment.
-- **Combos and arts** (`engine/moves.ts`, the numbers in `types.ts`: `AIR`, `MOVES`,
-  `ARTS` and one table per art; 2026-11-25). The hero fights the way a small old
+- **Combos and the hop** (`engine/moves.ts`, the numbers in `types.ts`: `AIR`, `MOVES`,
+  `ARTS`, `HOP`; 2026-11-25, the hop in place of the four arts 2026-11-26). The hero fights the way a small old
   master would: off the ground as much as on it.
   - *In the air* (`Hero.air`, `heroZ`). No foe harms the hero there (a blow, a shot:
     `hurtHero`'s `foe`); a rolling stone or a blast still does, and throws him clear,
@@ -845,48 +845,51 @@ classic picture. `/?view=<id>` asks for one.
     SPRING) or slows longer (SLIP). Its name is called out over the hero's head as it
     lands (`drawCallout`; the chain and the spin only their first and the mastering
     one), NEW MOVE the first time, MASTERED! with what it gives the last.
-  - *The arts* (`ARTS`): sit on B among the items (`UseItem`, after them in the swap
-    round; learning one puts it in hand, and the bomb bag found after goes in hand
-    over it, as its pickup says), each resting `cool` s after use (the B box
-    and the B button dim and fill; ready again: a soft chime) and each landed blow of
-    the blade taking `ART_FEED` off every rest. One may cut a hit of the chain short
-    from 35 % in, or come straight out of a roll's second half. PULSE (the Keeper's,
-    once the blade is in hand): a wave out of the palm across a cone, foes thrown back
-    and stunned, shots turned round, the knight's shield no help and a zapper no
-    shock. FLASH STEP (the Shrine's knight's): up to `FLASH.dist` tiles in a blink,
-    through the nearest foe that way, stopping short of walls, pits, spikes, ice,
-    the room's edge and, on terrain, a step up it could not walk; what it passed
-    is cut `FLASH.delay` later. STARFALL (the
-    mistral's): a leap at the nearest foe within reach (else three tiles along the
-    aim), a hang at the top, a slam all round that stuns. HALO (the twins'): three
-    sparks circle the hero for `HALO.time` s, each foe they touch cut with a short
-    mercy between, shots turned. A boss's art is taught once its room is calm
-    (`stepTeach`, `TEACHERS`: the boss's `once` flag), with the item-get pose; a save
-    with the boss down from before the arts has the art on load (`artsFromFlags`).
-    Field battles' foes take no art. The arts' hits are `HitSource` `art`, so a
-    boss's own rules (the llama's wool, the mistral in the air) still hold.
+  - *The hop* (`ARTS`: HOP, the one art; it replaced PULSE, FLASH STEP, STARFALL and
+    HALO on 2026-11-26). It sits on B among the items (`UseItem`, after them in the
+    swap round; learning it puts it in hand, and the bomb bag found after goes in hand
+    over it). The Keeper teaches it once the blade is in hand (`give: 'artHop'`). B: a
+    quick low hop (`AIR.hop`, about two tiles) away from the nearest foe within
+    `HOP.seek`, or along the stick when it is pushed, or straight back with no foe
+    near; the hero turns to face the foe and stays facing it. In the air no foe's
+    blow lands (the air's rule); it rests `cool` s (the B box and the B button dim and
+    fill), each landed blow of the blade taking `ART_FEED` off it. It may cut a hit of
+    the chain short from 35 % in, come out of a roll's second half, or out of a held
+    charge (the charge is kept: let go once down and the spin comes). *Combined with
+    the blade:* the chain keeps its count through the hop (`Hero.combo`, for the hop's
+    time and `HOP.window` after), and A in the hop or within `HOP.window` of its landing
+    is the **HOP CUT** (`hopCut`, a combo of its own, `B A`): the chain's next hit,
+    sprung back in at the nearest foe within `HOP.reach` and `HOP.cone` of the aim (the
+    stick turns it), `HOP.spring` tiles at most at `HOP.speed`, stopping short of the
+    foe, a wall, a pit, spikes, ice and the room's edge; the cut sweeps once it stops
+    (`Hero.swing.spring`, its clock below 0 while it springs). Out of the finisher the
+    chain starts over (no tempest out of a hop). A foe's blow or shot that passed under
+    the hop makes the HOP CUT critical (`hopDodge`, +1). Mastered, the cut bites one
+    harder. A save from the four arts' days knows the hop, in hand where an art was
+    (`parseSave`'s `OLD_ARTS`), with `item:artHop` set so the Keeper does not teach it
+    twice; no boss teaches anything now.
   - *The MOVES page* (N, the second of the menu's three pages; on touch the deck's
     page button goes round ITEMS, MOVES, MAP): every combo with its buttons (A the
     blade in the hot colour, R the roll in the cool one) and a bar to its mastery,
     MASTER in gold once it is (a full gold bar where the word would run into the
-    buttons); the arts in four slots (dim while resting, the one in hand underlined,
-    a name too wide for its slot shortened), `???` for one not learned, and under
-    them where the next is to be found (where to go, never how). It fits a phone on
-    its side, and upright indoors (lab: `moves-hut`).
+    buttons; B, the hop, in gold); under them the hop in its slot (dim while resting,
+    underlined in hand) with what it does, or `?` and where to find it (where to go,
+    never how). It fits a phone on its side, and upright indoors (lab: `moves-hut`,
+    `moves-new`).
   - *What it looks like* (`render/renderer.ts`, all views alike). In the air the
     roll's ball turns a quarter at a time (lossless turns, `putRot`) the way the hero
     flies, tucked going up and crouched coming down; the FLIP CUT raises the blade
     overhead before the chop, whose pose and whole-arc smear hold a moment after it
     lands (`chopAt`); the COMET is the finisher's lunge with a white streak of
-    afterimages; the TEMPEST turns the swing round twice with the spin's smear; the
-    STARFALL climbs curled, hangs with the blade up and dives with it down, a ring
-    of rings and pink sparks where it lands. The FLASH STEP is gone in the blink (a
-    streak of afterimages and one long cut along the way) and stands after it with
-    the blade swept back. PULSE's wave is a band of hard pixels across its cone; the
-    HALO's sparks are diamonds with short tails. SLIP tints the screen and frames
-    it. Sounds: `flip`, `comet`, `rise`, `slam`, `pulse`, `flash`, `halo`, `slip`,
-    `ready`. The lab's `m-*` scenes catch each move, `moves` the page, `m-hud` the B
-    box resting and a call-out.
+    afterimages; the TEMPEST turns the swing round twice with the spin's smear. The
+    HOP is the run's own frames (low, both feet off the ground, low again) facing the
+    foe, lifted off its shadow, a short cyan trail and a small puff where it lands
+    (the modelled hero: a stride of the walk held off the ground); the HOP CUT springs
+    in with the blade drawn back, a white streak of afterimages and one long cut along
+    the way (`Fx` `line`), and cuts where it stops. SLIP tints the screen and frames
+    it. Sounds: `flip`, `comet`, `hop`, `slip` (the hop's short rest has no chime).
+    The lab's `m-*` scenes catch each move (`m-hop`, `m-hopcut`, `m-hopcut-hit`),
+    `moves` the page, `m-hud` the B box resting and a call-out.
 - **The land beyond the edge** (`render/beyond.ts`, `iso/lands.ts`,
   2026-11-12). A turned map is a diamond, and outdoors the world goes on
   round it for 24 tiles (`BEYOND`), so the land is never a board on a table.
@@ -1161,11 +1164,11 @@ out has the screen.
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; pressed again, the next hit of the chain;
-hold after a swing, release to spin; in a roll, a flip; see "Combos and arts");
+hold after a swing, release to spin; in a roll, a flip; see "Combos and the hop");
 K/X/Shift = B (the item or art in hand); L or C rolls
 (once the hero has the blade); Q, or Tab when there is an item, swaps; P or an
 Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
-current quest), N on its MOVES page (the combos, their mastery, the arts), M on
+current quest), N on its MOVES page (the combos, their mastery, the hop), M on
 its MAP page (see "The map"); the key of the open page or Escape closes it, another
 page's key turns to it. In the menu O turns the
 sound on or off, T goes to town, C (on the MAP page) the corner map; V
@@ -1175,7 +1178,7 @@ is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %; round buttons with pictures and no
 letters: A always (a sword), the roll (the hero curled up, a small green
 ring over B, beside A while there is no item) once there is the blade, B
-(the chosen item or art; an art resting dims and fills from the bottom) and swap (two arrows) once there is an item or an art, and the
+(the chosen item or the hop; the hop resting dims and fills from the bottom) and swap (two arrows) once there is an item or the hop, and the
 lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
 SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
 the chain and the roll); on a phone lying on its side

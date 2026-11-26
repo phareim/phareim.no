@@ -6,7 +6,7 @@
 import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '../types'
 import {
   ARC_REACH, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
-  HERO_SPEED, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
+  HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
@@ -20,8 +20,8 @@ import { isMirror } from '../world/puzzles'
 import { isTube } from '../world/tubes'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 import {
-  backflipWanted, canComet, canTempest, credit, endMoves, feedArts, isArt, mastered, startBackflip, startComet, startFlip,
-  startTempest, stepAfter, stepAir, stepArts, stepDash, useArt, wallSpring,
+  backflipWanted, canComet, canTempest, credit, endMoves, feedArts, hopCut, isArt, mastered, springStops, startBackflip,
+  startComet, startFlip, startTempest, stepAfter, stepAir, stepArts, useArt, wallSpring,
 } from './moves'
 
 const CORNER_ASSIST = 0.34
@@ -40,16 +40,14 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if ((h.rollCool ?? 0) > 0) h.rollCool! -= dt
   if (h.combo && h.combo.t > 0 && !h.swing) h.combo.t -= dt
   stepAfter(h, dt)
-  // The arts rest, the halo turns, whatever the hero is doing.
+  // The art rests, whatever the hero is doing.
   stepArts(c, dt)
   // A roll that something else ended (a shove, a door, a find) leaves no roll behind, nor the other way round.
   if (h.roll && h.act !== 'roll') h.roll = null
   if (!h.roll && h.act === 'roll') h.act = 'idle'
-  // The same for the air and the flash step.
+  // The same for the air.
   if (h.air && h.act !== 'air') h.air = null
   if (!h.air && h.act === 'air') h.act = 'idle'
-  if (h.dash && h.act !== 'dash') h.dash = null
-  if (!h.dash && h.act === 'dash') h.act = 'idle'
   if (h.auto) { walkOut(c, dt); return }
   // On the end of the hook's chain: stepHook moves him.
   if (s.hook) { h.act = 'hook'; return }
@@ -72,7 +70,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   else if ((h.bufRoll ?? 0) > 0) h.bufRoll! -= dt
   if (h.knock) {
     // A shove (a shield, a gust) brings the hero down out of the air.
-    if (h.air || h.dash) { endMoves(h); h.act = 'idle' }
+    if (h.air) { endMoves(h); h.act = 'idle' }
     if (inp.aPress && s.inv.sword && !h.carry) h.bufA = BUFFER_A
     const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, h.knock.vx * dt, h.knock.vy * dt)
     h.x = r.x
@@ -88,8 +86,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   }
   if ((h.act === 'throw' || h.act === 'use') && h.actT > 0.16) h.act = 'idle'
 
-  // --- the flash step and the air (`moves.ts`) ------------------------------------------
-  if (h.dash) { stepDash(c, dt); return }
+  // --- the air (`moves.ts`) ------------------------------------------------------
   if (h.air) { stepAir(c, inp, dt); return }
 
   // --- the dodge roll ------------------------------------------------------------
@@ -102,7 +99,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
     // A in the roll: the flip (FLIP CUT); on ice, where the air may not start, the strike waits for its end.
     if (inp.aPress && s.inv.sword && startFlip(c, inp)) return
     if (inp.aPress && s.inv.sword) h.bufA = BUFFER_A
-    // An art straight out of the roll's second half.
+    // The hop straight out of the roll's second half.
     if (inp.bPress && isArt(s.inv.selected) && h.roll.t > 0.12) {
       h.roll = null
       h.rollCool = ROLL_COOLDOWN
@@ -147,10 +144,10 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
 
   // --- B item + cycling -------------------------------------------------------
   if (inp.cycle) cycleItem(c)
-  // (An art may cut a hit of the chain short, as the roll may.)
+  // (The hop may cut a hit of the chain short, as the roll may.)
   const cuts = !!h.swing && isArt(s.inv.selected) && h.swing.t / swingDur(h.swing) >= ROLL_CANCEL
   if (inp.bPress && !h.carry && !h.spin && (!h.swing || cuts)) useItem(c, inp)
-  if (h.dash || h.air) return
+  if (h.air) return
 
   if (h.swing) stepSwing(c, inp, dt)
   if (h.spin) stepSpin(c, dt)
@@ -568,16 +565,20 @@ function startSwing(c: Ctx, inp: Input) {
     }
     if (best) { h.dir = best.dir; h.aim = best.a }
   }
+  // Out of a hop, the HOP CUT: the hit springs back in at the foe before it cuts (`moves.ts`).
+  const hc = hopCut(c, inp)
+  if (hc) { h.dir = toDir(Math.cos(hc.a), Math.sin(hc.a), h.dir); h.aim = hc.a }
   // The next hit of the chain while one is under way or just done; else its first.
   const prev = h.swing?.n ?? (h.combo && h.combo.t > 0 ? h.combo.n : undefined)
   const n = (prev === undefined ? 0 : (prev + 1) % 3) as 0 | 1 | 2
   const aim = aimOf(h)
   h.swing = { t: 0, dir: h.dir, a: aim, hit: [], n, side: n === 1 ? -1 : 1 }
+  if (hc) Object.assign(h.swing, { t: -hc.dist / HOP.speed, spring: hc.dist, ...(hc.crit ? { crit: true } : {}) })
   h.combo = { n, t: 0 }
   h.act = 'swing'
   h.actT = 0
   h.charge = 0
-  c.ev.push({ type: 'swing', n })
+  c.ev.push({ type: 'swing', n, ...(hc ? { spring: { x: h.x, y: h.y, a: h.swing.a!, d: hc.dist } } : {}) })
 }
 
 /** How long a swing lasts: its hit of the chain's time, or SWING_TIME for one outside the chain (a field battle's). */
@@ -634,16 +635,18 @@ function stepSwing(c: Ctx, inp: Input, dt: number) {
   const p1 = Math.min(1, sw.t / dur)
   const arc = c.s.inv.arc
   const hit = sw.n === undefined ? null : COMBO[sw.n]!
-  // A mastered TRIPLE CUT's finisher bites one harder.
-  const dmg = (hit ? hit.dmg + (sw.n === 2 && mastered(c.s, 'triple') ? 1 : 0) : 1) * (arc ? 2 : 1)
+  // A mastered TRIPLE CUT's finisher bites one harder, and a mastered HOP CUT.
+  const more = (sw.n === 2 && mastered(c.s, 'triple') ? 1 : 0) + (sw.spring !== undefined && mastered(c.s, 'hopcut') ? 1 : 0)
+  const dmg = (hit ? hit.dmg + more : 1) * (arc ? 2 : 1)
   const reach = (arc ? ARC_REACH : SWORD_REACH) + (sw.n === 2 ? 0.1 : 0)
-  const opt: HitOpts | undefined = hit ? { knock: hit.knock, stagger: hit.stagger, stop: hit.stop, chain: sw.n! < 2, finisher: sw.n === 2 } : undefined
+  const opt: HitOpts | undefined = hit ? { knock: hit.knock, stagger: hit.stagger, stop: hit.stop, chain: sw.n! < 2, finisher: sw.n === 2, ...(sw.crit ? { crit: true } : {}) } : undefined
   // Sample the sweep between the last and this step (the pull-back at the start cuts nothing).
   for (let k = 0; k <= 2; k++) {
     const p = p0 + ((p1 - p0) * k) / 2
     if (hit && p < WINDUP) continue
     const n = bladeHits(c, swingAngle(sw, p), reach, dmg, 'sword', sw.hit, opt)
     if (n > 0 && sw.n === 2 && !sw.landed) { sw.landed = true; credit(c, 'triple') }
+    if (n > 0 && sw.spring !== undefined && !sw.sprung) { sw.sprung = true; credit(c, 'hopcut') }
   }
   if (sw.t >= dur) {
     h.swing = null
@@ -660,11 +663,15 @@ function stepSwing(c: Ctx, inp: Input, dt: number) {
  * The step forward at the start of a hit of the chain (LUNGE_TIME), along the blow. It stops short of a foe
  * already within half the blade's reach ahead, of the edge of a pit or spikes, and of ice (on ice, or onto it,
  * the swing stays where it is and the slide keeps him). True while it holds him.
+ *
+ * The HOP CUT's spring (`sw.spring`, while its clock is below 0) goes the same way, farther and faster; it stops
+ * short of the same things and (in a dungeon) of the room's edge, and where it stops the cut begins.
  */
 function lunge(c: Ctx, dt: number): boolean {
   const s = c.s
   const h = s.hero
   const sw = h.swing
+  if (sw?.spring !== undefined && sw.t < 0) return spring(c, dt)
   if (!sw || sw.n === undefined || sw.t >= LUNGE_TIME) return false
   if (iceUnder(c)) return false
   const a = sw.a ?? dirAngle(sw.dir)
@@ -691,6 +698,37 @@ function lunge(c: Ctx, dt: number): boolean {
   return true
 }
 
+/** The HOP CUT's spring back in: one step of it; true while it holds him. */
+function spring(c: Ctx, dt: number): boolean {
+  const s = c.s
+  const h = s.hero
+  const sw = h.swing!
+  const a = sw.a ?? dirAngle(sw.dir)
+  const ca = Math.cos(a)
+  const sa = Math.sin(a)
+  h.vx = 0
+  h.vy = 0
+  const stop = () => { sw.t = 0; return true }
+  const reach = (s.inv.arc ? ARC_REACH : SWORD_REACH) * 0.55
+  for (const e of s.map.enemies) {
+    if (!enemyActive(c, e) || e.group) continue
+    const dx = e.x - h.x
+    const dy = e.y - h.y
+    if (dx * ca + dy * sa > 0 && Math.hypot(dx, dy) < reach + e.r) return stop()
+  }
+  const step = Math.min(HOP.speed * dt, -sw.t * HOP.speed)
+  const er = HERO_R + 0.06
+  if (iceUnder(c) || springStops(c, h.x + ca * (er + step), h.y + sa * (er + step))) return stop()
+  if (c.info.def.kind === 'dungeon' && cellIndex(c.info, h.x + ca * (er + step), h.y + sa * (er + step)) !== cellIndex(c.info, h.x, h.y)) return stop()
+  const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, ca * step, sa * step)
+  h.x = r.x
+  h.y = r.y
+  h.vx = ca * HOP.speed
+  h.vy = sa * HOP.speed
+  if (r.hitX || r.hitY) return stop()
+  return true
+}
+
 // ---------------------------------------------------------------------------
 // The dodge roll
 // ---------------------------------------------------------------------------
@@ -699,7 +737,7 @@ function lunge(c: Ctx, dt: number): boolean {
 function canRoll(c: Ctx): boolean {
   const s = c.s
   const h = s.hero
-  if (!s.inv.sword || h.carry || h.spin || h.roll || h.air || h.dash || (h.rollCool ?? 0) > 0) return false
+  if (!s.inv.sword || h.carry || h.spin || h.roll || h.air || (h.rollCool ?? 0) > 0) return false
   if (h.act === 'lift' || h.act === 'get' || h.act === 'fall' || h.act === 'dead' || h.act === 'hurt') return false
   // Not on ice, where the hero slides (standing still on it included: a roll would steer him off his lane).
   if (iceUnder(c)) return false
@@ -940,14 +978,14 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
 // B items
 // ---------------------------------------------------------------------------
 
-/** The B items the hero has, in the cycle's order: the hook, the disc, bombs, then the arts. */
+/** The B items the hero has, in the cycle's order: the hook, the disc, bombs, then the hop. */
 export function useItems(s: GameState): UseItem[] {
   const inv = s.inv
   const owned: UseItem[] = []
   if (inv.hook) owned.push('hook')
   if (inv.disc) owned.push('disc')
   if (inv.bombBag) owned.push('bombs')
-  // The arts learned (`moves.ts`), after the items.
+  // The art learned (`moves.ts`), after the items.
   for (const a of inv.arts ?? []) owned.push(a)
   return owned
 }

@@ -755,7 +755,7 @@ export default function isoView(kit: Kit): View {
     else {
       switch (h.act) {
         case 'walk': act = 'walk'; t = stride; break
-        case 'swing': act = 'swing'; t = h.swing ? Math.min(1, h.swing.t / swingDur(h.swing)) : 1; break
+        case 'swing': act = 'swing'; t = h.swing ? Math.max(0, Math.min(1, h.swing.t / swingDur(h.swing))) : 1; break
         case 'throw': case 'use': case 'hook': act = 'use'; t = Math.min(1, h.actT / 0.2); break
         case 'spin': act = 'spin'; t = h.spin ? Math.min(1, h.spin.t / SPIN_TIME) : 1; break
         case 'lift': act = 'lift'; t = Math.min(1, h.actT / 0.18); break
@@ -764,16 +764,17 @@ export default function isoView(kit: Kit): View {
         case 'hurt': act = 'hurt'; t = Math.min(1, h.actT / 0.3); break
         case 'get': act = 'get'; t = Math.min(1, h.actT / 0.3); break
         case 'roll': act = 'roll'; t = h.roll ? Math.min(1, h.roll.t / ROLL_TIME) : 1; break
-        // The acrobatics (`engine/moves.ts`): the roll's turn in the air, the finisher's lunge, the spin's circle.
+        // The acrobatics (`engine/moves.ts`): the roll's turn in the air, the finisher's lunge, the spin's circle,
+        // and the hop a stride of the run held off the ground.
         case 'air': {
           const a = h.air
           const p = a ? Math.min(1, a.t / airTime(a.kind)) : 1
           if (!a || a.kind === 'comet') { act = 'lunge'; t = 0.45 }
           else if (a.kind === 'tempest') { act = 'spin'; t = (p * TEMPEST.turns) % 1 }
-          else { act = 'roll'; t = a.kind === 'star' ? Math.min(1, p * 1.6) : p }
+          else if (a.kind === 'hop') { act = 'walk'; t = 0.25; moving = true }
+          else { act = 'roll'; t = p }
           break
         }
-        case 'dash': act = 'lunge'; t = 0.7; break
       }
       const kind = arc ? 'arc' : 'sword'
       if (h.swing) {
