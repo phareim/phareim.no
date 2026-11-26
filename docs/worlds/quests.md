@@ -86,6 +86,7 @@ RAINCHECK; SIGGE, HANNA, ECHO and the HERDSMAN in the Underglow.
 
 ## Not yet
 
-The realm sketches' own systems (Seter Fell's Moving Day, Yule Fjord's tide and the Ride, Rerun's three eras as a
-time switch, the Sporelight's calm-not-kill, Fogstage's fog line, the Underglow's Pull, Lumenby's lots lighting the
-hill sign) are not built; the people only hint at them as mood.
+Of the realm sketches' own systems only Lumenby's is built (relighting the hill sign,
+`docs/games/neon-shrine-sign.md`). Seter Fell's Moving Day, Yule Fjord's tide and the Ride, Rerun's three eras as a
+time switch, the Sporelight's calm-not-kill, Fogstage's fog line and the Underglow's Pull are not; the people only
+hint at them as mood.

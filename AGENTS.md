@@ -85,7 +85,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Neon Shrine's ambient life (fairies, owls, wisps, critters around the hero) | `docs/games/neon-shrine-life.md` | `themes/zelda/render/life/`, `scripts/life-lab/` |
 | Neon Shrine's realm looks (snow, dune, spore, fog, quarry, suburb) | `docs/games/neon-shrine-looks.md` | `themes/zelda/render/looks.ts`, `render/iso/` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
-| Neon Shrine dig & build (per map: `MapDef.dig`) | `docs/games/neon-shrine-dig.md` | `themes/zelda/engine/dig.ts`, `digGround.ts`, `render/dig.ts`, `render/iso/dig.ts`, `world/quarry.ts` |
+| Relight the Sign (Lumenby's system: lumen tubes that light the hill sign) | `docs/games/neon-shrine-sign.md` | `themes/zelda/engine/puzzles/tubes.ts`, `render/puzzleTiles.ts`, `world/lumenby.ts` |
 | Neon Shrine's physical puzzles (ice, beams, weights, boulders, sluices; kits for the generator) | `docs/games/neon-shrine-puzzles.md` | `themes/zelda/engine/puzzles/`, `world/puzzlelab.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Rex & Nova: Space Voyagers II (theme id `voyagers2`) | `docs/games/voyagers2.md` | `themes/voyagers2/` (DESIGN.md; engine/, story/, render/), `scripts/voyagers2-lab/`, `public/voyagers2/` |
