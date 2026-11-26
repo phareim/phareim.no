@@ -6,7 +6,8 @@
  * a gold block of light seen from everywhere; north over the ridge OLA'S WINDMILL keeps the haze down; north-east
  * the grazers doze in THE SHELLYARD; south-east THE CLEAN WELL's stair goes down to THE UNDER, where the silent
  * spirit keeps the clean seed, and the roots end at Stillsand's pass. South, a hollow among the roots holds the
- * ROOT STAIR down to the Battle Glade; a cracked root joins it to the gate road for anyone with bombs. A heart piece
+ * ROOT STAIR down to the Battle Glade; a cracked root joins it to the gate road for anyone with bombs, and east of it
+ * the grazers drink at a pool while the Clinker's slag hounds stalk them. A heart piece
  * sits on an island in the pond, seen from the walkway: the hook bites the island's post from the north shore (or the
  * bath island), and the post on the north shore brings the hero back.
  *
@@ -33,7 +34,7 @@ const capS = (tone: Tone, x: number, y: number): IsoLandmark => prop(`sporelight
 const moss = (x: number, y: number): IsoLandmark => prop('sporelight_glow_moss', x, y, { lights: [light('teal', 1.5, 0.5, { z: 0.1 })] })
 const puff = (x: number, y: number): IsoLandmark => prop('sporelight_puff', x, y, { motion: cycle(3, 2) })
 /** A grazer dozing among the shells, eyes cyan (calm), solid where it stands. */
-const grazer = (x: number, y: number): IsoLandmark => prop('sporelight_grazer_calm', x + 0.5, y + 0.45, { motion: cycle(2, 1), shadow: { tall: 0.8, wide: 0.46 }, ...at(x, y) })
+const grazer = (x: number, y: number, mood: 'calm' | 'angry' = 'calm'): IsoLandmark => prop(`sporelight_grazer_${mood}`, x + 0.5, y + 0.45, { motion: cycle(2, 1), shadow: { tall: 0.8, wide: 0.46 }, ...at(x, y) })
 
 export const SPORELIGHT: MapDef = {
   id: 'sporelight',
@@ -64,14 +65,14 @@ export const SPORELIGHT: MapDef = {
     'TT...r......,........r...........;.....,;.....................,W...;T;.......TTT',
     'TTT.T.......,........T;................,...;..................,.........;..r..TT',
     'TT..r......:,U.....r..T....;.;.........,,,,,,,..;......T......,..............TTT',
-    'TT.:..r.....,.T.Tr..;..;.........~~~~~~~~~~~~.|......;:....;.;,..;.;.........TTT',
+    'TT.:..r.....,...Tr..;..;.........~~~~~~~~~~~~.|......;:....;.;,..;.;.........TTT',
     'TT;.T;..r...,.:.....TTTT.;;.....;~~~~~~~~~~~~...~~.......r....,....;........T.TT',
     'TT..........,..::..:TTTTT........~~~~~~~~~~~~~~~~~............,..............TTT',
     'TT..........,...r..TTTTTT;.....~~~~~:::::::~~~~~~~..T........,,....r.....r...TTT',
     ',,;;........,...;.....T........~~~~~::HHH::~~~~~~~...........,.........;......TT',
     ',,,,,,,,,,,,,.................~~~~~~::HHH::~~..1~~.........;.,........;;....T;TT',
     ',,..:...:...,E....T.......;...~~~~~~::HHH::~~.|.~~.;........,,............TTTTTT',
-    'TTTT...T....,.T;T.............~~~~~~:::,:d:~~~~~~~..........,.............TTTTTT',
+    'TTTT...T....,..;T.............~~~~~~:::,:d:~~~~~~~..........,.............TTTTTT',
     'TTTT.......;,..............;..~~~~~~::b,:::~~~~~~~......;..,,............TTTTTTT',
     'TT.T;.......,..m..........TT...~~~~~~~~=~~~~~~~~~~..;.;...,,...;...:......TTTTTT',
     'TTTT;.....;.,.................~~.~~~~~~=~~~~~~~..;....;N.,,...........;..:TTTTTT',
@@ -83,15 +84,15 @@ export const SPORELIGHT: MapDef = {
     'TT..;.j.....,............~~.;.....:::K:,:::::;...............,,:::::::.......;TT',
     'TTT.........,...........~~.............,.;...................;,::...:::......TTT',
     'TT:.***.....,..........~~.T............,..........T.T.........,:..5..::..;....TT',
-    'TT.**.**....,.....;...~~..TT....T.;.;..,.;.T..;.;.............,,..,...:.;.....TT',
-    'TT.*.3.*....,........~~...TT....:......,.;T...................:,,,,..::......TTT',
-    'TT;**.**....,..;....~~....TT..;........,..;...;;..::..........:::.,.:::......;TT',
-    'TT..***.....,.....~~~....;TT.;...TTTTT.,.TTTTT.:...............:X:,:::;......TTT',
+    'TT.**.**....,.....;...~~..TT....T.;.;..,.;.T..;.;...~~~.......,,..,...:.;.....TT',
+    'TT.*.3.*....,........~~...TT....:......,.;T........~~~~~......:,,,,..::......TTT',
+    'TT;**.**....,..;....~~....TT..;........,..;...;;..:~~~~~......:::.,.:::......;TT',
+    'TT..***.....,.....~~~....;TT.;...TTTTT.,.TTTTT.:....~~~........:X:,:::;......TTT',
     'TTT....;...,,....~~~~~;...TT.....T.....,.....T;:;.................,..w....;..TTT',
     'TTT........,.....~~~~~...TTT.....T.;.........T..;:..T;..........,,,..........TTT',
     'TT......;..,....z.~~~.....TT.....;..;..,.....T.:...............,,............;TT',
     'TT..;.....,,,,,,,,,,,,,,,,%%,,,,,,,,,,,7.P..;..:..;.........,,,,...........;.TTT',
-    'TTT.;;....,...............TT.....;.;...,.,,,,,,.;:..........,.;.....;........TTT',
+    'TTT.;;....,..8............TT.....;.;...,.,,,,,,.;:..........,.;.....;........TTT',
     'TTTT.....,,.....;...;.....TT;;T..T.....6..;...,,,,,,,,,,,,,,,................TTT',
     'TT.T.;..;,.B..............TT..:..T.;.........T......;..;..;,,...;.............TT',
     'TT.T.....,......;.........TTTTT..TTTTTTTTTTTTTTTTTTTT..;...,.Q...;.....TTTTT.TTT',
@@ -140,8 +141,16 @@ export const SPORELIGHT: MapDef = {
     prop('camp_board_gold', 15.4, 15.1),
     // The grazers dozing in the Shellyard.
     grazer(58, 7), grazer(66, 5), grazer(72, 14), grazer(66, 18),
+    // One with pink eyes by the yard's elite fight: the sign's "PINK EYES: RUN" is true, and the corner is announced.
+    grazer(72, 4, 'angry'),
     // The well: glowing moss round its head, spores rising out of the clean air below.
     moss(63.6, 36.4), moss(69.4, 38.6), moss(64.5, 39.6), moss(68.3, 34.4), moss(65.2, 35.3), moss(67.8, 35.6), puff(66.5, 36.3),
+    // The clickers' ring round the well's stair, so it reads from the road as a place and not a grate in the moss.
+    capS('teal', 65, 34), capS('violet', 67, 34), capS('violet', 63, 35), capS('teal', 69, 35), capS('teal', 64, 36), capS('violet', 68, 36),
+    // The grazers' pool east of the root hollow: three drinking, moss and spores at the water, a cap over it.
+    grazer(49, 38), grazer(57, 39), grazer(54, 36),
+    moss(50.5, 41.3), moss(56.4, 37.3), moss(48.6, 40.5), moss(55.6, 41.4), puff(53.5, 38.6),
+    capM('violet', 48, 35),
     // Spores rising out of the root stair, moss at its foot.
     puff(39.5, 46.4), moss(38.3, 47.3), moss(40.7, 47.2), moss(36.6, 44.6),
     // The Shellyard: the smelter's cart of shells, moss and spores among the grazers.
@@ -216,7 +225,8 @@ export const SPORELIGHT: MapDef = {
     '5': { ent: { t: 'warp', to: 'sporeunder', entry: 'door' }, tile: '>' },
     '6': { ent: { t: 'warp', to: 'arena', entry: 'start' }, tile: '>' },
     '7': { ent: { t: 'entry', id: 'from-arena', dir: 'up' }, tile: ',' },
-    'B': sign('THE SPORELIGHT.\nKEEP YOUR HEAD LOW.\nNO FIRES. FIRE MAKES IT GROW.'),
+    'B': sign('THE SPORELIGHT.\n↑ THE STEAMHOUSE, THE CLINKER.\nNO FIRES. FIRE MAKES IT GROW.'),
+    '8': sign('→ THE ROOT STAIR.\n↑ THE STEAMHOUSE.\n↓ THE NIGHT MARKET.'),
     'E': sign('← SETER FELL.\n↑ THE CLINKER.\n↓ THE CAPS.'),
     'J': sign('→ THE STEAMHOUSE.\n↑ THE CLINKER.\n↓ THE NIGHT MARKET.'),
     'K': sign('THE STEAMHOUSE\nSHIFTS PAID IN TAGS.\nNAMES KEPT AT THE DESK.'),
@@ -236,7 +246,7 @@ export const SPORELIGHT: MapDef = {
     'b': npc('l.steam.clerk', 'vendor', [{ lines: ['MS. B: WELCOME TO THE STEAMHOUSE. SIGN HERE.', 'MS. B: NO, SHORTER.', 'MS. B: SHORTER STILL. THERE. THAT IS YOUR NAME NOW.'] }]),
     'd': npc('l.steam.boiler', 'keeper', [{ lines: ['PUFFER: COAL\'S LATE AND THE PUFFS ARE ON BREAK. I DO THE BATHS, THE BOILER AND THE BOOKS.', 'PUFFER: IF YOU SEE A SPIRIT COVERED IN MUD, SEND IT IN. IT HAS NOT PAID.'] }]),
     'g': npc('sporelight.guest', 'keeper', [{ lines: ['BATH GUEST: THE STEAMHOUSE DESK CALLS ME G. I USED TO HAVE ELEVEN LETTERS.', 'BATH GUEST: A SOAK, A NAP, ANOTHER SOAK. THE SPIRITS RUN A FINE HOUSE.'] }]),
-    'h': npc('sporelight.guest2', 'keeper', [{ lines: ['BATH GUEST: I CAME FOR ONE NIGHT. THE TOWELS ARE VERY PERSUASIVE.'] }]),
+    'h': npc('sporelight.guest2', 'keeper', [{ lines: ['BATH GUEST: I CAME FOR ONE NIGHT. THE TOWELS ARE VERY PERSUASIVE.', 'BATH GUEST: SOMETHING GLINTS ON THE LITTLE ISLAND. THE OLD MOORING POSTS STILL HOLD.'] }]),
     'p': npc('sporelight.spirit2', 'ghost', [{ lines: ['(THE SPIRIT BOWS, MUCH TOO LOW. IT IS ON ITS WAY TO THE BATHS.)'] }], { wander: true }),
     'j': npc('sporelight.picker', 'vendor', [{ lines: ['SPORE PICKER: PICK THE CAPS LOW. ABOVE THE KNEE, THE HAZE STINGS YOUR EYES.', 'SPORE PICKER: A BASKET OF CAPS BUYS A BATH AT THE STEAMHOUSE. WORTH EVERY CAP.'] }]),
     'm': npc('sporelight.picker2', 'vendor', [{ lines: ['SPORE PICKER: EVERYTHING GLOWS HERE. I HAVEN\'T SEEN MY OWN SHADOW IN YEARS.'] }], { wander: true }),
@@ -251,8 +261,8 @@ export const SPORELIGHT: MapDef = {
   battle: {
     groups: [
       { id: 'sporelight.caps', x: 5.5, y: 29.5, foes: ['goo', 'flitter'], sight: 2.5 },
-      { id: 'sporelight.pool', x: 21.5, y: 47.0, foes: ['spitter', 'spitter', 'goo'], sight: 2 },
-      { id: 'sporelight.slag', x: 5.5, y: 4.5, foes: ['hound', 'hound'], sight: 3, prize: 'bits20' },
+      { id: 'sporelight.pool', x: 23.5, y: 41.5, foes: ['spitter', 'spitter', 'goo'], sight: 2 },
+      { id: 'sporelight.slag', x: 50.5, y: 42.5, foes: ['hound', 'hound'], sight: 3, prize: 'bits20' },
       { id: 'sporelight.ridge', x: 48.5, y: 5.5, foes: ['flitter', 'flitter', 'flitter'], sight: 3 },
       { id: 'sporelight.shells', x: 72.5, y: 18.5, foes: ['zapper', 'goo'], sight: 2.5 },
       { id: 'sporelight.knight', x: 74.5, y: 5.5, foes: ['knight', 'skull'], once: true, prize: 'bits50' },
@@ -287,10 +297,10 @@ export const SPOREUNDER: MapDef = {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
     D: { tile: 'D', ent: { t: 'warp', to: 'sporelight', entry: 'well' } },
     '1': { ent: { t: 'chest', id: 'sporeunder.sand', item: 'bits50' } },
-    a: npc('q.seed.spirit', 'ghost', [
+    a: { tile: '-', ...npc('q.seed.spirit', 'ghost', [
       { when: { flag: 'q.seed.got' }, lines: ['(THE SPIRIT POINTS SOUTH, PAST THE ROOTS, TO WHERE THE SAND BEGINS.)'] },
       { lines: ['(THE SPIRIT HOLDS OUT A SEED. IT IS NOT FUNGUS AT ALL. IT SMELLS OF CLEAN SAND.)', '(THEN IT POINTS SOUTH, TOWARD STILLSAND.)'], set: 'q.seed.got' },
-    ]),
+    ]) },
   },
 }
 
