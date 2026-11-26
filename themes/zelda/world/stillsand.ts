@@ -95,8 +95,10 @@ export const STILLSAND: MapDef = {
     'box': { x: 80.5, y: 27.5, dir: 'down' },
   },
   isoLandmarks: [
-    // (THE GOLD PYRAMID is tiles until its art is drawn: a stone terrace (#) x 39..51, y 10..17, round a 9×4 H block
-    // at (41, 12), its door (5, the Puzzle Lab) at (45, 15). The art should cover that H block.)
+    // THE GOLD PYRAMID over the 9×4 H block at (41, 12) on its stone terrace (#, x 39..51, y 10..17), the ground under
+    // its middle at (45.5, 14); its drawn doorway sits over the door tile (5, the Puzzle Lab) at (45, 15), the quartz
+    // at its apex catching the light.
+    prop('stillsand_pyramid', 45.5, 14, { cover: { x: 41, y: 12, w: 9, h: 4 }, lights: [light('gold', 2.4, 0.45, { z: 6, anim: 'pulse' })] }),
     // The realm's arch over the gate road, lit at night.
     prop('gate_stillsand_ew_off', 3.5, 12.5, { night: 'gate_stillsand_ew_on' }),
     // The quartz islands over the dunes, and the one that fell: it sits on its rock at the back of its crater.

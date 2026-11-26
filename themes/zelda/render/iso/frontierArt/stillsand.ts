@@ -42,6 +42,42 @@ function lens(direction: number): Thing {
   }
 }
 
+/**
+ * THE GOLD PYRAMID (world/stillsand.ts): a stepped mass of sandstone and gold over the 9 x 4 tile `H` block, the ground
+ * under its middle at (45.5, 14). Five tiers, each stepping in on every side, a gold course along each tier's top edge;
+ * the door to the Puzzle Lab a dark doorway in the base, in the middle of the south face (over the door tile (45, 15),
+ * x -16..16, the face at y = 64), and a cluster of quartz at the apex that catches the light.
+ */
+const pyramid: Thing = b => {
+  const tiers = 5
+  for (let i = 0; i < tiers; i++) {
+    const hx = 144 - i * 21
+    const hy = 64 - i * 10.5
+    const z0 = i * 32
+    const z1 = z0 + 32
+    b.box(-hx, -hy, z0, hx, hy, z1, (x, y, z, _nx, _ny, nz) => {
+      if (nz > 0.6) return 'sand'
+      if (z > z1 - 2.5) return 'gold'
+      const course = Math.floor(z / 6.4)
+      const joint = Math.floor((x + y + course * 7) / 12) % 2
+      return course % 2 ? (joint ? 'stone' : 'shrine') : 'shrine'
+    })
+  }
+  // The door: a deep dark doorway in the base, its gold lintel and jambs.
+  b.box(-11, 58, 0, 11, 64.6, 26, 'dark')
+  b.box(-14, 63.6, 26, 14, 66.2, 30, 'gold')
+  for (const x of [-14, 11]) b.box(x, 63.6, 0, x + 3, 66.2, 26, 'gold')
+  // The capstone and the quartz on it.
+  b.box(-12, -6, 160, 12, 6, 166, 'gold')
+  for (const [x, y, h, r] of [[0, 0, 30, 6], [-8, 2, 18, 3.6], [7.5, -1, 21, 3.8], [3, 4.5, 13, 2.6]] as const) {
+    const n = Math.round(h / 2)
+    for (let k = 0; k < n; k++) {
+      const s = r * (1 - k / n) + 0.4
+      b.box(x - s, y - s, 166 + (k * h) / n, x + s, y + s, 166 + ((k + 1) * h) / n, (_x, _y, _z, nx) => (nx > 0.5 ? 'glassViolet' : k === 1 ? 'core' : 'glassRose'))
+    }
+  }
+}
+
 export const STILLSAND_THINGS: Record<string, Thing> = {
   stillsand_island_small: island(1.2),
   stillsand_island_medium: island(1.8),
@@ -51,4 +87,5 @@ export const STILLSAND_THINGS: Record<string, Thing> = {
   stillsand_lens_1: lens(1),
   stillsand_lens_2: lens(2),
   stillsand_lens_3: lens(3),
+  stillsand_pyramid: pyramid,
 }

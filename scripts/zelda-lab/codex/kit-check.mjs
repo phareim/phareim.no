@@ -13,7 +13,7 @@ import { buildSync } from 'esbuild'
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const out = buildSync({
-  stdin: { contents: `export * from './render/iso/things'; export { buildProps } from './render/iso/props'; export { REALM_ART_LOADERS, loadRealmArt } from './render/iso/frontierArt'`, resolveDir: resolve(repo, 'themes/zelda'), loader: 'ts' },
+  stdin: { contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { buildProps } from './render/iso/props'; export { REALM_ART_LOADERS, loadRealmArt } from './render/iso/frontierArt'`, resolveDir: resolve(repo, 'themes/zelda'), loader: 'ts' },
   bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
 })
 const M = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
@@ -46,10 +46,12 @@ for (const realm of Object.keys(M.REALM_ART_LOADERS)) {
   console.log(`${realm}: ${Object.keys(art).length} pieces, atlas ${atlas.w}x${atlas.h}`)
 }
 // Boxes against the kits as they were.
-if (before) for (const f of ['seter', 'meadow', 'gates', 'fjord', 'sporelight', 'quarry', 'stillsand']) {
+// (Pieces added since: the gold pyramid, round 3.)
+const ADDED = new Set(['stillsand_pyramid'])
+if (before) for (const f of ['seter', 'meadow', 'gates', 'fjord', 'sporelight', 'quarry', 'stillsand', 'roadside', 'rerun', 'fogstage', 'underglow', 'coast', 'landing']) {
   const was = resolve(before, `${f}Data.ts`); if (!existsSync(was)) continue
   const a = unpack(was), b = unpack(resolve(repo, `themes/zelda/render/iso/frontierArt/${f}Data.ts`))
-  assert.deepEqual(Object.keys(b), Object.keys(a), `${f}: ids`)
+  assert.deepEqual(Object.keys(b).filter(id => !ADDED.has(id) || id in a), Object.keys(a), `${f}: ids`)
   for (const id of Object.keys(a)) assert.deepEqual([b[id].w, b[id].h, b[id].ax, b[id].ay], [a[id].w, a[id].h, a[id].ax, a[id].ay], `${f}: ${id} box`)
   console.log(`${f}: all ${Object.keys(a).length} ids kept with their w, h, ax, ay`)
 }
@@ -95,6 +97,26 @@ for (const l of 'lumenby') {
   assert.deepEqual([off.w, off.h, off.ax, off.ay], [on.w, on.h, on.ax, on.ay], `letter ${l}`)
   assert.ok(glow(on) > glow(off), `letter ${l}: on is lit`)
   if (on.drawn) assert.deepEqual(off.glow, {}, `letter ${l}: off glows`)
+}
+// Round 3: the road lanterns (always loaded, in THING_ART), Rerun's houses by night, the waymarks' blink frames.
+const things = M.THING_ART ?? {}
+for (const tone of ['pink', 'cyan', 'violet', 'gold', 'rose']) {
+  const off = things[`road_lantern_${tone}_off`], on = things[`road_lantern_${tone}_on`]
+  if (!off || !on) continue
+  assert.deepEqual([off.w, off.h, off.ax, off.ay], [on.w, on.h, on.ax, on.ay], `lantern ${tone}`)
+  assert.ok(glow(on) > glow(off), `lantern ${tone}: on is lit`)
+  if (off.drawn) assert.deepEqual(off.glow, {}, `lantern ${tone}: off glows`)
+}
+const rerun = await kit('rerun')
+for (const h of ['0', '1', '1958', '1986', '2086']) {
+  const a = rerun[`rerun_house_${h}`], b = rerun[`rerun_house_${h}_night`]
+  assert.deepEqual([a.w, a.h, a.ax, a.ay], [b.w, b.h, b.ax, b.ay], `house ${h} night`); if (b.drawn) assert.ok(glow(b) > glow(a), `house ${h}: brighter at night`)
+}
+const coast = await kit('coast')
+for (const w of ['lumenby_n', 'seterfell_n', 'sporelight_n', 'stillsand_e', 'fogstage_w', 'rerun_e']) {
+  const a = coast[`waymark_${w}_0`], b = coast[`waymark_${w}_1`]
+  assert.deepEqual([a.w, a.h, a.ax, a.ay], [b.w, b.h, b.ax, b.ay], `waymark ${w}`)
+  assert.notDeepEqual(JSON.stringify([a.rows, a.pal, a.glow]), JSON.stringify([b.rows, b.pal, b.glow]), `waymark ${w}: the two frames differ`)
 }
 const meadow = await kit('meadow')
 const mills = [0, 1, 2, 3].map(i => meadow[`meadow_mill_${i}`])

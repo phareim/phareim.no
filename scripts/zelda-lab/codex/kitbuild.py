@@ -28,7 +28,7 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kitlib import guide, keyish, record, work
+from kitlib import RAMPS, guide, keyish, record, work
 
 kit, tid, sheet = sys.argv[1:4]
 opt = dict(zip(sys.argv[4::2], sys.argv[5::2]))
@@ -155,17 +155,13 @@ if E('lamp:') or E('glow:') or E('dark:'):
 #   "within=<mats/mats>,grow=n,glass=any|warm|cyan|pink|blue,minlum=n,maxlum=n,minsat=s,lamp=1,tint=pink|cyan;..."
 #   within: the box round each cluster of the target guide's <mats> (the cell guide's, placed by the anchors, if the
 #   target has none), grown by `grow` px; near=n instead: the guide's <mats> px themselves grown by n px; no `within`:
-#   the whole box. glass: which drawn colours are light (cyan: a
+#   the whole box; box=x0/y0/x1/y1: that rectangle of the target's px. glass: which drawn colours are light (cyan: a
 #   glowing gill or spot, pink: a rose one, rose: an unlit rose-grey tube, teal: an unlit cyan one,
 #   ochre: an unlit paper lantern, violet: a vein, red: a red lamp, warm: lamplight, any: every px). lamp=1: the px become lamplight (the lamp
-#   ramp); tint=pink|cyan|neon|violet: the px take that light's ramp by their own lightness (a calm eye turned angry, a tube lit);
+#   ramp); tint=pink|cyan|neon|violet|rose|red: the px take that light's ramp by their own lightness (a calm eye turned angry, a tube lit);
 #   dark=1: the px put out instead (darkened, no glow). maxsat=s: only px no more saturated than s. minarea=n: lit clusters under n px (specks) stay unlit.
 #   halo=1 (with tint/lamp): the px beside the lit ones take the ramp's second colour at 60 % and glow (a neon tube's halo).
-RAMPS = {'lamp': [[196, 110, 32], [236, 160, 48], [255, 208, 80], [255, 236, 150], [255, 250, 222]],
-         'pink': [[110, 14, 70], [192, 30, 112], [255, 74, 168], [255, 150, 210], [255, 226, 244]],
-         'cyan': [[10, 106, 138], [26, 170, 210], [47, 243, 255], [150, 250, 255], [224, 255, 255]],
-         'violet': [[70, 30, 140], [120, 60, 210], [170, 110, 255], [210, 170, 255], [240, 225, 255]],
-         'neon': [[120, 16, 120], [200, 36, 170], [255, 70, 200], [255, 150, 228], [255, 232, 250]]}
+# (RAMPS: kitlib.py)
 for spec in filter(None, opt.get('--glows', '').split(';')):
     sp = dict(kv.split('=') for kv in spec.split(','))
     if 'within' in sp:
@@ -182,6 +178,9 @@ for spec in filter(None, opt.get('--glows', '').split(';')):
             lab, n = ndimage.label(ndimage.binary_dilation(wm, iterations=2))
             for sl in ndimage.find_objects(lab):
                 box[max(0, sl[0].start - g):sl[0].stop + g, max(0, sl[1].start - g):sl[1].stop + g] = True
+    elif 'box' in sp:   # (round 3) an explicit box in the target's px, x0/y0/x1/y1: a lamp Codex added that no guide mat marks
+        x0_, y0_, x1_, y1_ = map(int, sp['box'].split('/'))
+        box = np.zeros((H, W), bool); box[y0_:y1_, x0_:x1_] = True
     else:
         box = np.ones((H, W), bool)
     r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]

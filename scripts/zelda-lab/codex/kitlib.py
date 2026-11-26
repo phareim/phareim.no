@@ -57,6 +57,16 @@ def keyish(rgb, key):
     return (r > 150) & (b > 150) & (g < r - 60) & (g < b - 60)
 
 
+# The light ramps a lit px takes by its own lightness (kitbuild.py --glows lamp=1 / tint=..., kittext.py), dark to hot.
+RAMPS = {'lamp': [[196, 110, 32], [236, 160, 48], [255, 208, 80], [255, 236, 150], [255, 250, 222]],
+         'pink': [[110, 14, 70], [192, 30, 112], [255, 74, 168], [255, 150, 210], [255, 226, 244]],
+         'cyan': [[10, 106, 138], [26, 170, 210], [47, 243, 255], [150, 250, 255], [224, 255, 255]],
+         'violet': [[70, 30, 140], [120, 60, 210], [170, 110, 255], [210, 170, 255], [240, 225, 255]],
+         'neon': [[120, 16, 120], [200, 36, 170], [255, 70, 200], [255, 150, 228], [255, 232, 250]],
+         'rose': [[120, 40, 64], [190, 70, 100], [236, 120, 148], [255, 180, 200], [255, 232, 238]],   # round 3: the rose lantern
+         'red': [[120, 16, 16], [190, 34, 30], [255, 58, 58], [255, 140, 120], [255, 222, 210]]}       # a red lamp
+
+
 def record(rgb, A, lit, nrm, deep, box, drawn, tol=15.0):
     """A ThingArt record of a drawing in its box: the drawing's colours (a colour within `tol` of a commoner one is that
     one: the image's noise; never capped), glow only on the `lit` px (a lamp's light, never paint), every px's normal
