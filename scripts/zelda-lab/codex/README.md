@@ -51,7 +51,8 @@ piece's own `w, h, ax, ay`. Per piece it writes:
 `plans/head.py` is the prompt they all share. Each guide is scaled up by the pitch (sheet px to an art px) and laid on
 the key, bottoms aligned. The prompt gives each piece's size in art px and in sheet px. `REFS` are attached after
 the guide: the realm's concept painting (`docs/worlds/img/concept-<realm>.jpg`, the identity and the mood) and
-`style.png` (the target pixel style: figures already redrawn).
+`style.png` (the target pixel style: figures already redrawn). A sheet may name its own `refs` (the gates: each
+realm's concept), and a `guide` map (id → another guide png of the same box, e.g. the lighthouse beam guides).
 
 - **The key.** The key is the flat colour around the objects. Pure green `#00FF00` is the default. Kits full of
   grass and moss use pure magenta `#FF00FF` (`key='magenta'`): a green key also takes summer greens such as #3a8a2a.
@@ -116,6 +117,27 @@ the sheet's grid puts it (`--nudge dx,dy` moves it), and crops or pads it to the
   - `drift:dx,dy`: the drawn smoke (px nearest the cell guide's `rock` puffs; `--smoke-mat`) moves a few px (a smoke
     frame).
   - `breath:<row>`: everything above `<row>` sinks one px (a sleeping troll's breath).
+- **More light by colour: `--glows "<spec>;<spec>..."`** (round 2). Each spec is one mask, unioned into the light;
+  keys joined by `,`, material lists by `/`:
+  - where: `within=<mats>` (the box round each cluster of the target guide's mats, grown by `grow=n`; the cell
+    guide's if the target has none), or `within=<mats>,near=n` (those px themselves grown n px: a winding vein,
+    not its bounding box); no `within`: the whole box.
+  - which drawn px: `glass=any|warm|cyan|pink|rose|teal|ochre|violet|red|blue` (cyan/pink: a glowing gill or spot;
+    rose/teal/ochre: an unlit rose-grey tube, grey-teal glass, ochre paper lantern, drawn so on purpose; violet: a
+    vein; red: a red lamp), `minlum`/`maxlum` (0–255), `minsat`/`maxsat` (0–1), `minarea=n` (lit clusters under n
+    px are specks and stay unlit).
+  - what happens: they glow as drawn; `lamp=1` turns them to lamplight; `tint=pink|cyan|neon|violet` gives them that
+    light's ramp by their own lightness (a calm grazer's eyes turned angry, a tube lit); `halo=1` (with a ramp)
+    lights the px beside them at 60 % (a neon tube's halo); `dark=1` puts them out instead.
+  - The pattern for off/on and day/night pairs: draw the piece ONCE, unlit, with each light part in a dull colour of
+    its own named in the prompt (`plans/quarry.py` LETTER, `plans/gates.py` ROSE/TEAL), and build `_on` with
+    `--from <off> --glows ...`. The pair is the same drawing, so nothing jumps at dusk. Round 2's commands:
+    `tmp/art2/build-{sporelight,quarry,gates,beam}.sh` (Mac job, git-ignored; the specs are copied in the report).
+- **The lighthouse beam: `kitbeam.py guide|build`.** The beam frames' guide is the baked, drawn lens tower placed in
+  each frame's box with the solids' beam as one flat cream cone (`guide` writes `guides/fjord_lighthouse_beam_<k>.png`;
+  `plans/fjord.py` `beam0..3` use them through a sheet's `guide` map). Codex draws the beam over it; `kitbuild.py`
+  places the drawing; `kitbeam.py build` keeps the baked tower's own px (colours, glow, normals, depth) and takes
+  only Codex's beam px around it (inside the cone grown 3 px), every beam px glowing.
 - **Turning parts:** `kitturn.py <kit> <base> <bare> <frames> <from-to:hub> <deg>`. The mill is ONE drawing: the mill
   with its sails, plus the same mill drawn bare (from a `--part` guide) on the same sheet. The tool finds the sails
   where the two drawings differ near the guide's sails. It turns them about the hub in their own plane (a south-
@@ -137,10 +159,14 @@ pair here).
 ### 8. Checks
 - `kit-check.mjs [tmp/world-art/before-data]` runs the realm-kit checks of `tests/zelda-things.test.mjs` without the
   generated world. It checks that every record is whole, that each kit's atlas is at most 2048 px tall, that every id
-  keeps its box against the data files as they were, that night/day and off/on pairs keep one box with glow only
-  when lit, and that the mill's frames differ.
+  keeps its box against the data files as they were (seter, meadow, gates, fjord, sporelight, quarry, stillsand), that night/day and off/on pairs keep one box with glow only
+  when lit, that the mill's frames differ, that the lighthouse's four beam frames each glow and differ, that the bathhouse
+  is brighter at night than by day, that each angry grazer frame differs from its calm one in the same box, and that
+  each hill letter's on frame glows more than its off (a drawn off letter not at all).
 - In the game: `scripts/zelda-lab/shot.mjs` scenes `kit-seterfell` and `kit-meadow` stand every piece in rows on the
-  `seterfell` stub with the hero by them. Run with `VIEW=iso`, with and without `DAY=noon`, `-1280`/`-390`.
+  `seterfell` stub with the hero by them; `kit-yulefjord` on `yulefjord`; `kit-sporelight` on the `sporelight` land,
+  `kit-lumenby` (the quarry kit, letters lit after dusk) and `kit-gates` (the five other realms' arches, lit after
+  dusk; the scene names their kits in the map's `kits`, since a land only fetches its own realm's arch) on `lumenby`. Run with `VIEW=iso`, with and without `DAY=noon`, `-1280`/`-390`.
 - `node scripts/zelda-lab/frontier-art.mjs <kit> sheet.html` is the contact sheet (drawn pieces as drawn).
 
 ## Holding back
@@ -153,11 +179,12 @@ game scale. They were redrawn without the band and shipped.
 |---|---|
 | `kitlib.py` | paths (repo root from this folder), work dirs, plans, guides, the key, `record()` (palette, glow, normals → a ThingArt record) |
 | `kit-guides.mjs` | guides from a kit's solids (1) |
-| `plans/head.py`, `plans/<kit>.py` | the shared prompt; each kit's sheets and words |
+| `plans/head.py`, `plans/<kit>.py` (seter, meadow, fjord, gates, sporelight, quarry) | the shared prompt; each kit's sheets and words |
 | `sheet.py` | sheets, prompts, references (2) |
 | `codex.sh`, `draw.sh`, `drawall.sh` | one Codex call; a sheet's drawing in a temp dir; ≤ 4 at once (3) |
 | `cut2.py`, `parity.py` | the cut at the drawing's grid; edge parity (4) |
-| `kitbuild.py`, `kitturn.py`, `kitlineup.py` | a piece fitted, frame variants; turning parts; guide-over-drawing sheet (5, 6) |
+| `kitbuild.py`, `kitturn.py`, `kitlineup.py` | a piece fitted, frame variants (`--edit`, `--glows`); turning parts; guide-over-drawing sheet (5, 6) |
+| `kitbeam.py` | the lighthouse's beam frames over the drawn lens tower |
 | `kit-bake.mjs`, `kit-check.mjs` | into `<kit>Data.ts`; the kit checks (7, 8) |
 | `style.png` | the target pixel style (figures from Part 22) |
 | `things/` | Part 23's tools for `thingArt.ts`: `things.py`+`solids.py` (ray-cast guides), `sheet_things.py`, `prompts_things.py`, `build.py`, `composite.py`, `align.py`, `emit.py`, `archive.py`, `lineup.py`, `classic.py`, `dump.mjs`, `dumpsolids.py`; work dir `tmp/codex-kits/things` |

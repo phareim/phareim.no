@@ -151,6 +151,71 @@ if E('lamp:') or E('glow:') or E('dark:'):
         rgb[lit] = (rgb[lit] * 0.3).astype(int) + [22, 14, 34]
         lit = np.zeros_like(lit)
 
+# --- --glows: more light, by the drawn px's own colour, each spec its own mask (unioned into `lit`):
+#   "within=<mats/mats>,grow=n,glass=any|warm|cyan|pink|blue,minlum=n,maxlum=n,minsat=s,lamp=1,tint=pink|cyan;..."
+#   within: the box round each cluster of the target guide's <mats> (the cell guide's, placed by the anchors, if the
+#   target has none), grown by `grow` px; near=n instead: the guide's <mats> px themselves grown by n px; no `within`:
+#   the whole box. glass: which drawn colours are light (cyan: a
+#   glowing gill or spot, pink: a rose one, rose: an unlit rose-grey tube, teal: an unlit cyan one,
+#   ochre: an unlit paper lantern, violet: a vein, red: a red lamp, warm: lamplight, any: every px). lamp=1: the px become lamplight (the lamp
+#   ramp); tint=pink|cyan|neon|violet: the px take that light's ramp by their own lightness (a calm eye turned angry, a tube lit);
+#   dark=1: the px put out instead (darkened, no glow). maxsat=s: only px no more saturated than s. minarea=n: lit clusters under n px (specks) stay unlit.
+#   halo=1 (with tint/lamp): the px beside the lit ones take the ramp's second colour at 60 % and glow (a neon tube's halo).
+RAMPS = {'lamp': [[196, 110, 32], [236, 160, 48], [255, 208, 80], [255, 236, 150], [255, 250, 222]],
+         'pink': [[110, 14, 70], [192, 30, 112], [255, 74, 168], [255, 150, 210], [255, 226, 244]],
+         'cyan': [[10, 106, 138], [26, 170, 210], [47, 243, 255], [150, 250, 255], [224, 255, 255]],
+         'violet': [[70, 30, 140], [120, 60, 210], [170, 110, 255], [210, 170, 255], [240, 225, 255]],
+         'neon': [[120, 16, 120], [200, 36, 170], [255, 70, 200], [255, 150, 228], [255, 232, 250]]}
+for spec in filter(None, opt.get('--glows', '').split(';')):
+    sp = dict(kv.split('=') for kv in spec.split(','))
+    if 'within' in sp:
+        ms = sp['within'].split('/')
+        wm = np.isin(T['matname'], ms) & hit
+        if not wm.any() and C is not T:
+            wm = np.zeros((H, W), bool)
+            for cy, cx in zip(*np.nonzero(np.isin(C['matname'], ms) & C['hit'])):
+                if 0 <= cy + dyT < H and 0 <= cx + dxT < W: wm[cy + dyT, cx + dxT] = True
+        if 'near' in sp:   # the guide's px themselves grown by `near` px (a winding vein: not its whole bounding box)
+            box = ndimage.binary_dilation(wm, iterations=int(sp['near'])) if int(sp['near']) > 0 else wm
+        else:
+            g = int(sp.get('grow', 1)); box = np.zeros((H, W), bool)
+            lab, n = ndimage.label(ndimage.binary_dilation(wm, iterations=2))
+            for sl in ndimage.find_objects(lab):
+                box[max(0, sl[0].start - g):sl[0].stop + g, max(0, sl[1].start - g):sl[1].stop + g] = True
+    else:
+        box = np.ones((H, W), bool)
+    r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    glass = {'any': np.ones((H, W), bool), 'warm': r_ > b_ + 60, 'blue': b_ > r_ + 20,
+             'cyan': (b_ > r_ + 70) & (b_ >= g_ - 12) & (g_ > r_ + 30),
+             'pink': (r_ > g_ + 80) & (b_ > g_ + 30),
+             'rose': (r_ > g_ + 25) & (b_ > g_ + 10) & (r_ >= b_ - 10),          # an unlit rose-grey neon tube
+             'teal': (b_ > r_ + 25) & (g_ > r_ + 10),                           # an unlit cyan tube or globe
+             'ochre': (r_ > b_ + 30) & (g_ > b_ + 15),                          # an unlit paper lantern
+             'violet': (b_ > g_ + 15) & (r_ > g_),                              # a violet vein
+             'red': (r_ > 2.2 * g_) & (r_ > 2.2 * b_) & (r_ > 170)}[sp.get('glass', 'any')]
+    lum = rgb.sum(-1) / 3
+    m = A & box & glass & (lum >= float(sp.get('minlum', 0))) & (lum <= float(sp.get('maxlum', 255)))
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    if 'minsat' in sp: m &= (mx - mn) / np.maximum(mx, 1) >= float(sp['minsat'])
+    if 'maxsat' in sp: m &= (mx - mn) / np.maximum(mx, 1) <= float(sp['maxsat'])
+    if 'minarea' in sp:   # drop specks: a lit cluster smaller than minarea px (8-connected) is a stray edge px
+        lab, n = ndimage.label(m, structure=np.ones((3, 3)))
+        sizes = ndimage.sum(m, lab, range(1, n + 1))
+        m &= np.isin(lab, [i + 1 for i, z in enumerate(sizes) if z >= int(sp['minarea'])])
+    ramp = 'lamp' if sp.get('lamp') == '1' else sp.get('tint')
+    if m.any() and ramp:
+        L = lum[m]; lo, hi = np.percentile(L, 5), np.percentile(L, 95) + 1e-6
+        k = np.clip((np.clip((lum - lo) / (hi - lo), 0, 1) * 4.999).astype(int), 0, 4)
+        rgb[m] = np.array(RAMPS[ramp])[k[m]]
+    if m.any() and sp.get('halo') == '1' and ramp:   # the tube's own glow on the px beside it (4-neighbours), half its light
+        h = ndimage.binary_dilation(m, structure=ndimage.generate_binary_structure(2, 1)) & A & ~m
+        rgb[h] = (rgb[h] * 0.4 + np.array(RAMPS[ramp][1]) * 0.6).astype(int)
+        m = m | h
+    if sp.get('dark') == '1':   # put out: darkened, no glow
+        rgb[m] = (rgb[m] * 0.3).astype(int) + [22, 14, 34]
+    else:
+        lit = lit | m
+
 # --- normal and depth: the guide's at the same px; where the drawing reaches past the guide, the nearest guide px's
 # normal, and its depth carried along the row difference (a px a row lower lies a px nearer, at the same height)
 _, (iy, ix) = ndimage.distance_transform_edt(~hit, return_indices=True)

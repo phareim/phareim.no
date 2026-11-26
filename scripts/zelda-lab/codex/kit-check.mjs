@@ -46,7 +46,7 @@ for (const realm of Object.keys(M.REALM_ART_LOADERS)) {
   console.log(`${realm}: ${Object.keys(art).length} pieces, atlas ${atlas.w}x${atlas.h}`)
 }
 // Boxes against the kits as they were.
-if (before) for (const f of ['seter', 'meadow', 'gates', 'fjord']) {
+if (before) for (const f of ['seter', 'meadow', 'gates', 'fjord', 'sporelight', 'quarry', 'stillsand']) {
   const was = resolve(before, `${f}Data.ts`); if (!existsSync(was)) continue
   const a = unpack(was), b = unpack(resolve(repo, `themes/zelda/render/iso/frontierArt/${f}Data.ts`))
   assert.deepEqual(Object.keys(b), Object.keys(a), `${f}: ids`)
@@ -76,6 +76,25 @@ for (const [stem, count] of [['fjord_lighthouse_lens', 4]]) {
   const frames = Array.from({ length: count }, (_, i) => fjord[`${stem}_${i}`])
   assert.ok(frames.every(t => glow(t) > 0), stem)
   assert.equal(new Set(frames.map(t => JSON.stringify([t.rows, t.pal, t.glow]))).size, count, stem)
+}
+for (const [stem, count] of [['fjord_lighthouse', 4]]) {   // the beam turns: four frames, each its own
+  const frames = Array.from({ length: count }, (_, i) => fjord[`${stem}_${i}`])
+  assert.ok(frames.every(t => glow(t) > 0), stem)
+  assert.equal(new Set(frames.map(t => JSON.stringify([t.rows, t.pal, t.glow]))).size, count, stem)
+}
+const spore = await kit('sporelight')
+{ const a = spore.sporelight_bathhouse, b = spore.sporelight_bathhouse_night
+  assert.deepEqual([a.w, a.h, a.ax, a.ay], [b.w, b.h, b.ax, b.ay], 'bathhouse night'); assert.ok(glow(b) > glow(a), 'the bathhouse is brighter at night') }
+for (const f of [0, 1]) {
+  const a = spore[`sporelight_grazer_calm_${f}`], b = spore[`sporelight_grazer_angry_${f}`]
+  assert.deepEqual([a.w, a.h, a.ax, a.ay], [b.w, b.h, b.ax, b.ay], `grazer ${f}`); assert.notDeepEqual(a.pal, b.pal, `grazer ${f}: angry differs`)
+}
+const lumenby = await kit('lumenby')
+for (const l of 'lumenby') {
+  const off = lumenby[`quarry_letter_${l}_off`], on = lumenby[`quarry_letter_${l}_on`]
+  assert.deepEqual([off.w, off.h, off.ax, off.ay], [on.w, on.h, on.ax, on.ay], `letter ${l}`)
+  assert.ok(glow(on) > glow(off), `letter ${l}: on is lit`)
+  if (on.drawn) assert.deepEqual(off.glow, {}, `letter ${l}: off glows`)
 }
 const meadow = await kit('meadow')
 const mills = [0, 1, 2, 3].map(i => meadow[`meadow_mill_${i}`])

@@ -30,7 +30,7 @@ for name in want:
     sh.save(os.path.join(d, 'guide.png'))
     json.dump({'pitch': pitch, 'size': [W, H], 'key': key, 'cells': cells}, open(os.path.join(d, 'cells.json'), 'w'), indent=1)
     refs = ['guide.png']
-    for ref, src in P.REFS.items():
+    for ref, src in s.get('refs', P.REFS).items():   # a sheet may name its own (the gates: each realm's concept)
         shutil.copy(os.path.join(REPO, src) if not os.path.isabs(src) else src, os.path.join(d, ref)); refs.append(ref)
     sizes = '; '.join(f"the {s.get('names', {}).get(k, k.replace('_', ' '))} is {round((v[2] - v[0]) / pitch)} art pixels wide "
                       f"({v[2] - v[0]} sheet pixels) and {round((v[3] - v[1]) / pitch)} tall ({v[3] - v[1]} sheet pixels)"
