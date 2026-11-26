@@ -23,8 +23,11 @@ import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
 import { cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
 import { dirVec, nextId, toDir } from '../util'
 import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
+import { stepTubes } from './tubes'
+import { turns, turnTube } from '../../world/tubes'
 
 export { puzzleInfo } from './info'
+export { boardSolved, GAS_SPEED, scrambleTubes, traceBoard, tubeWords } from './tubes'
 
 /** Tiles per second. */
 export const SLIDE_SPEED = 8
@@ -64,6 +67,7 @@ export function stepPhysics(c: Ctx, dt: number) {
   stepSluices(c, ph)
   stepBoulders(c, ph, dt)
   traceBeams(c, ph)
+  stepTubes(c)
 }
 
 // ---------------------------------------------------------------------------
@@ -202,12 +206,19 @@ function shove(c: Ctx, tx: number, ty: number, dx: number, dy: number): boolean 
 
 /** A blade, the disc or a blast on tile (tx, ty). True if it was a puzzle part (it answered or was resting). */
 export function hitPuzzle(c: Ctx, tx: number, ty: number, t: TileChar): boolean {
-  if (!isMirror(t) && t !== 'ξ') return false
+  if (!isMirror(t) && t !== 'ξ' && !turns(t)) return false
   if (!pz(c).on) return false
   const ph = phys(c)
   const m = c.s.map
   if (ph.cool > 0) return true
   ph.cool = 0.3
+  if (turns(t)) {
+    // A lumen tube turns a quarter clockwise in its collar (`tubes.ts`).
+    m.tiles[ty * m.w + tx] = turnTube(t)
+    m.version++
+    c.ev.push({ type: 'tube', x: tx + 0.5, y: ty + 0.5 })
+    return true
+  }
   if (isMirror(t)) {
     if (m.moving.some(b => b.tx === tx && b.ty === ty)) return true
     m.tiles[ty * m.w + tx] = t === 'μ' ? 'ν' : 'μ'

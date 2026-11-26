@@ -92,6 +92,12 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   'ω': LOW,
   'ψ': OPEN,
   'ξ': LOW,
+  // Lumen tubes (world/tubes.ts, engine/puzzles/tubes.ts): walked over; the tap and the socket stand.
+  '╵': OPEN, '╶': OPEN, '╷': OPEN, '╴': OPEN,
+  '│': OPEN, '─': OPEN, '┌': OPEN, '┐': OPEN, '└': OPEN, '┘': OPEN, '├': OPEN, '┤': OPEN, '┬': OPEN, '┴': OPEN, '┼': OPEN,
+  '║': OPEN, '═': OPEN, '╔': OPEN, '╗': OPEN, '╚': OPEN, '╝': OPEN, '╠': OPEN, '╣': OPEN, '╦': OPEN, '╩': OPEN, '╬': OPEN,
+  'Θ': LOW,
+  'Λ': LOW,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]

@@ -14,6 +14,6 @@ export { DAY, DAY_LENGTH, HOURS, foeLevel, setDaytime, wayOut } from './day'
 export { startBattle, menuView, techOk, fighter, fighterAt, battleFocus, wet, PARTY, TECHS, FOES, TP_MAX, INTRO_TIME, OUTRO_TIME, WINDED_TIME } from './battle/index'
 export { terrainAbove, terrainZ, terrainRise, terrainLevel, heightAt, isRamp, RAMPS } from './terrain'
 // The physical puzzles (`puzzles/`): their state and rules for the renderer and tests, and the generator's kits.
-export { puzzleInfo, phys, weightOn, startRoll, SLIDE_SPEED, ROLL_SPEED } from './puzzles/index'
+export { puzzleInfo, phys, weightOn, startRoll, SLIDE_SPEED, ROLL_SPEED, GAS_SPEED, boardSolved, traceBoard, scrambleTubes } from './puzzles/index'
 export { puzzleKits, solveKit, solveGrid, stampKit, type PuzzleKit, type KitSolution, type KitMove } from './puzzles/kits'
 export * from './explore'

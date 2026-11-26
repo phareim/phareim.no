@@ -249,6 +249,22 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
     break
   }
   case 'f-landing': give(); place('yulefjord', 'ferry', 0, -1); run(30); break
+  // Relight the Sign (docs/games/neon-shrine-sign.md). sign-town: the L's board east of the square, out of true;
+  // sign-town-lit: the same, solved, the gas run in; sign-hill: the terrace's E board and the letters, four lit;
+  // sign-tops: the Y's board, the biggest, out of true. (DAY=night for the glow.)
+  case 'sign-town': case 'sign-town-lit': case 'sign-hill': case 'sign-tops': {
+    give()
+    s.flags['realm:lumenby'] = true
+    if (scene === 'sign-town-lit') s.flags['q.lumenby.sign1'] = true
+    if (scene === 'sign-hill') for (const n of [1, 2, 3, 4]) s.flags['q.lumenby.sign' + n] = true
+    const at = { 'sign-town': [53.5, 20.6, 'up'], 'sign-town-lit': [53.5, 20.6, 'up'], 'sign-hill': [38.5, 12.6, 'up'], 'sign-tops': [76.5, 8.6, 'up'] }[scene]
+    go('lumenby', at[0], at[1], at[2])
+    for (const f of s.map.enemies) { f.dead = true; f.x = -9; f.y = -9 }
+    run(90)
+    s.mode = 'play'
+    s.dialog = null
+    break
+  }
   // The gates (world/gates.ts): each one's hand-made side, a short way down its road (the wardens' without a blade,
   // so they stand in the gate), the land's side, and the MAP page on the coast with the world's chart beside it.
   case 'g-fell': give(); place('overworld', 'gate-fell', 0, 3); s.hero.dir = 'up'; run(30); break
@@ -788,6 +804,7 @@ const SHOTS = [
   ['f-puzzle', 'f-puzzle', 1280, 800, 1, 0],
   ['f-battle', 'f-battle', 1280, 800, 1, 0],
   ['f-terrain', 'f-terrain', 1280, 800, 1, 0],
+  ...['sign-town', 'sign-town-lit', 'sign-hill', 'sign-tops'].flatMap(n => [[n, n, 1280, 800, 1, 0], [`${n}-390`, n, 390, 844, 2, 0]]),
   ['life', 'life', 1280, 800, 1, 0],
   ['life-390', 'life', 390, 844, 2, 0],
   ['f-landing', 'f-landing', 1280, 800, 1, 0],

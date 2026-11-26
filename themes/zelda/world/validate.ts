@@ -9,9 +9,10 @@
 import type { Dir, EntDef, ExitTarget, MapDef, TileChar, World } from '../types'
 import { TILE_INFO, isTileChar } from './tiles'
 import { puzzleMarkTile } from './puzzles'
+import { TUBE_ARMS } from './tubes'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ'])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', ...(Object.keys(TUBE_ARMS) as TileChar[])])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */

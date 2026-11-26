@@ -268,6 +268,13 @@ export type TileChar =
   | 'ω' // sluice water (water while its sluice group is full)
   | 'ψ' // drained sluice floor (walkable while its sluice group is drained)
   | 'ξ' // valve wheel (solid; a hit opens or shuts its mark's sluice flag)
+  // Lumen tubes (Relight the Sign: `engine/puzzles/tubes.ts`, `world/tubes.ts`). Walkable glass tubes in the ground,
+  // drawn as the box chars look; a blade, the disc or A turns a light one a quarter clockwise, a double one is bolted.
+  | '╵' | '╶' | '╷' | '╴' // a capped end, open north / east / south / west
+  | '│' | '─' | '┌' | '┐' | '└' | '┘' | '├' | '┤' | '┬' | '┴' | '┼'
+  | '║' | '═' | '╔' | '╗' | '╚' | '╝' | '╠' | '╣' | '╦' | '╩' | '╬'
+  | 'Θ' // a lumen tap (solid): the gas comes out of it into any tube that opens onto it
+  | 'Λ' // a socket (solid): the line up the hill to one letter; gas reaching it with no end left open lights it
 
 // ---------------------------------------------------------------------------
 // Items
@@ -396,6 +403,7 @@ export type EntDef =
   | { t: 'boulder'; dir: Dir; flag?: string } // a boulder (tile 'κ') that rolls along `dir` once `flag` is set
   | { t: 'sluice'; flag: string; invert?: boolean } // sluice tiles ('ω' / 'ψ'): full while `flag` is unset (set, with `invert`)
   | { t: 'valve'; flag: string } // a valve wheel (tile 'ξ'): a hit sets or clears `flag`
+  | { t: 'socket'; flag: string; letter?: string } // a tube socket (tile 'Λ'): fed, it sets `flag` for good; `letter` it lights
   | ExitDef
 
 export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid' | 'tree' | FrontierNpcLook
@@ -861,6 +869,23 @@ export interface PhysState {
   pending: number[]
   /** Seconds before a mirror or valve answers another hit. */
   cool: number
+  /** Lumen tubes: the gas as last traced (`engine/puzzles/tubes.ts`); absent on maps without tubes. */
+  gas?: GasState
+}
+
+/** The gas in a map's lumen tubes, traced again whenever the map changes (`MapState.version`). */
+export interface GasState {
+  /** The map's version it was traced at. */
+  v: number
+  /**
+   * Tubes the gas is in: the tile, its arms (N 1, E 2, S 4, W 8), how many tubes from its tap, and when the gas
+   * comes into it (`GameState.elapsed`; the picture runs it in from there).
+   */
+  tubes: Array<{ idx: number; arms: number; depth: number; t0: number }>
+  /** Open ends the gas hisses out of: the tube and the way. */
+  leaks: Array<{ idx: number; dx: number; dy: number }>
+  /** Sockets the gas reaches through a line with no end open. */
+  fed: number[]
 }
 
 export interface TerrainState { h: number[]; g: number; z: number }
@@ -1169,6 +1194,8 @@ export type GameEvent =
   | { type: 'join' }
   | { type: 'wait' } // Luna sat down at her fort
   | { type: 'bark'; x: number; y: number }
+  /** A lumen tube turned (`engine/puzzles/tubes.ts`). */
+  | { type: 'tube'; x: number; y: number }
   | { type: 'battle'; what: 'start' | 'won' | 'fled' | 'turn' | 'tech'; track?: TrackId; boss?: boolean }
   // The acrobatics and the arts (`engine/moves.ts`)
   | { type: 'air'; kind: AirKind }

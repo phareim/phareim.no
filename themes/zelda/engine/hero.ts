@@ -15,8 +15,9 @@ import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
 import { outOfReach } from './terrain'
-import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
+import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero, tubeWords } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
+import { isTube } from '../world/tubes'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 import {
   backflipWanted, canComet, canTempest, credit, endMoves, feedArts, isArt, mastered, startBackflip, startComet, startFlip,
@@ -418,8 +419,10 @@ function interact(c: Ctx): boolean {
     if (!has(s, c.info.levers.get(idx) ?? '')) { throwLever(c, tx, ty); return true }
     return false
   }
-  // A mirror turns, a valve opens or shuts (`puzzles/`).
+  // A mirror turns, a valve opens or shuts, a lumen tube turns (`puzzles/`); a tap or a socket says what it is.
   if (hitPuzzle(c, tx, ty, t)) return true
+  const words = tubeWords(c, idx, t)
+  if (words) { openDialog(c, words, null); return true }
   if (t === '$') {
     const chest = c.info.chests.get(idx)
     if (chest && !has(s, `chest:${chest.id}`)) {
@@ -836,7 +839,9 @@ export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 's
       c.ev.push({ type: 'reflect', x: p.x, y: p.y })
     }
   }
-  // Tiles along the blade.
+  // Tiles along the blade. (A lumen tube turns only straight ahead: a sweep over a board turns one, the one faced.)
+  const fv = dirVec(h.dir)
+  const front = { x: Math.floor(h.x + fv.x * 0.8), y: Math.floor(h.y + fv.y * 0.8) }
   for (const r of [0.75, reach - 0.1]) {
     const tx = Math.floor(h.x + ca * r)
     const ty = Math.floor(h.y + sa * r)
@@ -856,7 +861,7 @@ export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 's
     } else if (t === '}') {
       hit.push(key)
       throwLever(c, tx, ty)
-    } else if (hitPuzzle(c, tx, ty, t)) hit.push(key)
+    } else if ((!isTube(t) || (tx === front.x && ty === front.y)) && hitPuzzle(c, tx, ty, t)) hit.push(key)
   }
   return struck
 }

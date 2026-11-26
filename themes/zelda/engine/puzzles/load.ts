@@ -3,11 +3,13 @@
  * rolled (`boulder:<map>:<home>:<rest>`, rest -1 when it filled a pit), pits
  * a block or a boulder filled (`fill:<map>:<tile>`), and each sluice group
  * full or drained by its flag. Cracked walls a boulder broke use the bombs'
- * own flags. Called from `loadMap`; a no-op on maps without puzzle tiles.
+ * own flags. Lumen tubes of a board not yet lit are turned out of true
+ * (`tubes.ts`). Called from `loadMap`; a no-op on maps without puzzle tiles.
  */
 import type { GameState, TileChar } from '../../types'
 import type { MapInfo } from '../map'
 import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull } from './info'
+import { scrambleTubes } from './tubes'
 
 export function loadPuzzleTiles(info: MapInfo, s: GameState, tiles: TileChar[]) {
   const p = puzzleInfo(info)
@@ -26,4 +28,5 @@ export function loadPuzzleTiles(info: MapInfo, s: GameState, tiles: TileChar[]) 
       if (q.rest >= 0) tiles[q.rest] = 'κ'
     }
   }
+  if (p.boards.length) scrambleTubes(info, s.flags, tiles)
 }

@@ -4,7 +4,8 @@
  * beam emitters (a lens to each side), mirrors on both diagonals, the prism,
  * receivers dark and lit, valve wheels shut and open, and a boulder rolling
  * along either axis in four frames (a resting one is the props' own
- * `boulder`). `puzzlePropOf` says which stands for a tile now; pure.
+ * `boulder`), and Relight the Sign's lumen taps and sockets, dark and lit.
+ * `puzzlePropOf` says which stands for a tile now; pure.
  *
  * Seen from this view's corner a mirror on the diagonal from south-west to
  * north-east ('μ') turns its face to the viewer, and one on the other diagonal
@@ -17,15 +18,17 @@ export type PuzzlePropKind =
   | 'pzEmitterD' | 'pzEmitterU' | 'pzEmitterL' | 'pzEmitterR'
   | 'pzMirrorA' | 'pzMirrorB' | 'pzPrism' | 'pzReceiver' | 'pzReceiverLit' | 'pzValveShut' | 'pzValveOpen'
   | `pzRollX${0 | 1 | 2 | 3}` | `pzRollY${0 | 1 | 2 | 3}`
+  | 'pzTap' | 'pzSocket' | 'pzSocketLit'
 
 export const PUZZLE_PROP_KINDS: readonly PuzzlePropKind[] = [
   'pzEmitterD', 'pzEmitterU', 'pzEmitterL', 'pzEmitterR',
   'pzMirrorA', 'pzMirrorB', 'pzPrism', 'pzReceiver', 'pzReceiverLit', 'pzValveShut', 'pzValveOpen',
   'pzRollX0', 'pzRollX1', 'pzRollX2', 'pzRollX3', 'pzRollY0', 'pzRollY1', 'pzRollY2', 'pzRollY3',
+  'pzTap', 'pzSocket', 'pzSocketLit',
 ]
 
 /** Which of them glow by themselves (the materials test asks). */
-export const PUZZLE_PROPS_GLOW = /^pz(Emitter|Mirror|Prism|ReceiverLit|Valve|Roll)/
+export const PUZZLE_PROPS_GLOW = /^pz(Emitter|Mirror|Prism|ReceiverLit|Valve|Roll|Tap|SocketLit)/
 
 function plinth(b: Solids) {
   b.box(-8, -8, 0, 8, 8, 3, 'pole')
@@ -86,6 +89,21 @@ function valve(b: Solids, open: boolean) {
   })
 }
 
+/** A lumen tap: a squat steel tank on a plinth, a brass wheel on top round a pink hub. */
+function tap(b: Solids) {
+  b.box(-9, -9, 0, 9, 9, 2.5, 'shrine')
+  b.box(-7.5, -7.5, 2.5, 7.5, 7.5, 14, (_x, _y, z, _nx, _ny, nz) => (nz > 0.5 || z > 12.5 ? 'chrome' : 'shrine'))
+  b.post(0, 0, 14, 17.5, 1.4, 'chrome')
+  b.ball(0, 0, 18.5, 6, 6, 1.4, (x, y) => (Math.hypot(x, y) < 1.8 ? 'bandPink' : 'gold'))
+}
+
+/** A socket: the line's riser up the hill, a steel post on a plinth with a glass bulb, dark or lit pink. */
+function socket(b: Solids, lit: boolean) {
+  plinth(b)
+  b.post(0, 0, 4.5, 15, 1.8, 'chrome')
+  b.ball(0, 0, 19, 4.6, 4.6, 4.8, (_x, _y, z) => (lit ? (z > 20.5 ? 'core' : 'glassPink') : 'dark'))
+}
+
 /** A boulder rolling along x (`axis` 'X') or y, turned a quarter of a quarter turn per frame: a neon band round it shows it. */
 function roll(b: Solids, axis: 'X' | 'Y', frame: number) {
   const ph = (frame * Math.PI) / 8
@@ -111,6 +129,9 @@ export const PUZZLE_BUILD: Record<PuzzlePropKind, (b: Solids) => void> = {
   pzValveOpen: b => valve(b, true),
   pzRollX0: b => roll(b, 'X', 0), pzRollX1: b => roll(b, 'X', 1), pzRollX2: b => roll(b, 'X', 2), pzRollX3: b => roll(b, 'X', 3),
   pzRollY0: b => roll(b, 'Y', 0), pzRollY1: b => roll(b, 'Y', 1), pzRollY2: b => roll(b, 'Y', 2), pzRollY3: b => roll(b, 'Y', 3),
+  pzTap: tap,
+  pzSocket: b => socket(b, false),
+  pzSocketLit: b => socket(b, true),
 }
 
 /** What stands for a puzzle tile now: `lit` a receiver a beam reaches (or solved), `open` a valve's flag, `dir` an emitter's way. */
@@ -123,6 +144,8 @@ export function puzzlePropOf(t: TileChar, state: { lit?: boolean; open?: boolean
     case 'ρ': return state.lit ? 'pzReceiverLit' : 'pzReceiver'
     case 'ξ': return state.open ? 'pzValveOpen' : 'pzValveShut'
     case 'κ': return 'boulder'
+    case 'Θ': return 'pzTap'
+    case 'Λ': return state.lit ? 'pzSocketLit' : 'pzSocket'
   }
   return null
 }

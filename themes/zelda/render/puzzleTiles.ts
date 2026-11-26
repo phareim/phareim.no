@@ -7,12 +7,15 @@
  * the ice, and the light the beams lay on the floor. The beams themselves are
  * drawn with the shots (`drawBeams`, every view), rolling boulders and sliding
  * mirrors are queued like the other things (`queuePuzzles`). The isometric
- * view stands the solid ones in the round (`iso/puzzleProps.ts`).
+ * view stands the solid ones in the round (`iso/puzzleProps.ts`). Lumen
+ * tubes lie in the ground (`tube`), their taps and sockets stand; the gas in
+ * them is drawn with the shots too (`drawGas`, every view).
  */
 import type { Dir, GameState, MapKind, TileChar, World } from '../types'
 import { TILE } from '../types'
-import { has, mapInfo, puzzleInfo } from '../engine/index'
+import { GAS_SPEED, has, mapInfo, puzzleInfo, terrainRise } from '../engine/index'
 import { isMirror, PUZZLE_TILES, WEIGHT_PLATES } from '../world/puzzles'
+import { armsOf, bolted, isTube, WAYS } from '../world/tubes'
 import type { Item } from './wild'
 
 type G = CanvasRenderingContext2D
@@ -127,6 +130,7 @@ function basinRim(g: G, px: number, py: number, at: At, stone: string, dash: str
  */
 export function paintPuzzleBase(g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, under: () => void): boolean {
   if (!PUZZLE_TILES.has(t)) return false
+  if (isTube(t)) { under(); drawTube(g, px, py, t); return true }
   switch (t) {
     case 'α': ice(g, px, py, tx, ty, at); return true
     case 'ω': sluiceWater(g, px, py, tx, ty, at); return true
@@ -228,8 +232,146 @@ export function paintPuzzleObject(g: G, t: TileChar, px: number, py: number): bo
     case 'ρ': receiver(g, px, py); return true
     case 'κ': boulder(g, px, py); return true
     case 'ξ': valve(g, px, py); return true
+    case 'Θ': tap(g, px, py); return true
+    case 'Λ': socket(g, px, py); return true
   }
   return PUZZLE_TILES.has(t)
+}
+
+// ---------------------------------------------------------------------------
+// Lumen tubes (Relight the Sign, `engine/puzzles/tubes.ts`)
+// ---------------------------------------------------------------------------
+
+/** The gas, and the cold glass. */
+export const GAS = { glow: '#ff2fa0', core: '#ffe6fa', soft: 'rgba(255,47,160,0.3)' }
+const GLASS = { groove: '#0e0820', lip: '#2a1d4a', glass: '#5d4fa8', shine: '#c8bbff' }
+const BRASS = { d: '#4a2e0c', m: '#e0a940', l: '#ffe08a' }
+
+/**
+ * A tube in its groove: glass along each arm from the middle to the edge, and in the middle a brass collar (it
+ * turns) or a steel bracket with four rivets (bolted). A capped end has a round plug.
+ */
+export function drawTube(g: G, px: number, py: number, t: TileChar) {
+  const arms = armsOf(t)
+  const run = (pass: 0 | 1 | 2) => {
+    for (const w of WAYS) {
+      if (!(arms & w.arm)) continue
+      // From the middle (5..10) out to the edge along the arm.
+      const [x0, y0, ww, hh] = w.dx > 0 ? [8, 5, 8, 6] : w.dx < 0 ? [0, 5, 8, 6] : w.dy > 0 ? [5, 8, 6, 8] : [5, 0, 6, 8]
+      if (pass === 0) r(g, GLASS.groove, px + x0, py + y0, ww, hh)
+      else if (pass === 1) {
+        const [ix, iy, iw, ih] = w.dx ? [x0, y0 + 1, ww, hh - 2] : [x0 + 1, y0, ww - 2, hh]
+        r(g, GLASS.glass, px + ix, py + iy, iw, ih)
+      } else {
+        // A glint along the top of the glass.
+        if (w.dx) r(g, GLASS.shine, px + x0, py + y0 + 1, ww, 1)
+        else r(g, GLASS.shine, px + x0 + 1, py + y0, 1, hh)
+      }
+    }
+  }
+  run(0); run(1); run(2)
+  r(g, GLASS.groove, px + 5, py + 5, 6, 6)
+  r(g, GLASS.glass, px + 6, py + 6, 4, 4)
+  if (bolted(t)) {
+    // A steel bracket over the middle, four rivets.
+    r(g, STEEL.d, px + 4, py + 4, 8, 8)
+    r(g, STEEL.m, px + 5, py + 5, 6, 6)
+    r(g, STEEL.h, px + 5, py + 5, 6, 1)
+    for (const [x, y] of [[5, 5], [10, 5], [5, 10], [10, 10]] as const) r(g, STEEL.hh, px + x, py + y, 1, 1)
+  } else if ([1, 2, 4, 8].includes(arms)) {
+    // A capped end: a round brass plug.
+    r(g, BRASS.d, px + 5, py + 6, 6, 4); r(g, BRASS.d, px + 6, py + 5, 4, 6)
+    r(g, BRASS.m, px + 6, py + 6, 4, 4)
+    r(g, BRASS.l, px + 6, py + 6, 2, 1)
+  } else {
+    // The collar it turns in: a brass ring.
+    r(g, BRASS.d, px + 4, py + 4, 8, 8)
+    r(g, BRASS.m, px + 4, py + 4, 8, 1); r(g, BRASS.m, px + 4, py + 4, 1, 8)
+    r(g, BRASS.l, px + 5, py + 4, 3, 1)
+    r(g, GLASS.glass, px + 6, py + 6, 4, 4)
+    r(g, GLASS.shine, px + 6, py + 6, 1, 1)
+  }
+}
+
+/** A lumen tap: a squat tank, a brass wheel on top, a pink gauge. */
+function tap(g: G, px: number, py: number) {
+  r(g, 'rgba(0,0,0,0.35)', px + 2, py + 12, 13, 4)
+  r(g, STEEL.d, px + 2, py + 5, 12, 10)
+  r(g, STEEL.m, px + 3, py + 6, 10, 8)
+  r(g, STEEL.l, px + 3, py + 6, 10, 1)
+  r(g, '#ff2fa0', px + 5, py + 9, 3, 3); r(g, '#ffe6fa', px + 6, py + 10, 1, 1)
+  r(g, BRASS.d, px + 4, py + 1, 8, 4)
+  r(g, BRASS.m, px + 5, py + 2, 6, 2)
+  r(g, BRASS.l, px + 7, py + 1, 2, 1)
+  r(g, STEEL.h, px + 7, py + 4, 2, 2)
+}
+
+/** A socket: the line's riser up the hill, a steel post with a glass bulb (lit in `drawPuzzleLive`). */
+function socket(g: G, px: number, py: number) {
+  r(g, 'rgba(0,0,0,0.35)', px + 3, py + 12, 11, 4)
+  r(g, STEEL.d, px + 4, py + 10, 8, 5)
+  r(g, STEEL.m, px + 5, py + 11, 6, 3)
+  r(g, STEEL.d, px + 7, py + 3, 2, 8)
+  r(g, STEEL.l, px + 7, py + 3, 1, 8)
+  r(g, GLASS.lip, px + 5, py, 6, 5)
+  r(g, GLASS.glass, px + 6, py + 1, 4, 3)
+}
+
+/**
+ * The gas in the tubes, a neon pink line along each arm the gas has reached, a lens low over the ground, and puffs
+ * where it hisses out of an open end. `place` puts a world point (and height, tiles) on the picture.
+ */
+export function drawGas(g: G, s: GameState, place: (x: number, y: number, z?: number) => { x: number; y: number }, time: number, reduced: boolean) {
+  const gas = s.map.phys?.gas
+  if (!gas?.tubes.length) return
+  const m = s.map
+  const now = s.elapsed
+  const zOf = (i: number) => (m.terrain ? Math.max(0, terrainRise(m, i % m.w, Math.floor(i / m.w))) : 0)
+  const flick = reduced ? 1 : 0.88 + 0.12 * Math.sin(time * 23)
+  const full = new Set<number>()
+  g.save()
+  g.lineCap = 'round'
+  for (const pass of [0, 1, 2]) {
+    g.strokeStyle = pass === 0 ? GAS.soft : pass === 1 ? GAS.glow : GAS.core
+    g.lineWidth = pass === 0 ? 4 : pass === 1 ? 2 : 0.8
+    g.globalAlpha = pass === 0 ? flick : 1
+    g.beginPath()
+    for (const t of gas.tubes) {
+      const f = Math.max(0, Math.min(1, (now - t.t0) * GAS_SPEED))
+      if (f <= 0) continue
+      if (f >= 1) full.add(t.idx)
+      const x = (t.idx % m.w) + 0.5
+      const y = Math.floor(t.idx / m.w) + 0.5
+      const z = zOf(t.idx)
+      const c = place(x, y, z)
+      for (const w of WAYS) {
+        if (!(t.arms & w.arm)) continue
+        const e = place(x + w.dx * 0.5 * f, y + w.dy * 0.5 * f, z)
+        g.moveTo(c.x, c.y - 1)
+        g.lineTo(e.x, e.y - 1)
+      }
+    }
+    g.stroke()
+  }
+  // The open ends: little clouds of pink, blown out and fading.
+  if (gas.leaks.length) {
+    g.fillStyle = GAS.glow
+    for (const l of gas.leaks) {
+      if (!full.has(l.idx)) continue
+      const x = (l.idx % m.w) + 0.5 + l.dx * 0.5
+      const y = Math.floor(l.idx / m.w) + 0.5 + l.dy * 0.5
+      for (let k = 0; k < 3; k++) {
+        const ph = reduced ? k / 3 : (time * 1.6 + k / 3 + hash(l.idx, k) * 0.2) % 1
+        const d = 0.08 + ph * 0.45
+        const p = place(x + l.dx * d + (hash(l.idx, k, 1) - 0.5) * 0.2 * ph, y + l.dy * d + (hash(l.idx, k, 2) - 0.5) * 0.2 * ph, zOf(l.idx))
+        g.globalAlpha = 0.55 * (1 - ph)
+        g.beginPath()
+        g.arc(p.x, p.y - 2 - ph * 3, 1 + ph * 2.5, 0, Math.PI * 2)
+        g.fill()
+      }
+    }
+  }
+  g.restore()
 }
 
 // ---------------------------------------------------------------------------
@@ -292,6 +434,17 @@ export function drawPuzzleLive(g: G, world: World, s: GameState, x0: number, y0:
       case 'π':
         if (ph?.beams.some(b => (b.x1 === wx && b.y1 === wy) || (b.x0 === wx && b.y0 === wy))) lights.push({ x: wx, y: wy - 0.2, r: 2, color: BEAM.hot, a: 0.85 })
         break
+      case 'Λ': {
+        // A socket glows once its letter is lit, and brightly while the gas reaches it.
+        const flag = p.sockets.get(idx)?.flag
+        const fed = !!ph?.gas?.fed.includes(idx)
+        if (fed || (flag && has(s, flag))) {
+          r(g, fed ? GAS.core : GAS.glow, px + 6, py + 1, 4, 3)
+          r(g, GAS.core, px + 7, py + 1, 1, 1)
+          lights.push({ x: wx, y: wy - 0.4, r: fed ? 2.2 : 1.4, color: GAS.glow, a: fed ? 0.85 + 0.15 * Math.sin(tm * 6) : 0.55 })
+        }
+        break
+      }
       case 'ω':
         if (!reduced) {
           const lx = Math.floor(((Math.sin(time * 1.6 + hash(tx, ty) * 6) + 1) / 2) * 9)
@@ -309,6 +462,13 @@ export function drawPuzzleLive(g: G, world: World, s: GameState, x0: number, y0:
         lights.push({ x: wx, y: wy, r: 1.7, color: '#2ff3ff', a: 0.65 })
       } else for (let i = 0; i < Math.min(3, wgt); i++) r(g, '#ff2fa0', px + 5 + i * 3, py + 12, 2, 1)
     }
+  }
+  // The gas lights the ground round the tubes it fills.
+  if (ph?.gas) for (const t of ph.gas.tubes) {
+    const tx = t.idx % m.w
+    const ty = Math.floor(t.idx / m.w)
+    if (tx < x0 || tx > x1 || ty < y0 || ty > y1 || s.elapsed < t.t0) continue
+    lights.push({ x: tx + 0.5, y: ty + 0.5, r: 1.1, color: GAS.glow, a: 0.4 })
   }
   // The beams light what they cross.
   if (ph) for (const b of ph.beams) {

@@ -5,9 +5,10 @@
  * renderer and the validator read it.
  */
 import type { EntDef, TileChar } from '../types'
+import { TUBE_TILES } from './tubes'
 
 /** Every tile the physical puzzles add. A map with any of them runs the puzzle rules. */
-export const PUZZLE_TILES: ReadonlySet<TileChar> = new Set<TileChar>(['α', 'β', 'μ', 'ν', 'π', 'ρ', 'θ', 'η', 'σ', 'κ', 'ω', 'ψ', 'ξ'])
+export const PUZZLE_TILES: ReadonlySet<TileChar> = new Set<TileChar>(['α', 'β', 'μ', 'ν', 'π', 'ρ', 'θ', 'η', 'σ', 'κ', 'ω', 'ψ', 'ξ', ...TUBE_TILES])
 
 /** Floors that come back when what stood on them moves away (the base layer remembers them). */
 export const PUZZLE_FLOORS: ReadonlySet<TileChar> = new Set<TileChar>(['α', 'θ', 'η', 'σ', 'ω', 'ψ'])
@@ -25,6 +26,7 @@ export function puzzleMarkTile(e: EntDef): TileChar | null {
     case 'boulder': return 'κ'
     case 'sluice': return e.invert ? 'ψ' : 'ω'
     case 'valve': return 'ξ'
+    case 'socket': return 'Λ'
     default: return null
   }
 }

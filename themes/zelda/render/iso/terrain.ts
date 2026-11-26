@@ -7,6 +7,7 @@
 import type { GameState, MapState, TileChar } from '../../types'
 import { TILE } from '../../types'
 import { terrainRise, terrainZ, isRamp, RAMPS } from '../../engine/index'
+import { isTube } from '../../world/tubes'
 import type { Material } from './materials'
 import type { Shape } from './shape'
 
@@ -113,7 +114,8 @@ export function terrainMaterial(t: TileChar, top: boolean, wild: boolean): Mater
     case 'а': case 'е': return top ? null : 'rockface'
     case 'д': return top ? null : 'rockface'
     case 'б': return 'boards'
-    default: return null
+    // (A lumen tube on raised ground: its column is earth, like the bare ground's.)
+    default: return isTube(t) && !top ? 'rockface' : null
   }
 }
 

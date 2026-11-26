@@ -713,12 +713,13 @@ describe('the Puzzle Lab', () => {
 
 describe('the older maps', () => {
   it('have no puzzle tiles and no physics: every puzzle rule stays off there (on only in the Puzzle Lab and the puzzle lands)', () => {
-    // The lands whose system is the physical puzzles (docs/worlds/atlas.md): Yule Fjord and Stillsand.
+    // The lands whose system is the physical puzzles (docs/worlds/atlas.md): Yule Fjord and Stillsand. Lumenby has
+    // only lumen tubes (Relight the Sign): the rules run, its combat stays as it was.
     const PUZZLE_REALMS = new Set(['yulefjord', 'stillsand'])
     for (const [id, def] of Object.entries(Z.WORLD.maps)) {
       if (id === 'puzzlelab' || PUZZLE_REALMS.has(def.realm)) continue
       const p = Z.puzzleInfo(Z.mapInfo(Z.WORLD, id))
-      assert.equal(p.on, false, id)
+      assert.equal(p.on, id === 'lumenby', id)
       assert.equal(p.physical, false, id)
       assert.equal(def.physics, undefined, id)
     }

@@ -34,7 +34,7 @@ import { chestStar, createTileLayer, drawBlock, drawLiveTiles, hash2, updateTile
 import { MOOD, realmLook } from './looks'
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, facingDir, fireflies, queueLuna, queueProps, setLunaFacing, type Item } from './wild'
-import { drawBeams, drawMovingMirror, queuePuzzles } from './puzzleTiles'
+import { drawBeams, drawGas, drawMovingMirror, queuePuzzles } from './puzzleTiles'
 import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
@@ -1383,6 +1383,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** What flies and glows, drawn after the light: shots and the disc. `place` puts a world point on the scene; `dirOf` turns a world direction into the scene's. */
   function projectiles(g: G, s: GameState, place: Place, dirOf: (vx: number, vy: number) => Vec = (vx, vy) => ({ x: vx, y: vy })) {
     const m = s.map
+    drawGas(g, s, place, time, frameReduced)
     drawBeams(g, s, place, time, frameReduced)
     for (const p of m.projectiles) {
       const at = place(p.x, p.y)

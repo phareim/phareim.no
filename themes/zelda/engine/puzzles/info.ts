@@ -1,15 +1,19 @@
 /**
  * What a map's physical puzzles are, read once from its MapInfo (cached):
  * emitters, receivers, boulders, sluice groups, valves, weighed plates and
- * the mirrors' home tiles. Unmarked puzzle tiles take defaults: an emitter
- * shines down, a receiver sets `beam:<map>:<tile>`, a plate is `w:<tile>`.
+ * the mirrors' home tiles, the lumen tubes' sockets and boards. Unmarked
+ * puzzle tiles take defaults: an emitter shines down, a receiver sets
+ * `beam:<map>:<tile>`, a plate is `w:<tile>`, a socket `tube:<map>:<tile>`.
  */
 import type { Cond, Dir, TileChar } from '../../types'
 import { PUZZLE_TILES, WEIGHT_PLATES, isMirror } from '../../world/puzzles'
+import { SOCKET, TAP, TUBE_TILES, isTube } from '../../world/tubes'
 import type { MapInfo } from '../map'
 
 export interface Emitter { idx: number; dir: Dir; when?: Cond; cell: number }
 export interface Sluice { key: string; flag: string; invert: boolean; tiles: number[] }
+/** Lumen tubes side by side, with the taps and sockets beside them: one puzzle. */
+export interface TubeBoard { tubes: number[]; taps: number[]; sockets: number[] }
 
 export interface PuzzleInfo {
   /** The map has puzzle tiles: the puzzle rules run. */
@@ -29,6 +33,10 @@ export interface PuzzleInfo {
   scales: Set<string>
   /** Authored mirrors per camera room: [tile, char]. */
   mirrors: Map<number, Array<[number, TileChar]>>
+  /** Lumen tubes' sockets: the flag each sets when fed, and the letter it lights. */
+  sockets: Map<number, { flag: string; letter?: string }>
+  /** Lumen tubes' boards. */
+  boards: TubeBoard[]
 }
 
 const cache = new WeakMap<MapInfo, PuzzleInfo>()
@@ -47,9 +55,10 @@ export function puzzleInfo(info: MapInfo): PuzzleInfo {
     on: info.base.some(t => PUZZLE_TILES.has(t)),
     physical: false, ice: info.base.includes('α'),
     emitters: [], receivers: new Map(), boulders: new Map(), sluices: [], sluiceOf: new Map(), valves: new Map(),
-    weights: new Map(), scales: new Set(), mirrors: new Map(),
+    weights: new Map(), scales: new Set(), mirrors: new Map(), sockets: new Map(), boards: [],
   }
-  p.physical = p.on || !!info.def.physics
+  // (Tubes alone leave the combat as it was: no foe falls for them.)
+  p.physical = info.base.some(t => PUZZLE_TILES.has(t) && !TUBE_TILES.has(t)) || !!info.def.physics
   const marked = new Set<number>()
   const groups = new Map<string, Sluice>()
   for (const m of info.marks) {
@@ -59,6 +68,7 @@ export function puzzleInfo(info: MapInfo): PuzzleInfo {
     else if (e.t === 'receiver') p.receivers.set(idx, e.flag)
     else if (e.t === 'boulder') p.boulders.set(idx, { dir: e.dir, flag: e.flag })
     else if (e.t === 'valve') p.valves.set(idx, e.flag)
+    else if (e.t === 'socket') p.sockets.set(idx, { flag: e.flag, ...(e.letter ? { letter: e.letter } : {}) })
     else if (e.t === 'sluice') {
       const key = `${e.flag}|${e.invert ? 1 : 0}`
       let g = groups.get(key)
@@ -70,6 +80,7 @@ export function puzzleInfo(info: MapInfo): PuzzleInfo {
   info.base.forEach((t, idx) => {
     if (t === 'β' && !marked.has(idx)) p!.emitters.push({ idx, dir: 'down', cell: cellOf(info, idx) })
     else if (t === 'ρ' && !p!.receivers.has(idx)) p!.receivers.set(idx, `beam:${id}:${idx}`)
+    else if (t === SOCKET && !p!.sockets.has(idx)) p!.sockets.set(idx, { flag: `tube:${id}:${idx}` })
     else if (WEIGHT_PLATES[t] !== undefined) {
       const pid = info.plates.get(idx) ?? `w:${idx}`
       p!.weights.set(idx, pid)
@@ -81,8 +92,38 @@ export function puzzleInfo(info: MapInfo): PuzzleInfo {
       p!.mirrors.set(cell, list)
     }
   })
+  p.boards = tubeBoards(info)
   cache.set(info, p)
   return p
+}
+
+/** The lumen tubes' boards: tubes, taps and sockets joined side by side, as authored. */
+function tubeBoards(info: MapInfo): TubeBoard[] {
+  const out: TubeBoard[] = []
+  const seen = new Set<number>()
+  const w = info.w
+  info.base.forEach((t, start) => {
+    if (!TUBE_TILES.has(t) || seen.has(start)) return
+    const b: TubeBoard = { tubes: [], taps: [], sockets: [] }
+    const stack = [start]
+    seen.add(start)
+    while (stack.length) {
+      const i = stack.pop()!
+      const c = info.base[i]!
+      if (c === TAP) b.taps.push(i)
+      else if (c === SOCKET) b.sockets.push(i)
+      else if (isTube(c)) b.tubes.push(i)
+      const x = i % w
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]) {
+        if (j < 0 || j >= info.base.length || seen.has(j) || !TUBE_TILES.has(info.base[j]!)) continue
+        seen.add(j)
+        stack.push(j)
+      }
+    }
+    for (const l of [b.tubes, b.taps, b.sockets]) l.sort((a, z) => a - z)
+    out.push(b)
+  })
+  return out
 }
 
 /** Is the sluice group full now (water) rather than drained (floor)? */

@@ -21,6 +21,9 @@ Demo: `world/puzzlelab.ts`. Tests: `tests/zelda-puzzles.test.mjs`.
 | `ω` `ψ` | sluice water / drained floor | Mark `{ t: 'sluice', flag, invert? }` on every tile of a basin: full while `flag` is unset (set, with `invert`). Flooding waits for the hero to step out and drowns walking foes. |
 | `ξ` | valve | Mark `{ t: 'valve', flag }`: a hit or A sets or clears the flag (two valves on one flag, two basins with opposite `invert`: one drains as the other fills). |
 
+Lumen tubes (`╵ ─ ┌ … ╬`, the tap `Θ`, the socket `Λ`) are puzzle tiles too, with rules of their own:
+`docs/games/neon-shrine-sign.md` (Relight the Sign, Lumenby).
+
 Beams pass over water, fences and counters, stop at anything else solid (a block pushed in their way too) and
 burn the foes they cross. Bombs shove blocks and mirrors beside them (on ice they slide). On a physical map a foe
 knocked into a pit or water is gone, onto spikes hurt.

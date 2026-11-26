@@ -89,7 +89,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
     'q.unionhall': [
       ...[...'lumenby'].map((ch, i) => prop(`quarry_letter_${ch}_off`, 0.8 + i * 1.2, 0.6, {
         z: 0.85,
-        lit: { flag: `q.lumenby.lot${i + 1}`, art: `quarry_letter_${ch}_on` },
+        lit: { flag: `q.lumenby.sign${i + 1}`, art: `quarry_letter_${ch}_on` },
         // A lit letter spills pink on the bench under it.
         lights: [light('rose', 1.9, 0.7, { z: 0.3, dy: 0.35, lit: true })],
       })),

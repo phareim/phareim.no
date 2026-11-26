@@ -40,6 +40,8 @@ export type SfxName =
   | 'bossDie' | 'lowHp' | 'gate'
   // The Wildwood and Project Horizon
   | 'hook' | 'hookHit' | 'pull' | 'psi' | 'glyph' | 'lever' | 'land' | 'beam' | 'gust' | 'bark'
+  // Relight the Sign: a lumen tube turned in its collar
+  | 'tube'
   // The blade's acrobatics and arts (engine/moves.ts): a flip, the comet, the starfall's climb and slam, the
   // pulse, the flash step, the halo, a slip into slow time, an art ready again
   | 'flip' | 'comet' | 'rise' | 'slam' | 'pulse' | 'flash' | 'halo' | 'slip' | 'ready'
@@ -3037,6 +3039,13 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
       tone({ f: 50, to: 120, dur: 1, type: 'sawtooth', vol: 0.13, attack: 0.35, at: 0.12, lp: 900 })
       tone({ f: 100, to: 240, dur: 0.95, type: 'square', vol: 0.05, attack: 0.35, at: 0.14, lp: 1400 })
       ;[0.55, 0.68, 0.74, 0.9].forEach(at => nz({ dur: 0.025, vol: 0.14, type: 'highpass', f: 5000, at }))
+    },
+    tube() {
+      // A glass tube turned a quarter in its brass collar: a clink, a click, the gas sighing along it.
+      tone({ f: 2093, dur: 0.14, type: 'sine', vol: 0.09, verb: true })
+      tone({ f: 3136, dur: 0.06, type: 'triangle', vol: 0.04, at: 0.012 })
+      nz({ dur: 0.07, vol: 0.2, type: 'lowpass', f: 900 })
+      nz({ dur: 0.32, vol: 0.05, type: 'highpass', f: 4200, at: 0.05 })
     },
     land() {
       tone({ f: 140, to: 45, dur: 0.22, type: 'sine', vol: 0.5 })

@@ -15,9 +15,11 @@ import { exitTiles } from './exits'
 import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
-import { isTerrainChar, paintTerrainTile, setTerrainPaint } from './terrain'
+import { isTerrainChar, paintTerrainTile, setTerrainPaint, terrainRaised } from './terrain'
 import { atlasBeyond, beyondTile, type Beyond } from './beyond'
-import { drawPuzzleLive, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
+import { drawPuzzleLive, drawTube, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
+import { isTube, TUBE_TILES } from '../world/tubes'
+import { TILE_INFO } from '../world/tiles'
 import { CLASSIC, MOOD, realmLook } from './looks'
 import { standIns, standsIn, type StandIn } from './standIns'
 
@@ -807,8 +809,31 @@ function plateBase(g: G, px: number, py: number) {
   r(g, '#2b2553', px + 4, py + 4, 8, 8)
 }
 
+/** The floor a lumen tube is laid in: the open ground beside it that is no tube (sand on a square, grass in a field). */
+function floorNear(m: MapState, tx: number, ty: number): TileChar {
+  const seen = new Map<TileChar, number>()
+  for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+    const x = tx + dx
+    const y = ty + dy
+    if (x < 0 || y < 0 || x >= m.w || y >= m.h) continue
+    const f = m.tiles[y * m.w + x]!
+    if (TUBE_TILES.has(f) || TILE_INFO[f]?.solid || f === '~' || f === 'O') continue
+    seen.set(f, (seen.get(f) ?? 0) + 1)
+  }
+  let best: TileChar = '.'
+  let n = 0
+  for (const [f, k] of seen) if (k > n) { best = f; n = k }
+  return best
+}
+
 function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, marquee: boolean, bare: boolean, look?: string) {
   if (paintTerrainTile(kind, g, t, px, py, tx, ty, at, 'objects', () => grass(g, px, py, tx, ty, at))) return
+  // A lumen tube on raised ground stands with it (the isometric view caps its column with this): earth, the tube.
+  if (isTube(t) && terrainRaised(tx, ty)) {
+    paintTerrainTile(kind, g, 'д', px, py, tx, ty, at, 'objects', () => grass(g, px, py, tx, ty, at))
+    drawTube(g, px, py, t)
+    return
+  }
   if (paintPuzzleObject(g, t, px, py)) return
   if (paintNewObject(look, g, t, px, py, tx, ty)) return
   if (look === 'lab' && paintLabObject(g, t, px, py, tx, ty, at)) return
@@ -929,7 +954,7 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   if (pass !== 'objects') for (let ty = Y0; ty <= Y1; ty++) for (let tx = X0; tx <= X1; tx++) {
     const t = m.tiles[ty * m.w + tx]!
     // The puzzles' tiles, over the map's own floor (`puzzleTiles.ts`).
-    if (paintPuzzleBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near), () => { if (!(look === 'lab' && paintLabBase(g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near)))) paintBase(kind, g, '.', tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near)) })) continue
+    if (paintPuzzleBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near), () => { const f = TUBE_TILES.has(t) ? floorNear(m, tx, ty) : '.'; if (!(look === 'lab' && paintLabBase(g, f, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near)))) paintBase(kind, g, f, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near)) })) continue
     if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near))) continue
     paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind, near))
   }

@@ -10,6 +10,7 @@ import { breakShards, enemyActive } from './enemies'
 import { cutTile, throwLever, toggleCrystal } from './hero'
 import { circleBlocked, condMet, has, moveCircle, setFlag, solidTile, tileAt } from './map'
 import { nextId, rndRange } from './util'
+import { isTube } from '../world/tubes'
 import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, puzzleInfo, stepPhysics } from './puzzles/index'
 
 export function stepObjects(c: Ctx, dt: number) {
@@ -152,7 +153,9 @@ function stepDisc(c: Ctx, dt: number) {
     throwLever(c, tx, ty)
     d.returning = true
   }
-  if (!d.hit.includes(key) && hitPuzzle(c, tx, ty, tileAt(m, tx, ty))) { d.hit.push(key); d.returning = true }
+  // (A lumen tube under the hero's own feet is not the disc's to turn: it starts out over it.)
+  const own = isTube(tileAt(m, tx, ty)) && tx === Math.floor(c.s.hero.x) && ty === Math.floor(c.s.hero.y)
+  if (!d.hit.includes(key) && !own && hitPuzzle(c, tx, ty, tileAt(m, tx, ty))) { d.hit.push(key); d.returning = true }
   for (const q of m.drops) {
     if (!d.carrying.includes(q.id) && Math.hypot(q.x - d.x, q.y - d.y) < 0.5) d.carrying.push(q.id)
   }
