@@ -3,9 +3,11 @@ export { createGame, stepGame, respawn, resumeAfterWin, toSave, parseSave, camer
 export { mapDef, mapInfo, cellIndex, cellRect, cellDef, tileAt, raised, crystalAt, has, keyCount, addKeys, hasBigKey, cellIsDark, condMet, setSession } from './map'
 export { shardPos, SHARD_R, enemyActive } from './enemies'
 export { aimOf, swingAngle, swingDur, useItems } from './hero'
+// The acrobatics and the arts (`moves.ts`)
+export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artReady, artRest, isArt, haloSparks, ART_IDS, TEACHERS } from './moves'
 export { STATS } from './spawn'
 // Test hooks: the play-through test kills bosses directly.
-export { ctx, killEnemy, hitEnemy, hurtHero } from './combat'
+export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { solidTile } from './map'
 export { DAY, DAY_LENGTH, HOURS, foeLevel, setDaytime, wayOut } from './day'
 // Field battles (MapDef.battle)

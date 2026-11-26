@@ -8,6 +8,7 @@ import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
 import { startBattle } from './battle/fight'
+import { artOfItem, endMoves, learnArt, slip } from './moves'
 
 export interface Ctx {
   w: World
@@ -24,14 +25,20 @@ export function ctx(w: World, s: GameState, ev: GameEvent[]): Ctx {
 // Hero damage
 // ---------------------------------------------------------------------------
 
-export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shock = false): boolean {
+/**
+ * `foe`: the harm is a foe's (a blow, a shot): one that passes through the roll's first moments is a SLIP
+ * (`moves.ts`). Spikes, a fall, the hero's own bomb are not.
+ */
+export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shock = false, foe = true): boolean {
   const s = c.s
   const h = s.hero
   // Nothing hurts while the hero steps out of a door.
   if (h.auto) return false
   if (s.mode !== 'play' || h.invuln > 0 || h.act === 'fall' || h.act === 'dead' || h.act === 'get') return false
   // The first moments of a dodge roll: nothing lands.
-  if (h.roll && h.roll.t < ROLL_IFRAMES) return false
+  if (h.roll && h.roll.t < ROLL_IFRAMES) { if (foe) slip(c, fromX, fromY); return false }
+  // In the air and in the flash step: nothing lands.
+  if (h.air || h.dash) return false
   h.hp = Math.max(0, h.hp - dmg)
   h.invuln = INVULN
   let dx = h.x - fromX
@@ -43,6 +50,7 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
   h.swing = null
   h.spin = null
   h.roll = null
+  endMoves(h)
   h.charge = -1
   if (h.carry) {
     c.ev.push({ type: 'shatter', x: h.x, y: h.y - 0.6, kind: h.carry })
@@ -68,7 +76,8 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 // Enemy damage
 // ---------------------------------------------------------------------------
 
-export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit'
+/** `art`: one of the arts on B (`moves.ts`). */
+export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit' | 'art'
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
@@ -83,7 +92,7 @@ const blade = (src: HitSource) => src === 'sword' || src === 'spin'
  * next hit lands), `finisher` the chain's last (it bites harder on a foe stunned, or reeling from some other
  * blow: a pot, a bomb, the spin; not on one reeling only from the chain's own hits). Left out: the plain values.
  */
-export interface HitOpts { knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean }
+export interface HitOpts { knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean; crit?: boolean }
 
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
@@ -95,6 +104,18 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
     if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
     return false
   }
+  // After a SLIP the hero's next blow is critical (`moves.ts`).
+  const h0 = c.s.hero
+  if (h0.edge && (src === 'sword' || src === 'spin' || src === 'art')) {
+    opt = { ...opt, crit: true }
+    const landed = hitEnemyPlain(c, e, dmg, fromX, fromY, src, opt)
+    if (landed) h0.edge = false
+    return landed
+  }
+  return hitEnemyPlain(c, e, dmg, fromX, fromY, src, opt)
+}
+
+function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
   const special = bossRules(c, e, dmg, fromX, fromY, src, opt)
   if (special !== null) return special
   // The hook stuns like the disc, and bites the frail.
@@ -209,7 +230,7 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   const big = BIG.has(e.kind)
   // The chain's finisher on a foe stunned (the disc, the hook) or reeling from another blow: a critical one.
   // The chain's own hits leave the foe reeling too, but that is the chain's ordinary course, not a crit.
-  const crit = !!opt?.finisher && !big && (e.stun > 0 || ((e.stagger ?? 0) > 0 && !e.reelChain))
+  const crit = !!opt?.crit || (!!opt?.finisher && !big && (e.stun > 0 || ((e.stagger ?? 0) > 0 && !e.reelChain)))
   e.hp -= dmg + (crit ? 1 : 0)
   e.flash = 0.14
   e.invuln = big ? 0.45 : opt?.chain ? 0.1 : 0.28
@@ -318,7 +339,7 @@ export const bombMax = (s: GameState) => (s.inv.bombBag ? (s.inv.bigBag ? 20 : 1
 
 export function itemText(s: GameState, item: ItemId): string[] {
   switch (item) {
-    case 'sword': return ['YOU GOT THE NEON BLADE!', 'PRESS {A} TO SWING, AND AGAIN FOR THE NEXT BLOW. HOLD {A}, THEN LET GO, FOR A SPIN ATTACK.', '{ROLL} ROLLS YOU OUT OF HARM\'S WAY.']
+    case 'sword': return ['YOU GOT THE NEON BLADE!', 'PRESS {A} TO SWING, AND AGAIN FOR THE NEXT BLOW. HOLD {A}, THEN LET GO, FOR A SPIN ATTACK.', '{ROLL} ROLLS YOU OUT OF HARM\'S WAY. {A} IN A ROLL FLIPS YOU OVER. PAUSE FOR YOUR MOVES.', 'THE KEEPER WANTS A WORD BEFORE YOU GO.']
     case 'bombBag': return ['YOU GOT BOMBS!', 'PRESS {B} TO SET ONE. A BLAST BREAKS CRACKED ROCK AND WALLS.']
     case 'bombs5': return ['FIVE BOMBS. HANDLE WITH CARE.']
     case 'disc': return ['YOU GOT THE PRISM DISC!', 'PRESS {B} TO THROW IT. IT STUNS FOES, FETCHES LOOT AND FLIPS FAR SWITCHES.', '{CYCLE} SWAPS BETWEEN BOMBS AND THE DISC.']
@@ -347,6 +368,10 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'pickaxe': return ['YOU GOT THE PICKAXE!', 'DIG WITH {B}: STONE, ORE AND ROCK BREAK, AND WHAT FALLS OUT IS YOURS.']
     case 'shovel': return ['YOU GOT THE SHOVEL!', 'DIG WITH {B}: EARTH AND SAND GO DOWN A LEVEL. A HOLE AT YOUR FEET FILLS WITH DIRT.']
     case 'axe': return ['YOU GOT THE AXE!', 'DIG WITH {B}: TREES AND BUSHES COME DOWN AS WOOD.']
+    case 'artPulse': return ['YOU LEARNED PULSE!', 'PRESS {B} TO PUSH A WAVE FROM YOUR PALM. IT THROWS FOES BACK, STUNS THEM AND TURNS THEIR SHOTS ROUND.', 'ARTS SIT ON {B} WITH YOUR ITEMS, AND EACH NEEDS A MOMENT BETWEEN USES. PAUSE FOR YOUR MOVES.']
+    case 'artFlash': return ['THE KNIGHT\'S CHARGE IS YOURS: FLASH STEP!', 'PRESS {B} TO CROSS FOUR TILES IN A BLINK. WHATEVER STOOD IN THE WAY IS CUT A MOMENT LATER.']
+    case 'artStar': return ['THE MISTRAL\'S SKY IS YOURS: STARFALL!', 'PRESS {B} TO LEAP HIGH AT THE NEAREST FOE AND COME DOWN ON IT LIKE A FALLING STAR.']
+    case 'artHalo': return ['THE TWINS\' ORBIT IS YOURS: HALO!', 'PRESS {B} AND THREE SPARKS CIRCLE YOU FOR A WHILE, CUTTING WHATEVER COMES TOO CLOSE.']
     case 'hammer': return ['YOU GOT THE HAMMER!', 'BUILD WITH {B}: A BLOCK, A RAMP UP A STEP OR A PLANK OVER WATER.', '{CYCLE} PICKS STONE, WOOD OR A LAMP. HAMMER WHAT YOU BUILT AND IT COMES BACK WHOLE.']
   }
 }
@@ -380,6 +405,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
     case 'pickaxe': case 'shovel': case 'axe': inv.selected = 'dig'; break
     case 'hammer': inv.selected = 'build'; break
+    case 'artPulse': case 'artFlash': case 'artStar': case 'artHalo': learnArt(s, artOfItem(item)!); break
   }
   setFlag(s, `item:${item}`)
 }
@@ -396,6 +422,7 @@ export function acquire(c: Ctx, item: ItemId) {
   h.swing = null
   h.spin = null
   h.roll = null
+  endMoves(h)
   h.bufA = 0
   h.charge = -1
   h.knock = null

@@ -6,8 +6,8 @@
  * get (item held up, then its text) / dying → respawn; won and exit (the
  * hero left through an exit, the shell navigates) are terminal.
  */
-import type { AreaIntro, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
-import { HERO_R, MAX_HP, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
+import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
+import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, settleItem, stepHero, WALK_OUT_TIME } from './hero'
@@ -24,6 +24,7 @@ import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
 import { digLevel } from './digGround'
 import { resetPuzzleRoom } from './puzzles/index'
 import { cleanExplored, revealAround, reveal } from './explore'
+import { ART_IDS, artsFromFlags, endMoves, stepSlow, stepTeach } from './moves'
 
 function freshInv(): Inventory {
   return {
@@ -80,6 +81,8 @@ export function createGame(
   const seen = save ? cleanExplored(save.explored) : null
   if (seen) s.explored = seen
   if (save) for (const f of save.flags) s.flags[f] = true
+  // A boss down before the arts were: its art, quietly (`moves.ts`).
+  if (save) artsFromFlags(s)
   const ev: GameEvent[] = []
   enterMap(world, s, map, entry, ev)
   // A new game's intro waits until the hero has stepped out of the start door.
@@ -109,6 +112,10 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   h.swing = null
   h.spin = null
   h.roll = null
+  endMoves(h)
+  h.halo = null
+  h.edge = false
+  s.slow = 0
   h.bufA = 0
   h.bufRoll = 0
   h.charge = -1
@@ -253,11 +260,16 @@ function play(c: Ctx, dt: number, inp: Input) {
     if (s.map.dig) stepDig(c, dt)
     stepHero(c, inp, dt)
     revealAround(s, c.info.def, c.info.w, c.info.h)
+    // A boss's art, once the room is calm.
+    if (s.mode === 'play') stepTeach(c, dt)
   }
   if (s.mode !== 'play') return
-  stepEnemies(c, dt)
-  stepObjects(c, dt)
-  if (c.info.def.battle) stepField(c, dt)
+  // A SLIP: the world runs slow a moment, the hero at full pace (`moves.ts`).
+  const wdt = s.slow ? dt * SLIP_SCALE : dt
+  stepSlow(s, dt)
+  stepEnemies(c, wdt)
+  stepObjects(c, wdt)
+  if (c.info.def.battle) stepField(c, wdt)
   if (s.mode !== 'play' || s.demo) return
   stepHook(c, dt)
   stepLuna(c, dt)
@@ -295,6 +307,7 @@ function play(c: Ctx, dt: number, inp: Input) {
       h.swing = null
       h.spin = null
       h.roll = null
+      endMoves(h)
       h.charge = -1
       h.dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up'
       c.ev.push({ type: 'scroll' })
@@ -638,7 +651,7 @@ export function parseSave(raw: unknown): SaveData | null {
   const OLD_KEYS = ['sword', 'bombBag', 'bombs', 'disc', 'bits', 'keys', 'bigKey', 'pieces', 'selected', 'prism']
   for (const k of Object.keys(base) as Array<keyof Inventory>) {
     const want = typeof base[k]
-    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && inv[k] !== 'dig' && inv[k] !== 'build') return null; continue }
+    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && inv[k] !== 'dig' && inv[k] !== 'build' && !(ART_IDS as readonly unknown[]).includes(inv[k])) return null; continue }
     if (inv[k] === undefined && !OLD_KEYS.includes(k)) continue
     if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
@@ -646,13 +659,34 @@ export function parseSave(raw: unknown): SaveData | null {
   const maxHp = Math.max(START_HP, Math.min(MAX_HP, Math.round(r.maxHp as number)))
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
-    inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanDigInv(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
+    inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanDigInv(inv), ...cleanArts(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
     ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
     ...(decodeDig(r.dig) ? { dig: encodeDig(decodeDig(r.dig)) } : {}),
     ...(cleanExplored(r.explored) ? { explored: cleanExplored(r.explored)! } : {}),
   }
 }
+
+/** The arts and the combos' counts as a save has them, with anything unknown dropped (`moves.ts`). */
+function cleanArts(inv: Record<string, unknown>): Pick<Inventory, 'arts' | 'moves'> & { selected?: null } {
+  const out: Pick<Inventory, 'arts' | 'moves'> & { selected?: null } = { arts: undefined, moves: undefined }
+  if (Array.isArray(inv.arts)) {
+    const arts = [...new Set(inv.arts.filter((a): a is ArtId => (ART_IDS as readonly unknown[]).includes(a)))]
+    if (arts.length) out.arts = arts
+  }
+  if (inv.moves && typeof inv.moves === 'object' && !Array.isArray(inv.moves)) {
+    const moves: Inventory['moves'] = {}
+    for (const m of MOVES) {
+      const n = (inv.moves as Record<string, unknown>)[m.id]
+      if (typeof n === 'number' && Number.isFinite(n) && n > 0) moves[m.id] = Math.min(999, Math.floor(n))
+    }
+    if (Object.keys(moves).length) out.moves = moves
+  }
+  // An art in hand that is not learned is nothing in hand.
+  if (isArtId(inv.selected) && !out.arts?.includes(inv.selected)) out.selected = null
+  return out
+}
+const isArtId = (x: unknown): x is ArtId => (ART_IDS as readonly unknown[]).includes(x)
 
 /** Where the camera wants to be (tile units, top-left) for a view of vw×vh tiles. */
 export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y: number } {

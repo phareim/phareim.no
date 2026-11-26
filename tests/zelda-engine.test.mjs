@@ -793,14 +793,16 @@ describe('real-time combat: the chain, the roll (2026-11-25)', () => {
     assert.equal(b.s.hero.act, 'idle')
   })
 
-  it('a press of A late in the roll strikes as it ends', () => {
+  it('a press of A in the roll springs into the flip (FLIP CUT, tests/zelda-moves.test.mjs)', () => {
     const { s, ev, go } = arena(0)
     go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
     go(inp(), 10)
     go(A)
-    assert.equal(s.hero.act, 'roll')
-    go(inp(), 10)
-    assert.ok(ev.some(e => e.type === 'swing' && e.n === 0), 'no strike out of the roll')
+    assert.equal(s.hero.act, 'air')
+    assert.equal(s.hero.air.kind, 'flip')
+    go(inp(), 30)
+    assert.ok(ev.some(e => e.type === 'touchdown' && e.kind === 'flip'), 'never came down')
+    assert.equal(s.hero.act, 'idle')
   })
 
   it('a roll press belongs to a frame\'s first substep only', () => {

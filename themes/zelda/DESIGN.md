@@ -96,6 +96,15 @@ sword: 2 damage, cuts static vines), Luna (follows;
 slides psi blocks), letter stones, levers, crystal groups shared across
 floors, holes to the floor below, per-dungeon keyrings and room events.
 
+The blade fights like a small old master (`engine/moves.ts`, 2026-11-25): off
+the ground as much as on it. Eight combos to learn and master (TRIPLE CUT,
+WHIRL, FLIP CUT, BACKFLIP, COMET, TEMPEST, WALL SPRING, SLIP; the MOVES page
+lists them, and each mastered one hits harder or goes farther), and four arts
+that sit on B beside the items, learned on the way: PULSE from the Keeper
+once the blade is in hand, FLASH STEP from the Shrine's knight, STARFALL from
+the MISTRAL, HALO from the GEMINI twins. The air never crosses a pit, spikes
+or ice, so no puzzle is skipped by it.
+
 Enemies: blob, spitter (reflect its pellets), sentry (sees you, charges),
 bat, dasher, zapper (shocks a blade unless stunned), skull (dodges), eye
 statue (laser), knight (shield front, charges, dazed after a wall hit),
@@ -148,8 +157,11 @@ standing things (`iso/props.ts`) and the modelled hero (`iso/figure.ts`) already
 are redrawn for it as isometric pixel art at its own density (`iso/folk.ts`: since part 20 everyone but the bosses, the hero since part 21 composed and
 recoloured by roles in `iso/hero.ts`, the bosses since part 22 rotoscoped in `iso/bossArt.ts`; the studio's newer edit of a classic sprite wins until the art is redrawn). Since part 23
 the things of the world (the van, tents, fires, torches, the mast, tanks, the DJ booths, the furniture, the labs'
-consoles and benches, a fountain in the square's pool) are rotoscoped too, from guides built of solids (`iso/things.ts`).
-What still waits for its isometric art (the pictures on the walls, the pool's square water, the effects) is
+consoles and benches, a fountain in the square's pool) are rotoscoped too, from guides built of solids (`iso/things.ts`),
+and since part 25 the arcade cabinets, Petter's terminals and the LOGIN console (`iso/machines.ts`: one master cabinet,
+every other a Codex edit of it in its own colours and marquee; the screens stay the classic painter's, live, in the
+drawn glass). What still waits for its isometric art (the pictures on the walls, the pool's square water, the effects,
+the newsstand and the two stalls on the square, still a classic front on a plain box) is
 in the journal thread `neon-shrine-isometric-art`.
 
 **Rotoscoped pixel art** (Petter, 2026-11-25: «Alt vi legger ut skal ha en håndtegnet piksel-art følelse … Vi tåler

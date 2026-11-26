@@ -313,7 +313,7 @@ export const VIP: MapDef = {
  */
 /** A terminal on the back wall, used from the tile below it. */
 function terminal(id: string, label: string, url: string, lines: string[]): { tile: 'M'; ent: ExitDef } {
-  return { tile: 'M', ent: { t: 'exit', id, to: { url }, look: 'terminal', label, side: 'down', lines } }
+  return { tile: 'M', ent: { t: 'exit', id, to: { url }, look: 'terminal', art: id, label, side: 'down', lines } }
 }
 
 export const HOME: MapDef = {

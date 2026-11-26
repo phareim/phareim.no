@@ -49,7 +49,7 @@ export interface LifeCtx {
   /** The sun's height: −1 deep night, about 0.1 dusk, 1 noon. */
   sun: number
   night: boolean
-  /** The generated realm id (`world/gen/realms.ts`), or '' on the hand-made maps. */
+  /** The land's realm id (`MapDef.realm`), or '' on the hand-made maps. */
   realm: string
   /** The painter's palette (`MapDef.look`: wild, snow, dune, spore, fog, quarry, suburb), or ''. */
   look: string

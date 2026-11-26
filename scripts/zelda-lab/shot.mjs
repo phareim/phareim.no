@@ -49,6 +49,7 @@ import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 import { kitsFor, loadRealmArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/frontierArt/index.ts'))}
+import { loadMachineArt } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/machines.ts'))}
 import { mapDef } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
@@ -192,7 +193,7 @@ function fight(moment) {
   s.map.enemies.push(blob)
   const A = () => run(1, inp({ aPress: true, a: true }))
   moment(A, blob)
-  const blows = said.filter(e => ['hit', 'kill', 'swing', 'roll'].includes(e.type)).slice(-4)
+  const blows = said.filter(e => ['hit', 'kill', 'swing', 'roll', 'art', 'air', 'touchdown', 'slip'].includes(e.type)).slice(-4)
   late = () => r.onEvents(blows)
 }
 const ev = []
@@ -229,7 +230,9 @@ const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1',
 // Part 22: a boss room's scene + '-hit' is the same moment with every boss in it flashing (the hurt frame and the
 // flash, as a hit leaves them).
 const bossHit = /^(boss|l-llama|l-mistral|d-deepseek|d-gemini)-hit$/.test(scene)
-switch (bossHit ? scene.slice(0, -4) : scene) {
+// Part 24: 'l-mistral-down' is the lab with the mistral blown out (its down heap and the dizzy stars).
+const bossDown = scene === 'l-mistral-down'
+switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'start': run(30); break
   // The frontier (world/gen/): the Landing, the crossroads camp north of it, a cave, and one place in each realm
   // (beside a quest site's or a landmark's people, so the realm's own places are in the picture).
@@ -340,6 +343,20 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'swing2': fight(A => { A(); run(11); A(); run(5) }); break
   case 'swing3': fight(A => { A(); run(11); A(); run(11); A(); run(8) }); break
   case 'roll': fight(() => { s.map.enemies.length = 0; run(1, inp({ rollPress: true, move: { x: 1, y: 0.25 } })); run(3, inp({ move: { x: 1, y: 0.25 } })) }); lateSteps = 6; lateInput = inp({ move: { x: 1, y: 0.25 } }); break
+  // The acrobatics and the arts (engine/moves.ts): each caught mid-move; the game steps through the last frames
+  // so the afterimages trail.
+  case 'm-flip': fight(() => { run(1, inp({ rollPress: true, move: { x: 1, y: 0 } })); run(2); run(1, inp({ aPress: true, a: true })); run(1) }); lateSteps = 6; break
+  case 'm-chop': fight((A, blob) => { blob.x += 1; blob.home.x += 1; run(1, inp({ rollPress: true, move: { x: 1, y: 0 } })); run(2); A(); for (let k = 0; k < 40 && !said.some(e => e.type === 'touchdown'); k++) run(1) }); lateSteps = 1; break
+  case 'm-back': fight(A => { A(); run(8); run(1, inp({ rollPress: true })); run(2) }); lateSteps = 6; break
+  case 'm-comet': fight(A => { A(); run(8); run(1, inp({ rollPress: true })); run(10); A() }); lateSteps = 5; break
+  case 'm-tempest': fight((A, blob) => { A(); run(11); A(); run(11); A(); run(10); A(); blob.x = s.hero.x + 1; blob.knock = null }); lateSteps = 8; break
+  case 'm-pulse': fight(() => { s.inv.arts = ['pulse']; s.inv.selected = 'pulse'; run(1, inp({ bPress: true })) }); lateSteps = 4; break
+  case 'm-flash': fight(() => { s.inv.arts = ['flash']; s.inv.selected = 'flash'; run(1, inp({ bPress: true })) }); lateSteps = 4; break
+  case 'm-flashcut': fight(() => { s.inv.arts = ['flash']; s.inv.selected = 'flash'; run(1, inp({ bPress: true })); run(14) }); lateSteps = 2; break
+  case 'm-star': fight((A, blob) => { blob.x += 2; blob.home.x += 2; s.inv.arts = ['star']; s.inv.selected = 'star'; run(1, inp({ bPress: true })); run(12) }); lateSteps = 6; break
+  case 'm-starland': fight((A, blob) => { blob.x += 2; blob.home.x += 2; s.inv.arts = ['star']; s.inv.selected = 'star'; run(1, inp({ bPress: true })); for (let k = 0; k < 60 && !said.some(e => e.type === 'touchdown'); k++) run(1) }); lateSteps = 2; break
+  case 'm-halo': fight(() => { s.inv.arts = ['halo']; s.inv.selected = 'halo'; run(1, inp({ bPress: true })); run(10) }); lateSteps = 4; break
+  case 'm-slip': fight((A, blob) => { blob.x -= 0.4; run(1, inp({ rollPress: true, move: { x: 1, y: 0 } })); run(3) }); lateSteps = 4; lateInput = inp({ move: { x: 1, y: 0 } }); break
   case 'hit': fight((A, blob) => { A(); for (let k = 0; k < 20 && !said.some(e => e.type === 'hit'); k++) run(1); blob.flash = 0.14 }); break
   case 'kill': fight((A, blob) => { blob.hp = 1; A(); for (let k = 0; k < 20 && !said.some(e => e.type === 'kill'); k++) run(1); run(4) }); break
   case 'market': give(); place('overworld', 'shop', 4, 4); run(20); break
@@ -354,6 +371,10 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'boss': give(); place('shrine', 'start', 0, -37); s.zoneIndex = 1; s.zone = { x: 16, y: 0, w: 16, h: 12 }; run(150); break
   case 'dark': give(); place('shrine', 'start', 16, -30); s.zoneIndex = 5; s.zone = { x: 32, y: 12, w: 16, h: 12 }; run(30); break
   case 'pause': give(); run(10); ui.paused = true; break
+  // The MOVES page: a few combos under way, two mastered, two arts learned (one resting) and the hint for the next.
+  case 'moves': give(); s.inv.moves = { triple: 20, flip: 5, backflip: 12, comet: 2, slip: 1 }; s.inv.arts = ['pulse', 'flash']; s.inv.selected = 'flash'; s.hero.artCool = { pulse: 1.2 }; run(10); ui.paused = true; ui.page = 'moves'; break
+  // The B box with an art resting, and a combo called out over the world.
+  case 'm-hud': give(); s.inv.arts = ['pulse']; s.inv.selected = 'pulse'; run(10); s.hero.artCool = { pulse: 1.4 }; r.onEvents([{ type: 'move', id: 'flip', n: 1, first: true, mastered: false }]); run(5); break
   case 'f-pause': give(); for (const id of ['fr:6,8', 'fr:6,7', 'fr:6,6', 'fr:5,6']) place(id, 'camp'); run(10); ui.paused = true; break
   case 'hut': give(); place('hut', 'door', 0, -5.5); s.hero.dir = 'up'; run(5); break
   case 'hutout': run(12); break
@@ -567,6 +588,7 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   }
 }
 if (bossHit) for (const e of s.map.enemies) if (['king', 'llama', 'mistral', 'deepseek', 'gemini'].includes(e.kind)) e.flash = 0.3
+if (bossDown) for (const e of s.map.enemies) if (e.kind === 'mistral') { e.ai.mode = 'down'; e.ai.t = 9 }
 // DAY=sun|noon|night|dawn: a solved save's running hour, as steady.mjs --day (without it the eternal dusk).
 if (q.get('day')) { s.inv.prism = true; s.daytime = { sun: 500, noon: 580, night: 230, dawn: 400 }[q.get('day')] }
 function wild(luna = false) {
@@ -579,6 +601,8 @@ function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.
 ;(async () => {
   // (A realm's scenery is a chunk of its own, fetched when the view first needs it: the lab waits for it.)
   await Promise.all(kitsFor(mapDef(world, s.map.id)).map(loadRealmArt))
+  // (So are the machines drawn by hand, part 25.)
+  await loadMachineArt()
   if (q.get('t')) r.draw(s, ui, +q.get('t'))
   const frames = +(q.get('frames') || 40)
   for (let k = 0; k < frames; k++) {
@@ -608,6 +632,12 @@ const SHOTS = [
   ['swing3-1280', 'swing3', 1280, 800, 1, 0],
   ['roll-1280', 'roll', 1280, 800, 1, 0],
   ['hit-1280', 'hit', 1280, 800, 1, 0],
+  ['moves-1280', 'moves', 1280, 800, 1, 0],
+  ['moves-390', 'moves', 390, 844, 3, 0],
+  ['moves-667', 'moves', 667, 375, 2, 0],
+  ['m-hud-1280', 'm-hud', 1280, 800, 1, 0],
+  ['m-hud-390', 'm-hud', 390, 844, 3, 0],
+  ...['m-flip', 'm-chop', 'm-back', 'm-comet', 'm-tempest', 'm-pulse', 'm-flash', 'm-flashcut', 'm-star', 'm-starland', 'm-halo', 'm-slip'].map(m => [`${m}-1280`, m, 1280, 800, 1, 0]),
   ['kill-1280', 'kill', 1280, 800, 1, 0],
   ['hit-375', 'hit', 375, 667, 2, 0],
   ['intro-390', 'intro', 390, 844, 3, 0],
@@ -733,6 +763,7 @@ const SHOTS = [
   ['boss-hit-1440', 'boss-hit', 1440, 900, 1, 0],
   ['l-llama-hit-1280', 'l-llama-hit', 1280, 800, 1, 0],
   ['l-mistral-hit-1280', 'l-mistral-hit', 1280, 800, 1, 0],
+  ['l-mistral-down-1280', 'l-mistral-down', 1280, 800, 1, 0],
   ['d-deepseek-hit-1280', 'd-deepseek-hit', 1280, 800, 1, 0],
   ['d-gemini-hit-1280', 'd-gemini-hit', 1280, 800, 1, 0],
   ['w-troll-1280', 'w-troll', 1280, 800, 1, 0],

@@ -7,7 +7,7 @@ import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '
 import {
   ARC_REACH, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
   HERO_SPEED, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
-  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED, WINDUP,
+  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
@@ -18,6 +18,10 @@ import { digCycle, digItems, digOutOfReach, isDigItem, useDigTool } from './dig'
 import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
+import {
+  backflipWanted, canComet, canTempest, credit, endMoves, feedArts, isArt, mastered, startBackflip, startComet, startFlip,
+  startTempest, stepAfter, stepAir, stepArts, stepDash, useArt, wallSpring,
+} from './moves'
 
 const CORNER_ASSIST = 0.34
 /** Stepping out of a door: one tile in this long (a touch slower than a walk). */
@@ -34,9 +38,17 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (h.talkRest > 0) h.talkRest -= dt
   if ((h.rollCool ?? 0) > 0) h.rollCool! -= dt
   if (h.combo && h.combo.t > 0 && !h.swing) h.combo.t -= dt
+  stepAfter(h, dt)
+  // The arts rest, the halo turns, whatever the hero is doing.
+  stepArts(c, dt)
   // A roll that something else ended (a shove, a door, a find) leaves no roll behind, nor the other way round.
   if (h.roll && h.act !== 'roll') h.roll = null
   if (!h.roll && h.act === 'roll') h.act = 'idle'
+  // The same for the air and the flash step.
+  if (h.air && h.act !== 'air') h.air = null
+  if (!h.air && h.act === 'air') h.act = 'idle'
+  if (h.dash && h.act !== 'dash') h.dash = null
+  if (!h.dash && h.act === 'dash') h.act = 'idle'
   if (h.auto) { walkOut(c, dt); return }
   // On the end of the hook's chain: stepHook moves him.
   if (s.hook) { h.act = 'hook'; return }
@@ -48,7 +60,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
       h.act = 'idle'
       h.actT = 0
       h.invuln = 0
-      hurtHero(c, 1, h.x, h.y)
+      hurtHero(c, 1, h.x, h.y, false, false)
       h.knock = null
     }
     return
@@ -58,6 +70,8 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (inp.rollPress) h.bufRoll = BUFFER_A
   else if ((h.bufRoll ?? 0) > 0) h.bufRoll! -= dt
   if (h.knock) {
+    // A shove (a shield, a gust) brings the hero down out of the air.
+    if (h.air || h.dash) { endMoves(h); h.act = 'idle' }
     if (inp.aPress && s.inv.sword && !h.carry) h.bufA = BUFFER_A
     const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, h.knock.vx * dt, h.knock.vy * dt)
     h.x = r.x
@@ -73,10 +87,28 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   }
   if ((h.act === 'throw' || h.act === 'use') && h.actT > 0.16) h.act = 'idle'
 
+  // --- the flash step and the air (`moves.ts`) ------------------------------------------
+  if (h.dash) { stepDash(c, dt); return }
+  if (h.air) { stepAir(c, inp, dt); return }
+
   // --- the dodge roll ------------------------------------------------------------
-  if ((h.bufRoll ?? 0) > 0 && canRoll(c)) startRoll(c, inp)
+  // Out of the chain with the stick at rest or pulled back, the roll is a back flip.
+  if ((h.bufRoll ?? 0) > 0 && canRoll(c)) {
+    if (backflipWanted(c, inp)) { h.bufRoll = 0; if (startBackflip(c)) return }
+    startRoll(c, inp)
+  }
   if (h.roll) {
+    // A in the roll: the flip (FLIP CUT); on ice, where the air may not start, the strike waits for its end.
+    if (inp.aPress && s.inv.sword && startFlip(c, inp)) return
     if (inp.aPress && s.inv.sword) h.bufA = BUFFER_A
+    // An art straight out of the roll's second half.
+    if (inp.bPress && isArt(s.inv.selected) && h.roll.t > 0.12) {
+      h.roll = null
+      h.rollCool = ROLL_COOLDOWN
+      h.act = 'idle'
+      useArt(c, inp, s.inv.selected)
+      return
+    }
     stepRoll(c, inp, dt)
     return
   }
@@ -84,6 +116,9 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   // --- A button -------------------------------------------------------------
   if (inp.aPress) {
     if (h.carry) throwCarried(c)
+    // Late in the finisher, or just after it: the TEMPEST. Just after a back flip or a wall spring: the COMET.
+    else if (s.inv.sword && !h.spin && canTempest(h) && startTempest(c, inp)) return
+    else if (s.inv.sword && !h.spin && !h.swing && canComet(h) && startComet(c, inp)) return
     else if (!h.swing && !h.spin) {
       // A tap too many at the end of someone's lines must not start them over:
       // until A has rested it only swings, and each press starts the rest again.
@@ -111,7 +146,10 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
 
   // --- B item + cycling -------------------------------------------------------
   if (inp.cycle) cycleItem(c)
-  if (inp.bPress && !h.carry && !h.swing && !h.spin) useItem(c, inp)
+  // (An art may cut a hit of the chain short, as the roll may.)
+  const cuts = !!h.swing && isArt(s.inv.selected) && h.swing.t / swingDur(h.swing) >= ROLL_CANCEL
+  if (inp.bPress && !h.carry && !h.spin && (!h.swing || cuts)) useItem(c, inp)
+  if (h.dash || h.air) return
 
   if (h.swing) stepSwing(c, inp, dt)
   if (h.spin) stepSpin(c, dt)
@@ -239,7 +277,7 @@ function cornerSlip(c: Ctx, x: number, y: number, sx: number, sy: number): numbe
 // Tiles underfoot, warps, pickups
 // ---------------------------------------------------------------------------
 
-function underfoot(c: Ctx) {
+export function underfoot(c: Ctx) {
   const s = c.s
   const h = s.hero
   const t = tileAt(s.map, Math.floor(h.x), Math.floor(h.y))
@@ -250,6 +288,7 @@ function underfoot(c: Ctx) {
     h.swing = null
     h.spin = null
     h.roll = null
+    endMoves(h)
     h.charge = -1
     h.carry = null
     s.mode = 'warp'
@@ -269,12 +308,13 @@ function underfoot(c: Ctx) {
     h.swing = null
     h.spin = null
     h.roll = null
+    endMoves(h)
     h.charge = -1
     h.carry = null
     c.ev.push({ type: 'fall' })
     return
   }
-  if (t === 'x' && h.invuln <= 0) hurtHero(c, 1, h.x - h.vx * 0.1, h.y - h.vy * 0.1 + 0.01)
+  if (t === 'x' && h.invuln <= 0) hurtHero(c, 1, h.x - h.vx * 0.1, h.y - h.vy * 0.1 + 0.01, false, false)
   // Crystal blocks that rose under the hero become solid once left.
   if (s.map.pending.length) s.map.pending = s.map.pending.filter(i => circleOnTileIdx(c, i))
 }
@@ -442,6 +482,7 @@ export function openDialog(c: Ctx, lines: string[], who: string | null, after: i
   const h = s.hero
   h.swing = null
   h.roll = null
+  endMoves(h)
   h.bufA = 0
   h.charge = -1
   if (h.act === 'walk' || h.act === 'push') h.act = 'idle'
@@ -456,6 +497,7 @@ export function beginExit(c: Ctx, exit: Pick<ExitSpot, 'id' | 'to'>) {
   h.swing = null
   h.spin = null
   h.roll = null
+  endMoves(h)
   h.charge = -1
   h.vx = 0
   h.vy = 0
@@ -589,21 +631,24 @@ function stepSwing(c: Ctx, inp: Input, dt: number) {
   const p1 = Math.min(1, sw.t / dur)
   const arc = c.s.inv.arc
   const hit = sw.n === undefined ? null : COMBO[sw.n]!
-  const dmg = (hit ? hit.dmg : 1) * (arc ? 2 : 1)
+  // A mastered TRIPLE CUT's finisher bites one harder.
+  const dmg = (hit ? hit.dmg + (sw.n === 2 && mastered(c.s, 'triple') ? 1 : 0) : 1) * (arc ? 2 : 1)
   const reach = (arc ? ARC_REACH : SWORD_REACH) + (sw.n === 2 ? 0.1 : 0)
   const opt: HitOpts | undefined = hit ? { knock: hit.knock, stagger: hit.stagger, stop: hit.stop, chain: sw.n! < 2, finisher: sw.n === 2 } : undefined
   // Sample the sweep between the last and this step (the pull-back at the start cuts nothing).
   for (let k = 0; k <= 2; k++) {
     const p = p0 + ((p1 - p0) * k) / 2
     if (hit && p < WINDUP) continue
-    bladeHits(c, swingAngle(sw, p), reach, dmg, 'sword', sw.hit, opt)
+    const n = bladeHits(c, swingAngle(sw, p), reach, dmg, 'sword', sw.hit, opt)
+    if (n > 0 && sw.n === 2 && !sw.landed) { sw.landed = true; credit(c, 'triple') }
   }
   if (sw.t >= dur) {
     h.swing = null
     h.act = 'idle'
     if (sw.n === undefined) { h.cooldown = SWING_COOLDOWN; return }
     // The chain goes on if A comes again soon; after the finisher it starts over, after a breath.
-    h.combo = { n: sw.n, t: sw.n === 2 ? 0 : COMBO_WINDOW }
+    // (After the finisher, a short window stays open: A there is the TEMPEST, `moves.ts`.)
+    h.combo = { n: sw.n, t: sw.n === 2 ? TEMPEST_WINDOW : COMBO_WINDOW }
     h.cooldown = COMBO[sw.n]!.cool
   }
 }
@@ -651,7 +696,7 @@ function lunge(c: Ctx, dt: number): boolean {
 function canRoll(c: Ctx): boolean {
   const s = c.s
   const h = s.hero
-  if (!s.inv.sword || h.carry || h.spin || h.roll || (h.rollCool ?? 0) > 0) return false
+  if (!s.inv.sword || h.carry || h.spin || h.roll || h.air || h.dash || (h.rollCool ?? 0) > 0) return false
   if (h.act === 'lift' || h.act === 'get' || h.act === 'fall' || h.act === 'dead' || h.act === 'hurt') return false
   // Not on ice, where the hero slides (standing still on it included: a roll would steer him off his lane).
   if (iceUnder(c)) return false
@@ -669,6 +714,7 @@ function startRoll(c: Ctx, inp: Input) {
   h.dir = toDir(mx, my, h.dir)
   h.aim = Math.atan2(my, mx)
   h.roll = { t: 0, vx: mx * v0, vy: my * v0 }
+  h.slipped = false
   h.bufRoll = 0
   h.swing = null
   h.charge = -1
@@ -703,6 +749,8 @@ function stepRoll(c: Ctx, inp: Input, dt: number) {
   h.vx = r0.vx * k
   h.vy = r0.vy * k
   h.walkT += dt
+  // Into a wall: the WALL SPRING kicks off it (`moves.ts`).
+  if ((r.hitX || r.hitY) && wallSpring(c, r.hitX, r.hitY)) return
   // Onto ice the roll ends at its edge: the slide takes him from there, along its lanes.
   if (iceUnder(c)) r0.t = ROLL_TIME
   underfoot(c)
@@ -737,7 +785,9 @@ function stepSpin(c: Ctx, dt: number) {
   const base = dirAngle(h.dir)
   for (let k = 0; k <= 3; k++) {
     const a = base + Math.PI * 2 * (p0 + ((p1 - p0) * k) / 3)
-    bladeHits(c, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), c.s.inv.arc ? 3 : 2, 'spin', sp.hit, SPIN_HIT)
+    const dmg = (c.s.inv.arc ? 3 : 2) + (mastered(c.s, 'whirl') ? 1 : 0)
+    const n = bladeHits(c, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), dmg, 'spin', sp.hit, SPIN_HIT)
+    if (n > 0 && !sp.landed) { sp.landed = true; credit(c, 'whirl') }
   }
   if (sp.t >= SPIN_TIME) {
     h.spin = null
@@ -750,10 +800,11 @@ function stepSpin(c: Ctx, dt: number) {
 /** The spin's blows: a hard shove and a heavy stop. */
 const SPIN_HIT: HitOpts = { knock: 1.2, stop: 55 }
 
-/** Everything the blade at angle `a` touches: enemies, shards, pellets, tiles. */
-function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' | 'spin', hit: string[], opt?: HitOpts) {
+/** Everything the blade at angle `a` touches: enemies, shards, pellets, tiles. Returns how many foes it struck. */
+export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' | 'spin', hit: string[], opt?: HitOpts): number {
   const s = c.s
   const h = s.hero
+  let struck = 0
   const ca = Math.cos(a)
   const sa = Math.sin(a)
   for (const e of s.map.enemies) {
@@ -767,7 +818,8 @@ function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' |
     const perp = Math.abs(dx * sa - dy * ca)
     if ((off < 0.5 || perp < e.r + 0.15) && dx * ca + dy * sa > -0.2 && lineClear(c.w, s.map, h.x, h.y, e.x, e.y)) {
       hit.push(e.id)
-      hitEnemy(c, e, dmg, h.x, h.y, src, opt)
+      // A landed blow shortens every art's rest (`moves.ts`).
+      if (hitEnemy(c, e, dmg, h.x, h.y, src, opt) && !e.group) { struck++; feedArts(s) }
     }
   }
   for (let r = 0.6; r <= reach; r += 0.3) breakShards(c, h.x + ca * r, h.y + sa * r, 0.15)
@@ -806,6 +858,7 @@ function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' |
       throwLever(c, tx, ty)
     } else if (hitPuzzle(c, tx, ty, t)) hit.push(key)
   }
+  return struck
 }
 
 export function cutTile(c: Ctx, tx: number, ty: number, t: TileChar) {
@@ -890,6 +943,8 @@ export function useItems(s: GameState, world: World): UseItem[] {
   if (inv.disc) owned.push('disc')
   if (inv.bombBag) owned.push('bombs')
   owned.push(...digItems(s, world))
+  // The arts learned (`moves.ts`), after the items.
+  for (const a of inv.arts ?? []) owned.push(a)
   return owned
 }
 
@@ -944,6 +999,8 @@ function useItem(c: Ctx, inp: Input) {
     c.ev.push({ type: 'disc' })
   } else if (isDigItem(inv.selected)) {
     useDigTool(c)
+  } else if (isArt(inv.selected)) {
+    useArt(c, inp, inv.selected)
   } else if (s.inv.sword) c.ev.push({ type: 'error' }) // no buzz for a visitor who has nothing yet
 }
 

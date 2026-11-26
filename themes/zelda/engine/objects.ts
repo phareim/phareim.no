@@ -63,7 +63,7 @@ export function explode(c: Ctx, x: number, y: number) {
   }
   breakShards(c, x, y, BOMB_RADIUS)
   const h = s.hero
-  if (Math.hypot(h.x - x, h.y - y) < BOMB_RADIUS + HERO_R - 0.2) hurtHero(c, 2, x, y)
+  if (Math.hypot(h.x - x, h.y - y) < BOMB_RADIUS + HERO_R - 0.2) hurtHero(c, 2, x, y, false, false)
   let secret = false
   const r = Math.ceil(BOMB_RADIUS)
   for (let ty = Math.floor(y) - r; ty <= Math.floor(y) + r; ty++) {
@@ -221,7 +221,7 @@ function stepProjectiles(c: Ctx, dt: number) {
     }
     if (!dead && !p.friendly && p.kind === 'gust') {
       // Wind: no harm, a hard shove (towards the pits, if Mistral has aimed well).
-      if (Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R && h.act !== 'fall' && !s.hook) {
+      if (Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R && h.act !== 'fall' && !s.hook && !h.air && !h.dash) {
         const len = Math.hypot(p.vx, p.vy) || 1
         h.knock = { vx: (p.vx / len) * 9, vy: (p.vy / len) * 9, t: 0.32 }
         h.swing = null
