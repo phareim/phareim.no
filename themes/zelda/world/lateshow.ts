@@ -74,12 +74,13 @@ const BOOTH = [
   '#######zz#######',
 ]
 
-// The third lens, behind its lock, in a snack bar of 1986. The Usher keeps it, behind a gate that shuts after you.
+// The third lens, behind its lock, in a snack bar of 1986. The Usher keeps it, behind a gate that shuts after you and
+// a gate over the lock's alcove that opens only when he falls.
 const SNACK = [
   '################',
   '########A#######',
   '#.nn...#LE.....#',
-  '#..............#',
+  '#.......G......#',
   '#[.N..........[#',
   'W..............#',
   'X............U.#',
@@ -97,15 +98,16 @@ const SNACK = [
 /** A side room of 16 × 24: open air and a wall at the west edge, `put` laid over rows by their number. */
 const reel = (put: Record<number, string>): string[] => Array.from({ length: 24 }, (_, y) => put[y] ?? (y >= 21 ? '################' : '#...............'))
 
-// The porch the door opens on (a blow by it cannot throw the hero back out), the blob, the curb, the sentry's gutter,
+// The porch the door opens on (a blow by it cannot throw the hero back out), the gutter, the curb with the blob on it
+// (two tiles on from where a walk off the porch lands), the sentry's gutter,
 // a stoop, the manhole, and the ladder up and over the shop with the key on it.
 const MAIN_STREET = reel({
   15: '#............1..',
   16: '#...........Ħ##Ħ',
   17: '#...........Ħ##Ħ',
   18: '#...........Ħ##Ħ',
-  19: 'd...........Ħ##Ħ',
-  20: '##.2##.3#e..f##Ħ',
+  19: 'd....2......Ħ##Ħ',
+  20: '##..##.3#e..f##Ħ',
   21: '##########..####',
   22: '##########..####',
   23: '##########..####',
@@ -135,8 +137,8 @@ const VIDEO_STORE = reel({
   ...Object.fromEntries(Array.from({ length: 21 }, (_, y) => [y, '#..............#'])),
   12: '#.............r#',
   13: '#..........¯¯¯¯#',
-  17: '#....%%##▲Ħ....#',
-  18: '#......6##Ħ....#',
+  17: '#....#%##▲Ħ....#',
+  18: '#....#.6##Ħ....#',
   19: '#....#####Ħ....#',
   20: 'd.k..#####Ħ.22.#',
   21: '####▲###########',
@@ -243,7 +245,7 @@ export const SHOWBOOTH: MapDef = {
     k: sign('1986.'),
     m: sign('ONE REEL AT A TIME, PLEASE. THE NUMBERS ARE A SUGGESTION.'),
     p: { ent: { t: 'npc', id: 'showbooth.projectionist', look: 'vendor', talk: [{ lines: ['PROJECTIONIST: I HAVE SEEN IT SO OFTEN THAT IT HAS STARTED TO SEE ME BACK.'] }] } },
-    J: sign('SNACK BAR. CLOSED UNTIL THE NEXT FEATURE ENDS.'),
+    J: { tile: 'S', ent: { t: 'sign', lines: ['SNACK BAR. CLOSED UNTIL THE NEXT FEATURE ENDS.'], alt: { when: { flag: 'lateshow.copilot' }, lines: ['SNACK BAR. NOW SERVING. THE USHER SEATS YOU.'] } } },
     // Shut until COPILOT falls.
     Q: { ent: { t: 'gate', open: { flag: 'lateshow.copilot' } } },
     z: warp('>', 'weaver', 'stair'),
@@ -252,6 +254,8 @@ export const SHOWBOOTH: MapDef = {
     E: sign('2086.'),
     N: sign('SNACK BAR. EVERYTHING IS FROM 1986. SO IS THE USHER.'),
     W: { ent: { t: 'gate', trap: true } },
+    // Over the lock's alcove: it opens when the Usher falls, so the lens cannot be reached round him.
+    G: { ent: { t: 'gate', open: { flag: 'lateshow.usher' } } },
     U: { ent: { t: 'enemy', kind: 'sentry', tough: true, dir: 'left', once: 'lateshow.usher' } },
   },
 }

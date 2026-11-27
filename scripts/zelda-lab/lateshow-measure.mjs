@@ -289,7 +289,7 @@ console.log(`ladders up the far side of the Video Store's shelves and the Lot's 
 
 // -- the Screen --------------------------------------------------------------------------------------------------
 
-console.log(`\nTHE SCREEN: the fingers' rings (radius ${f2(Z.WEAVER.finger)}), from the footing before each, B tapped and let go, A after it`)
+console.log(`\nTHE SCREEN: the fingers' rings (radius ${f2(Z.WEAVER.finger)}), from the footing before each, B held (a tapped jump falls short of every finger), A after take-off`)
 /** A try at finger `n` from x: the hand held at rest, the hero set on the footing, A `d` s after a tapped take-off. */
 function finger(n, x, row, d, hold = 0) {
   const flags = [1, 2, 3].slice(0, n).map(k => `weaver.h${k}`)
@@ -317,7 +317,7 @@ const stands = [
 for (const [name, n, row, spots] of stands) {
   const s = Z.mapInfo(Z.WORLD, 'weaver')
   const slot = Z.weaverSlot(s, n)
-  const f = { x: slot.x + 0.5, y: slot.y - 0.5 }
+  const f = { x: slot.x + 0.5, y: slot.y - Z.WEAVER.up }
   console.log(`  ${name}: finger (${f.x}, ${f.y}), footing ${row}`)
   for (const x of spots) {
     const dx = Math.abs(f.x - x)
@@ -325,8 +325,8 @@ for (const [name, n, row, spots] of stands) {
     const need = dx <= Z.WEAVER.finger ? row - f.y - Math.sqrt(Z.WEAVER.finger ** 2 - dx ** 2) : null
     const ok = []
     let all = 0
-    for (let d = 1 / 120; d <= 0.45; d += 1 / 120, all++) if (finger(n, x, row, d).hit) ok.push(d)
-    console.log(`      from x ${x} (${f2(dx)} across): ring entered ${need === null ? 'never' : `${f2(Math.max(0, need))} up, a tapped jump (${f2(T)}) passes it by ${f2(T - need)}`}; A ${ok.length ? `${Math.round(ok[0] * 1000)}-${Math.round(ok.at(-1) * 1000)} ms after take-off (${ok.length}/${all})` : 'never'}`)
+    for (let d = 1 / 120; d <= 0.45; d += 1 / 120, all++) if (finger(n, x, row, d, 1).hit) ok.push(d)
+    console.log(`      from x ${x} (${f2(dx)} across): ring entered ${need === null ? 'never' : `${f2(Math.max(0, need))} up, a held jump (${f2(J)}) passes it by ${f2(J - need)}`}; A ${ok.length ? `${Math.round(ok[0] * 1000)}-${Math.round(ok.at(-1) * 1000)} ms after take-off (${ok.length}/${all})` : 'never'}`)
   }
 }
 console.log('  steps: floor to step 1, step to step: 1 up (held +' + f2(J - 1) + ', tapped +' + f2(T - 1) + '); step 2 or 3 straight from the floor: 2 and 3 up, held only (+' + f2(J - 2) + ', +' + f2(J - 3) + ')')

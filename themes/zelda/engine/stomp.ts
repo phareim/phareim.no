@@ -16,6 +16,7 @@ import { BIG, hitEnemy, toughOpen, type Ctx } from './combat'
 import { enemyActive } from './enemies'
 import { moveCircle, setFlag, solidTile, tileAt } from './map'
 import { corner, FOOT, footing, SIDE, sideOf, type SideHero } from './side'
+import { bardOpen } from './bossBard'
 import { copilotStill } from './bossCopilot'
 import { fingerStruck, WEAVER, weaverFinger } from './bossWeaver'
 
@@ -40,8 +41,8 @@ const NO_STOMP: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['zapper', 'eye', 's
 const TILES: Array<{ ch: string; on: 'spring' | 'crack' }> = [{ ch: SPRING, on: 'spring' }, { ch: '%', on: 'crack' }]
 const ORDER = { foe: 0, spring: 1, crack: 2, ground: 3 } as const
 
-/** Is this a foe the stomp comes down on? (COPILOT only while it stands still: a wagon on the move is a plain jump.) */
-const takes = (e: Enemy) => !NO_STOMP.has(e.kind) && (e.kind !== 'copilot' || copilotStill(e))
+/** Is this a foe the stomp comes down on? (COPILOT only while it stands still: a wagon on the move is a plain jump; BARD only while it stands open.) */
+const takes = (e: Enemy) => !NO_STOMP.has(e.kind) && (e.kind !== 'copilot' || copilotStill(e)) && (e.kind !== 'bard' || bardOpen(e))
 
 /** The Weaver whose gold finger the feet at (x, feet) are at: within its ring, from any side. */
 function finger(c: Ctx, x: number, feet: number): Enemy | undefined {

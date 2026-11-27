@@ -632,6 +632,8 @@ export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameE
   s.hero.hp = s.hero.maxHp
   s.hero.robe = false
   s.hero.invuln = 1.2
+  // A death starts a boss's fight over: what it kept while the hero was out is lost.
+  delete s.wounds
   enterMap(world, s, s.entry.map, s.entry.entry, ev)
   ev.push({ type: 'respawn' })
   return ev

@@ -60,7 +60,9 @@ word: the thing its Assessor never had.
 - **Rewards.** A boss gives its Weight. No heart containers (the cap is fifteen hearts); each dungeon hides one
   heart piece.
 - **Phone first.** Nothing that matters in the lower corners. Openings are wide. No treasure is held down while
-  another button is pressed. A retry starts at the boss's stair, or at the part of the fight that was reached.
+  another button is pressed. A retry starts at the boss's stair, or at the part of the fight that was reached. A boss keeps its wounds when the
+  hero steps out and back; a death starts its fight over (what is saved in flags, such as the Weaver's hands put
+  right, stays; the wounds do not).
   A surprise lasts seconds, keeps the hero, the hearts and the deck where they are, and never passes for the real
   ending (`won` and the profile are touched by the two real endings only).
 - **Taken from other games:** rules, never a named boss, a layout, a character, music or a look.
