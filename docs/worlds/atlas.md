@@ -239,6 +239,14 @@ pond and two skulls on the western shore, which drown when knocked in; two
 bats by the ghost lights' nook, where the water is no help; a tough sentry on
 the Flats meadow stands in the open west of the reeds chest.
 
+### ACT THREE (`actunder` … `actgondola`)
+Nine side maps under and above Fogstage's stage, on one keyring (`actthree`),
+from the stair in `understage` to the RAINCHECK's gondola: the Underside (THE
+LENS), the Three Doors, the Boards (BARD), the Flats, the Wings, the Fly Loft
+(sandbags), the Dressing Room (the Understudy, the Big Key), the Cable and the
+Gondola, whose way out to the mast's gangway is shut. Room by room:
+[act-three.md](act-three.md).
+
 ### THE UNDERGLOW (`underglow1`…`underglow3`)
 Three hand-made floors under the deep drift, two of the old six layers on
 each: ECHO LEDGES and THE UPSIDE GROVE; THE GLASS SEA and BROADCAST; THE

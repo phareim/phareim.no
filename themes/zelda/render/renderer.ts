@@ -57,6 +57,8 @@ import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { paintSide, sideScale, type SideKit } from './side'
+import { BARD_SCALE, drawBard } from './actthreePaint'
+import { bardOut } from '../engine/bossBard'
 import { eraFoes, eraLight, toneSprite } from './eras'
 import { drawCard } from './card'
 import { queueScreenDoor } from './lateshowPaint'
@@ -1112,6 +1114,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Neon while it drives, its horn's face for the tell, rust while it stands (and as it spins out).
       case 'copilot': return { name: e.dead || e.ai.mode === 'stall' || e.ai.mode === 'rev' ? 'copilot_rust' : e.ai.mode === 'honk' ? 'copilot_honk' : 'copilot_neon', flip: false }
       case 'sycophant': return { name: sycophantSprite(e, time), flip: false }
+      // Drawn from the front: singing while it tells and strikes, dazed while it is open.
+      case 'bard': return { name: e.ai.mode === 'open' ? 'bard_dazed' : 'bard_sing', flip: e.dir === 'left' }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
       case 'grok': {
         const pose = ({ tell: 'ram', roll: 'roll', drill: 'drill', dazed: 'dazed' } as Record<string, string>)[e.ai.mode]
@@ -1241,6 +1245,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: e.x, y: e.y - 0.2, r: 3, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.7 : 0.45 })
       return
     }
+    if (e.kind === 'bard') {
+      // (Its own painter: three times its picture's size, and nothing at all while it is behind the set.)
+      drawBard({ g, lights }, e, x + shiver(e), feet - 1, name, flip, flashing(e))
+      return
+    }
     if (e.kind === 'parrot') {
       // Off the ground in its hops, over its own shadow.
       feet -= Math.round(((e.ai.z as number | undefined) ?? 0) * T)
@@ -1344,12 +1353,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // (A wagon past the screen's edge wears no bar.)
       if (e.kind === 'copilot' && !(((e.ai.r as number | undefined) ?? -1) >= 0 && (e.ai.r as number) <= CHASE.screen - 1)) continue
       if (roomed(def.kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
+      // BARD behind the set, or still one of its pieces: no bar until it is out (it would say where).
+      if (e.kind === 'bard' && !bardOut(e)) continue
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : e.kind === 'copilot' ? 3 : 1)) - standsAbove(e)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : e.kind === 'copilot' ? 3 : e.kind === 'bard' ? BARD_SCALE : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)

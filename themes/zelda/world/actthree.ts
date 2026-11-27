@@ -5,13 +5,17 @@
  *
  *   understage → actunder   THE UNDERSIDE (16 × 24)    the Crawlspace below, the Prop Room above: THE LENS
  *              → actdoors   THE THREE DOORS (16 × 12)  the glass taught; the first key
- *              → actbard    THE BOARDS (16 × 16)       the stage floor and its shaft
+ *              → actbard    THE BOARDS (16 × 16)       BARD; its gate shuts the shaft up
  *              → actflats   THE FLATS (16 × 12)        a painted step, painted chests, a painted door; the second key
  *              → actwings   THE WINGS (16 × 12)        a hidden heart piece; the first locked door
- *              → actloft    THE FLY LOFT (16 × 24)     so far its floor and a second locked door
+ *              → actloft    THE FLY LOFT (16 × 24)     the Grid below, the Leg above, under sandbags; the second
+ *                                                      locked door and the great one
+ *              → actstudy   THE DRESSING ROOM (16 × 12) THE UNDERSTUDY; the Big Key
+ *   the great door → actcable  THE CABLE (16 × 24)     the climb over the fog, the only falls
+ *              → actgondola THE GONDOLA (16 × 16)      the floor, the plate and the shut stair out; nobody yet
  *
  * - On the way on, a step up is 2 tiles at most and a gap 2 at most.
- * - A locked door fills an opening in a wall that is solid up to the ceiling: nothing is jumped over.
+ * - A locked door or a gate fills an opening in a wall that is solid up to the ceiling: nothing is jumped over.
  * - No foe within 8 tiles of a way into its room.
  * - Nothing the way on needs is hidden, and a painted thing is on it only as a wrong guess.
  */
@@ -23,6 +27,9 @@ const chest = (id: string, item: Extract<EntDef, { t: 'chest' }>['item'], more: 
 const foe = (kind: 'blob' | 'bat' | 'sentry'): Mark => ({ ent: { t: 'enemy', kind } })
 const painted = (as: 'ledge' | 'door' | 'chest', tile?: '#'): Mark => ({ ...(tile ? { tile } : {}), ent: { t: 'lie', as } })
 const veil: Mark = { tile: '¯', ent: { t: 'veil' } }
+const bag = (phase: number): Mark => ({ ent: { t: 'sandbag', phase } })
+const ledge: Mark = { ent: { t: 'ledge' } }
+const shut = (flag: string): Mark => ({ tile: 'X', ent: { t: 'gate', open: { flag } } })
 
 /** A room 16 wide and `h` tall: a ceiling, a wall at each side and ground from row `floor` down; `put` replaces rows. */
 const room = (h: number, floor: number, put: Record<number, string>): string[] =>
@@ -30,7 +37,7 @@ const room = (h: number, floor: number, put: Record<number, string>): string[] =
 
 type Spot = [x: number, y: number, dir?: 'left' | 'right']
 /** One map of the climb: 16 wide, one camera room of its own height. */
-const scene = (id: string, name: string, act: string, rows: string[], entries: Record<string, Spot>, marks: MapDef['marks'], more: { track?: MapDef['track']; card?: string[] } = {}): MapDef => ({
+const scene = (id: string, name: string, act: string, rows: string[], entries: Record<string, Spot>, marks: MapDef['marks'], more: { track?: MapDef['track']; card?: string[]; events?: NonNullable<MapDef['cells']>[string]['events'] } = {}): MapDef => ({
   id,
   name,
   kind: 'side',
@@ -41,7 +48,7 @@ const scene = (id: string, name: string, act: string, rows: string[], entries: R
   look: 'fog',
   cell: { w: 16, h: rows.length },
   // The room's name is its scene (the MAP page says it under the map's own); a scene's first room opens on its card.
-  cells: { '0,0': { name: act, ...(more.card ? { card: { title: `${act}.`, lines: more.card } } : {}) } },
+  cells: { '0,0': { name: act, ...(more.card ? { card: { title: `${act}.`, lines: more.card } } : {}), ...(more.events ? { events: more.events } : {}) } },
   rows,
   marks,
   entries: Object.fromEntries(Object.entries(entries).map(([k, [x, y, dir]]) => [k, { x, y, dir: dir ?? 'right' }])),
@@ -89,11 +96,12 @@ const THREE_DOORS = scene('actdoors', 'THE THREE DOORS', 'SCENE ONE', room(12, 1
   '1': stair('actunder', 'fromdoors'),
   '2': stair('actbard', 'trapdoor'),
   '3': painted('door'),
-  '4': sign('EXIT. EXIT. EXIT. WE ARE ALL VERY SURE.'),
+  '4': sign('EXIT. EXIT. EXIT.\nWE ARE ALL VERY SURE.'),
   '5': chest('actthree.key1', 'smallKey'),
 })
 
-// SCENE TWO. The stage floor: a ledge by a ladder or a jump, and the shaft up behind its doorway.
+// SCENE TWO. The stage floor: a ledge by a ladder or a jump, and the shaft up behind its doorway, shut until BARD
+// falls. (The ledge's east tile, under the shaft's ladder, is solid: nobody jumps past the gate from the floor.) BARD's three hiding places are its own painter's, not tiles (`engine/bossBard.ts`).
 const BOARDS = scene('actbard', 'THE BOARDS', 'SCENE TWO', room(16, 12, {
   1: '#.............2#',
   2: '#............¯Ħ#',
@@ -102,14 +110,20 @@ const BOARDS = scene('actbard', 'THE BOARDS', 'SCENE TWO', room(16, 12, {
   5: '#............#Ħ#',
   6: '#............#Ħ#',
   7: '#............#Ħ#',
-  8: '#.............Ħ#',
-  9: '#.............Ħ#',
-  10: '#........Ħ¯¯¯¯¯#',
-  11: '#1.......Ħ.....#',
+  8: '#............3Ħ#',
+  9: '#............XĦ#',
+  10: '#........Ħ¯¯¯¯##',
+  11: '#1.......Ħ.4...#',
 }), { trapdoor: [2.5, 11.5], shaft: [13.5, 1.5, 'left'] }, {
   '1': stair('actdoors', 'doors'),
   '2': stair('actflats', 'foot'),
-}, { track: 'boss', card: ['THE STAGE.', 'EVERYTHING IS PAINTED.'] })
+  '3': shut('actthree.bard'),
+  '4': { ent: { t: 'enemy', kind: 'bard', once: 'actthree.bard' } },
+}, {
+  track: 'boss',
+  card: ['THE STAGE.', 'EVERYTHING IS PAINTED.'],
+  events: [{ when: { notFlag: 'actthree.bard' }, set: 'actthree.bardcard', lines: ['BARD.\nIT KNOWS EVERY PART\nBUT ITS OWN.'] }],
+})
 
 // Two steps up from the floor, one of them paint (3); a tier with three chests, two of them paint (5); a long tier
 // with a door at each end, the east one painted on the wall (6).
@@ -151,16 +165,106 @@ const WINGS = scene('actwings', 'THE WINGS', 'SCENE TWO', room(12, 10, {
   v: veil,
 })
 
-// The Fly Loft so far: its floor, the rope's stair, and the second locked door with a closet behind it.
+// SCENE THREE. Below, the Grid: catwalks two apart, zigzagging up under bags, to a ladder. Above, the Leg: a long
+// catwalk under three bags that fall one after another, the great door at its west end and the second locked door at
+// its east.
 const FLY_LOFT = scene('actloft', 'THE FLY LOFT', 'SCENE THREE', room(24, 22, {
-  ...Object.fromEntries(Array.from({ length: 19 }, (_, k) => [k + 1, '#...........####'])),
-  20: '#...........L..#',
-  21: '#1..........L..#',
-}), { rope: [2.5, 21.5] }, {
+  1: '###..........###',
+  2: '###6...a...8.###',
+  3: '###..........###',
+  4: '###..........###',
+  5: '###..........###',
+  6: '#.K..........L.#',
+  7: '2.K.......4..L.3',
+  8: '###¯¯Ħ¯¯¯¯¯¯¯###',
+  9: '#....Ħ.0.......#',
+  10: '#....Ħ.........#',
+  11: '#....Ħ.........#',
+  12: '#...¯¯¯¯¯¯¯....#',
+  13: '#....8...9.....#',
+  14: '#.......5...¯¯¯#',
+  16: '#...¯¯¯¯¯¯¯....#',
+  17: '#....6...7.....#',
+  18: '#¯¯..........5.#',
+  20: '#...¯¯¯¯¯¯¯¯...#',
+  21: '#1.............#',
+}), { rope: [2.5, 21.5], fromstudy: [14.5, 7.5, 'left'], kdoor: [1.5, 7.5] }, {
   '1': stair('actwings', 'fromloft'),
+  '2': stair('actcable', 'foot'),
+  '3': stair('actstudy', 'studyin'),
+  '4': sign('(THE LEAD\'S UNDERSTUDY. LAST NIGHT IT WAS THE KING.)'),
+  '5': foe('bat'),
+  // The bags, by their place in the cycle (s).
+  '6': bag(0),
+  a: bag(0.4),
+  '8': bag(0.8),
+  '0': bag(1.6),
+  '7': bag(2.4),
+  '9': bag(3.2),
+}, { card: ['THE FLY LOFT.', 'EVERYTHING HANGS.'] })
+
+// A flat floor and two shelves to leave a charge by. The great key comes when the understudy falls.
+const DRESSING_ROOM = scene('actstudy', 'THE DRESSING ROOM', 'SCENE THREE', room(12, 10, {
+  8: '#...¯¯¯¯.¯¯¯¯..#',
+  9: '#1.........2.3.#',
+}), { studyin: [2.5, 9.5] }, {
+  '1': stair('actloft', 'fromstudy'),
+  '2': { ent: { t: 'enemy', kind: 'sentry', tough: true, once: 'actthree.understudy' } },
+  '3': { ent: { t: 'chest', id: 'actthree.bigkey', item: 'bigKey', appear: { flag: 'actthree.understudy' } } },
+})
+
+// SCENE FOUR. Clamps on the cable, two rows apart, over the fog. At three of them the way is offered twice, one
+// clamp each side of the clamp two rows below, and one of the pair is paint (2). Safe ledges (5) on real clamps.
+const CABLE = scene('actcable', 'THE CABLE', 'SCENE FOUR', [
+  '................',
+  '................',
+  '................',
+  '.......45553....',
+  '...¯¯¯¯¯¯¯¯¯¯...',
+  '................',
+  '..¯¯¯.......222.',
+  '.......555......',
+  '.......¯¯¯......',
+  '................',
+  '..¯¯¯.......222.',
+  '.......555......',
+  '.......¯¯¯......',
+  '...555..........',
+  '...¯¯¯..........',
+  '................',
+  '222.....¯¯¯.....',
+  '....555.........',
+  '....¯¯¯.........',
+  '................',
+  '........¯¯¯.....',
+  '.....1..........',
+  '.....#####......',
+  '.....#####......',
+], { foot: [7.5, 21.5], top: [9.5, 3.5, 'left'] }, {
+  '1': stair('actloft', 'kdoor'),
+  '2': painted('ledge'),
+  '3': stair('actgondola', 'stair'),
+  '4': sign('GONDOLA. MAXIMUM LOAD: ONE HERO, THREE OF ANYTHING ELSE.'),
+  '5': ledge,
+}, { card: ['THE CABLE.', 'THE ACT WENT THIS WAY.'] })
+
+// The gondola: the floor, the glass's plate (painted, `actthreePaint.ts`), and the stair out behind a gate that waits
+// on the boss, who is not in yet.
+const GONDOLA = scene('actgondola', 'THE GONDOLA', 'SCENE FOUR', room(16, 12, {
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, k) => [k + 1, '#............###'])),
+  10: '#............3.#',
+  11: '#1...........X2#',
+}), { stair: [2.5, 11.5] }, {
+  '1': stair('actcable', 'top'),
+  '2': stair('fogstage', 'mast'),
+  '3': shut('hallucinator'),
+}, {
+  track: 'boss',
+  events: [{ set: 'actthree.hallucard', lines: ['THE HALLUCINATOR.\nIT IS QUITE SURE.\nASK IT ANYTHING.'] }],
 })
 
 /** The climb's maps by id (`lands.ts` collects them into the world). */
 export const MAPS: Record<string, MapDef> = {
   actunder: UNDERSIDE, actdoors: THREE_DOORS, actbard: BOARDS, actflats: FLATS, actwings: WINGS, actloft: FLY_LOFT,
+  actstudy: DRESSING_ROOM, actcable: CABLE, actgondola: GONDOLA,
 }

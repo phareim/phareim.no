@@ -26,6 +26,7 @@ import { raiseCard, stepCard } from './cards'
 import { stepLens } from './lens'
 import { examEnterCell, examEnterMap, stepExam } from './exam'
 import { startChase, stepChase } from './chase'
+import { sideStanding } from './side'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -314,8 +315,9 @@ function play(c: Ctx, dt: number, inp: Input) {
   // Walk-on exits leave the game.
   const exit = c.info.exits.get(Math.floor(h.y) * c.info.w + Math.floor(h.x))
   if (exit?.walk) { beginExit(c, exit); return }
-  // Warps
+  // Warps. (From the side a door takes a hero who stands or climbs: a jump past one does not go through it.)
   for (const w of c.info.warps) {
+    if (c.info.def.kind === 'side' && !sideStanding(h)) break
     if (h.x >= w.x && h.x < w.x + w.w && h.y >= w.y && h.y < w.y + w.h) {
       s.mode = 'warp'
       s.warp = { t: 0, to: w.to, entry: w.entry, swapped: false }

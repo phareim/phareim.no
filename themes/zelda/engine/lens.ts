@@ -1,7 +1,8 @@
 /**
  * THE LENS, Act Three's treasure (docs/worlds/act-three.md): a hero who stands still a moment sees what is false. It
- * is owned by the flag `item:lens` alone (no slot, no inventory field) and it changes the picture and nothing else:
- * what is solid is the tile's to say, glass up or down.
+ * is owned by the flag `item:lens` alone (no slot, no inventory field). A false thing it only draws differently: what
+ * is solid under paint is the tile's to say, glass up or down. A hidden thing is not there until the glass has shown it
+ * (`placeHidden`), and then stays for the visit.
  *
  * Still: on his feet (the floor or a platform; not a ladder, not the air), in play, and for `LENS.up` s no stick
  * beyond its dead zone, no press or release of a button, A not held, no hurt, no lines, card, pause or door. A thumb
@@ -14,12 +15,13 @@
  * (`bossLens`). Painted by `render/actthreePaint.ts`.
  */
 import type { Enemy, EnemyKind, GameState, Input, Rect } from '../types'
+import { HERO_R } from '../types'
 import { dirVec } from './util'
-import { cellIndex, cellRect, has, type MapInfo } from './map'
+import { cellIndex, cellRect, circleOnTile, has, type MapInfo } from './map'
 import type { Ctx } from './combat'
 
 /** Seconds: when the ring starts and the glass is up, the picture's change in and back out; the stick's dead zone. */
-export const LENS = { ring: 0.25, up: 0.7, show: 0.2, back: 2.5, dead: 0.2, puff: 0.4, pencil: 0.35 } as const
+export const LENS = { ring: 0.25, up: 0.7, show: 0.2, back: 2.5, dead: 0.2, puff: 0.4, pencil: 0.45 } as const
 export const LENS_FLAG = 'item:lens'
 /** The rows of one screen of a tall room: the glass's ring is for what the hero's screen holds. */
 const SCREEN = 12
@@ -76,7 +78,7 @@ export function glassThings(info: MapInfo): readonly GlassThing[] {
 export const lensUp = (s: Pick<GameState, 'lens'>) => !!s.lens?.up
 
 /** The foes that declare the glass: their room rings even with nothing marked in it. */
-const GLASS_FOES: ReadonlySet<EnemyKind> = new Set<EnemyKind>()
+const GLASS_FOES: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['bard'])
 export const bossLens = (e: Enemy) => !e.dead && GLASS_FOES.has(e.kind)
 
 /** The screen the hero is on: the room, or the 12 rows of a tall one that hold his feet. */
@@ -107,10 +109,33 @@ function footed(c: Ctx): boolean {
   return c.info.def.kind !== 'side' || (!!h.side?.ground && !h.side.ladder)
 }
 
+/**
+ * A hidden thing is there once the glass has shown it, and stays for the visit (an opened chest too: it does not
+ * stand in the air over ledges that are not there). Until then its tile is air: it bears nobody, blocks nobody and
+ * offers the A button nothing. (It never goes back while the map is loaded, so the ground does not flicker as the
+ * glass comes and goes.)
+ */
+function placeHidden(c: Ctx) {
+  const s = c.s
+  const m = s.map
+  const h = s.hero
+  for (const t of glassThings(c.info)) {
+    if (isFalse(t)) continue
+    const there = !!m.lensSeen?.includes(t.i)
+    const want = there ? c.info.base[t.i]! : '.'
+    if (m.tiles[t.i] === want) continue
+    // (A chest never comes up round the hero: it waits until he is clear of its tile.)
+    if (there && t.is === 'cache' && circleOnTile(h.x, h.y, HERO_R, t.x, t.y)) continue
+    m.tiles[t.i] = want
+    m.version++
+  }
+}
+
 /** One step of the glass, before anything else moves: `game.ts` calls it, under a card too. */
 export function stepLens(c: Ctx, inp: Input, dt: number) {
   const s = c.s
   for (const g of s.map.lensGone ?? []) g.t += dt
+  placeHidden(c)
   if (s.demo || !has(s, LENS_FLAG)) { if (s.lens) delete s.lens; return }
   const h = s.hero
   const at = `${s.map.id}:${s.zoneIndex}`
@@ -138,6 +163,7 @@ export function stepLens(c: Ctx, inp: Input, dt: number) {
     const seen = s.map.lensSeen ??= []
     if (!seen.includes(t.i)) seen.push(t.i)
   }
+  placeHidden(c)
 }
 
 /** The false chest within a tile in front of the hero (A opens it, to nothing): its tile, or null. */

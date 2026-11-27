@@ -364,8 +364,8 @@ function ironProblems(id: string, world: World): string[] {
 
 /**
  * THE LENS's marks (`engine/lens.ts`): painted and hidden things are a side map's; a painted ledge or chest is air
- * under the paint (a door air or wall), so the glass never changes what is solid; a hidden ledge is a real platform;
- * and nothing the way on needs is hidden.
+ * under the paint (a door air or wall), so the glass never changes what is solid under paint; a hidden ledge is
+ * written as the platform it becomes; and nothing the way on needs is hidden. And the sandbags'.
  */
 function lensProblems(id: string, world: World): string[] {
   const def = world.maps[id]!
@@ -373,6 +373,12 @@ function lensProblems(id: string, world: World): string[] {
   def.rows.forEach((r, y) => {
     for (let x = 0; x < r.length; x++) {
       const e = def.marks[r[x]!]?.ent
+      // A sandbag hangs on a side map, its tip in the air, over something that stops it (`engine/sandbag.ts`).
+      if (e?.t === 'sandbag') {
+        const air = tileOf(def, x, y) === '.' && tileOf(def, x + 1, y) === '.'
+        const floor = [x, x + 1].every(u => def.rows.slice(y + 1).some((_, k) => { const t = tileOf(def, u, y + 1 + k); return t === '¯' || TILE_INFO[t].solid }))
+        if (def.kind !== 'side' || !air || !floor) out.push(`${id}: the sandbag at ${x},${y} ${def.kind !== 'side' ? 'is outside a side map' : !air ? 'does not hang in two tiles of air' : 'has nothing to fall on'}`)
+      }
       if (!e || (e.t !== 'lie' && e.t !== 'veil' && !(e.t === 'chest' && e.hidden))) continue
       const at = `${x},${y}`
       if (def.kind !== 'side') out.push(`${id}: a ${e.t === 'lie' ? 'painted' : 'hidden'} thing at ${at} outside a side map`)

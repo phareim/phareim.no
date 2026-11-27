@@ -299,14 +299,26 @@ classic picture. `/?view=<id>` asks for one.
   thumb resting on B is still. At 0.25 s a ring grows round the hero's feet
   (only where the 12 rows around them hold something to show), at 0.7 s the
   glass is up (`lensUp(s)`), and the picture changes in 0.2 s. It stays until
-  the hero moves. It changes the picture and never what is solid. A side map
-  marks what it knows: `{ t: 'lie', as: 'ledge' | 'door' | 'chest' }` is paint
-  on air (a door may be on a wall tile) that fades to a pale cyan outline and
-  comes back over 2.5 s (A opens a painted chest to a white puff); `{ t: 'veil'
-  }` on a platform tile and a chest with `hidden: true` are real, solid and
-  drawn only through the glass, then faintly for the rest of the visit
-  (`MapState.lensSeen`). Nothing of it is saved. The validator checks the marks
-  (`lensProblems`); the painter is `render/actthreePaint.ts`.
+  the hero moves. A side map marks what it knows: `{ t: 'lie', as: 'ledge' |
+  'door' | 'chest' }` is paint on air (a door may be on a wall tile) that fades
+  to a pale cyan outline and comes back over 2.5 s (A opens a painted chest to
+  a white puff); the glass never changes what is solid under paint. `{ t: 'veil'
+  }` on a platform tile and a chest with `hidden: true` are not there until the
+  glass has shown them: their tile is air, nothing stands on it and A offers
+  nothing. Once shown they are solid and drawn at 45 % for the rest of the
+  visit (`MapState.lensSeen`), an opened chest like any other. Nothing of it is
+  saved. A boss may declare the glass (`bossLens`: BARD), and its room
+  then rings everywhere. The validator checks the marks (`lensProblems`); the
+  painter is `render/actthreePaint.ts`.
+- **Sandbags** (`engine/sandbag.ts`, `{ t: 'sandbag', period?, phase? }`, side
+  maps). The mark's tile is the bag's tip; its column is 2 tiles wide down to
+  the first wall or platform. In a cycle of 4.8 s: 1 s of tell (the column in
+  pink), 0.2 s of fall (2 half hearts to a hero whose middle is in the column),
+  0.5 s lying, 1.2 s of haul, and hanging. The clock runs from the map's
+  loading, and no bag falls before a whole tell. A bag moves nobody and nothing
+  hurts it.
+- **A door from the side** takes a hero who stands or climbs: a jump across a
+  doorway's tile goes past it.
 - **The chase** (`MapDef.autoscroll: { vx, from, to, wait }`, `engine/chase.ts`;
   THE ROAD uses it). A side map of one wide room whose screen, 16 tiles, scrolls
   by itself: it holds `wait` seconds from the first moment of play (never under a
@@ -1016,7 +1028,10 @@ classic picture. `/?view=<id>` asks for one.
       (else it patrols). After 1.2 s of that, with him in sight within 4.5
       tiles, it stands and tells for 0.6 s, then charges at 9 tiles/s along
       the line to where he stood as the tell ended, without steering, to 1.2
-      tiles past that point or to a wall; then it is spent.
+      tiles past that point or to a wall; then it is spent. On a side map its
+      stalk and its charge are level: it walks under a hero who is up on
+      something, and charges left or right to end 1.2 tiles past where the hero
+      stands (in Act Three that way is stencilled).
     - *The tough hound* prowls as a hound does, tells (0.5 s) and lunges (10
       tiles/s), then tells again for 0.25 s and lunges a second time, each
       lunge ending 2.2 tiles past its mark (`houndPast`: far enough off that
@@ -1065,6 +1080,25 @@ classic picture. `/?view=<id>` asks for one.
     holds the bar to what the blade does all the way through.
   - *A heavy foe's fall* clears the small foes of its room with it; another
     heavy foe there stays on its feet (the Echo Barrow's pair of knights).
+  - *BARD* (`bard`, Act Three's miniboss; hp 10, radius 1;
+    `engine/bossBard.ts`, every number in `BARD`; a side map's, the arena's
+    floor and ledge being fixed numbers). It hides as one of three pieces of its
+    room's set, a door, a chest or a rope end, and nothing about the piece shows
+    it: behind the set it is not in the room at all. Through the glass its
+    outline stands over the piece. After 5 s (4 the first time) the piece
+    shudders in a pink outline for 0.9 s (1.1 the rope) with the blow
+    stencilled, and BARD steps out: the door charges 6.5 tiles along the floor
+    toward the hero's side (west when the hero is within 1.5 of it); the chest
+    leaps onto the hero's spot, a box 3 wide that hurts whoever stands on the
+    floor in it; the rope drops three bags on columns 2 wide, 4 apart. Then it
+    stands dazed for 2.4 s: open (gold bar), at most 4 hit points an opening,
+    after which it shuts. It goes behind the set and picks another piece, never
+    the same twice running. Its touch never hurts, and its blows shove toward
+    the middle of the room. The blade alone hurts it, the echo's with it. Its
+    fall sets its `once` flag, which opens a gate; it is `BIG` and not a boss,
+    so there is no fanfare. Its fight is played in
+    `tests/zelda-act-three.test.mjs`. Act Three's other miniboss, the
+    Understudy, is a plain tough sentry.
   - *Mixtral* (`mixtral`, the Echo Barrow's miniboss; hp 10, radius 0.8;
     `engine/bosses.ts`, every number in `MIXTRAL`). Its card, the first time
     in its room: MIXTRAL. EIGHT OPINIONS AND ONE HEADACHE. It walks at 1.8

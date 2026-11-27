@@ -12,6 +12,7 @@ import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
 import { parrot, parrotHarmless } from './parrot'
+import { bard } from './bossBard'
 import { sycophant } from './bossSycophant'
 import { copilot } from './bossCopilot'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
@@ -189,6 +190,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'phi': phi(c, e, dt); break
     case 'orca': orca(c, e, dt); break
     case 'copilot': copilot(c, e, dt); break
+    case 'bard': bard(c, e, dt); break
   }
   contact(c, e)
 }
@@ -672,6 +674,8 @@ function aimStrike(c: Ctx, e: Enemy, speed: number, past: number = TOUGH.past) {
   ai.vx = v.x * speed
   ai.vy = v.y * speed
   ai.t = (d + past) / speed
+  // From the side the line is level, to end past where the hero stands left or right of it (never up at a shelf).
+  if (c.info.def.kind === 'side') { ai.vx = (Math.sign(h.x - e.x) || dirVec(e.dir).x || 1) * speed; ai.vy = 0; ai.t = (Math.abs(h.x - e.x) + past) / speed }
   ai.tell = 0
 }
 
@@ -714,7 +718,8 @@ function toughSentry(c: Ctx, e: Enemy, dt: number) {
   const d = heroDist(c, e) || 1
   const vx = ((h.x - e.x) / d) * TOUGH.stalk
   const vy = ((h.y - e.y) / d) * TOUGH.stalk
-  walk(c, e, vx, vy, dt)
+  // (From the side: the full stalk left or right, under a hero who is up on something.)
+  walk(c, e, c.info.def.kind === 'side' ? (Math.abs(h.x - e.x) > 0.1 ? Math.sign(h.x - e.x) * TOUGH.stalk : 0) : vx, vy, dt)
   e.dir = toDir(vx, vy, e.dir)
   if (ai.t <= 0 && heroDist(c, e) < TOUGH.range) { ai.mode = 'tell'; ai.t = TOUGH.tell; ai.tell = TOUGH.tell }
 }
