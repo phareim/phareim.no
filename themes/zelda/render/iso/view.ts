@@ -34,6 +34,7 @@ import { dirAngle } from '../../engine/util'
 import { sycophantFocus, sycophantFrame } from '../../engine/bossSycophant'
 import { houseTile } from '../steamPaint'
 import { golemFocus } from '../../engine/bossGolem'
+import { boxFocus } from '../../engine/bossBlackBox'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { drawLatchLines } from '../heapMarks'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -1017,7 +1018,7 @@ export default function isoView(kit: Kit): View {
     const cClassic = proj(cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      const at = golemFocus(s, sycophantFocus(s))
+      const at = boxFocus(s, vw / 2 / T, vh / 2 / T, true) ?? golemFocus(s, sycophantFocus(s))
       const focus = { x: at.x, y: at.y + 6 / T }
       let ci: Vec
       if (s.scroll) {

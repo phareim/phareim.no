@@ -16,6 +16,7 @@ import { stepObjects } from './objects'
 import { bathArrive, keepRobe, startBath } from './attendants'
 import { stepBeat, sycophantFocus, sycophantFrame, sycophantGone } from './bossSycophant'
 import { golemFocus } from './bossGolem'
+import { boxFocus } from './bossBlackBox'
 import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
@@ -771,7 +772,7 @@ const isArtId = (x: unknown): x is ArtId => (ART_IDS as readonly unknown[]).incl
 /** Where the camera wants to be (tile units, top-left) for a view of vw×vh tiles. */
 export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y: number } {
   // (A side map's camera keeps a row of its own through a jump, `engine/side.ts`; a room change goes by the hero.)
-  const at = golemFocus(s, sycophantFocus(s))
+  const at = boxFocus(s, vw / 2, vh / 2, false) ?? golemFocus(s, sycophantFocus(s))
   const h = { x: at.x, y: (!s.scroll && s.hero.side?.cam) || at.y }
   const clampTo = (z: { x: number; y: number; w: number; h: number }) => {
     const cx = z.w <= vw ? z.x + (z.w - vw) / 2 : Math.max(z.x, Math.min(z.x + z.w - vw, h.x - vw / 2))

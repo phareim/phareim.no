@@ -8,6 +8,8 @@ import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
 import { bardOpen, bardRule, bardStruck } from './bossBard'
+import { BOX } from './bossBlackBox'
+import { lampHome } from './lamp'
 import { heapRule, phiOpen } from './heapFoes'
 import { COPILOT, copilotStill } from './bossCopilot'
 import { golemCap, golemFell, golemOpen } from './bossGolem'
@@ -121,6 +123,8 @@ BOSSES.add('orca')
 // The Late Show's (`bossWeaver.ts`).
 BIG.add('weaver')
 BOSSES.add('weaver')
+BIG.add('blackbox')
+BOSSES.add('blackbox')
 /** The `BIG` ones the storm lamp's beam burns and stuns (`engine/lamp.ts`): a boss is left alone unless it is named here. */
 export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 // Act Three's BARD (`bossBard.ts`): heavy, but no boss: the gate it holds shut is its reward.
@@ -182,6 +186,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'golem': return golemOpen(e)
     // A hand at rest (its finger, to the stomp), or its yawn while this one still has blows to give.
     case 'weaver': return mode === 'rest' || (mode === 'yawn' && ((e.ai.took as number | undefined) ?? 0) < WEAVER.take)
+    // All three receivers lit, while this opening still has blows to give.
+    case 'blackbox': return mode === 'open' && ((e.ai.took as number | undefined) ?? 0) < BOX.take
     default: return false
   }
 }
@@ -387,6 +393,22 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       return false
     }
     case 'sycophant': return sycophantHit(c, e, fromX, fromY, src)
+    // THE BLACK BOX: only while it is open, and `BOX.take` an opening at most, whatever strikes: the blade (the echo is
+    // the blade), a bomb or a thrown pot (`BOX.throwDmg`). Anything else clanks, the disc, the hook and the stomp with
+    // the rest, and nothing stuns it.
+    case 'blackbox': {
+      const thrown = src === 'bomb' || src === 'pot'
+      if ((blade(src) || thrown) && bossOpen(e)) {
+        const hit = damage(c, e, thrown ? BOX.throwDmg : dmg, fromX, fromY, { ...opt, cap: BOX.take - ((ai.took as number | undefined) ?? 0) })
+        ai.hurt = BOX.hurt
+        // Its fall ends the fight: the lamp is back in the hand (the Weight may lie where it stood).
+        if (e.dead) lampHome(c.s)
+        return hit
+      }
+      c.ev.push({ type: 'clank', x: e.x, y: e.y + 1 })
+      turned(e, src, 0.2)
+      return false
+    }
     // GROK and PHI: their own file says what lands (`heapFoes.ts` `heapRule`).
     case 'grok':
     case 'phi': {
@@ -485,8 +507,8 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   const len = Math.hypot(ddx, ddy) || 1
   const dx = ddx / len
   const dy = ddy / len
-  // (ORCA and the Parrot are never shoved: its stencils say where it will be.)
-  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca' && e.kind !== 'parrot') {
+  // (ORCA and the Parrot are never shoved: their stencils say where they will be. The Black Box stands on its pedestal.)
+  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca' && e.kind !== 'parrot' && e.kind !== 'blackbox') {
     const k = (opt?.knock ?? 1) * (big ? 0.4 : 1)
     e.knock = { vx: dx * 9 * k, vy: dy * 9 * k, t: 0.14 }
   }

@@ -15,7 +15,8 @@
  * it for good; a second one, past a bend that wants a pushed mirror, opens the heart piece's gate); its east door
  * takes the second key into the Oil Store, where the dark hound waits (the Big Key, and the gate over
  * the stair); the Gallery (a ring of walkway round a block of wall, three mirrors on its corners and two draugs)
- * and its Big-Key door into the Lamp Room, which here has no Box in it.
+ * and its Big-Key door into the Lamp Room, where THE BLACK BOX stands: beaten with the lamp and the blade, it lights
+ * the room for good and leaves the Weight REASONS.
  *
  * - Lit: the Foot, the Parlour, the Ice Store and the Flooded Cellar. Dark: the four rooms above. A dark room is
  *   dim to a hero who owns the lamp, and lit for good once its `lit` flag is set (a receiver).
@@ -290,8 +291,9 @@ const GALLERY = [
   '#VV#############',
 ]
 
-// A room of open floor with rock corners; the pedestal (3×3) in the middle and four lanes out of its faces, their
-// floor laid as path. Three receivers, north, east and west. No Box yet.
+// A room of open floor with rock corners; the pedestal (3×3) in the middle, the Black Box standing on it, and four
+// lanes out of its faces, their floor laid as path. Three receivers, north, east and west; none south, where the Weight
+// comes to lie.
 const LAMP_ROOM = [
   '#####......#####',
   '###..........###',
@@ -299,9 +301,9 @@ const LAMP_ROOM = [
   '#......,,,.....#',
   '#......,,,.....#',
   '..,,,,,ΞΞΞ,,,,.#',
-  '..3,,,,ΞΞΞ,,,2.#',
+  '..3,,,,ΞBΞ,,,2.#',
   '#.,,,,,ΞΞΞ,,,,.#',
-  '#......,,,.....#',
+  '#......,4,.....#',
   '#......,,,.....#',
   '##.....,,,....##',
   '#####......#####',
@@ -320,7 +322,16 @@ export const LIGHTHOUSE3: MapDef = {
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE GALLERY', dark: true, lit: 'lighthouse.gallery' },
-    '1,0': { name: 'THE LAMP ROOM', dark: true, lit: 'lighthouse.box', track: 'boss' },
+    '1,0': {
+      name: 'THE LAMP ROOM',
+      dark: true,
+      lit: 'lighthouse.box',
+      track: 'boss',
+      events: [
+        { when: { notFlag: 'lighthouse.box' }, lines: ['THE BLACK BOX. NOBODY KNOWS WHAT IT THINKS. IT IS NOT SURE EITHER.'], set: 'lighthouse.box.met' },
+        { when: { flag: 'lighthouse.box' }, lines: ['(THE BEAM GOES OUT TO SEA. THIS TIME IT COMES BACK THE SAME.)'], set: 'lighthouse.box.fell' },
+      ],
+    },
   },
   rows: joinCells([[GALLERY, LAMP_ROOM]]),
   marks: {
@@ -334,6 +345,9 @@ export const LIGHTHOUSE3: MapDef = {
     '1': { ent: { t: 'receiver', flag: 'lighthouse.box.n' } },
     '2': { ent: { t: 'receiver', flag: 'lighthouse.box.e' } },
     '3': { ent: { t: 'receiver', flag: 'lighthouse.box.w' } },
+    // THE BLACK BOX on its pedestal (`engine/bossBlackBox.ts`), and the Weight it leaves on the south pad.
+    B: { tile: 'Ξ', ent: { t: 'enemy', kind: 'blackbox', once: 'lighthouse.box' } },
+    '4': { tile: ',', ent: { t: 'item', id: 'lighthouse3.weight', item: 'weightReasons', appear: { flag: 'lighthouse.box' } } },
   },
 }
 

@@ -543,6 +543,7 @@ export type EnemyKind =
   | 'bard' // miniboss, side maps: hides as a piece of the set, steps out as it; open after its blow (`engine/bossBard.ts`)
   | 'golem' // boss: pulls the loose things in and eats them; open only while a cart it swallowed chokes it
   | 'weaver' // boss (the Late Show): draws hands; a stomp on a gold finger puts one right (`engine/bossWeaver.ts`)
+  | 'blackbox' // boss (the Lighthouse): never moves; a lamp's beam comes out of another face, and its three receivers open it
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the

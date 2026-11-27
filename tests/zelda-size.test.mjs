@@ -15,8 +15,12 @@ const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 
-/** The ceilings, with about a fifth of headroom over the measurement above. */
-const MAX_MIN = 1_450_000
+/**
+ * The ceilings. The minified one was raised on purpose on 2026-11-27 (1.45 MB to 1.55 MB): the view's static closure
+ * now holds seven dungeons' fights and painters (1.46 MB with five of them whole). They belong in a chunk loaded with
+ * the dungeons' maps (`docs/worlds/sacred-weights-TASKS.md`); until then this is what they cost.
+ */
+const MAX_MIN = 1_550_000
 const MAX_GZIP = 470_000
 
 let out

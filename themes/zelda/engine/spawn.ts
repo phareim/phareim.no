@@ -37,6 +37,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   golem: { hp: 18, r: 1.2, dmg: 2 },
   // (It harms by what it draws, never by touch: `engine/bossWeaver.ts`.)
   weaver: { hp: 12, r: 1.4, dmg: 0, flying: true },
+  // (Every tile beside its pedestal lies inside its reach, so its touch does no harm: only its pink beams hurt.)
+  blackbox: { hp: 14, r: 1.6, dmg: 0 },
 }
 
 export function spawnEnemy(

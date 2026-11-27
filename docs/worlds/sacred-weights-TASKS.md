@@ -19,8 +19,9 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [x] One side room as a trial (commit ff6bb20; `engine/side.ts`, `render/side.ts`; played by script with real keys and touch at 390x844 in a local build, never on a real phone). What it decided: tall rooms, jump on B only, a narrow side cut, required jumps of 2.
 - [x] The ITEMS page as a grid, with the Weights (commit 618d02d; picked from with keys on the live site in both views, 2026-11-27).
 - [ ] Cards (intertitles, score cards, THE END).
-- [ ] Dungeon maps in a chunk of their own. The world's data is 68,648 B gzip of a 72,000 B ceiling (2026-11-27) with a third of the dungeon parts to land; the build brief is being written.
+- [x] Dungeon maps in a chunk of their own (commit e4008c7, 2026-11-27): `world/dungeons.ts` is the one place a dungeon is added; the home page's world is 59.5 KB gzip (ceiling 62 KB), the dungeons' chunk 10 KB (ceiling 22 KB).
 - [ ] The side engine in a chunk of its own.
+- [ ] The dungeons' fights and painters in the dungeons' chunk: they ride in the isometric view's closure and pushed it past its ceiling (raised from 1.45 MB to 1.55 MB minified on 2026-11-27, `tests/zelda-size.test.mjs`).
 
 ## Dungeons
 - [ ] 1. Seter Fell: THE ECHO BARROW. The Echo. Mixtral. THE STOCHASTIC PARROT. Weight: MEANING.

@@ -9,7 +9,7 @@ import { TILE } from '../types'
 import { cellIndex, mapInfo, solidTile } from '../engine/map'
 import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
 import { flightLane, throwerLanes } from '../engine/gifts'
-import { drawLanes, drawStrip } from './lighthouse'
+import { drawDash, drawFace, drawLanes, drawStrip } from './lighthouse'
 import { drawPads, drawShape } from './examination'
 
 type G = CanvasRenderingContext2D
@@ -66,6 +66,8 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
     if (st.t === 'ray') ray(g, st, cx, cy, time, reduced)
     else if (st.t === 'strip') drawStrip(g, st, cx, cy, time, reduced)
     else if (st.t === 'disc' || st.t === 'box' || st.t === 'path') drawShape(g, st, cx, cy, time, reduced)
+    else if (st.t === 'face') drawFace(g, st, cx, cy, time, reduced)
+    else if (st.t === 'dash') drawDash(g, st, cx, cy, time, reduced)
     else paint(g, st, cx, cy, time, reduced)
     g.restore()
   }
@@ -77,7 +79,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
  * deepens as the tell runs out, a hard edge, and down a lane the chevrons of the way it will be run. A copy's is
  * fainter, and dotted at the edge. Footsteps are only prints: nothing is hit there.
  */
-function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' | 'path' }>, cx: number, cy: number, time: number, reduced: boolean) {
+function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' | 'path' | 'face' | 'dash' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const faint = st.dim ? 0.55 : 1
   if (st.t === 'steps') { steps(g, st, cx, cy, faint); return }
   const box = bounds(st)
@@ -121,7 +123,7 @@ function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' 
 }
 
 /** The tiles a stencil lies within. */
-function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' | 'strip' | 'disc' | 'box' | 'path' }>): { x0: number; y0: number; x1: number; y1: number } {
+function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' | 'strip' | 'disc' | 'box' | 'path' | 'face' | 'dash' }>): { x0: number; y0: number; x1: number; y1: number } {
   if (st.t !== 'lane') return { x0: st.x - st.r, y0: st.y - st.r, x1: st.x + st.r, y1: st.y + st.r }
   const pad = Math.hypot(st.cap, st.w / 2)
   return { x0: Math.min(st.x0, st.x1) - pad, y0: Math.min(st.y0, st.y1) - pad, x1: Math.max(st.x0, st.x1) + pad, y1: Math.max(st.y0, st.y1) + pad }

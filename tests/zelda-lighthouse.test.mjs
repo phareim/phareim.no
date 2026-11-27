@@ -1,9 +1,8 @@
-// Neon Shrine, THE LIGHTHOUSE (docs/games/neon-shrine-lighthouse.md): Yule Fjord's tower and the storm lamp. Three of
-// the file's four tests are here: the map and its keys (and the door in the land), the lamp never saved, and the walk
-// from the door in Yule Fjord to the Lamp Room's inside, played by a scripted hero with the blade and the lamp: every
-// room, both small keys, the Big Key, the lamp in all four puzzle rooms, ORCA and the dark hound fought (the lamp's
-// beam stunning each, then the blade), and a save made halfway and loaded as a reloaded tab would be. Part three puts
-// the Black Box into this same walk.
+// Neon Shrine, THE LIGHTHOUSE (docs/games/neon-shrine-lighthouse.md): Yule Fjord's tower and the storm lamp. Four
+// tests, all scripted players: the map and its keys (and the door in the land); the lamp never saved; the walk from the
+// door in Yule Fjord to the Weight in hand, with the blade and the lamp (every room, both small keys, the Big Key, the
+// lamp in all four puzzle rooms, ORCA, the dark hound and the Black Box through its three rounds, and a save made
+// halfway and loaded as a reloaded tab would be); and a hero who stands still before the Black Box, who loses.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -123,8 +122,8 @@ describe('the Lighthouse', () => {
     assert.equal(s.lamp, null)
   })
 
-  // ---- (1), the first half: from the door to the Lamp Room -------------------------------------------------------
-  it('goes from the door in Yule Fjord to the Lamp Room, with the blade and the lamp: both keys, the Big Key, ORCA and the dark hound, a reload on the way', () => {
+  // ---- (1) from the door to the Weight ---------------------------------------------------------------------------
+  it('goes from the door in Yule Fjord to the Weight in hand, with the blade and the lamp: both keys, the Big Key, ORCA, the dark hound and the Black Box, a reload on the way', () => {
     const tile = (s, x, y) => s.map.tiles[y * s.map.w + x]
     const step = (s, i = inp()) => Z.stepGame(Z.WORLD, s, 1 / FPS, i)
     const run = (s, n, i = inp()) => { for (let k = 0; k < n; k++) { s.hero.invuln = Math.max(s.hero.invuln, 0.2); step(s, i) } }
@@ -153,6 +152,22 @@ describe('the Lighthouse', () => {
     /** Through a doorway or onto stairs: walk on until the map or the room is what it should be. */
     const through = (s, pred, dir) => { P.until(s, () => pred() && s.mode === 'play', inp({ move: V[dir] }), 900); P.settle(s) }
     const wait = (s, secs) => run(s, Math.round(secs * FPS))
+    // Before the Black Box nothing shields him: it walks and waits as a player does.
+    const until = (s, pred, secs) => {
+      for (let k = 0; k < secs * FPS && !pred() && s.mode === 'play'; k++) step(s)
+      assert.ok(pred(), `not within ${secs} s (the Box ${s.map.enemies.find(e => e.kind === 'blackbox')?.ai.mode})`)
+    }
+    const walk = (s, tx, ty) => {
+      let p = P.path(s, tx, ty)
+      assert.ok(p, `a way to ${tx},${ty}`)
+      for (let k = 0, i = 0; k < 600; k++) {
+        const h = s.hero
+        if (Math.floor(h.x) === tx && Math.floor(h.y) === ty && Math.hypot(h.x - tx - 0.5, h.y - ty - 0.5) < 0.12) return
+        while (i < p.length - 1 && Math.hypot(h.x - p[i][0] - 0.5, h.y - p[i][1] - 0.5) < 0.25) i++
+        step(s, inp({ move: unit(p[i][0] + 0.5 - h.x, p[i][1] + 0.5 - h.y) }))
+      }
+      assert.fail(`walked to ${s.hero.x.toFixed(2)},${s.hero.y.toFixed(2)}, wanted ${tx},${ty}`)
+    }
 
     let s = at('yulefjord', 'lighthouse', { seed: 11 })
 
@@ -379,13 +394,123 @@ describe('the Lighthouse', () => {
     press(s, 'right', 30)
     assert.equal(tile(s, 15, 5), '.', 'the Big Key opens the great door')
 
-    // The Lamp Room, with no Box in it yet.
+    // The Lamp Room: the Black Box. Its card on the way in.
     through(s, () => s.zoneIndex === 1, 'right')
     assert.equal(s.zone.x, 16)
-    assert.equal(s.map.enemies.filter(e => e.cell === 1).length, 0)
-    assert.equal(tile(s, 24, 6), 'Ξ')
-    assert.equal(tile(s, 24, 2), 'ρ')
-    assert.ok(s.hero.hp > 0)
+    wait(s, 0.1)
+    assert.ok(s.flags['lighthouse.box.met'] && s.mode === 'dialog', 'its card')
+    P.settle(s)
+    const box = s.map.enemies.find(e => e.kind === 'blackbox' && e.cell === 1)
+    assert.ok(box && box.once === 'lighthouse.box' && box.hp === 14)
+    assert.equal(Z.cellIsDark(s, Z.mapInfo(Z.WORLD, 'lighthouse3'), 1), true)
+
+    // A lamp shining straight at a receiver lights nothing: only the Box's own beam does.
+    walk(s, 19, 5)
+    walk(s, 24, 4)
+    lamp(s, 'up', 40)
+    assert.ok(s.lamp && s.map.phys.beams.some(b => b.src === 'lamp' && b.y1 === 2.5), 'the beam ends in the north receiver')
+    assert.ok(!s.flags['lighthouse.box.n'], 'and does not light it')
+    step(s, inp({ bPress: true }))
+
+    // Three rounds, as the wirings are printed: for each face the answer is to leave, the face to shine into.
+    const ROUNDS = [
+      // TURN: N→E, E→S, S→W, W→N
+      [['W', 'N'], ['N', 'E'], ['S', 'W']],
+      // FUNNEL: N→W, E→W, S→N, W→E
+      [['S', 'N'], ['W', 'E'], ['N', 'W']],
+      // TWO FACES: the turn again, with pink out of the far side
+      [['W', 'N'], ['N', 'E'], ['S', 'W']],
+    ]
+    const NUMBER = { N: 1, E: 2, S: 3, W: 4 }
+    /** Where the hero stands and which way he sets the lamp, to shine into a face from its own lane. */
+    // (The south one sets it on the pad against the pedestal, where the Weight will come to lie.)
+    const SPOT = { N: [23, 2, 'down'], E: [29, 7, 'left'], S: [24, 9, 'up'], W: [19, 5, 'right'] }
+    const hp = s.hero.hp
+    let placed = 0
+    const began = s.elapsed
+    for (const [round, entries] of ROUNDS.entries()) {
+      assert.ok(!['n', 'e', 'w'].some(f => s.flags[`lighthouse.box.${f}`]), 'the receivers are dark as a round begins')
+      for (const [k, [into, out]] of entries.entries()) {
+        const [x, y, dir] = SPOT[into]
+        walk(s, x, y)
+        lamp(s, dir, 0)
+        placed++
+        until(s, () => box.ai.mode === 'think', 2)
+        // Before it fires, the face it will fire from is lit, by its number, and a dashed way lies from it.
+        const marks = Z.stencilsOf(box)
+        assert.deepEqual(marks.filter(m => m.t === 'face' && m.glow === 'cyan').map(m => m.n), [NUMBER[out]], `round ${round + 1}: into ${into}, out of ${out}`)
+        assert.ok(marks.some(m => m.t === 'dash' && m.hue === 'cyan'))
+        assert.equal(marks.some(m => m.t === 'dash' && m.hue === 'pink'), round === 2, 'pink beside it in the third round only')
+        until(s, () => box.ai.mode === 'answer', 2)
+        until(s, () => box.ai.mode !== 'answer', 3)
+        assert.ok(s.flags[`lighthouse.box.${out.toLowerCase()}`], `round ${round + 1}: the ${out} receiver is lit`)
+        assert.equal(box.ai.mode, k === 2 ? 'open' : 'idle')
+        // The lamp back in the hand: its beam does nothing to the Box.
+        if (k === 2) assert.ok(Z.bossOpen(box))
+      }
+      const before = box.hp
+      // Open: to the west pad, and cut until it shuts. (The lamp may still stand where it was: it is walked round.)
+      walk(s, 22, 6)
+      for (let f = 0; box.ai.mode === 'open' && !box.dead; f++) step(s, inp({ move: unit(24.5 - s.hero.x, 6.5 - s.hero.y, 0.05), a: true, aPress: f % 4 === 0 }))
+      const took = before - Math.max(0, box.hp)
+      assert.equal(took, Math.min(6, before), `round ${round + 1}: an opening gives six at most`)
+      if (!box.dead) {
+        until(s, () => box.ai.mode === 'idle', 4)
+        assert.ok(!Z.bossOpen(box))
+        // The lamp left standing asks the new wiring nothing. It is taken up from beside it.
+        if (s.lamp) {
+          run(s, 60)
+          assert.equal(box.ai.mode, 'idle', 'a lamp left shining does not loop it')
+          assert.ok(!['n', 'e', 'w'].some(f => s.flags[`lighthouse.box.${f}`]))
+          const [lx, ly] = [s.lamp.idx % s.map.w, Math.floor(s.lamp.idx / s.map.w)]
+          walk(s, lx + (lx < 24 ? -1 : 1), ly)
+          step(s, inp({ bPress: true }))
+          assert.equal(s.lamp, null)
+          wait(s, 0.5)
+        }
+      }
+    }
+    assert.equal(placed, 9, 'three placements a round')
+    assert.ok(box.dead && s.flags['lighthouse.box'], `the Box falls in the third round (${box.hp} left)`)
+    assert.equal(s.hero.hp, hp, `a hero who stays behind his lamp is never touched (${((s.elapsed - began)).toFixed(0)} s)`)
+    assert.equal(s.lamp, null, 'the lamp is back in the hand')
+
+    // It falls: its line, the room lit for good, and the Weight on the south pad.
+    run(s, 5)
+    assert.ok(s.flags['lighthouse.box.fell'] && s.mode === 'dialog')
+    P.settle(s)
+    assert.equal(Z.cellIsDark(s, Z.mapInfo(Z.WORLD, 'lighthouse3'), 1), false)
+    P.walkTo(s, 24, 9)
+    P.walkTo(s, 24, 8)
+    P.settle(s)
+    assert.ok(Z.hasWeight(s, 'weightReasons'), 'REASONS in hand')
+  })
+
+  // ---- (2) standing still loses ------------------------------------------------------------------------------------
+  it('beats a hero who stands still in the west lane: the Black Box blurts at the lane he is in', () => {
+    const s = at('lighthouse3', 'up', { inv: { lamp: true } })
+    Z.enterMap(Z.WORLD, s, 'lighthouse3', 'up', [], { x: 20.5, y: 6.5 })
+    s.mode = 'play'
+    s.hero.auto = null
+    s.hero.hp = s.hero.maxHp = 6
+    // (A receiver left lit by an earlier visit goes dark.)
+    s.flags['lighthouse.box.n'] = true
+    const box = s.map.enemies.find(e => e.kind === 'blackbox')
+    P.step(s, inp())
+    P.settle(s)
+    const blurts = []
+    let was = 'idle'
+    for (let f = 0; f < 40 * FPS && s.mode !== 'dying'; f++) {
+      Z.stepGame(Z.WORLD, s, 1 / FPS, inp())
+      if (box.ai.mode === 'blurt' && was !== 'blurt') blurts.push(f / FPS)
+      was = box.ai.mode
+    }
+    assert.equal(s.mode, 'dying', `${s.hero.hp} half hearts left after ${blurts.length} blurts`)
+    assert.equal(blurts.length, 3)
+    assert.ok(blurts[0] > 7.5 && blurts[0] < 8.5, `the first after eight quiet seconds (${blurts[0]})`)
+    assert.ok(blurts.slice(1).every((t, i) => Math.abs(t - blurts[i] - 5.5) < 0.2), `then every 5.5 s (${blurts})`)
+    assert.equal(box.hp, 14)
+    assert.ok(!s.flags['lighthouse.box.n'] && !s.flags['lighthouse.box'])
   })
 })
 

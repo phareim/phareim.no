@@ -103,12 +103,15 @@ export function lampMayStand(c: Ctx, tx: number, ty: number): boolean {
   if (!FLOOR.has(m.tiles[idx]!) || TILE_INFO[m.tiles[idx]!].solid) return false
   if (c.info.def.kind === 'dungeon' && cellIndex(c.info, tx + 0.5, ty + 0.5) !== cellIndex(c.info, s.hero.x, s.hero.y)) return false
   if (c.info.gates.some(g => g.tiles.includes(idx))) return false
-  if (c.info.marks.some(k => k.x === tx && k.y === ty && TAKEN.has(k.ent.t))) return false
+  // (The Lamp Room's south pad is where its Weight will lie: a lamp may stand there until it does, and the Box's fall
+  // takes the lamp home.)
+  if (c.info.marks.some(k => k.x === tx && k.y === ty && TAKEN.has(k.ent.t) && !(k.ent.t === 'item' && k.ent.item === 'weightReasons'))) return false
   if (c.info.warps.some(w => tx >= w.x && tx < w.x + w.w && ty >= w.y && ty < w.y + w.h)) return false
   if (c.info.scenery.has(idx)) return false
   const h = s.hero
   if (circleOnTile(h.x, h.y, HERO_R, tx, ty)) return false
-  for (const e of m.enemies) if (!e.dead && circleOnTile(e.x, e.y, e.r, tx, ty)) return false
+  // (The Black Box's body is its pedestal as far as a lamp goes: its radius reaches over the four pads beside it.)
+  for (const e of m.enemies) if (!e.dead && e.kind !== 'blackbox' && circleOnTile(e.x, e.y, e.r, tx, ty)) return false
   for (const n of m.npcs) if (circleOnTile(n.x, n.y, 0.4, tx, ty)) return false
   if (s.luna && circleOnTile(s.luna.x, s.luna.y, 0.4, tx, ty)) return false
   if (echoOnTile(c, tx, ty)) return false
