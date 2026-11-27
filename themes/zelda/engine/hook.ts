@@ -6,7 +6,7 @@
  * leaves the hero's camera room, so a pull never crosses a doorway.
  * While the chain is out the hero stands still.
  */
-import { HERO_R, HOOK_PULL_SPEED, HOOK_RANGE, HOOK_SPEED } from '../types'
+import { HERO_R, HOOK_PULL_SPEED, HOOK_RANGE, HOOK_SPEED, roomed } from '../types'
 import { TILE_INFO } from '../world/tiles'
 import { collectDrop, hitEnemy, type Ctx } from './combat'
 import { enemyActive } from './enemies'
@@ -47,7 +47,7 @@ export function stepHook(c: Ctx, dt: number) {
       const tx = Math.floor(k.x)
       const ty = Math.floor(k.y)
       const t = tileAt(m, tx, ty)
-      if (c.info.def.kind === 'dungeon' && cellIndex(c.info, k.x, k.y) !== home) { clank(c); break }
+      if (roomed(c.info.def.kind) && cellIndex(c.info, k.x, k.y) !== home) { clank(c); break }
       if (TILE_INFO[t].hook) {
         // Reel in to the tile in front of the anchor, centred on its line.
         const to = { x: tx + 0.5 - k.dx, y: ty + 0.5 - k.dy }

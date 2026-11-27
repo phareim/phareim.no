@@ -18,9 +18,9 @@ export const EXPLORE_MAPS = 200
 const DIGITS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 const VALUE = new Map([...DIGITS].map((c, i) => [c, i]))
 
-/** The maps the map shows: every map but the interiors (a room is all in view at once). */
+/** The maps the map shows: every map but the interiors (a room is all in view at once) and the side maps. */
 export function charted(def: Pick<MapDef, 'kind'>): boolean {
-  return def.kind !== 'interior'
+  return def.kind !== 'interior' && def.kind !== 'side'
 }
 
 export function chunkGrid(w: number, h: number): { cw: number; ch: number } {

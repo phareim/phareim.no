@@ -7,7 +7,7 @@ import type { Dir, ExitSpot, GameState, Input, TileChar, ToolId, UseItem, World 
 import {
   ARC_REACH, B_ITEMS, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
   HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
-  SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
+  SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP, roomed,
 } from '../types'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
@@ -23,6 +23,8 @@ import {
   backflipWanted, canComet, canTempest, credit, endMoves, feedArts, hopCut, isArt, mastered, springStops, startBackflip,
   startComet, startFlip, startTempest, stepAfter, stepAir, stepArts, useArt, wallSpring,
 } from './moves'
+// The side view's own movement, blade turns and roll (`side.ts`).
+import { sideAim, sideCanRoll, sideLate, sideMove, sideRoll, sideShove, sideStanding, sideStartRoll, sideTick } from './side'
 
 const CORNER_ASSIST = 0.34
 /** Stepping out of a door: one tile in this long (a touch slower than a walk). */
@@ -70,13 +72,18 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if ((h.bufA ?? 0) > 0) h.bufA! -= dt
   if (inp.rollPress) h.bufRoll = BUFFER_A
   else if ((h.bufRoll ?? 0) > 0) h.bufRoll! -= dt
+  const side = c.info.def.kind === 'side'
+  if (side) sideTick(c, inp, dt)
   if (h.knock) {
     // A shove (a shield, a gust) brings the hero down out of the air.
     if (h.air) { endMoves(h); h.act = 'idle' }
     if (inp.aPress && s.inv.sword && !h.carry) h.bufA = BUFFER_A
-    const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, h.knock.vx * dt, h.knock.vy * dt)
-    h.x = r.x
-    h.y = r.y
+    if (side) { if (sideShove(c, dt)) return }
+    else {
+      const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, h.knock.vx * dt, h.knock.vy * dt)
+      h.x = r.x
+      h.y = r.y
+    }
     h.knock.t -= dt
     if (h.knock.t <= 0) { h.knock = null; if (h.act === 'hurt') h.act = 'idle' }
     underfoot(c)
@@ -102,7 +109,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
     if (inp.aPress && s.inv.sword && startFlip(c, inp)) return
     if (inp.aPress && s.inv.sword) h.bufA = BUFFER_A
     // The hop straight out of the roll's second half.
-    if (inp.bPress && isArt(s.inv.selected) && h.roll.t > 0.12) {
+    if (inp.bPress && !side && isArt(s.inv.selected) && h.roll.t > 0.12) {
       h.roll = null
       h.rollCool = ROLL_COOLDOWN
       h.act = 'idle'
@@ -145,10 +152,11 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   }
 
   // --- B item + cycling -------------------------------------------------------
-  if (inp.cycle) cycleItem(c)
+  // (On a side map B is the jump: the items rest, and nothing is swapped.)
+  if (inp.cycle && !side) cycleItem(c)
   // (The hop may cut a hit of the chain short, as the roll may.)
   const cuts = !!h.swing && isArt(s.inv.selected) && h.swing.t / swingDur(h.swing) >= ROLL_CANCEL
-  if (inp.bPress && !h.carry && !h.spin && (!h.swing || cuts)) useItem(c, inp)
+  if (inp.bPress && !side && !h.carry && !h.spin && (!h.swing || cuts)) useItem(c, inp)
   if (h.air) return
 
   if (h.swing) stepSwing(c, inp, dt)
@@ -161,6 +169,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   }
 
   // --- movement ---------------------------------------------------------------
+  if (side) { sideMove(c, inp, dt); return }
   const charging = h.charge > 0.12
   let speed = h.carry ? CARRY_SPEED : charging ? CHARGE_SPEED : HERO_SPEED
   if (h.swing) speed *= 0.25
@@ -329,7 +338,7 @@ function circleOnTileIdx(c: Ctx, i: number) {
   return (h.x - cx) ** 2 + (h.y - cy) ** 2 < HERO_R * HERO_R
 }
 
-function collect(c: Ctx) {
+export function collect(c: Ctx) {
   const s = c.s
   const h = s.hero
   const m = s.map
@@ -361,6 +370,8 @@ function collect(c: Ctx) {
 function interact(c: Ctx): boolean {
   const s = c.s
   const h = s.hero
+  // (In the air of a side map A only cuts.)
+  if (c.info.def.kind === 'side' && !sideStanding(h)) return false
   const v = dirVec(h.dir)
   const fx = h.x + v.x * 0.8
   const fy = h.y + v.y * 0.8
@@ -539,7 +550,7 @@ function buy(c: Ctx, id: string) {
   acquire(c, p.item)
 }
 
-function unlockDoor(c: Ctx, tx: number, ty: number, t: TileChar) {
+export function unlockDoor(c: Ctx, tx: number, ty: number, t: TileChar) {
   const s = c.s
   const m = s.map
   const run = floodRun(m.tiles, m.w, m.h, ty * m.w + tx, t)
@@ -575,6 +586,7 @@ function startSwing(c: Ctx, inp: Input) {
   // Out of a hop, the HOP CUT: the hit springs back in at the foe before it cuts (`moves.ts`).
   const hc = hopCut(c, inp)
   if (hc) { h.dir = toDir(Math.cos(hc.a), Math.sin(hc.a), h.dir); h.aim = hc.a }
+  if (c.info.def.kind === 'side') sideAim(c, inp)
   // The next hit of the chain while one is under way or just done; else its first.
   const prev = h.swing?.n ?? (h.combo && h.combo.t > 0 ? h.combo.n : undefined)
   const n = (prev === undefined ? 0 : (prev + 1) % 3) as 0 | 1 | 2
@@ -627,7 +639,8 @@ function stepSwing(c: Ctx, inp: Input, dt: number) {
   const sw = h.swing!
   const dur = swingDur(sw)
   // A stick that lands a moment after A still turns the blow.
-  if (sw.n !== undefined && sw.t < 0.05) {
+  if (c.info.def.kind === 'side') { if (sw.t < 0.05) sideLate(c, inp, sw) }
+  else if (sw.n !== undefined && sw.t < 0.05) {
     const mx = inp.move.x
     const my = inp.move.y
     if (Math.hypot(mx, my) > 0.3) {
@@ -726,7 +739,7 @@ function spring(c: Ctx, dt: number): boolean {
   const step = Math.min(HOP.speed * dt, -sw.t * HOP.speed)
   const er = HERO_R + 0.06
   if (iceUnder(c) || springStops(c, h.x + ca * (er + step), h.y + sa * (er + step))) return stop()
-  if (c.info.def.kind === 'dungeon' && cellIndex(c.info, h.x + ca * (er + step), h.y + sa * (er + step)) !== cellIndex(c.info, h.x, h.y)) return stop()
+  if (roomed(c.info.def.kind) && cellIndex(c.info, h.x + ca * (er + step), h.y + sa * (er + step)) !== cellIndex(c.info, h.x, h.y)) return stop()
   const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, ca * step, sa * step)
   h.x = r.x
   h.y = r.y
@@ -745,6 +758,7 @@ function canRoll(c: Ctx): boolean {
   const s = c.s
   const h = s.hero
   if (!s.inv.sword || h.carry || h.spin || h.roll || h.air || (h.rollCool ?? 0) > 0) return false
+  if (c.info.def.kind === 'side' && !sideCanRoll(h)) return false
   if (h.act === 'lift' || h.act === 'get' || h.act === 'fall' || h.act === 'dead' || h.act === 'hurt') return false
   // Not on ice, where the hero slides (standing still on it included: a roll would steer him off his lane).
   if (iceUnder(c)) return false
@@ -769,10 +783,12 @@ function startRoll(c: Ctx, inp: Input) {
   h.push = 0
   h.act = 'roll'
   h.actT = 0
+  if (c.info.def.kind === 'side') sideStartRoll(c, inp)
   c.ev.push({ type: 'roll' })
 }
 
 function stepRoll(c: Ctx, inp: Input, dt: number) {
+  if (c.info.def.kind === 'side') { sideRoll(c, inp, dt); return }
   const s = c.s
   const h = s.hero
   const r0 = h.roll!
@@ -805,15 +821,20 @@ function stepRoll(c: Ctx, inp: Input, dt: number) {
   if (!h.roll) return
   collect(c)
   if (s.mode !== 'play' || !h.roll) return
-  if (r0.t >= ROLL_TIME) {
-    h.roll = null
-    h.rollCool = ROLL_COOLDOWN
-    h.act = 'idle'
-    h.vx = 0
-    h.vy = 0
-    // A press of A in the roll's last moments: the strike comes straight out of it.
-    if ((h.bufA ?? 0) > 0 && s.inv.sword) { h.bufA = 0; h.combo = undefined; startSwing(c, inp) }
-  }
+  if (r0.t >= ROLL_TIME) endRoll(c, inp)
+}
+
+/** The roll is over. */
+export function endRoll(c: Ctx, inp: Input) {
+  const s = c.s
+  const h = s.hero
+  h.roll = null
+  h.rollCool = ROLL_COOLDOWN
+  h.act = 'idle'
+  h.vx = 0
+  h.vy = 0
+  // A press of A in the roll's last moments: the strike comes straight out of it.
+  if ((h.bufA ?? 0) > 0 && s.inv.sword) { h.bufA = 0; h.combo = undefined; startSwing(c, inp) }
 }
 
 function startSpin(c: Ctx) {
@@ -1082,7 +1103,7 @@ export function psiPush(c: Ctx, tx: number, ty: number, d: Dir) {
     // Into a hole: the block drops to the floor below.
     if (tileAt(m, nx, ny) === 'O' && c.info.def.below) { x = nx; y = ny; falls = true; break }
     if (!free(tileAt(m, nx, ny))) break
-    if (c.info.def.kind === 'dungeon' && cellIndex(c.info, nx + 0.5, ny + 0.5) !== cell) break
+    if (roomed(c.info.def.kind) && cellIndex(c.info, nx + 0.5, ny + 0.5) !== cell) break
     if (m.enemies.some(e => !e.dead && Math.floor(e.x) === nx && Math.floor(e.y) === ny)) break
     if (m.npcs.some(n2 => Math.floor(n2.x) === nx && Math.floor(n2.y) === ny)) break
     const h = s.hero
@@ -1108,7 +1129,7 @@ export function psiPush(c: Ctx, tx: number, ty: number, d: Dir) {
   m.version++
   m.moving.push({ id: nextId(s), fx: tx, fy: ty, tx: x, ty: y, t: 0, dur, kind: 'B' })
   // Out in the open a moved block stays moved (the lab's door must stay clear).
-  if (c.info.def.kind !== 'dungeon') {
+  if (!roomed(c.info.def.kind)) {
     const key = Object.keys(s.flags).find(f => f.startsWith(`psi:${m.id}:`) && f.endsWith(`:${ty * m.w + tx}`))
     const home = key ? key.split(':')[2] : String(ty * m.w + tx)
     if (key) delete s.flags[key]

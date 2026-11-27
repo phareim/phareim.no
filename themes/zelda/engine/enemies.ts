@@ -3,13 +3,14 @@
  * `ai.tell` > 0 means "about to attack" and the renderer shows it.
  */
 import type { Enemy, Projectile } from '../types'
-import { HERO_R, TOUGH } from '../types'
+import { HERO_R, TOUGH, roomed } from '../types'
 import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral } from './bosses'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
+import { sideEdge, sideWorld } from './side'
 import { angleDiff, chance, clamp, dirVec, nextId, opposite, pick, rnd, rndRange, toDir, DIRS } from './util'
 
 export const SHARD_R = 0.42
@@ -42,6 +43,7 @@ export function stepEnemies(c: Ctx, dt: number) {
     if (!enemyActive(c, e)) continue
     stepEnemy(c, e, dt)
   }
+  if (c.info.def.kind === 'side') sideWorld(c, dt)
 }
 
 export function mode(e: Enemy): MoveMode {
@@ -50,14 +52,20 @@ export function mode(e: Enemy): MoveMode {
 
 /** Move with collision inside the enemy's own camera room. Returns true if blocked. */
 export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number): boolean {
+  // From the side a foe on foot goes left and right (gravity is `side.ts`'s), and stops at an edge unless thrown.
+  const afoot = c.info.def.kind === 'side' && !STATS[e.kind].flying
+  if (afoot) {
+    vy = 0
+    if (!e.knock && sideEdge(c, e, vx * dt)) return true
+  }
   const r = moveCircle(c.w, c.s.map, e.x, e.y, e.r, vx * dt, vy * dt, mode(e))
   let x = r.x
   let y = r.y
   let hit = r.hitX || r.hitY
-  if (c.info.def.kind === 'dungeon') {
+  if (roomed(c.info.def.kind)) {
     const z = cellRect(c.info, e.cell)
     const nx = clamp(x, z.x + 1 + e.r, z.x + z.w - 1 - e.r)
-    const ny = clamp(y, z.y + 1 + e.r, z.y + z.h - 1 - e.r)
+    const ny = afoot ? y : clamp(y, z.y + 1 + e.r, z.y + z.h - 1 - e.r)
     if (nx !== x || ny !== y) hit = true
     x = nx
     y = ny

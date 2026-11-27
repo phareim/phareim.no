@@ -7,7 +7,7 @@
  * hero left through an exit, the shell navigates) are terminal.
  */
 import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
-import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME, bItem } from '../types'
+import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME, bItem, roomed } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
@@ -100,6 +100,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.map = loadMap(world, s, mapId)
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
+  delete h.side
   h.x = spot.x
   h.y = spot.y
   h.dir = spot.dir
@@ -135,7 +136,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
 function setZone(world: World, s: GameState, index: number) {
   const info = mapInfo(world, s.map.id)
   s.zoneIndex = index
-  s.zone = info.def.kind === 'dungeon' ? cellRect(info, index) : { x: 0, y: 0, w: info.w, h: info.h }
+  s.zone = roomed(info.def.kind) ? cellRect(info, index) : { x: 0, y: 0, w: info.w, h: info.h }
   // A dungeon room is seen whole as soon as the hero is in it.
   if (info.def.kind === 'dungeon' && !s.demo) reveal(s, s.map.id, info.w, info.h, s.zone)
   revealAround(s, info.def, info.w, info.h)
@@ -150,7 +151,7 @@ function areaAt(world: World, s: GameState): { name: string; track: TrackId; ent
       if (h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h) return { name: a.name, track: a.track ?? def.track, entry: a.entry, intro: a.intro }
     }
   }
-  const cd = def.kind === 'dungeon' ? cellDef(info, s.zoneIndex) : undefined
+  const cd = roomed(def.kind) ? cellDef(info, s.zoneIndex) : undefined
   return { name: def.name, track: cd?.track ?? def.track }
 }
 
@@ -217,7 +218,7 @@ export function stepGame(world: World, s: GameState, dt: number, input: Input): 
   while (left > 1e-9) {
     const h = Math.min(STEP, left)
     left -= h
-    const inp = first ? input : { ...input, aPress: false, bPress: false, cycle: false, rollPress: false, pick: undefined }
+    const inp = first ? input : { ...input, aPress: false, bPress: false, cycle: false, rollPress: false, jumpPress: false, pick: undefined }
     first = false
     substep(world, s, h, inp, ev)
   }
@@ -282,7 +283,7 @@ function play(c: Ctx, dt: number, inp: Input) {
   // Off the edge into the next region (the frontier).
   if (c.w.atlas?.[c.s.map.id] && edgeOut(c, inp)) return
   // Dungeon room change
-  if (c.info.def.kind === 'dungeon') {
+  if (roomed(c.info.def.kind)) {
     const idx = cellIndex(c.info, h.x, h.y)
     if (idx !== s.zoneIndex) {
       const to = cellRect(c.info, idx)
@@ -304,7 +305,7 @@ function play(c: Ctx, dt: number, inp: Input) {
     }
   }
   // A room's scripted beat (a boss's name, Luna remembering, the Gate shutting).
-  if (c.info.def.kind === 'dungeon') {
+  if (roomed(c.info.def.kind)) {
     const ev = cellDef(c.info, s.zoneIndex)?.events?.find(e => !has(s, e.set) && condMet(s, c.w, e.when, s.zoneIndex))
     if (ev) {
       s.flags[ev.set] = true
@@ -697,7 +698,8 @@ const isArtId = (x: unknown): x is ArtId => (ART_IDS as readonly unknown[]).incl
 
 /** Where the camera wants to be (tile units, top-left) for a view of vw×vh tiles. */
 export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y: number } {
-  const h = s.hero
+  // (A side map's camera keeps a row of its own through a jump, `engine/side.ts`; a room change goes by the hero.)
+  const h = { x: s.hero.x, y: (!s.scroll && s.hero.side?.cam) || s.hero.y }
   const clampTo = (z: { x: number; y: number; w: number; h: number }) => {
     const cx = z.w <= vw ? z.x + (z.w - vw) / 2 : Math.max(z.x, Math.min(z.x + z.w - vw, h.x - vw / 2))
     const cy = z.h <= vh ? z.y + (z.h - vh) / 2 : Math.max(z.y, Math.min(z.y + z.h - vh, h.y - vh / 2))

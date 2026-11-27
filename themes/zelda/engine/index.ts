@@ -6,6 +6,8 @@ export { aimOf, swingAngle, swingDur, useItems } from './hero'
 // The acrobatics and the arts (`moves.ts`)
 export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artReady, artRest, isArt, ART_IDS } from './moves'
 export { STATS } from './spawn'
+// The side view's numbers (the lab measures them).
+export { SIDE, type SideHero } from './side'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'

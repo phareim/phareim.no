@@ -15,7 +15,7 @@
  * Docs: docs/games/neon-shrine-puzzles.md.
  */
 import type { Dir, Enemy, GameState, MapState, PhysState, Thrown, TileChar } from '../../types'
-import { HERO_R, PUSH_TIME } from '../../types'
+import { HERO_R, PUSH_TIME, roomed } from '../../types'
 import { TILE_INFO } from '../../world/tiles'
 import { WEIGHT_PLATES, isMirror } from '../../world/puzzles'
 import { STATS } from '../spawn'
@@ -54,7 +54,7 @@ export function puzzleFloor(c: Ctx, idx: number): TileChar {
 
 const inMap = (m: MapState, x: number, y: number) => x >= 0 && y >= 0 && x < m.w && y < m.h
 const sameCell = (c: Ctx, a: number, x: number, y: number) =>
-  c.info.def.kind !== 'dungeon' || cellIndex(c.info, x + 0.5, y + 0.5) === cellIndex(c.info, (a % c.s.map.w) + 0.5, Math.floor(a / c.s.map.w) + 0.5)
+  !roomed(c.info.def.kind) || cellIndex(c.info, x + 0.5, y + 0.5) === cellIndex(c.info, (a % c.s.map.w) + 0.5, Math.floor(a / c.s.map.w) + 0.5)
 
 // ---------------------------------------------------------------------------
 // The step
@@ -286,7 +286,7 @@ export function knockHazard(c: Ctx, e: Enemy): boolean {
   const py = e.y + (k.vy / len) * (e.r + 0.12)
   const tx = Math.floor(px)
   const ty = Math.floor(py)
-  if (c.info.def.kind === 'dungeon' && cellIndex(c.info, tx + 0.5, ty + 0.5) !== e.cell) return false
+  if (roomed(c.info.def.kind) && cellIndex(c.info, tx + 0.5, ty + 0.5) !== e.cell) return false
   const t = tileAt(c.s.map, tx, ty)
   if (t === 'O' || t === '~' || t === 'ω') {
     e.x = tx + 0.5
@@ -383,7 +383,7 @@ function traceBeams(c: Ctx, ph: PhysState) {
   ph.beams = []
   ph.lit = []
   for (const em of p.emitters) {
-    if (c.info.def.kind === 'dungeon' && em.cell !== s.zoneIndex) continue
+    if (roomed(c.info.def.kind) && em.cell !== s.zoneIndex) continue
     if (!condMet(s, c.w, em.when, em.cell)) continue
     const v = dirVec(em.dir)
     const stack: Array<[number, number, number, number]> = [[em.idx % m.w, Math.floor(em.idx / m.w), v.x, v.y]]
@@ -432,7 +432,7 @@ function traceBeams(c: Ctx, ph: PhysState) {
   if (!ph.beams.length) return
   for (const e of m.enemies) {
     if (e.dead || e.invuln > 0 || STATS[e.kind].invulnerable) continue
-    if (c.info.def.kind === 'dungeon' && e.cell !== s.zoneIndex) continue
+    if (roomed(c.info.def.kind) && e.cell !== s.zoneIndex) continue
     for (const b of ph.beams) {
       if (segDist(e.x, e.y, b.x0, b.y0, b.x1, b.y1) < e.r) { hitEnemy(c, e, 1, e.x - Math.sign(b.x1 - b.x0) * 0.5, e.y - Math.sign(b.y1 - b.y0) * 0.5, 'shot'); break }
     }

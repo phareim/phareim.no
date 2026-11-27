@@ -16,7 +16,7 @@
  * light map.
  */
 import type { Dir, Enemy, GameEvent, GameState, ViewSide, World } from '../types'
-import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP } from '../types'
+import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP, roomed } from '../types'
 import { airTime, BIG, bossOpen, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen } from '../engine/index'
 import { itemSpriteName } from './itemIcon'
 import { dayLook, nightOf, type DayLook } from './daylight'
@@ -45,6 +45,7 @@ import { queueWildlife } from './wildlife'
 import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
+import { paintSide, sideScale, type SideKit } from './side'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
@@ -137,7 +138,7 @@ const DAWN_MS = 320
  */
 const TURN_S = 0.7
 const HANDOFF = 0.1
-const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', dark: '#1d1433', caveDark: '#2a1e44' }
+const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', side: '#c8bcf4', dark: '#1d1433', caveDark: '#2a1e44' }
 
 export interface SafeInsets { top: number; right: number; bottom: number; left: number }
 const NO_INSETS: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 }
@@ -415,6 +416,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** The scale for a map: the screen's, or larger for an interior that would leave the tall view half empty. */
   function scaleFor(mapId: string): number {
     const def = mapDef(world, mapId)
+    if (def?.kind === 'side') return sideScale(W, H, def)
     if (!def || def.kind !== 'interior' || H <= W) return baseScale
     const rows = def.rows.length
     if (rows * T * baseScale >= H * 0.8) return baseScale
@@ -950,7 +952,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     return twinList.find(o => o !== e && o.kind === 'gemini' && o.cell === e.cell)
   }
 
-  function drawEnemy(g: G, s: GameState, e: Enemy, cx: number, cy: number, lights: Light[]) {
+  /** `flat`: seen from the side (`side.ts`): a flyer is drawn where it is, and nothing throws a shadow. */
+  function drawEnemy(g: G, s: GameState, e: Enemy, cx: number, cy: number, lights: Light[], flat = false) {
     const x = e.x * T - cx
     let feet = e.y * T - cy + e.r * T + 1
     if (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) {
@@ -1013,8 +1016,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       return
     }
-    if (e.kind !== 'eye' && e.kind !== 'blade') shadow(g, x, feet - 1, Math.round(e.r * T * 1.6))
-    if (flying) feet -= 6 + Math.round(Math.sin(time * 6 + e.home.x) * 1.5)
+    if (e.kind !== 'eye' && e.kind !== 'blade' && !flat) shadow(g, x, feet - 1, Math.round(e.r * T * 1.6))
+    if (flying && !flat) feet -= 6 + Math.round(Math.sin(time * 6 + e.home.x) * 1.5)
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
     if (e.kind === 'blob' && e.ai.mode === 'hop') feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.38) * Math.PI) * 3)
     const [sx, sy] = foeSquash(e)
@@ -1088,7 +1091,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const big = BIG.has(e.kind)
       // (The same foes the queue draws.)
       if ((!e.tough && !big) || e.dead || e.away) continue
-      if (def.kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
+      if (roomed(def.kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
@@ -1298,12 +1301,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const e of m.enemies) {
       if (e.dead) {
         // Just fallen: the pop, where it stood.
-        if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG.has(e.kind) && (kind !== 'dungeon' || e.cell === s.zoneIndex)) {
+        if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG.has(e.kind) && (!roomed(kind) || e.cell === s.zoneIndex)) {
           items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, draw: () => drawDeathPop(g, s, e, cx, cy) })
         }
         continue
       }
-      if (kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
+      if (roomed(kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
     }
     for (const b of m.bombs) {
@@ -1655,8 +1658,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function classicWorld(s: GameState, ui: FrameUI, ground?: string): Picture {
     const info = mapInfo(world, s.map.id)
     const kind = info.def.kind
-    if (!layer || layer.mapId !== s.map.id) layer = createTileLayer(world, s.map)
-    else updateTileLayer(layer, world, s.map)
+    const side = kind === 'side'
+    if (!side) {
+      if (!layer || layer.mapId !== s.map.id) layer = createTileLayer(world, s.map)
+      else updateTileLayer(layer, world, s.map)
+    }
 
     // Camera
     const cam = ui.cam ?? cameraFor(s, vw / T, vh / T)
@@ -1672,9 +1678,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     cy -= Math.round(kn.y * T)
     const lights: Light[] = []
     const g = sg
+    if (side) { sidePicture(g, s, ui, cx, cy, lights); return { cx, cy, lights } }
     g.fillStyle = ground ?? (kind === 'overworld' ? '#0e2a3c' : '#07040f')
     g.fillRect(0, 0, vw, vh)
-    g.drawImage(layer.canvas, -cx, -cy)
+    g.drawImage(layer!.canvas, -cx, -cy)
     drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion, kind === 'overworld' ? nightOf(dayOf('classic')) : 0)
     drawDecals(g, info.def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }, lights)
 
@@ -1687,6 +1694,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const flies = look ? MOOD[look].flies : null
     if (flies) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g, flies.still ? 1 : dayOf('classic')?.fireflies ?? 1, flies.color, flies.light, flies.count)
     return { cx, cy, lights, items }
+  }
+
+  /** A side map's picture (`side.ts`), with this renderer's foes, blade and lights. (No shadows: no sun from the side.) */
+  function sidePicture(g: G, s: GameState, ui: FrameUI, cx: number, cy: number, lights: Light[]) {
+    camX = cx
+    camY = cy
+    arc = s.inv.arc
+    twinList = s.map.enemies
+    emit.length = 0
+    const kit: SideKit = {
+      g, world, cx, cy, vw, vh, time, reduced: ui.reducedMotion, lights,
+      put: (name, x, y, flip, flash, sx, sy) => put(g, name, x, y, flip, flash, sx, sy),
+      blade: (x, y) => drawBlade(g, s, x, y, lights),
+      spin: (x, y) => drawSpinBlade(g, s, x, y, lights),
+      // (A px lower than from above: its feet on the floor's lit edge.)
+      foe(e) {
+        if (!e.dead) drawEnemy(g, s, e, cx, cy + 1, lights, true)
+        else if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away) drawDeathPop(g, s, e, cx, cy + 1)
+      },
+    }
+    paintSide(kit, s)
   }
 
   /** The light map for that picture; returns the ambient colour it starts from. */
@@ -1737,7 +1765,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /** Cover the world outside the current dungeon room. */
   function classicRooms(g: G, s: GameState, pic: Picture, color: string) {
-    if (mapInfo(world, s.map.id).def.kind !== 'dungeon' || s.scroll) return
+    if (!roomed(mapInfo(world, s.map.id).def.kind) || s.scroll) return
     const z = s.zone
     g.fillStyle = color
     const zx = z.x * T - pic.cx
@@ -2092,7 +2120,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /** The Other Side's mood: a dungeon room marked 'static', or an overworld area with the 'static' track. */
   function staticMood(s: GameState, info: ReturnType<typeof mapInfo>): boolean {
-    if (info.def.kind === 'dungeon') return cellDef(info, s.zoneIndex)?.mood === 'static'
+    if (roomed(info.def.kind)) return cellDef(info, s.zoneIndex)?.mood === 'static'
     const h = s.hero
     return !!info.def.areas?.some(a => a.track === 'static' && h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h)
   }

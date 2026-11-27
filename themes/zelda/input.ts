@@ -42,6 +42,8 @@ export interface GameInput {
   pressA(): void
   releaseA(): void
   pressB(): void
+  /** The B pad let go: on a side map it is the jump, and how long it is held says how high. */
+  releaseB(): void
   /** The touch deck's roll pad. */
   pressRoll(): void
   cycle(): void
@@ -57,6 +59,8 @@ const B_KEYS = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight'])
 const CYCLE_KEYS = new Set(['KeyQ', 'Tab'])
 const ROLL_KEYS = new Set(['KeyL', 'KeyC'])
 const MOVE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
+/** Up jumps on a side map, as B does (`Input.jumpPress`). */
+const UP_KEYS = ['ArrowUp', 'KeyW']
 
 export function isGameKey(code: string) {
   return MOVE_KEYS.has(code) || A_KEYS.has(code) || B_KEYS.has(code) || CYCLE_KEYS.has(code) || ROLL_KEYS.has(code)
@@ -78,6 +82,10 @@ export function createInput(hooks: InputHooks): GameInput {
   let bPress = false
   let cyclePress = false
   let rollPress = false
+  // The side map's jump: up pressed this frame, and B held (a key or the pad).
+  let upPress = false
+  const bKeys = new Set<string>()
+  let bHeldTouch = false
   let tapSide: -1 | 1 | undefined
   let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
   let idleTap: { id: number; x: number; y: number } | null = null
@@ -106,6 +114,8 @@ export function createInput(hooks: InputHooks): GameInput {
       bPress,
       cycle: cyclePress,
       ...(rollPress ? { rollPress } : {}),
+      ...(bPress || upPress ? { jumpPress: true } : {}),
+      ...(bKeys.size || bHeldTouch || UP_KEYS.some(k => keys.has(k)) ? { jumpHeld: true } : {}),
       autoFace: hooks.touch(),
       tapSide,
     }
@@ -114,6 +124,7 @@ export function createInput(hooks: InputHooks): GameInput {
     bPress = false
     cyclePress = false
     rollPress = false
+    upPress = false
     return input
   }
 
@@ -125,6 +136,9 @@ export function createInput(hooks: InputHooks): GameInput {
     bPress = false
     cyclePress = false
     rollPress = false
+    upPress = false
+    bKeys.clear()
+    bHeldTouch = false
     tapSide = undefined
     stick = null
     idleTap = null
@@ -218,16 +232,21 @@ export function createInput(hooks: InputHooks): GameInput {
     if (hooks.paused()) return
     // A repeat of a key this input never saw go down was held across a page
     // change (back from a cabinet): it doesn't walk here.
-    if (MOVE_KEYS.has(e.code)) { if (!e.repeat || keys.has(e.code)) keys.add(e.code); return }
+    if (MOVE_KEYS.has(e.code)) {
+      if (!e.repeat && UP_KEYS.includes(e.code)) upPress = true
+      if (!e.repeat || keys.has(e.code)) keys.add(e.code)
+      return
+    }
     if (e.repeat) return
     if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }
-    else if (B_KEYS.has(e.code)) bPress = true
+    else if (B_KEYS.has(e.code)) { bPress = true; bKeys.add(e.code) }
     else if (CYCLE_KEYS.has(e.code)) cyclePress = true
     else if (ROLL_KEYS.has(e.code)) rollPress = true
   }
 
   function onKeyUp(e: KeyboardEvent) {
     keys.delete(e.code)
+    bKeys.delete(e.code)
     if (A_KEYS.has(e.code)) aHeldKey = false
   }
 
@@ -257,7 +276,8 @@ export function createInput(hooks: InputHooks): GameInput {
     get stick() { return stick ? { ox: stick.ox, oy: stick.oy, dx: stick.dx, dy: stick.dy } : null },
     pressA() { if (live()) { aPress = true; aHeldTouch = true } },
     releaseA() { aHeldTouch = false },
-    pressB() { if (live()) bPress = true },
+    pressB() { if (live()) { bPress = true; bHeldTouch = true } },
+    releaseB() { bHeldTouch = false },
     pressRoll() { if (live()) rollPress = true },
     cycle() { if (live()) cyclePress = true },
     attach,

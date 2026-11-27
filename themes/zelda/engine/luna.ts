@@ -23,7 +23,8 @@ const HOME_NEAR = 2.2
 const HOME_AWAY = 3.5
 
 export function placeLuna(s: GameState) {
-  if (!has(s, 'luna') || has(s, 'luna.home')) { s.luna = null; return }
+  // (She does not climb: on a side map she is not along.)
+  if (!has(s, 'luna') || has(s, 'luna.home') || s.map.side) { s.luna = null; return }
   const h = s.hero
   // A step behind the hero if there is floor there, else right on his heels.
   const v = dirVec(h.dir)

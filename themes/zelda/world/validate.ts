@@ -10,12 +10,13 @@
  * fine.
  */
 import type { Dir, EntDef, ExitTarget, MapDef, TileChar, ViewSide, World } from '../types'
+import { roomed } from '../types'
 import { TILE_INFO, blockUp, isTileChar, isViewBlock } from './tiles'
 import { puzzleMarkTile } from './puzzles'
 import { TUBE_ARMS } from './tubes'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', '□', '◇', ...(Object.keys(TUBE_ARMS) as TileChar[])])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', '□', '◇', 'Ħ', '¯', ...(Object.keys(TUBE_ARMS) as TileChar[])])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */
@@ -58,6 +59,10 @@ export function validateWorld(world: World): string[] {
     const w = def.rows[0]?.length ?? 0
     def.rows.forEach((r, y) => { if (r.length !== w) out.push(`${id}: row ${y} has ${r.length} chars, want ${w}`) })
     if (def.cell && (w % def.cell.w || def.rows.length % def.cell.h)) out.push(`${id}: size not a multiple of the cell`)
+    if (def.kind === 'side') {
+      if (!def.cell) out.push(`${id}: a side map has no cell`)
+      if (def.rows.some(r => [...r].some(ch => !def.marks[ch] && (ch === '□' || ch === '◇')))) out.push(`${id}: view blocks on a side map, which is shown one way only`)
+    }
     const entries = new Set(Object.keys(def.entries ?? {}))
     const markerEntries = new Set<string>()
     for (const [ch, m] of Object.entries(def.marks)) {
@@ -67,10 +72,11 @@ export function validateWorld(world: World): string[] {
       if (m.ent.t === 'enemy' && m.ent.carries && !m.ent.once) out.push(`${id}: marker '${ch}' carries a ${m.ent.carries} and has no once flag`)
       if (m.ent.t === 'gate') {
         if (m.ent.trap) {
-          if (def.kind !== 'dungeon' || !def.cell) out.push(`${id}: marker '${ch}' is a trap gate outside a dungeon's rooms`)
+          if (!roomed(def.kind) || !def.cell) out.push(`${id}: marker '${ch}' is a trap gate outside a dungeon's rooms`)
           if (m.ent.open) out.push(`${id}: marker '${ch}' is a trap gate with a condition of its own`)
         } else if (!m.ent.open) out.push(`${id}: marker '${ch}' is a gate that nothing opens`)
       }
+      if (m.ent.t === 'ledge' && def.kind !== 'side') out.push(`${id}: marker '${ch}' is a safe ledge outside a side map`)
       if (m.ent.t === 'enemy' && m.ent.tough) {
         if (m.ent.kind !== 'sentry' && m.ent.kind !== 'hound') out.push(`${id}: marker '${ch}' is a tough ${m.ent.kind} (only a sentry or a hound may be tough)`)
         if (m.ent.calm) out.push(`${id}: marker '${ch}' is calm and tough at once`)

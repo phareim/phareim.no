@@ -223,6 +223,36 @@ classic picture. `/?view=<id>` asks for one.
   the diamonds, turn again on the ground between them and the squares, cross
   those. Four turns at the fewest from the isometric view, three from the
   8-bit one. The chest holds 20 bits (`turnroom.prize`); two signs; no foes.
+- **The side view** (`MapDef.kind` 'side'; `engine/side.ts`, `render/side.ts`;
+  2026-11-27, no map of the world uses it yet). A dungeon seen from the side:
+  rows run down the room, camera rooms, room activation, foe clamping and
+  checkpoints as in a dungeon (`roomed`), and a room may be several cells high
+  (`CellDef.tall`; it scrolls up and down only). It is not a view: the map is the
+  classic engine's (`viewsOf`), V and the Prism are pinned, the stick is not
+  turned, the picture cuts over behind the warp's fade and the visitor's view
+  comes back on the way out. The corner shows its stub, the MAP page the room's
+  name.
+  - **Moving.** Gravity and a jump (B, or up on keys; the B pad on touch, which
+    says JUMP whatever is owned): 3.2 tiles held, 1.6 tapped, 0.36 s to the top,
+    falls faster (capped at 15 tiles/s), coyote time and a jump buffer of 0.1 s
+    (0.13 under a thumb), a little air control. The stick is all or nothing
+    sideways. The jump is not the HOP: it can be hit.
+  - **Tiles.** `Ħ` a ladder (up takes it within half a tile, down from its top;
+    B or a push to the side leaves it; it ends on a platform), `¯` a platform
+    solid from above only (down drops through). The mark `ledge` is a safe ledge:
+    a fall off a room's bottom costs half a heart and puts the hero on the last
+    one stood by, else on their first footing in that room. A room is left upward
+    only by a ladder.
+  - **The blade.** The three-cut chain ahead with its step, up + A upward, the
+    spin; touch turns a cut left or right only. The roll is a ground dash and
+    stops at an edge unless the stick holds on. The air's combos, the HOP, the B
+    items and block pushing rest. Luna is not along.
+  - **Foes** on foot fall, stand and stop at edges (a blow throws them off);
+    flyers fly. Only the blob, the sentry and the bat have been tried.
+  - **Trying it.** The trial room is a fixture (`scripts/zelda-lab/side-trial.ts`),
+    played by `tests/zelda-side.test.mjs`, measured by
+    `node scripts/zelda-lab/side-measure.mjs` and shot in the running shell by
+    `node scripts/zelda-lab/side-shot.mjs <local url> <outDir>`.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
   part every engine has (scanlines, neon bloom, vignette; `present` takes it).
