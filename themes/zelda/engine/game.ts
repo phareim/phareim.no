@@ -22,6 +22,7 @@ import { stepEcho } from './echo'
 import { lampHome } from './lamp'
 import { homeIron } from './magnet'
 import { raiseCard, stepCard } from './cards'
+import { stepLens } from './lens'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -245,6 +246,8 @@ export function stepGame(world: World, s: GameState, dt: number, input: Input): 
 function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEvent[]) {
   const c = ctx(world, s, ev)
   if (s.shake > 0) s.shake = Math.max(0, s.shake - dt)
+  // THE LENS: the clock of a still hero (`engine/lens.ts`), once a step, whatever holds the world.
+  stepLens(c, inp, dt)
   // A card up: the world holds still under it (`engine/cards.ts`).
   if (s.card) { stepCard(s, inp, dt); return }
   switch (s.mode) {

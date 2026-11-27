@@ -12,6 +12,7 @@ import { canComet, canTempest } from './moves'
 import { iceUnder, puzzlePart, tubeWords } from './puzzles/index'
 import { outOfReach, terrainLevel } from './terrain'
 import { sideStanding } from './side'
+import { lieAhead } from './lens'
 import { dirVec } from './util'
 
 /** What the press would do, as the button shows it. */
@@ -33,6 +34,8 @@ export type AThing =
   /** A mirror, a valve, a lumen tube (`hitPuzzle`). */
   | { do: 'part'; tx: number; ty: number; t: TileChar }
   | { do: 'chest'; tx: number; ty: number; id: string; item: ItemId }
+  /** A false chest (`lens.ts`): it opens, to nothing. */
+  | { do: 'lie'; i: number }
   | { do: 'ware'; id: string }
   | { do: 'lift'; tx: number; ty: number; what: 'pot' | 'rock' }
   /** A locked door: `key`, the hero holds what opens it; else A only says so. */
@@ -122,6 +125,8 @@ function aThing(c: Ctx): AThing | null {
     const chest = c.info.chests.get(idx)
     return chest && !has(s, `chest:${chest.id}`) ? { do: 'chest', tx, ty, id: chest.id, item: chest.item } : null
   }
+  const lie = lieAhead(c)
+  if (lie !== null) return { do: 'lie', i: lie }
   const shop = s.map.pickups.find(p => p.shop && Math.floor(p.x) === tx && Math.floor(p.y) === ty)
   if (shop && shop.shop) return { do: 'ware', id: shop.id }
   const what = TILE_INFO[t].lift
@@ -151,7 +156,8 @@ function picture(p: APlan): AWould {
       return to.panel === 'news' ? 'read' : to.panel === 'view' ? 'pull' : 'open'
     }
     case 'psi': case 'lever': case 'part': case 'rack': return 'pull'
-    case 'chest': return 'open'
+    // (A false chest promises what a real one does.)
+    case 'chest': case 'lie': return 'open'
     case 'ware': return 'buy'
     case 'lift': return 'lift'
     // A locked door without its key: no promise is made.

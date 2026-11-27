@@ -274,7 +274,8 @@ describe('the world on the page', () => {
       const out = Z.outsideOf(Z.WORLD, id)
       assert.ok(out, `${id}: a land outside`)
       assert.ok(Z.WORLD.atlas[out.map], `${id}: on the grid`)
-      const warp = Z.mapInfo(Z.WORLD, id).warps[0]
+      // (The way out: `understage` has a stair up into Act Three too.)
+      const warp = Z.mapInfo(Z.WORLD, id).warps.find(w => w.to === out.map)
       const door = Z.mapInfo(Z.WORLD, out.map).entries[warp.entry]
       assert.ok(door, `${id}: its door leads to no entry ${warp.entry} of ${warp.to}`)
       assert.deepEqual([out.map, out.x, out.y], [warp.to, door.x, door.y], id)

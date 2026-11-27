@@ -283,11 +283,27 @@ classic picture. `/?view=<id>` asks for one.
   under the feet for good (the bomb's flag) and the hero drops through. A nook
   is a one-tile hollow under such a floor with solid ground below: 2 down, out
   again by a held jump.
+- **The Lens** (`engine/lens.ts`; the flag `item:lens`, Act Three's treasure,
+  no slot and no inventory field). A hero standing still sees what is false.
+  Still: on a floor or a platform, in play, with no stick beyond 0.2, no press
+  or release of a button, A not held, no hurt, lines, card, pause or door; a
+  thumb resting on B is still. At 0.25 s a ring grows round the hero's feet
+  (only where the 12 rows around them hold something to show), at 0.7 s the
+  glass is up (`lensUp(s)`), and the picture changes in 0.2 s. It stays until
+  the hero moves. It changes the picture and never what is solid. A side map
+  marks what it knows: `{ t: 'lie', as: 'ledge' | 'door' | 'chest' }` is paint
+  on air (a door may be on a wall tile) that fades to a pale cyan outline and
+  comes back over 2.5 s (A opens a painted chest to a white puff); `{ t: 'veil'
+  }` on a platform tile and a chest with `hidden: true` are real, solid and
+  drawn only through the glass, then faintly for the rest of the visit
+  (`MapState.lensSeen`). Nothing of it is saved. The validator checks the marks
+  (`lensProblems`); the painter is `render/actthreePaint.ts`.
 - **Cards** (`CellDef.card`, `engine/cards.ts`, `render/card.ts`). An
   intertitle over the whole stage, under the hearts, when the hero comes into
   that room by a warp: a title of 12 letters at most at twice the size, rows of
   27 at most. It fades in over 0.25 s, may be passed after 0.6 s by A, the swap
-  key or a tap right of the stick's side, and passes by itself after 2.6 s. The
+  key or a tap right of the stick's side, and passes by itself after 2.6 s (3 s
+  on a map with no year: Act Three's, on a plate of the stage's own tone). The
   world holds still under it. A session shows each once (`GameState.cardsSeen`,
   by `<map>:<cell>`): a retry after a death does not play it again, a reload
   does. Neither is saved.

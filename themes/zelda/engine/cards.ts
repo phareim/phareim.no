@@ -8,7 +8,8 @@ import type { GameState, Input, World } from '../types'
 import { cellDef, mapInfo } from './map'
 
 /** Seconds: the fade in, how soon it may be passed, and how long it stands before it passes by itself. */
-export const CARD = { fade: 0.25, pass: 0.6, auto: 2.6 } as const
+/** (A film's year passes after `auto`; a stage's card, Act Three's, after `stage`.) */
+export const CARD = { fade: 0.25, pass: 0.6, auto: 2.6, stage: 3 } as const
 
 /** The card of the room the hero has just been put in, if it has one that has not been shown. */
 export function raiseCard(world: World, s: GameState) {
@@ -19,7 +20,7 @@ export function raiseCard(world: World, s: GameState) {
   const id = `${s.map.id}:${s.zoneIndex}`
   if (!card || s.cardsSeen.includes(id)) return
   s.cardsSeen.push(id)
-  s.card = { id, title: card.title, lines: card.lines, t: 0, auto: CARD.auto, era: info.def.era ?? 'stage' }
+  s.card = { id, title: card.title, lines: card.lines, t: 0, auto: info.def.era ? CARD.auto : CARD.stage, era: info.def.era ?? 'stage' }
 }
 
 /** A step under a card: its clock, and the press (A, or the cycle key) or the time that takes it away. */

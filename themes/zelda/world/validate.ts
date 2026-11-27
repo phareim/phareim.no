@@ -31,6 +31,8 @@ function markTile(e: EntDef): TileChar {
     case 'glyph': return '{'
     case 'lever': return '}'
     case 'stand': return 'o'
+    // THE LENS's marks: a painted thing is its own tile (air unless the mark says), a hidden ledge a platform.
+    case 'veil': return '¯'
     default: return puzzleMarkTile(e) ?? '.'
   }
 }
@@ -129,6 +131,7 @@ export function validateWorld(world: World): string[] {
     }
     out.push(...reachability(id, world))
     out.push(...ironProblems(id, world))
+    out.push(...lensProblems(id, world))
     out.push(...viewProblems(id, world))
     // Holes: the floor below has the same size and floor under every hole.
     if (def.below) {
@@ -295,6 +298,8 @@ function reachability(id: string, world: World): string[] {
       const m = def.marks[r[x]!]
       if (!m || m.ent.t === 'entry') continue
       if (m.ent.t === 'enemy' || m.ent.t === 'plate' || m.ent.t === 'gate') continue
+      // A painted thing is a picture: nobody has to get to it (its tile is walked or not by its own right).
+      if (m.ent.t === 'lie') continue
       // Puzzle parts work from afar (a beam, a lever's flag, a sluice); their kits are checked by `engine/puzzles/kits.ts`.
       if (m.ent.t === 'emitter' || m.ent.t === 'receiver' || m.ent.t === 'boulder' || m.ent.t === 'sluice') continue
       if (m.ent.t === 'exit') {
@@ -341,6 +346,29 @@ function ironProblems(id: string, world: World): string[] {
   })
   def.rows.forEach((r, y) => {
     for (let x = 0; x < r.length; x++) if (isRailed(tileOf(def, x, y)) && !rails.has(`${x},${y}`)) out.push(`${id}: the cart at ${x},${y} stands on no rail`)
+  })
+  return out
+}
+
+/**
+ * THE LENS's marks (`engine/lens.ts`): painted and hidden things are a side map's; a painted ledge or chest is air
+ * under the paint (a door air or wall), so the glass never changes what is solid; a hidden ledge is a real platform;
+ * and nothing the way on needs is hidden.
+ */
+function lensProblems(id: string, world: World): string[] {
+  const def = world.maps[id]!
+  const out: string[] = []
+  def.rows.forEach((r, y) => {
+    for (let x = 0; x < r.length; x++) {
+      const e = def.marks[r[x]!]?.ent
+      if (!e || (e.t !== 'lie' && e.t !== 'veil' && !(e.t === 'chest' && e.hidden))) continue
+      const at = `${x},${y}`
+      if (def.kind !== 'side') out.push(`${id}: a ${e.t === 'lie' ? 'painted' : 'hidden'} thing at ${at} outside a side map`)
+      const t = tileOf(def, x, y)
+      if (e.t === 'lie' && t !== '.' && !(e.as === 'door' && TILE_INFO[t].wall)) out.push(`${id}: the painted ${e.as} at ${at} is on '${t}' (want air${e.as === 'door' ? ' or wall' : ''})`)
+      if (e.t === 'veil' && t !== '¯') out.push(`${id}: the hidden ledge at ${at} is on '${t}', not a platform`)
+      if (e.t === 'chest' && (e.item === 'smallKey' || e.item === 'bigKey')) out.push(`${id}: the hidden chest at ${at} holds a key`)
+    }
   })
   return out
 }

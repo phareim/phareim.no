@@ -516,6 +516,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
     case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES THE NEAREST METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'stomp': return ['YOU GOT THE STOMP!', 'IN THE AIR, {A} COMES DOWN HARD.']
+    case 'lens': return ['YOU GOT THE LENS!', 'STAND STILL A MOMENT. WHAT IS FALSE FADES.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
@@ -565,6 +566,8 @@ export function grant(s: GameState, item: ItemId) {
     case 'lamp': inv.lamp = true; inv.selected = 'lamp'; break
     case 'magnet': inv.magnet = true; inv.selected = 'magnet'; break
     case 'stomp': inv.stomp = true; break
+    // THE LENS is held by its flag alone (`engine/lens.ts`).
+    case 'lens': break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
