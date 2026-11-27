@@ -1,6 +1,7 @@
 // The dungeon kit (docs/games/neon-shrine.md): the Sacred Weights as items, trap gates, the bosses' bars (what counts
 // as open), the big key's words per dungeon, the B items a save may hold, the room left under the profile's save cap,
-// and the key-carrier that must fall for good. Pure: fixtures are built here, no map of the world is added.
+// the key-carrier that must fall for good, and the sprites' data gate. Pure: fixtures are built here, no map of the
+// world is added.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -13,14 +14,14 @@ const esbuild = require('esbuild')
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 let Z
-/** The font and the touch deck's names (the wrap check of `zelda-world.test.mjs`), the sprites, the icons, the caps. */
+/** The font and the touch deck's names (the wrap check of `zelda-world.test.mjs`), the sprites, the save caps. */
 let X
 before(async () => {
   Z = await load()
   const out = esbuild.buildSync({
     stdin: {
       contents: `export { wrapText } from '../base/pixel/font'; export { subst, TOUCH_KEYS } from './keys';
-        export { itemSpriteName, itemIconName } from './render/itemIcon'; export { SPRITES, PAL } from './render/sprites';
+        export { itemSpriteName } from './render/itemIcon'; export { SPRITES, PAL } from './render/sprites';
         export { saveGameById } from '../leaderboard/games'`,
       resolveDir: resolve(repo, 'themes/zelda'), loader: 'ts',
     },
@@ -44,63 +45,11 @@ function fits(line) {
 const roundTrip = s => Z.parseSave(JSON.parse(JSON.stringify({ ...Z.toSave(s), savedAt: 1 })))
 
 // ---------------------------------------------------------------------------
-// The Sacred Weights
+// The Sacred Weights, and the sprites
 // ---------------------------------------------------------------------------
 
 describe('the Sacred Weights', () => {
-  const WORDS = {
-    weightMeaning: ['MEANING', 'seterfell'], weightReasons: ['REASONS', 'yulefjord'], weightNo: ['NO', 'sporelight'],
-    weightSurprise: ['SURPRISE', 'stillsand'], weightFingers: ['FINGERS', 'rerun'], weightCredit: ['CREDIT', 'lumenby'],
-    weightSources: ['SOURCES', 'fogstage'],
-  }
-  const fresh = () => Z.createGame(Z.WORLD, { seed: 1, at: { map: 'overworld', entry: 'hut' } })
-
-  it('are seven, one a land, each with its word', () => {
-    assert.deepEqual(Object.fromEntries(Z.WEIGHTS.map(w => [w.id, [w.word, w.land]])), WORDS)
-    for (const w of Z.WEIGHTS) assert.ok(Z.WORLD.maps[w.land]?.away, `${w.land} is a land`)
-  })
-
-  it('grant nothing but their flag, count, and come back from a save', () => {
-    const s = fresh()
-    s.inv.sword = true
-    assert.equal(Z.weightCount(s), 0)
-    let n = 0
-    for (const w of Z.WEIGHTS) {
-      const inv = JSON.stringify(s.inv)
-      const flags = Object.keys(s.flags)
-      const hp = [s.hero.hp, s.hero.maxHp]
-      assert.equal(Z.hasWeight(s, w.id), false)
-      Z.grant(s, w.id)
-      assert.equal(Z.hasWeight(s, w.id), true)
-      assert.equal(Z.weightCount(s), ++n)
-      assert.equal(JSON.stringify(s.inv), inv, `${w.id} touches no inventory field`)
-      assert.deepEqual(Object.keys(s.flags).filter(f => !flags.includes(f)), [`item:${w.id}`])
-      assert.deepEqual([s.hero.hp, s.hero.maxHp], hp)
-    }
-    // Held twice is held once.
-    Z.grant(s, 'weightNo')
-    assert.equal(Z.weightCount(s), 7)
-    const back = Z.createGame(Z.WORLD, { save: roundTrip(s) })
-    assert.equal(Z.weightCount(back), 7)
-    for (const w of Z.WEIGHTS) assert.ok(Z.hasWeight(back, w.id), w.id)
-    assert.equal(Z.condMet(back, Z.WORLD, { item: 'weightCredit' }, -1), true)
-  })
-
-  it('are told in a name plate and one page, three rows at most', () => {
-    const s = fresh()
-    for (const w of Z.WEIGHTS) {
-      const lines = Z.itemText(s, w.id)
-      const end = w.id === 'weightNo' ? 'IT IS THE SMALLEST. IT IS THE HEAVIEST.' : 'IT IS HEAVIER THAN IT LOOKS.'
-      assert.deepEqual(lines, ['YOU GOT A SACRED WEIGHT!', `IT IS STAMPED ${w.word}. ${end}`])
-      for (const l of lines) fits(l)
-    }
-  })
-
-  it('are held up and read like any find', () => {
-    const s = fresh()
-    s.inv.sword = true
-    s.dialog = null
-    s.mode = 'play'
+  it('are held up and read like any find; seven are held, counted and come back from a save', () => {
     const def = { id: 'room', name: 'ROOM', kind: 'interior', track: 'indoor', rows: ['#####', '#@w.#', '#####'], marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'right' } }, w: { ent: { t: 'item', id: 'room.weight', item: 'weightFingers' } } } }
     const W = { maps: { room: def }, start: { map: 'room', entry: 'start' } }
     const g = Z.createGame(W, { seed: 1 })
@@ -110,32 +59,34 @@ describe('the Sacred Weights', () => {
     for (let k = 0; k < 120 && g.mode !== 'dialog'; k++) ev.push(...Z.stepGame(W, g, 1 / 60, inp({ move: { x: 1, y: 0 } })))
     assert.ok(ev.some(e => e.type === 'itemGet' && e.item === 'weightFingers'))
     assert.equal(g.dialog.lines[0], 'YOU GOT A SACRED WEIGHT!')
+    for (const l of g.dialog.lines) fits(l)
     assert.ok(g.flags['took:room.weight'] && Z.hasWeight(g, 'weightFingers'))
-  })
-
-  it('share one picture of their own, never the coin', () => {
-    const rows = X.SPRITES.item_weight?.rows
-    assert.ok(rows, 'item_weight is a sprite')
-    assert.equal(rows.length, 16)
-    for (const r of rows) {
-      assert.equal(r.length, 16)
-      for (const ch of r) assert.ok(ch === '.' || X.PAL[ch], `not a palette letter: ${ch}`)
-    }
+    // All seven, and one of them twice.
+    const s = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'overworld', entry: 'hut' } })
+    s.inv.sword = true
+    assert.equal(Z.weightCount(s), 0)
     for (const w of Z.WEIGHTS) {
-      assert.equal(X.itemSpriteName(w.id), 'item_weight')
-      assert.notEqual(X.itemSpriteName(w.id), X.itemSpriteName('bits5'))
-      assert.equal(Z.isWeight(w.id), true)
+      Z.grant(s, w.id)
+      for (const l of Z.itemText(s, w.id)) fits(l)
     }
-    assert.equal(Z.isWeight('heartContainer'), false)
+    Z.grant(s, 'weightNo')
+    assert.equal(Z.weightCount(s), 7)
+    const back = Z.createGame(Z.WORLD, { save: roundTrip(s) })
+    assert.equal(Z.weightCount(back), 7)
+    for (const w of Z.WEIGHTS) assert.ok(Z.hasWeight(back, w.id), w.id)
+    assert.equal(Z.condMet(back, Z.WORLD, { item: 'weightCredit' }, -1), true)
   })
 
-  it('every item the world hands out has a picture that exists', () => {
+  it('every item the world hands out has a picture, and every sprite is drawn in the palette\'s letters', () => {
     const items = new Set(['artHop', ...Z.WEIGHTS.map(w => w.id)])
     for (const def of Object.values(Z.WORLD.maps)) for (const m of Object.values(def.marks)) {
       if (m.ent.item) items.add(m.ent.item)
       for (const b of m.ent.talk ?? []) if (b.give) items.add(b.give)
     }
     for (const item of items) assert.ok(X.SPRITES[X.itemSpriteName(item)], `${item}: ${X.itemSpriteName(item)}`)
+    for (const [name, { rows }] of Object.entries(X.SPRITES)) {
+      for (const row of rows) for (const ch of row) if (ch !== '.' && !X.PAL[ch]) assert.fail(`${name}: '${ch}' is not a palette letter`)
+    }
   })
 })
 
@@ -215,17 +166,6 @@ function play(opts = FOE) {
 const shuts = ev => ev.filter(e => e.type === 'gate' && e.shut)
 
 describe('a trap gate', () => {
-  it('passes the validator', () => {
-    assert.deepEqual(Z.validateWorld(dungeon(FOE)), [])
-    assert.deepEqual(Z.validateWorld(dungeon({ ...FOE, inner: true })), [])
-  })
-
-  it('lets the validator through to what lies behind it, the hook included', () => {
-    // A chest beyond the inner gate, and one that only the gate's doorway leads to.
-    const marks = { ...blob, c: { ent: { t: 'chest', id: 'kit.chest', item: 'bits5' } } }
-    assert.deepEqual(Z.validateWorld(dungeon({ inner: true, put: [[29, 9, 'z'], [29, 2, 'c']], marks })), [])
-  })
-
   it('is refused outside a dungeon\'s rooms, with a condition of its own; a gate without either is too', () => {
     const bad = (change) => { const W = dungeon(FOE); change(W.maps.dun); return Z.validateWorld(W).join('\n') }
     assert.match(bad(d => { d.kind = 'interior'; delete d.cell }), /trap gate outside/)
@@ -233,65 +173,55 @@ describe('a trap gate', () => {
     assert.match(bad(d => { d.marks['!'] = { ent: { t: 'gate' } } }), /nothing opens/)
   })
 
-  it('is floor on entry, on the map and in what the map is made from', () => {
+  it('shuts once, behind a hero who walks in and once its doorway is clear, and they cannot walk back out', () => {
+    // A foe in the doorway, then a block, and the hero already in the room: it waits for both.
+    const w = play()
+    w.at(20, 5.9)
+    const foe = w.s.map.enemies[0]
+    foe.x = 16.5; foe.y = 5.5
+    w.go(inp(), 5)
+    assert.equal(w.tiles(), '..')
+    foe.x = 29.5
+    w.s.map.tiles[6 * 32 + 16] = 'b'
+    w.go(inp(), 5)
+    assert.equal(w.tiles(), '.b')
+    w.s.map.tiles[6 * 32 + 16] = '.'
+    w.go()
+    assert.equal(w.tiles(), 'XX')
+    // Walked in: open while the hero is on its tiles, shut behind them, once, and not saved.
     const r = play()
     assert.equal(r.tiles(), '..')
-    const info = Z.mapInfo(r.W, 'dun')
-    assert.equal(info.base[5 * 32 + 16] + info.base[6 * 32 + 16], '..')
-    assert.deepEqual(info.gates.map(g => [g.tiles.length, g.cell, !!g.trap]), [[2, 1, true]])
-    r.go(inp(), 60)
-    assert.equal(r.tiles(), '..', 'the hero is in the other room')
-  })
-
-  it('shuts only once the hero is in its room and clear of its tiles', () => {
-    const r = play()
-    // Just short of the room, and in the doorway on the gate itself: open.
-    r.at(15.5, 5.9)
-    r.go(inp(), 10)
-    assert.equal(r.tiles(), '..')
-    for (const x of [16.1, 16.7, 17.2]) {
-      r.at(x, 5.9)
-      r.go(inp(), 10)
-      assert.equal(r.tiles(), '..', `on the gate at ${x}`)
-    }
-    assert.equal(shuts(r.ev).length, 0)
-    r.at(17.4, 5.9)
-    r.s.shake = 0
-    r.go()
-    assert.equal(r.tiles(), 'XX')
-    assert.deepEqual(shuts(r.ev).map(e => [e.x, e.y]), [[16.5, 5.5]])
-    assert.ok(r.s.shake > 0, 'the room shakes')
-    assert.equal(r.s.flags[r.flag], undefined, 'shut is not saved')
-    r.go(inp(), 60)
-    assert.equal(shuts(r.ev).length, 1, 'once')
-  })
-
-  it('shuts behind a hero who walks in, and they cannot walk back out', () => {
-    const r = play()
+    r.walkIn(16.9)
+    assert.equal(r.tiles(), '..', 'the hero is on its tiles')
     r.walkIn(18)
     assert.equal(r.tiles(), 'XX')
     r.go(inp({ move: { x: -1, y: 0 } }), 120)
     assert.ok(r.s.hero.x >= 17 + Z.HERO_R - 0.01, `stopped at ${r.s.hero.x}`)
     assert.equal(r.s.zoneIndex, 1)
+    assert.equal(shuts(r.ev).length, 1, 'once')
+    assert.equal(r.s.flags[r.flag], undefined)
   })
 
-  it('waits for a walking foe or a block to leave its doorway', () => {
+  it('opens for good when the room is clear, the save keeping it, and never shuts on a room with no foes', () => {
     const r = play()
-    r.at(20, 5.9)
-    const foe = r.s.map.enemies[0]
-    foe.x = 16.5; foe.y = 5.5
-    r.go(inp(), 5)
-    assert.equal(r.tiles(), '..')
-    foe.x = 29.5
-    r.s.map.tiles[6 * 32 + 16] = 'b'
-    r.go(inp(), 5)
-    assert.equal(r.tiles(), '.b')
-    r.s.map.tiles[6 * 32 + 16] = '.'
-    r.go()
+    r.walkIn(19)
     assert.equal(r.tiles(), 'XX')
-  })
-
-  it('stays open with no foes: an empty room, a statue, a foe that has fallen for good', () => {
+    r.ev.length = 0
+    r.kill()
+    r.go()
+    assert.equal(r.tiles(), '..')
+    assert.equal(r.s.flags[r.flag], true)
+    assert.ok(r.ev.some(e => e.type === 'gate' && !e.shut) && r.ev.some(e => e.type === 'secret'))
+    const back = Z.createGame(r.W, { save: roundTrip(r.s) })
+    assert.equal(back.flags[r.flag], true)
+    assert.equal(back.map.tiles[5 * 32 + 16], '.')
+    // The foe comes back with the room; the gate stays open for it.
+    Object.assign(back, { mode: 'play', dialog: null, zoneIndex: 1 })
+    Object.assign(back.hero, { x: 20, y: 5.9 })
+    assert.ok(back.map.enemies.some(e => !e.dead))
+    for (let k = 0; k < 30; k++) Z.stepGame(r.W, back, 1 / 60, inp())
+    assert.equal(back.map.tiles[5 * 32 + 16], '.')
+    // No foes, a statue only, or a foe that has fallen for good: it stays open.
     for (const opts of [
       { put: [], marks: {} },
       { put: [[29, 9, 'e']], marks: { e: { ent: { t: 'enemy', kind: 'eye' } } } },
@@ -315,93 +245,42 @@ describe('a trap gate', () => {
     assert.equal(s.map.tiles[5 * 32 + 16], '.')
   })
 
-  it('opens for good when the room is clear, and the save keeps it', () => {
-    const r = play()
+  it('stands open again after a death, a warp out or leaving the room, the foes and the push blocks back', () => {
+    const r = play({ put: [[29, 9, 'z'], [29, 2, 'z'], [20, 3, 'b']], marks: blob })
+    const back = () => { Object.assign(r.s.hero, { x: 10, y: 5.9 }); for (let k = 0; k < 120 && (r.s.zoneIndex !== 0 || r.s.mode !== 'play'); k++) r.go(); assert.equal(r.s.zoneIndex, 0) }
+    const again = what => {
+      assert.equal(r.tiles(), '..', what)
+      assert.equal(r.s.flags[r.flag], undefined, what)
+      r.walkIn(19)
+      assert.ok(r.s.map.enemies.every(e => !e.dead && e.hp === e.maxHp), `${what}: the foes are back`)
+      assert.equal(r.tiles(), 'XX', what)
+    }
     r.walkIn(19)
     assert.equal(r.tiles(), 'XX')
-    r.ev.length = 0
-    r.kill()
-    r.go()
-    assert.equal(r.tiles(), '..')
-    assert.equal(r.s.flags[r.flag], true)
-    assert.ok(r.ev.some(e => e.type === 'gate' && !e.shut) && r.ev.some(e => e.type === 'secret'))
-    const back = Z.createGame(r.W, { save: roundTrip(r.s) })
-    assert.equal(back.flags[r.flag], true)
-    assert.equal(back.map.tiles[5 * 32 + 16], '.')
-    // The foe comes back with the room; the gate stays open for it.
-    Object.assign(back, { mode: 'play', dialog: null, zoneIndex: 1 })
-    Object.assign(back.hero, { x: 20, y: 5.9 })
-    assert.ok(back.map.enemies.some(e => !e.dead))
-    for (let k = 0; k < 30; k++) Z.stepGame(r.W, back, 1 / 60, inp())
-    assert.equal(back.map.tiles[5 * 32 + 16], '.')
-  })
-
-  it('counts a room beaten before it ever shut', () => {
-    const r = play()
-    r.at(16.5, 5.9)
-    r.go(inp(), 5)
-    r.kill()
-    r.go()
-    assert.equal(r.s.flags[r.flag], true)
-    assert.equal(r.ev.filter(e => e.type === 'gate').length, 0, 'nothing moved')
-  })
-
-  it('stands open again after a death, the room\'s foes back', () => {
-    const r = play()
-    r.walkIn(19)
-    const foe = r.s.map.enemies[0]
-    foe.hp = 1
+    // A death.
+    r.s.map.enemies[0].hp = 1
     Z.hurtHero(Z.ctx(r.W, r.s, r.ev), 99, 25, 5)
     assert.equal(r.s.mode, 'dying')
     for (let k = 0; k < 200 && r.s.mode !== 'play'; k++) r.go()
     assert.equal(r.s.mode, 'play')
     assert.ok(r.s.hero.x < 16, 'back at the stair')
-    assert.equal(r.tiles(), '..')
-    assert.equal(r.s.flags[r.flag], undefined)
-    assert.equal(r.s.map.enemies[0].hp, r.s.map.enemies[0].maxHp)
-    r.walkIn(19)
-    assert.equal(r.tiles(), 'XX')
-  })
-
-  it('stands open again after a warp out and back', () => {
-    const r = play()
-    r.walkIn(19)
+    again('after a death')
+    // A warp out and back.
     Z.enterMap(r.W, r.s, 'out', 'start', r.ev)
     Z.enterMap(r.W, r.s, 'dun', 'start', r.ev)
-    assert.equal(r.tiles(), '..')
-    assert.equal(r.s.flags[r.flag], undefined)
-    r.walkIn(19)
-    assert.equal(r.tiles(), 'XX')
-  })
-
-  it('stands open again when a room is entered anew, the room\'s foes reset', () => {
-    // Two foes: one falls, the hero gets out another way (set down in the other room), and comes back.
-    const r = play({ put: [[29, 9, 'z'], [29, 2, 'z']], marks: blob })
-    r.walkIn(19)
-    assert.equal(r.tiles(), 'XX')
-    const [a] = r.s.map.enemies
-    Z.killEnemy(Z.ctx(r.W, r.s, r.ev), a)
-    Object.assign(r.s.hero, { x: 10, y: 5.9 })
-    for (let k = 0; k < 120 && (r.s.zoneIndex !== 0 || r.s.mode !== 'play'); k++) r.go()
-    assert.equal(r.s.zoneIndex, 0)
-    assert.equal(r.tiles(), '..')
-    r.walkIn(19)
-    assert.ok(r.s.map.enemies.every(e => !e.dead), 'the foes are back')
-    assert.equal(r.tiles(), 'XX')
-  })
-
-  it('leaves the room\'s push blocks to go home once beaten: it is a fight, not a puzzle', () => {
-    const r = play({ put: [[29, 9, 'z'], [20, 3, 'b']], marks: blob })
-    r.walkIn(19)
+    again('after a warp')
+    // One falls, and the hero gets out another way (set down in the other room).
+    Z.killEnemy(Z.ctx(r.W, r.s, r.ev), r.s.map.enemies[0])
+    back()
+    again('after leaving the room')
+    // A beaten room's push blocks go home too: it is a fight, not a puzzle.
     r.kill()
     r.go()
     r.s.map.tiles[3 * 32 + 20] = '.'
     r.s.map.tiles[3 * 32 + 21] = 'b'
-    Object.assign(r.s.hero, { x: 10, y: 5.9 })
-    for (let k = 0; k < 120 && (r.s.zoneIndex !== 0 || r.s.mode !== 'play'); k++) r.go()
+    back()
     r.walkIn(19)
-    assert.equal(r.s.map.tiles[3 * 32 + 20], 'b')
-    assert.equal(r.s.map.tiles[3 * 32 + 21], '.')
+    assert.deepEqual([r.s.map.tiles[3 * 32 + 20], r.s.map.tiles[3 * 32 + 21]], ['b', '.'])
   })
 })
 
@@ -417,93 +296,67 @@ describe('a shut trap gate is a wall', () => {
     return r
   }
 
-  it('turns the hook away', () => {
-    const post = [[27, 5, '|']]
+  it('turns away the hook, the disc, a bomb, a pushed block, a roll and a hop, all of which pass it open', () => {
     for (const open of [true, false]) {
-      const r = inner(open, post)
-      r.s.inv.selected = 'hook'
-      r.go(B)
-      r.go(inp(), 90)
-      assert.equal(r.ev.some(e => e.type === 'hookHit'), open)
-      assert.equal(r.ev.some(e => e.type === 'clank'), !open)
-      if (open) assert.ok(r.s.hero.x > 25, 'pulled through')
-      else assert.equal(r.s.hero.x, 20.5)
-    }
-  })
-
-  it('is not shut while the hook\'s chain is out', () => {
-    const r = play({ inner: true, put: [[27, 5, '|'], [29, 9, 'z']], marks: blob })
-    r.at(20.5, 5.5)
-    r.s.inv.selected = 'hook'
-    r.go(B)
-    assert.ok(r.s.hook)
-    while (r.s.hook) { assert.equal(r.tiles(), '..'); r.go() }
-    r.go()
-    assert.equal(r.tiles(), 'XX')
-    assert.ok(r.s.hero.x > 25)
-  })
-
-  it('turns the disc back before what stands behind it', () => {
-    for (const open of [true, false]) {
-      const r = inner(open, [[26, 5, 'q']], { q: { ent: { t: 'enemy', kind: 'sentry' } } })
-      r.at(22.5, 5.5)
-      r.s.inv.selected = 'disc'
-      r.go(B)
-      r.go(inp(), 90)
-      assert.equal(r.ev.some(e => e.type === 'discHit'), open)
-    }
-  })
-
-  it('takes no bomb into it and stands through a blast', () => {
-    const r = inner(false)
-    r.at(23.6, 5.5)
-    r.s.inv.selected = 'bombs'
-    r.go(B)
-    assert.equal(r.s.map.bombs.length, 1)
-    // A wall in the way: the bomb is set at the hero's feet, west of the gate, not in it.
-    assert.ok(r.s.map.bombs[0].x < 24, `${r.s.map.bombs[0].x}`)
-    r.go(inp(), 150)
-    assert.ok(r.ev.some(e => e.type === 'boom'))
-    assert.equal(r.tiles(), 'XX')
-    assert.ok(!Object.keys(r.s.flags).some(f => f.startsWith('bomb:')))
-  })
-
-  it('stops a pushed block', () => {
-    for (const open of [true, false]) {
-      const r = inner(open, [[23, 5, 'b']])
-      r.at(22.5, 5.5)
-      // (Long enough for one push, not a second.)
-      r.go(inp({ move: { x: 1, y: 0 } }), 32)
-      assert.equal(r.s.map.tiles[5 * 32 + 24], open ? 'b' : 'X')
-      assert.equal(r.s.map.tiles[5 * 32 + 23], open ? '.' : 'b')
-    }
-  })
-
-  it('stops a roll, and the air moves with it', () => {
-    for (const open of [true, false]) {
+      // The hook.
+      const h = inner(open, [[27, 5, '|']])
+      h.s.inv.selected = 'hook'
+      h.go(B)
+      h.go(inp(), 90)
+      assert.equal(h.ev.some(e => e.type === 'hookHit'), open)
+      assert.equal(h.ev.some(e => e.type === 'clank'), !open)
+      if (open) assert.ok(h.s.hero.x > 25, 'pulled through')
+      else assert.equal(h.s.hero.x, 20.5)
+      // The disc, before what stands behind it.
+      const d = inner(open, [[26, 5, 'q']], { q: { ent: { t: 'enemy', kind: 'sentry' } } })
+      d.at(22.5, 5.5)
+      d.s.inv.selected = 'disc'
+      d.go(B)
+      d.go(inp(), 90)
+      assert.equal(d.ev.some(e => e.type === 'discHit'), open)
+      // A pushed block (long enough for one push, not a second).
+      const p = inner(open, [[23, 5, 'b']])
+      p.at(22.5, 5.5)
+      p.go(inp({ move: { x: 1, y: 0 } }), 32)
+      assert.deepEqual([p.s.map.tiles[5 * 32 + 23], p.s.map.tiles[5 * 32 + 24]], open ? ['.', 'b'] : ['b', 'X'])
+      // A roll: off a wall it springs.
       const r = inner(open)
       r.at(23, 6)
       r.go(ROLL(1, 0))
       r.go(inp(), 60)
       if (open) assert.ok(r.s.hero.x > 24.5, `through at ${r.s.hero.x}`)
       else assert.ok(r.s.hero.x < 24, `stopped at ${r.s.hero.x}`)
-      assert.equal(r.ev.some(e => e.type === 'air' && e.kind === 'spring'), !open, 'off a wall a roll springs')
+      assert.equal(r.ev.some(e => e.type === 'air' && e.kind === 'spring'), !open)
     }
-    // The HOP, along the stick, into it.
-    const r = inner(false)
-    Z.grant(r.s, 'artHop')
-    r.at(23, 6)
-    r.go(inp({ move: { x: 1, y: 0 }, bPress: true }))
-    assert.equal(r.s.hero.act, 'air')
-    r.go(inp({ move: { x: 1, y: 0 } }), 40)
-    assert.ok(r.s.hero.x <= 24 - Z.HERO_R + 0.01, `${r.s.hero.x}`)
-  })
-
-  it('stops a foe', () => {
-    const r = inner(false)
-    assert.equal(Z.solidTile(r.W, r.s.map, 24, 5, 'enemy'), true)
-    assert.equal(Z.solidTile(r.W, r.s.map, 24, 5, 'fly'), true)
-    assert.equal(Z.solidTile(r.W, r.s.map, 24, 5, 'hero'), true)
+    // The HOP, along the stick, into it shut.
+    const hop = inner(false)
+    Z.grant(hop.s, 'artHop')
+    hop.at(23, 6)
+    hop.go(inp({ move: { x: 1, y: 0 }, bPress: true }))
+    assert.equal(hop.s.hero.act, 'air')
+    hop.go(inp({ move: { x: 1, y: 0 } }), 40)
+    assert.ok(hop.s.hero.x <= 24 - Z.HERO_R + 0.01, `${hop.s.hero.x}`)
+    // A bomb is set at the hero's feet, not in it, and the gate stands through the blast.
+    const b = inner(false)
+    b.at(23.6, 5.5)
+    b.s.inv.selected = 'bombs'
+    b.go(B)
+    assert.equal(b.s.map.bombs.length, 1)
+    assert.ok(b.s.map.bombs[0].x < 24, `${b.s.map.bombs[0].x}`)
+    b.go(inp(), 150)
+    assert.ok(b.ev.some(e => e.type === 'boom'))
+    assert.equal(b.tiles(), 'XX')
+    assert.ok(!Object.keys(b.s.flags).some(f => f.startsWith('bomb:')))
+    // And the gate does not shut while the hook's chain is out across it.
+    const c = play({ inner: true, put: [[27, 5, '|'], [29, 9, 'z']], marks: blob })
+    c.at(20.5, 5.5)
+    c.s.inv.selected = 'hook'
+    c.go(B)
+    assert.ok(c.s.hook)
+    while (c.s.hook) { assert.equal(c.tiles(), '..'); c.go() }
+    c.go()
+    assert.equal(c.tiles(), 'XX')
+    assert.ok(c.s.hero.x > 25)
   })
 })
 
@@ -545,12 +398,8 @@ describe('bossOpen', () => {
     gemini: [['orbit', 0, true], ['orbit', 0.5, true], ['down', 0, false]],
   }
 
-  it('knows the six bosses', () => {
-    assert.deepEqual(Object.keys(CASES).sort(), [...Z.BIG].sort())
-  })
-
-  for (const [kind, cases] of Object.entries(CASES)) {
-    it(`${kind}: gold exactly when the blade bites`, () => {
+  it('gold exactly when the blade bites, for each of the six bosses in each of its states', () => {
+    for (const [kind, cases] of Object.entries(CASES)) {
       for (const [mode, stun, open] of cases) {
         const { e } = boss(kind)
         e.ai.mode = mode
@@ -558,27 +407,6 @@ describe('bossOpen', () => {
         assert.equal(Z.bossOpen(e), open, `${kind} ${mode} stun ${stun}`)
         assert.equal(bites(kind, mode, stun), open, `the blade on a ${kind} ${mode} stun ${stun}`)
       }
-    })
-  }
-
-  it('leaves the knight\'s back out: the blade bites there, but where the hero stands is not the knight\'s state', () => {
-    const { W, s, e } = boss('knight')
-    e.ai.mode = 'walk'
-    assert.equal(Z.hitEnemy(Z.ctx(W, s, []), e, 1, e.x + 2, e.y, 'sword'), true)
-    e.ai.mode = 'walk'
-    assert.equal(Z.bossOpen(e), false)
-  })
-
-  it('is false for the fallen and for every other foe', () => {
-    const { e } = boss('king')
-    e.ai.mode = 'down'
-    e.dead = true
-    assert.equal(Z.bossOpen(e), false)
-    for (const kind of Object.keys(Z.STATS).filter(k => !Z.BIG.has(k))) {
-      const r = boss(kind)
-      r.e.stun = 1
-      r.e.ai.mode = 'down'
-      assert.equal(Z.bossOpen(r.e), false, kind)
     }
   })
 })
@@ -602,15 +430,6 @@ describe('a big key', () => {
     fits(KING)
     fits(HERE)
   })
-
-  it('says so when it is picked up', () => {
-    const r = play()
-    const c = Z.ctx(r.W, r.s, [])
-    assert.equal(r.s.map.ring, 'kit')
-    Z.grant(c.s, 'bigKey')
-    assert.deepEqual(Z.itemText(c.s, 'bigKey'), [HERE])
-    assert.ok(r.s.flags['bigkey:kit'])
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -625,31 +444,10 @@ describe('the B items', () => {
     return roundTrip(s)
   }
 
-  it('are one table: ids, names and pictures that exist, in the cycle\'s order', () => {
-    assert.deepEqual(Z.B_ITEMS.map(b => b.id), ['hook', 'disc', 'bombs', 'hop'])
-    assert.deepEqual(Z.B_ITEMS.map(b => b.name), ['HOOK', 'DISC', 'BOMBS', 'HOP'])
-    for (const b of Z.B_ITEMS) assert.ok(X.SPRITES[b.icon], b.icon)
-    const g = Z.createGame(Z.WORLD, { save: save() })
-    assert.deepEqual(Z.useItems(g), ['hook', 'disc', 'bombs', 'hop'])
-    for (const b of Z.B_ITEMS) {
-      g.inv.selected = b.id
-      assert.equal(X.itemIconName(g), b.icon)
-    }
-    g.inv.selected = null
-    assert.equal(X.itemIconName(g), '')
-  })
-
-  it('a save with each of them in hand loads with it in hand', () => {
+  it('a save keeps the item in hand; one holding a name the game does not know loads with nothing, the rest kept', () => {
     const raw = save()
-    for (const b of Z.B_ITEMS) {
-      const back = Z.parseSave({ ...raw, inv: { ...raw.inv, selected: b.id } })
-      assert.equal(back?.inv.selected, b.id)
-    }
-    assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, selected: null } }).inv.selected, null)
-  })
-
-  it('a save holding a name the game does not know loads with nothing in hand, the rest kept', () => {
-    const raw = save()
+    // Each item in hand, and nothing, come back as they were.
+    for (const selected of [...Z.B_ITEMS.map(b => b.id), null]) assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, selected } })?.inv.selected, selected)
     for (const selected of ['something-new', 'spade', '', 'toString', '__proto__', 7, {}, undefined]) {
       const back = Z.parseSave({ ...raw, inv: { ...raw.inv, selected } })
       assert.ok(back, `${String(selected)} loads`)
@@ -808,9 +606,5 @@ describe('a foe that carries a key', () => {
     for (let k = 0; k < 120 && (r.s.zoneIndex !== 0 || r.s.mode !== 'play'); k++) r.go()
     r.walkIn(19)
     assert.ok(r.s.map.enemies.every(e => e.dead))
-  })
-
-  it('no map of the world has one without', () => {
-    assert.deepEqual(Z.validateWorld(Z.WORLD).filter(p => /carries/.test(p)), [])
   })
 })

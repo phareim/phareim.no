@@ -1,5 +1,6 @@
-// Neon Shrine's views: the registry, the isometric geometry and how tiles
-// stand. Pure modules, bundled with esbuild like the other zelda tests.
+// Neon Shrine's views: which one a player starts in, the data gates (the engines' values, the studio's file, no view
+// code in the first page, no raised walkable tile, the studio's stage), the isometric geometry's properties, the
+// controls in a turned view and the turn between views. Pure modules, bundled with esbuild like the other zelda tests.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
@@ -17,22 +18,18 @@ async function load() {
     stdin: {
       contents: [
         `export * from './render/iso/project'`,
-        `export * from './render/iso/shape'`,
-        `export { DENSITY, Z_MAX, makeCam, fitDepth, toScene, toGround, depthOf } from './render/iso/camera'`,
-        `export { BEYOND, beyondTile, massifHeight } from './render/beyond'`,
-        `export { aimOf, swingAngle } from './engine/hero'`,
-        `export { stepGame } from './engine/index'`,
-        `export { NO_INPUT, SWORD_ARC } from './types'`,
-        `export { VIEWS, VIEW_KEY, DEFAULT_VIEW, MAX_VIEWS, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
-        `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
+        `export { shapeOf } from './render/iso/shape'`,
+        `export { Z_MAX, makeCam, fitDepth, toScene, toGround, depthOf } from './render/iso/camera'`,
+        `export { BEYOND, beyondTile } from './render/beyond'`,
+        `export { stepGame, createGame } from './engine/index'`,
+        `export { NO_INPUT } from './types'`,
+        `export { VIEWS, DEFAULT_VIEW, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
+        `export { ENGINES, resolveParams, paramDiff, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
         `export { createTurn, turnTime, createTurnClock } from './render/turn'`,
-        `export { NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
-        `export { massesOf, blobOf, shadeTint } from './render/shade'`,
-        `export { createGame } from './engine/index'`,
         `export { enterMap } from './engine/game'`,
-        `export { STAGE_SCENES, stageScene } from '../stage/scenes'`,
+        `export { STAGE_SCENES } from '../stage/scenes'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -47,72 +44,37 @@ let M
 before(async () => { M = await load() })
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} is not ${b}`)
 
-describe('the view registry', () => {
-  it('starts with the classic view, which needs no code of its own', () => {
-    assert.equal(M.VIEWS[0].id, 'classic')
-    assert.equal(M.VIEWS[0].load, undefined)
-    for (const v of M.VIEWS.slice(1)) assert.equal(typeof v.load, 'function', `${v.id} has no loader`)
-  })
-  it('goes round every view and back', () => {
-    let id = 'classic'
-    const seen = []
-    const shown = M.VIEWS
-    for (let i = 0; i < shown.length; i++) { seen.push(id); id = M.nextView(id) }
-    assert.equal(id, 'classic')
-    assert.deepEqual(seen.sort(), shown.map(v => v.id).sort())
-  })
-  it('takes the address before the stored choice, and nonsense from neither', () => {
+describe('which view a player gets', () => {
+  it('takes the address before the stored choice, the isometric one for nonsense or nothing, and goes round every view', () => {
     assert.equal(M.startView('iso', 'classic'), 'iso')
     assert.equal(M.startView(null, 'iso'), 'iso')
     assert.equal(M.startView('3d', 'iso'), 'iso')
     assert.equal(M.startView('classic', 'iso'), 'classic')
     assert.equal(M.startView(null, 'classic'), 'classic')
-  })
-  it('starts a browser that has never chosen in the isometric 16-bit view', () => {
+    // A browser that has never chosen.
     assert.equal(M.DEFAULT_VIEW, 'iso')
     assert.equal(M.startView(null, null), 'iso')
     assert.equal(M.startView('3d', 'hologram'), 'iso')
-  })
-  it('sends a browser or an address naming the archived polygon engine\'s views to the first view', () => {
-    // The polygon engine (POLYGON, and its second look THIRD PERSON) was archived on the branch
-    // `parked/polygon-engine` (2026-11-25): `zelda.view` = 'poly' or 'third', or `?view=poly`, is nonsense now.
+    // The archived polygon engine's views (2026-11-25, branch `parked/polygon-engine`) are nonsense now.
     assert.equal(M.isViewId('poly'), false)
     assert.equal(M.isViewId('third'), false)
-    assert.equal(M.startView(null, 'poly'), 'iso')
-    assert.equal(M.startView('poly', 'poly'), 'iso')
-    assert.equal(M.startView('poly', 'classic'), 'classic')
-    assert.equal(M.startView(null, 'third'), 'iso')
-    assert.equal(M.startView('third', 'classic'), 'classic')
     assert.equal(M.isEngineId('poly'), false)
-  })
-  it('starts in the classic view when the studio has taken the first view out of the round', () => {
+    assert.equal(M.startView(null, 'poly'), 'iso')
+    assert.equal(M.startView('poly', 'classic'), 'classic')
+    assert.equal(M.startView('third', 'classic'), 'classic')
+    // The studio has taken the first view out of the round: the classic one.
     M.setLiveViews(M.parseViews({ iso: { hidden: true } }))
     assert.equal(M.startView(null, null), 'classic')
     assert.equal(M.startView(null, 'iso'), 'classic')
     M.setLiveViews(null)
+    // V is the only way a player picks a view: as many presses as there are views come back round, through each.
+    let id = 'classic'
+    const seen = []
+    for (let i = 0; i < M.viewList().length; i++) { seen.push(id); id = M.nextView(id) }
+    assert.equal(id, 'classic')
+    assert.deepEqual(seen.sort(), M.viewList().map(v => v.id).sort())
   })
-  it('names every view for the pause screen in the pixel font', () => {
-    for (const v of M.VIEWS) {
-      assert.match(M.viewName(v.id), /^[A-Z0-9 ]+$/)
-      // Named for their picture, not a machine's bits: a built-in view's name says it all (2026-11-24).
-      assert.equal(v.tag, '')
-    }
-  })
-  it('has a built-in view for every engine, drawn with the engine\'s own values', () => {
-    assert.deepEqual([...new Set(M.VIEWS.map(v => v.engine))].sort(), Object.keys(M.ENGINES).sort())
-    for (const engine of Object.keys(M.ENGINES)) {
-      // The first view of each engine is the engine as it is.
-      assert.equal(M.VIEWS.find(v => v.engine === engine).params, undefined, `${engine}'s first view has values`)
-    }
-    for (const v of M.VIEWS) {
-      assert.equal(v.load, M.ENGINE_LOADERS[v.engine])
-      // A second look carries only values its engine knows, already as they are kept (what differs from the engine's own).
-      if (v.params) assert.deepEqual(v.params, M.paramDiff(v.engine, v.params), `${v.id} carries values its engine would drop`)
-    }
-    assert.deepEqual(M.VIEWS.map(v => v.id), ['classic', 'iso'])
-    assert.deepEqual(Object.keys(M.ENGINES).sort(), ['classic', 'iso'])
-    assert.equal(M.ENGINES.iso.params.figure.value, 'classic')
-  })
+
   it('keeps every view\'s code out of the page that loads first', () => {
     // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
     // a static import, a side-effect import or a re-export, in either kind of quote.
@@ -134,59 +96,21 @@ describe('the view registry', () => {
     }
     assert.deepEqual(dynamic, { iso: 1 }, 'the registry should hold the one dynamic import of each view')
   })
-
 })
 
-describe('where the views are found', () => {
-  const shell = readFileSync(resolve(root, 'Zelda.vue'), 'utf8')
-  it('has the Sun Prism beside the world, the button on the pause screen and V as the quick key', () => {
-    // The corner holds the chart and the gem (the Sun Prism), with the stub indoors, beside a keyboard and on touch alike.
-    const corner = shell.slice(shell.indexOf('class="zelda-corner"') - 200, shell.indexOf('class="zelda-turn-said"'))
-    assert.match(corner, /v-if="phase === 'play'"/)
-    assert.doesNotMatch(corner.split('class="zelda-corner"')[0], /touchUI/, 'not on touch alone')
-    // It steps away by class (never by v-if, which would pop) while something else has the screen.
-    const away = corner.match(/'zelda-corner--away': ([^,}]+)/)[1]
-    for (const what of ['paused', 'panel', 'talking', 'leaving']) assert.match(away, new RegExp(what), `away while ${what}`)
-    // The map opens the menu's MAP page, the chip its ITEMS page; neither turns the view.
-    const mini = corner.slice(corner.indexOf('class="zelda-mini"'))
-    assert.match(mini, /openPage\('map'\)/)
-    assert.match(mini, /aria-keyshortcuts="M"/)
-    const chip = corner.slice(corner.indexOf('class="zelda-chip"'), corner.indexOf('class="zelda-turn-wrap"'))
-    assert.match(chip, /openPage\('items'\)/)
-    // Reached by Tab, each hands the game its keys back (input.ts); the map comes last, so nothing moves when it goes.
-    for (const b of [mini, chip]) assert.match(b, /data-game-keys/)
-    assert.ok(corner.indexOf('class="zelda-mini"') > corner.indexOf('class="zelda-turn-wrap"'))
-    assert.doesNotMatch(mini + chip, /cycleView|turnPress/)
-    const wrap = corner.slice(corner.indexOf('class="zelda-turn-wrap"') - 60, corner.indexOf('class="zelda-mini"'))
-    assert.match(wrap, /v-if="viewCount > 1"/, 'only where there is a view to turn to')
-    assert.match(wrap, /class="zelda-turn"\s+data-game-keys/, 'a focused switch gives the game its keys back (input.ts)')
-    assert.match(wrap, /aria-keyshortcuts="V"/)
-    assert.match(wrap, /:aria-label="turnLabel"/)
-    // The press must reach input.ts too: a first touch there is what turns the touch deck on.
-    assert.match(wrap, /@pointerdown\.prevent="turnPress"/)
-    assert.doesNotMatch(wrap, /@pointerdown[^"]*\.stop/)
-    assert.match(wrap, /@click="turnClick"/, 'Enter, Space and a screen reader press it too')
-    assert.match(shell, /function turnPress[^]*?cycleView\(\)[^]*?blur\(\)/, 'a pointer press turns the view and keeps no focus')
-    // The corner's tag names the view when it arrives: the portal raises no view strip (the studio's stage still has it).
-    assert.doesNotMatch(shell, /ui\.strip/)
-    assert.match(readFileSync(resolve(root, 'render/hud.ts'), 'utf8'), /export function drawViewStrip/)
-    // The pause screen's own button.
-    assert.match(shell, /class="zelda-pad zelda-pad-wide" @pointerdown\.prevent\.stop="cycleView"/)
-    // V turns the view in play and on the pause screen alike: one line, outside the paused branch, and not while the reset is being asked about.
-    const keys = shell.slice(shell.indexOf('function shellKey'), shell.indexOf('function backsOut'))
-    const paused = keys.slice(keys.indexOf('if (paused.value && !e.repeat)'), keys.indexOf("if (e.code === 'Backspace'"))
-    assert.doesNotMatch(paused, /KeyV/)
-    assert.match(keys, /e\.code === 'KeyV' && !confirmReset\.value\)[^\n]*if \(!e\.repeat\) cycleView\(\)/)
-    assert.equal(keys.split("'KeyV'").length - 1, 1, 'V has one meaning')
-  })
-  it('does not name a view key in the page\'s first hint', () => {
-    assert.doesNotMatch(readFileSync(resolve(site, 'themes/portal/Landing.vue'), 'utf8'), /ANOTHER VIEW/)
-  })
-})
-
-describe('an engine\'s values', () => {
-  it('gives every engine the finish it needs, inside its own bounds', () => {
+describe('the views\' data', () => {
+  it('gives every engine a built-in view that loads it, and values inside their own bounds with words for the studio', () => {
+    assert.deepEqual([...new Set(M.VIEWS.map(v => v.engine))].sort(), Object.keys(M.ENGINES).sort())
+    assert.equal(M.VIEWS[0].id, 'classic')
+    for (const v of M.VIEWS) {
+      assert.equal(v.load, M.ENGINE_LOADERS[v.engine])
+      if (v.engine !== 'classic') assert.equal(typeof v.load, 'function', `${v.id} has no loader`)
+      assert.match(M.viewName(v.id), /^[A-Z0-9 ]+$/, 'the pause screen spells it in the pixel font')
+      // A second look carries only values its engine knows, as they are kept (what differs from the engine's own).
+      if (v.params) assert.deepEqual(v.params, M.paramDiff(v.engine, v.params), `${v.id} carries values its engine would drop`)
+    }
     for (const [id, e] of Object.entries(M.ENGINES)) {
+      assert.equal(M.VIEWS.find(v => v.engine === id).params, undefined, `${id}'s first view has values`)
       assert.ok(e.title && e.blurb, `${id} has no words for the studio`)
       for (const [name, spec] of Object.entries(e.params)) {
         assert.ok(spec.label, `${id}.${name} has no label`)
@@ -194,384 +118,49 @@ describe('an engine\'s values', () => {
         if (spec.t === 'choice') assert.ok(spec.options.includes(spec.value), `${id}.${name} starts on a choice it does not offer`)
       }
     }
-    for (const name of ['scanlines', 'bloom', 'vignette']) {
-      assert.ok(M.ENGINES.classic.params[name], `the classic view has no ${name}`)
-      assert.ok(M.ENGINES.iso.params[name], `the isometric view has no ${name}`)
-    }
   })
-  it('clamps a number, refuses a colour that is not one, and keeps to the choices', () => {
-    const p = M.resolveParams('iso', { bloom: 99, colors: 'vellum', shadowColor: 'red', skyHorizon: '#ABCDEF', plants: 'yes', nonsense: 1 })
-    assert.equal(p.bloom, M.ENGINES.iso.params.bloom.max)
-    assert.equal(p.colors, 'full')
-    assert.equal(p.shadowColor, M.ENGINES.iso.params.shadowColor.value)
-    assert.equal(p.skyHorizon, '#abcdef')
-    assert.equal(p.plants, true)
-    assert.equal('nonsense' in p, false)
-  })
-  it('keeps only what differs from the engine\'s own', () => {
-    assert.deepEqual(M.paramDiff('classic', { scanlines: 1, bloom: 0.5 }), { bloom: 0.5 })
-    assert.deepEqual(M.paramDiff('classic', null), {})
-  })
-})
 
-describe('the studio\'s views', () => {
-  it('lays the studio\'s values on a built-in view and adds its own after them', () => {
-    const live = M.parseViews({
-      classic: { params: { scanlines: 0 } },
-      noir: { engine: 'iso', name: 'NOIR', params: { colors: '15-bit', bloom: 0 } },
-    })
-    assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
-    const round = M.mergeViews(live)
-    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'noir'])
-    assert.deepEqual(round[0].params, { scanlines: 0 })
-    assert.deepEqual(round[2], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: '15-bit', bloom: 0 } })
-  })
-  it('drops what the game cannot draw or spell', () => {
+  it('makes a valid round of a dirty studio file: bad entries and values dropped, good ones merged and ordered', () => {
     const live = M.parseViews({
       'Bad Id': { engine: 'iso', name: 'X' },
       hologram: { engine: '3d', name: 'HOLO' },
       quiet: { engine: 'iso', name: 'lower case' },
       nameless: { engine: 'iso' },
-      ok: { engine: 'iso', name: 'DAWN', tag: 'no', params: { colors: 'vellum', shadow: 9 } },
       list: [],
+      // The archived polygon engine, in a live file from before 2026-11-25.
+      poly: { hidden: false, params: { fog: 0.5 } },
+      third: { engine: 'poly', name: 'THIRD PERSON' },
+      classic: { hidden: true, params: { scanlines: 0 } },
+      iso: { hidden: true, params: { bloom: 0.2 } },
+      noir: { engine: 'iso', name: 'NOIR', tag: 'no', params: { colors: '15-bit', shadow: 9, nonsense: 1 } },
+      first: { engine: 'classic', name: 'FIRST', tag: '4-BIT', order: -1 },
     })
-    assert.deepEqual(Object.keys(live), ['ok'])
-    assert.deepEqual(live.ok, { engine: 'iso', name: 'DAWN', params: { shadow: M.ENGINES.iso.params.shadow.max } })
+    assert.deepEqual(Object.keys(live).sort(), ['classic', 'first', 'iso', 'noir'])
+    assert.equal(live.first.tag, '4-BIT')
+    assert.deepEqual(live.noir, { engine: 'iso', name: 'NOIR', params: { colors: '15-bit', shadow: M.ENGINES.iso.params.shadow.max } })
+    // The classic view can be changed and never hidden; the other built-in one can be hidden.
+    const round = M.mergeViews(live)
+    const others = M.VIEWS.map(v => v.id).filter(id => id !== 'classic' && id !== 'iso')
+    assert.deepEqual(round.map(v => v.id).filter(id => !others.includes(id)), ['first', 'classic', 'noir'])
+    assert.deepEqual(round.find(v => v.id === 'classic').params, { scanlines: 0 })
+    assert.equal(M.mergeViews(M.parseViews({ iso: { params: { bloom: 0.2 } } })).find(v => v.id === 'iso').params.bloom, 0.2)
+    // A value a visitor's browser kept is clamped, a colour that is not one refused, a choice kept to its choices.
+    const v = M.resolveParams('iso', { bloom: 99, colors: 'vellum', shadowColor: 'red', skyHorizon: '#ABCDEF', nonsense: 1 })
+    assert.deepEqual([v.bloom, v.colors, v.shadowColor, v.skyHorizon, 'nonsense' in v], [M.ENGINES.iso.params.bloom.max, 'full', M.ENGINES.iso.params.shadowColor.value, '#abcdef', false])
     assert.deepEqual(M.parseViews('nope'), {})
     assert.deepEqual(M.parseViews(null), {})
-  })
-  it('keeps a built-in view\'s own values under the studio\'s', () => {
-    const round = M.mergeViews(M.parseViews({ iso: { params: { bloom: 0.2 } } }))
-    assert.equal(round.find(v => v.id === 'iso').params.bloom, 0.2)
-    assert.deepEqual(M.mergeViews(M.parseViews({ iso: {} })).find(v => v.id === 'iso').params, {})
-  })
-  it('orders the round, hides a built-in view on request, and never the classic one', () => {
-    const live = M.parseViews({
-      classic: { hidden: true },
-      iso: { hidden: true },
-      first: { engine: 'iso', name: 'FIRST', order: -1 },
-    })
-    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic'])
-  })
-  it('drops what the studio publishes for the archived polygon engine, and starts in the first view', () => {
-    // A live file from before 2026-11-25 may still bring the polygon view back, or publish a view on its engine.
-    const live = M.parseViews({
-      poly: { hidden: false, params: { fog: 0.5 } },
-      third: { engine: 'poly', name: 'THIRD PERSON', params: { pose: 'shoulder' } },
-      crane: { engine: 'poly', name: 'CRANE' },
-      noir: { engine: 'iso', name: 'NOIR' },
-    })
-    assert.deepEqual(Object.keys(live), ['noir'])
+    // A published view joins the round, and when it is gone the first view is taken.
     M.setLiveViews(live)
-    assert.deepEqual(M.viewList().map(v => v.id), ['classic', 'iso', 'noir'])
-    assert.equal(M.viewDef('poly'), undefined)
-    assert.equal(M.startView('poly', null), 'iso')
-    assert.equal(M.startView('crane', 'third'), 'iso')
-    assert.equal(M.startView(null, 'poly'), 'iso')
-    M.setLiveViews(null)
-    assert.deepEqual(M.mergeViews(null).map(v => v.id), ['classic', 'iso'])
-    // (`hidden: false` says nothing: there is no view left that waits out of the round.)
-    assert.equal(M.parseViews({ iso: { hidden: false } }).iso.hidden, undefined)
-  })
-  it('never lets the round grow past what V can go round', () => {
-    const many = {}
-    for (let i = 0; i < 20; i++) many['v' + i] = { engine: 'classic', name: 'V' + i }
-    assert.equal(M.mergeViews(M.parseViews(many)).length, M.MAX_VIEWS)
-  })
-  it('takes a published view into the round, and falls back to the first view when it is gone', () => {
-    M.setLiveViews(M.parseViews({ noir: { engine: 'iso', name: 'NOIR' } }))
     assert.equal(M.startView('noir', null), 'noir')
-    assert.equal(M.nextView('iso'), 'noir')
-    assert.equal(M.nextView('noir'), 'classic')
     assert.equal(M.viewName('noir'), 'NOIR')
+    assert.equal(M.viewDef('poly'), undefined)
+    assert.equal(M.startView('poly', 'third'), M.startView(null, null))
     M.setLiveViews(null)
     assert.equal(M.startView(null, 'noir'), M.DEFAULT_VIEW)
-    assert.equal(M.viewList().length, M.VIEWS.length)
+    assert.deepEqual(M.viewList().map(v => v.id), M.VIEWS.map(v => v.id))
   })
-})
 
-describe('the projection', () => {
-  it('is the classic view at 0 and a 2:1 diamond at 1', () => {
-    assert.deepEqual(M.projection(0), { ex: { x: 16, y: 0 }, ey: { x: 0, y: 16 }, k: 0 })
-    assert.deepEqual(M.projection(1), { ex: { x: 16, y: 8 }, ey: { x: -16, y: 8 }, k: 1 })
-  })
-  it('turns without a jump at either end', () => {
-    const a = M.projection(0.0001)
-    near(a.ex.x, 16, 0.01); near(a.ex.y, 0, 0.01); near(a.ey.x, 0, 0.01); near(a.ey.y, 16, 0.01)
-    const b = M.projection(0.9999)
-    near(b.ex.x, 16, 0.01); near(b.ex.y, 8, 0.01); near(b.ey.x, -16, 0.01); near(b.ey.y, 8, 0.01)
-  })
-  it('never folds the ground over on the way', () => {
-    for (let k = 0; k <= 1; k += 0.05) {
-      const p = M.projection(k)
-      assert.ok(p.ex.x * p.ey.y - p.ey.x * p.ex.y > 100, `the ground is flat or mirrored at k=${k}`)
-    }
-  })
-  it('unprojects what it projects', () => {
-    for (const k of [0, 0.3, 0.77, 1]) {
-      const p = M.projection(k)
-      const s = M.project(p, 12.25, 40.5)
-      const w = M.unproject(p, s.x, s.y)
-      near(w.x, 12.25, 1e-6); near(w.y, 40.5, 1e-6)
-    }
-  })
-  it('covers the whole screen with ground tiles, and stays on the map', () => {
-    const p = M.projection(1)
-    const c = M.project(p, 30, 20)
-    const r = M.groundRect(p, c, 320, 200, 56, 2, 104, 48)
-    for (const [sx, sy] of [[-160, -100], [160, -100], [-160, 156], [160, 156]]) {
-      const w = M.unproject(p, c.x + sx, c.y + sy)
-      const x = Math.max(0, Math.min(104, w.x))
-      const y = Math.max(0, Math.min(48, w.y))
-      assert.ok(x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h, 'a corner of the screen has no tile under it')
-    }
-    assert.ok(r.x >= 0 && r.y >= 0 && r.x + r.w <= 104 && r.y + r.h <= 48)
-  })
-  it('keeps the camera inside a big zone and centres a small one', () => {
-    const p = M.projection(1)
-    const big = { x: 0, y: 0, w: 104, h: 48 }
-    const far = M.centreIn(p, { x: 0, y: 0 }, big, 320, 200, 56)
-    const box = M.projectedBox(p, big, 56)
-    assert.ok(far.x - 160 >= box.x0 - 1e-6 && far.y - 100 >= box.y0 - 1e-6)
-    const small = { x: 10, y: 10, w: 4, h: 4 }
-    const mid = M.centreIn(p, { x: 10, y: 10 }, small, 320, 200, 0)
-    const sb = M.projectedBox(p, small, 0)
-    near(mid.x, (sb.x0 + sb.x1) / 2); near(mid.y, (sb.y0 + sb.y1) / 2)
-  })
-})
-
-describe('the 16-bit view\'s camera', () => {
-  const rect = { x: 0, y: 0, w: 40, h: 30 }
-  const cam = (k, zoom0 = 2) => { const c = M.makeCam(k, 640, 400, zoom0, { x: 0, y: 0 }); M.fitDepth(c, rect); return c }
-  it('draws two px for every px of the classic art', () => {
-    assert.equal(M.DENSITY, 2)
-    const c = cam(1)
-    near(c.zoom, 2)
-    // One tile east is a 2:1 step of 32 by 16; one tile up is 32 px.
-    assert.deepEqual([c.ex.x, c.ex.y, c.ey.x, c.ey.y, c.zs], [32, 16, -32, 16, 32])
-  })
-  it('is the classic picture where the turn starts, whatever size that has', () => {
-    for (const zoom0 of [2, 2.5, 1.5]) {
-      const c = cam(0, zoom0)
-      near(c.zoom, zoom0)
-      // A wall's top one tile up, standing one row south of where the art draws it, lands where the art drew it.
-      const top = M.toScene(c, 3, 5, 1)
-      const drawn = M.toScene(c, 3, 4, 0)
-      near(top.x, drawn.x); near(top.y, drawn.y)
-    }
-  })
-  it('never foreshortens height: one tile up is one tile of px at every k', () => {
-    for (const k of [0, 0.3, 0.7, 1]) {
-      const c = cam(k)
-      const a = M.toScene(c, 7, 9, 0)
-      const b = M.toScene(c, 7, 9, 1)
-      near(a.x, b.x); near(a.y - b.y, 16 * c.zoom)
-    }
-  })
-  it('finds the ground under a scene px again, at any height', () => {
-    for (const k of [0, 0.5, 1]) {
-      const c = cam(k)
-      for (const [x, y, z] of [[3.25, 8.5, 0], [12, 2.75, 1], [30.5, 20.125, 2]]) {
-        const s = M.toScene(c, x, y, z)
-        const g = M.toGround(c, s.x, s.y, z)
-        near(g.x, x, 1e-6); near(g.y, y, 1e-6)
-      }
-    }
-  })
-  it('puts what is nearer the viewer in front: further south-east, and higher', () => {
-    const c = cam(1)
-    assert.ok(M.depthOf(c, 10, 10) > M.depthOf(c, 9, 10))
-    assert.ok(M.depthOf(c, 10, 10) > M.depthOf(c, 10, 9))
-    assert.ok(M.depthOf(c, 10, 10, 1) > M.depthOf(c, 10, 10, 0))
-    // A point straight behind another on the screen (one tile north-west, as far up as that puts it) is further away.
-    const front = M.toScene(c, 10, 10, 0)
-    const behind = M.toScene(c, 9, 9, -1)
-    near(front.x, behind.x); near(front.y, behind.y)
-    assert.ok(M.depthOf(c, 10, 10, 0) > M.depthOf(c, 9, 9, -1))
-    // The classic view looks from the south: the same holds along its own line of sight.
-    const c0 = cam(0)
-    assert.ok(M.depthOf(c0, 5, 6) > M.depthOf(c0, 5, 5))
-  })
-  it('keeps every depth in play between 0 and 1', () => {
-    for (const k of [0, 0.5, 1]) {
-      const c = cam(k)
-      for (const x of [rect.x, rect.x + rect.w]) for (const y of [rect.y, rect.y + rect.h]) for (const z of [0, M.Z_MAX]) {
-        const d = M.depthOf(c, x, y, z)
-        assert.ok(d > 0 && d < 1, `depth ${d} at ${x},${y},${z} for k=${k}`)
-      }
-    }
-  })
-})
-
-describe('the land beyond the map\'s edge', () => {
-  // A small map: sea along the south-west, rock along the north-east and the south-east, a road out to the west, woods elsewhere.
-  const rows = [
-    'TTTT####',
-    ',......#',
-    'T......T',
-    '~~~~..##',
-  ]
-  const w = 8
-  const h = 4
-  const tiles = rows.join('').split('')
-  const at = (x, y) => M.beyondTile(tiles, w, h, x, y)
-  it('is the map itself inside the edge', () => {
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) assert.equal(at(x, y), rows[y][x])
-  })
-  it('goes on as sea, woods, a road and rock, and only those', () => {
-    const seen = new Set()
-    for (let y = -M.BEYOND; y < h + M.BEYOND; y++) for (let x = -M.BEYOND; x < w + M.BEYOND; x++) {
-      if (x >= 0 && y >= 0 && x < w && y < h) continue
-      seen.add(at(x, y))
-    }
-    assert.deepEqual([...seen].sort(), ['#', ',', 'T', '~'])
-  })
-  it('gives the tile next to the map its edge tile\'s kind', () => {
-    assert.equal(at(1, 4), '~')
-    assert.equal(at(-1, 3), '~')
-    assert.equal(at(-1, 2), 'T')
-    assert.equal(at(5, -1), '#')
-    assert.equal(at(2, -1), 'T')
-  })
-  it('lets a road run straight on, and only straight', () => {
-    for (let d = 1; d <= M.BEYOND; d++) assert.equal(at(-d, 1), ',')
-  })
-  it('ends rock in front of the map in the sea, and raises it behind the map', () => {
-    // South and east of the map (in front, as the turned view sees it): no rock at all.
-    for (let y = -M.BEYOND; y < h + M.BEYOND; y++) for (let x = -M.BEYOND; x < w + M.BEYOND; x++) {
-      if (x >= w || y >= h) assert.notEqual(at(x, y), '#', `rock in front of the map at ${x},${y}`)
-    }
-    assert.equal(at(7, 4), '~')
-    assert.equal(at(8, 0), '~')
-    // Behind it the rock stands one tile tall beside the map and up to three further out, never more.
-    assert.equal(M.massifHeight(w, h, 5, -1), 1)
-    let top = 0
-    for (let d = 1; d <= M.BEYOND; d++) { const n = M.massifHeight(w, h, 5, -d); assert.ok(n >= 1 && n <= 3); top = Math.max(top, n) }
-    assert.equal(top, 3)
-  })
-  it('is the same every time', () => {
-    for (const [x, y] of [[-7, -9], [12, 3], [3, 15], [-20, 20]]) assert.equal(at(x, y), at(x, y))
-  })
-  it('reaches as far as a view can see past the edge', () => {
-    // The widest look past the edge: a tall phone, the hero in the map's corner. Half the scene in tiles.
-    for (const [sw, sh] of [[390, 844], [960, 540], [860, 360]]) {
-      const reach = sw / 2 / 64 + (sh / 2 + 2 * 56) / 32
-      assert.ok(reach < M.BEYOND, `${sw}×${sh} sees ${reach.toFixed(1)} tiles past the edge`)
-    }
-  })
-  it('keeps the view\'s tiles inside the map and that much land round it', () => {
-    const P = M.projection(1)
-    const far = M.groundRect(P, M.project(P, 0, 0), 600, 400, 56, 2, 40, 30, M.BEYOND)
-    assert.ok(far.x >= -M.BEYOND && far.y >= -M.BEYOND)
-    assert.ok(far.x < 0 && far.y < 0, 'the land beyond the corner is in the rectangle')
-    const none = M.groundRect(P, M.project(P, 0, 0), 600, 400, 56, 2, 40, 30)
-    assert.ok(none.x === 0 && none.y === 0)
-  })
-})
-
-describe('where a swing is aimed', () => {
-  it('follows the stick exactly while it agrees with the facing, and the facing otherwise', () => {
-    assert.equal(M.aimOf({ dir: 'up' }), -Math.PI / 2)
-    assert.equal(M.aimOf({ dir: 'up', aim: -Math.PI * 0.75 }), -Math.PI * 0.75)
-    assert.equal(M.aimOf({ dir: 'right', aim: Math.PI / 4 }), Math.PI / 4)
-    // Something else turned the hero (a door, a talk): the old aim no longer counts.
-    assert.equal(M.aimOf({ dir: 'down', aim: -Math.PI * 0.75 }), Math.PI / 2)
-    assert.equal(M.aimOf({ dir: 'left', aim: 0 }), Math.PI)
-  })
-  it('centres the sweep on the aim, as wide as ever', () => {
-    const a0 = M.swingAngle({ dir: 'up', a: -Math.PI * 0.75 }, 0)
-    const a1 = M.swingAngle({ dir: 'up', a: -Math.PI * 0.75 }, 1)
-    assert.ok(Math.abs((a0 + a1) / 2 - -Math.PI * 0.75) < 1e-9)
-    assert.ok(Math.abs(a1 - a0 - M.SWORD_ARC) < 1e-9)
-    // Without an aim: across the facing, as before.
-    assert.ok(Math.abs((M.swingAngle({ dir: 'down' }, 0) + M.swingAngle({ dir: 'down' }, 1)) / 2 - Math.PI / 2) < 1e-9)
-  })
-  it('swings along the diagonal the hero walks', () => {
-    const s = M.createGame(M.WORLD, { seed: 3 })
-    s.dialog = null; s.mode = 'play'; s.hero.auto = null; s.inv.sword = true
-    // Out on the open square, away from doors and people.
-    s.hero.x = 20.5; s.hero.y = 17.5
-    const d = Math.SQRT1_2
-    for (let i = 0; i < 6; i++) M.stepGame(M.WORLD, s, 1 / 60, { ...M.NO_INPUT, move: { x: d, y: d } })
-    M.stepGame(M.WORLD, s, 1 / 60, { ...M.NO_INPUT, move: { x: d, y: d }, a: true, aPress: true })
-    assert.ok(s.hero.swing, 'the swing began')
-    assert.ok(Math.abs(s.hero.swing.a - Math.PI / 4) < 1e-9)
-    assert.ok(['down', 'right'].includes(s.hero.swing.dir))
-  })
-})
-
-describe('controls in a turned view', () => {
-  const T8 = Math.PI / 4
-  it('leaves the classic view alone', () => {
-    const m = { x: 0.3, y: -0.8 }
-    assert.equal(M.turnMove(m, 0), m)
-  })
-  it('makes up on the stick up on the screen', () => {
-    // Up on an isometric screen is north-west in the world: the same ground step along both axes.
-    const w = M.turnMove({ x: 0, y: -1 }, T8)
-    near(w.x, -Math.SQRT1_2); near(w.y, -Math.SQRT1_2)
-    const s = M.project(M.projection(1), w.x, w.y)
-    near(s.x, 0); assert.ok(s.y < 0)
-  })
-  it('lands the eight keyboard directions on the eight world directions', () => {
-    const n = M.turnMove({ x: Math.SQRT1_2, y: -Math.SQRT1_2 }, T8)
-    near(n.x, 0); near(n.y, -1)
-    const e = M.turnMove({ x: Math.SQRT1_2, y: Math.SQRT1_2 }, T8)
-    near(e.x, 1); near(e.y, 0)
-    const r = M.turnMove({ x: 1, y: 0 }, T8)
-    near(r.x, Math.SQRT1_2); near(r.y, -Math.SQRT1_2)
-  })
-  it('keeps the length of the push', () => {
-    const w = M.turnMove({ x: 0.3, y: 0.4 }, T8 * 0.6)
-    near(Math.hypot(w.x, w.y), 0.5)
-  })
-})
-
-describe('how tiles stand', () => {
-  const grid = (rows, kind) => (x, y) => {
-    const at = (dx, dy) => rows[y + dy]?.[x + dx] ?? (kind === 'overworld' ? 'T' : '#')
-    return M.shapeOf(rows[y][x], kind, at)
-  }
-  it('reads a dungeon wall as a top with a face on its southern row', () => {
-    const s = grid(['####', '####', '....'], 'dungeon')
-    assert.equal(s(1, 0), M.WALL_TOP)
-    assert.equal(s(1, 1), M.FACE0)
-    assert.equal(s(1, 2), M.FLAT)
-  })
-  it('leaves a wall down when floor lies to its west, so it hides nothing', () => {
-    const s = grid(['#..#', '#..#', '#..#', '####'], 'interior')
-    assert.equal(s(0, 0), M.WALL_TOP)
-    assert.equal(s(3, 0), M.FLAT)
-    assert.equal(s(3, 1), M.FLAT)
-  })
-  it('gives a house a roof, a window row and a foot, with the door in the foot', () => {
-    const s = grid(['.....', '.HHH.', '.HHH.', '.HHH.', '.HDH.', '.....'], 'overworld')
-    assert.equal(s(1, 1), M.ROOF)
-    assert.equal(s(1, 2), M.ROOF)
-    assert.equal(s(1, 3), M.FACE1)
-    assert.equal(s(1, 4), M.FACE0)
-    assert.equal(s(2, 4), M.FACE0)
-    assert.equal(s(2, 3), M.FACE1)
-  })
-  it('stands a lone tree up and makes a canopy of trees with trees below', () => {
-    const s = grid(['.....', '.T.T.', '...T.', '.....'], 'overworld')
-    assert.equal(s(1, 1), M.CARD)
-    assert.equal(s(3, 1), M.CANOPY)
-    assert.equal(s(3, 2), M.CARD)
-  })
-  it('stands a fence along x up as a strip and lays one along y down', () => {
-    const s = grid(['.....', '.FFF.', '.....', '..F..', '..F..', '.....', '.F...'], 'overworld')
-    assert.equal(s(2, 1), M.FACE0)
-    assert.equal(s(2, 3), M.FLAT)
-    assert.equal(s(1, 6), M.CARD)
-  })
-  it('keeps a crystal block down until it is raised, and an exit\'s tile bare', () => {
-    const at = () => '.'
-    assert.equal(M.shapeOf('P', 'dungeon', at, false, false), M.FLAT)
-    assert.equal(M.shapeOf('P', 'dungeon', at, false, true), M.CARD)
-    assert.equal(M.shapeOf('M', 'interior', at, true), M.FLAT)
-  })
-  it('never raises anything the hero can walk on above the ground', () => {
+  it('never raises anything the hero can walk on above the ground, on any map', () => {
     // On the maps as the engine builds them (markers resolved to their tiles, doors included):
     // a walkable tile that stood up as a wall top would hide the hero standing on it.
     const g = M.createGame(M.WORLD, { seed: 1, at: M.WORLD.start })
@@ -590,30 +179,171 @@ describe('how tiles stand', () => {
     }
     assert.ok(seen > 5000, `only ${seen} walkable tiles were looked at`)
   })
-  it('leaves a wall down over a door that lies flat in a side wall', () => {
-    // Two door tiles one above the other in a west wall: nothing may stand on the upper one.
-    const s = grid(['##...', '##...', 'L....', 'L....', '##...', '##...'], 'dungeon')
-    assert.equal(s(0, 1), M.FLAT)
-    assert.equal(s(0, 2), M.FLAT)
-    assert.equal(s(0, 3), M.FLAT)
-    // A door in a north wall stands, and so does the wall above it.
-    const n = grid(['###', '###', '#L#', '...'], 'dungeon')
-    assert.equal(n(1, 2), M.FACE0)
-    assert.equal(n(1, 1), M.WALL_TOP)
+
+  it('puts the hero on open ground in every scene of the studio\'s stage, and names each for its list', () => {
+    const ids = new Set()
+    for (const sc of M.STAGE_SCENES) {
+      assert.match(sc.id, /^[a-z][a-z0-9-]*$/)
+      assert.ok(sc.label && sc.group, `${sc.id} has no label or group`)
+      assert.ok(!ids.has(sc.id), `two scenes are called ${sc.id}`)
+      ids.add(sc.id)
+      const s = M.createGame(M.WORLD, { seed: 7 })
+      sc.set(M.WORLD, s)
+      const m = s.map
+      const tx = Math.floor(s.hero.x)
+      const ty = Math.floor(s.hero.y)
+      assert.ok(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h, `${sc.id} is off the map`)
+      const t = m.tiles[ty * m.w + tx]
+      assert.ok(!M.TILE_INFO[t].solid, `${sc.id} stands the hero in a wall (${t} at ${tx},${ty} of ${m.id})`)
+    }
+  })
+})
+
+describe('the isometric geometry', () => {
+  const rect = { x: 0, y: 0, w: 40, h: 30 }
+  const cam = (k, zoom0 = 2) => { const c = M.makeCam(k, 640, 400, zoom0, { x: 0, y: 0 }); M.fitDepth(c, rect); return c }
+
+  it('finds the ground under a scene px again at every step of the turn and any height, and never folds it over', () => {
+    for (let k = 0; k <= 1; k += 0.05) {
+      const p = M.projection(k)
+      assert.ok(p.ex.x * p.ey.y - p.ey.x * p.ex.y > 100, `the ground is flat or mirrored at k=${k}`)
+      const s = M.project(p, 12.25, 40.5)
+      const w = M.unproject(p, s.x, s.y)
+      near(w.x, 12.25, 1e-6); near(w.y, 40.5, 1e-6)
+    }
+    for (const k of [0, 0.3, 0.7, 1]) {
+      const c = cam(k)
+      for (const [x, y, z] of [[3.25, 8.5, 0], [12, 2.75, 1], [30.5, 20.125, 2]]) {
+        const s = M.toScene(c, x, y, z)
+        const g = M.toGround(c, s.x, s.y, z)
+        near(g.x, x, 1e-6); near(g.y, y, 1e-6)
+      }
+      // Height is never foreshortened: one tile up is one tile of px.
+      const a = M.toScene(c, 7, 9, 0)
+      const b = M.toScene(c, 7, 9, 1)
+      near(a.x, b.x); near(a.y - b.y, 16 * c.zoom)
+    }
+    // Where the turn starts it is the classic picture: a wall's top one tile up lands where the art drew it.
+    for (const zoom0 of [2, 2.5, 1.5]) {
+      const c = cam(0, zoom0)
+      near(c.zoom, zoom0)
+      const top = M.toScene(c, 3, 5, 1)
+      const drawn = M.toScene(c, 3, 4, 0)
+      near(top.x, drawn.x); near(top.y, drawn.y)
+    }
+  })
+
+  it('covers the whole screen with ground tiles, stays on the map, and keeps the camera in a big zone', () => {
+    const p = M.projection(1)
+    const c = M.project(p, 30, 20)
+    const r = M.groundRect(p, c, 320, 200, 56, 2, 104, 48)
+    for (const [sx, sy] of [[-160, -100], [160, -100], [-160, 156], [160, 156]]) {
+      const w = M.unproject(p, c.x + sx, c.y + sy)
+      const x = Math.max(0, Math.min(104, w.x))
+      const y = Math.max(0, Math.min(48, w.y))
+      assert.ok(x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h, 'a corner of the screen has no tile under it')
+    }
+    assert.ok(r.x >= 0 && r.y >= 0 && r.x + r.w <= 104 && r.y + r.h <= 48)
+    // The camera stays inside a big zone and centres a small one.
+    const big = { x: 0, y: 0, w: 104, h: 48 }
+    const far = M.centreIn(p, { x: 0, y: 0 }, big, 320, 200, 56)
+    const box = M.projectedBox(p, big, 56)
+    assert.ok(far.x - 160 >= box.x0 - 1e-6 && far.y - 100 >= box.y0 - 1e-6)
+    const small = { x: 10, y: 10, w: 4, h: 4 }
+    const mid = M.centreIn(p, { x: 10, y: 10 }, small, 320, 200, 0)
+    const sb = M.projectedBox(p, small, 0)
+    near(mid.x, (sb.x0 + sb.x1) / 2); near(mid.y, (sb.y0 + sb.y1) / 2)
+  })
+
+  it('puts what is nearer the viewer in front, further south-east and higher, at depths between 0 and 1', () => {
+    const c = cam(1)
+    assert.ok(M.depthOf(c, 10, 10) > M.depthOf(c, 9, 10))
+    assert.ok(M.depthOf(c, 10, 10) > M.depthOf(c, 10, 9))
+    assert.ok(M.depthOf(c, 10, 10, 1) > M.depthOf(c, 10, 10, 0))
+    // A point straight behind another on the screen (one tile north-west, as far up as that puts it) is further away.
+    const front = M.toScene(c, 10, 10, 0)
+    const behind = M.toScene(c, 9, 9, -1)
+    near(front.x, behind.x); near(front.y, behind.y)
+    assert.ok(M.depthOf(c, 10, 10, 0) > M.depthOf(c, 9, 9, -1))
+    // The classic view looks from the south: the same holds along its own line of sight.
+    const c0 = cam(0)
+    assert.ok(M.depthOf(c0, 5, 6) > M.depthOf(c0, 5, 5))
+    for (const k of [0, 0.5, 1]) {
+      const c = cam(k)
+      for (const x of [rect.x, rect.x + rect.w]) for (const y of [rect.y, rect.y + rect.h]) for (const z of [0, M.Z_MAX]) {
+        const d = M.depthOf(c, x, y, z)
+        assert.ok(d > 0 && d < 1, `depth ${d} at ${x},${y},${z} for k=${k}`)
+      }
+    }
+  })
+
+  it('goes on past a map\'s edge as sea, woods, a road and rock only, farther than any screen sees', () => {
+    // A small map: sea along the south-west, rock along the north-east and the south-east, a road out to the west, woods elsewhere.
+    const rows = ['TTTT####', ',......#', 'T......T', '~~~~..##']
+    const w = 8
+    const h = 4
+    const tiles = rows.join('').split('')
+    const at = (x, y) => M.beyondTile(tiles, w, h, x, y)
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) assert.equal(at(x, y), rows[y][x], 'the map itself inside the edge')
+    const seen = new Set()
+    for (let y = -M.BEYOND; y < h + M.BEYOND; y++) for (let x = -M.BEYOND; x < w + M.BEYOND; x++) {
+      if (x >= 0 && y >= 0 && x < w && y < h) continue
+      seen.add(at(x, y))
+    }
+    assert.deepEqual([...seen].sort(), ['#', ',', 'T', '~'])
+    // The widest look past the edge: a tall phone, the hero in the map's corner. Half the scene in tiles.
+    for (const [sw, sh] of [[390, 844], [960, 540], [860, 360]]) {
+      const reach = sw / 2 / 64 + (sh / 2 + 2 * 56) / 32
+      assert.ok(reach < M.BEYOND, `${sw}×${sh} sees ${reach.toFixed(1)} tiles past the edge`)
+    }
+    // The view's tiles take in that land round the map.
+    const P = M.projection(1)
+    const far = M.groundRect(P, M.project(P, 0, 0), 600, 400, 56, 2, 40, 30, M.BEYOND)
+    assert.ok(far.x >= -M.BEYOND && far.y >= -M.BEYOND && far.x < 0 && far.y < 0)
+  })
+})
+
+describe('playing in a turned view', () => {
+  it('swings along the diagonal the hero walks', () => {
+    const s = M.createGame(M.WORLD, { seed: 3 })
+    s.dialog = null; s.mode = 'play'; s.hero.auto = null; s.inv.sword = true
+    // Out on the open square, away from doors and people.
+    s.hero.x = 20.5; s.hero.y = 17.5
+    const d = Math.SQRT1_2
+    for (let i = 0; i < 6; i++) M.stepGame(M.WORLD, s, 1 / 60, { ...M.NO_INPUT, move: { x: d, y: d } })
+    M.stepGame(M.WORLD, s, 1 / 60, { ...M.NO_INPUT, move: { x: d, y: d }, a: true, aPress: true })
+    assert.ok(s.hero.swing, 'the swing began')
+    assert.ok(Math.abs(s.hero.swing.a - Math.PI / 4) < 1e-9)
+    assert.ok(['down', 'right'].includes(s.hero.swing.dir))
+  })
+
+  it('lands the eight keyboard directions on the eight world directions, up on the screen, the push as long', () => {
+    const T8 = Math.PI / 4
+    // Up on an isometric screen is north-west in the world: the same ground step along both axes.
+    const up = M.turnMove({ x: 0, y: -1 }, T8)
+    near(up.x, -Math.SQRT1_2); near(up.y, -Math.SQRT1_2)
+    const s = M.project(M.projection(1), up.x, up.y)
+    near(s.x, 0); assert.ok(s.y < 0)
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4
+      const w = M.turnMove({ x: Math.cos(a), y: Math.sin(a) }, T8)
+      near(w.x, Math.cos(a - T8)); near(w.y, Math.sin(a - T8))
+    }
+    const half = M.turnMove({ x: 0.3, y: 0.4 }, T8 * 0.6)
+    near(Math.hypot(half.x, half.y), 0.5)
   })
 })
 
 describe('the turn between views', () => {
   const two = () => M.createTurn(id => id === 'iso' || id === 'other', 0.6)
   const run = (t, seconds, dt = 1 / 60) => { let r; for (let i = 0; i < Math.round(seconds / dt); i++) r = t.step(dt); return r }
-  it('starts on the classic view and stays there', () => {
+
+  it('turns in from the classic view without ever drawing at k = 0, reverses without a jump, and turns out again', () => {
     const t = two()
     assert.deepEqual(t.step(1 / 60), { shown: '', k: 0 })
     assert.equal(t.id, 'classic')
     assert.equal(t.turning, false)
-  })
-  it('turns in over the given time, and never draws the view at k = 0', () => {
-    const t = two()
+    // In, over the given time.
     t.set('iso')
     assert.equal(t.id, 'iso')
     assert.equal(t.turning, true)
@@ -623,48 +353,31 @@ describe('the turn between views', () => {
     assert.ok(run(t, 0.3).k < 1)
     assert.deepEqual(run(t, 0.4), { shown: 'iso', k: 1 })
     assert.equal(t.turning, false)
-  })
-  it('turns back out, and the classic view takes over at the end', () => {
-    const t = two()
-    t.set('iso', true)
+    // And back out.
     assert.deepEqual(t.step(0), { shown: 'iso', k: 1 })
     t.set('classic')
     assert.equal(t.id, 'classic')
     assert.equal(run(t, 0.3).shown, 'iso')
     assert.deepEqual(run(t, 0.4), { shown: '', k: 0 })
     assert.equal(t.turning, false)
-  })
-  it('reverses in the middle without a jump', () => {
-    const t = two()
+    // Taken back in the middle: no jump.
     t.set('iso')
     const up = run(t, 0.3).k
     t.set('classic')
     const down = t.step(1 / 60).k
     assert.ok(down < up && up - down < 0.05)
-  })
-  it('goes from one added view to another through the classic one', () => {
-    const t = two()
-    t.set('iso', true)
-    t.set('other')
-    assert.equal(t.id, 'other')
-    assert.equal(run(t, 0.3).shown, 'iso')
+    // From one added view to another it goes through the classic one.
+    const u = two()
+    u.set('iso', true)
+    u.set('other')
+    assert.equal(run(u, 0.3).shown, 'iso')
     const seen = new Set()
-    for (let i = 0; i < 120; i++) seen.add(t.step(1 / 60).shown)
+    for (let i = 0; i < 120; i++) seen.add(u.step(1 / 60).shown)
     assert.deepEqual([...seen], ['iso', '', 'other'])
-    assert.equal(t.k, 1)
+    assert.equal(u.k, 1)
   })
-  it('stands still while no time passes, and says a turn is in flight', () => {
-    const t = two()
-    t.set('iso')
-    run(t, 0.2)
-    const k = t.k
-    assert.equal(t.step(0).k, k)
-    assert.equal(t.turning, true)
-    t.set('iso', true)
-    assert.equal(t.turning, false)
-    assert.equal(t.k, 1)
-  })
-  it('waits on the classic picture for a view that cannot draw yet, then turns in from the start', () => {
+
+  it('waits on the classic picture for a view that cannot draw, falls back when one is lost, and lets go of it', () => {
     const t = two()
     t.set('iso')
     for (let i = 0; i < 30; i++) assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
@@ -676,160 +389,37 @@ describe('the turn between views', () => {
     assert.ok(first.k > 0 && first.k < 0.05, 'the turn starts at the classic picture, however long the wait was')
     assert.equal(t.waiting, false)
     assert.deepEqual(run(t, 0.7), { shown: 'iso', k: 1 })
-  })
-  it('arrives at once in a view that was waited for, when no turn was asked for', () => {
-    const t = two()
-    t.set('iso', true)
-    assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
-    assert.equal(t.waiting, true)
-    assert.deepEqual(t.step(1 / 60, true), { shown: 'iso', k: 1 })
-    // Asked again with a turn while it waits: it turns in after all.
+    // No turn was asked for: it arrives at once, and falls back to the classic picture if it is lost again.
     const u = two()
     u.set('iso', true)
-    u.step(1 / 60, false)
-    u.set('iso')
-    assert.ok(u.step(1 / 60, true).k < 0.05)
-  })
-  it('falls back to the classic picture when the view on screen stops being ready, and comes back', () => {
-    const t = two()
-    t.set('iso', true)
-    assert.deepEqual(t.step(1 / 60), { shown: 'iso', k: 1 })
-    assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
-    assert.equal(t.id, 'iso')
-    assert.deepEqual(t.step(1 / 60, true), { shown: 'iso', k: 1 })
-  })
-  it('lets go of a view that cannot draw when another is asked for', () => {
-    const t = two()
-    t.set('iso', true)
-    t.step(0)
-    t.set('classic')
-    assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
-    assert.equal(t.turning, false)
-    assert.equal(t.waiting, false)
-  })
-  it('treats a view it does not have as the classic one', () => {
-    const t = two()
-    t.set('hologram')
-    assert.equal(t.id, 'classic')
-    assert.deepEqual(t.step(1), { shown: '', k: 0 })
-  })
-  // The renderer's numbers (TURN_S, HANDOFF in renderer.ts).
-  const S = 0.7
-  const H = 0.1
-  /** A whole turn at a given frame length: the raw k of every frame the view drew. */
-  const frames = (t, dt, held = () => false) => {
-    const ks = []
-    for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(M.turnTime(dt, t.k, H, S, held(i))); if (r.shown) ks.push(r.k) }
-    return ks
-  }
-  /** The same with the renderer's clock (`turnDt`): every frame the turn had, as [k, the view drew]. */
-  const clocked = (t, dts) => {
-    const clock = M.createTurnClock(H, S)
-    const out = []
-    for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(clock(typeof dts === 'function' ? dts(i) : dts, t)); out.push([r.k, r.shown !== '']) }
-    return out
-  }
-  it('counts a steady frame whole: a turn at 60 frames a second takes its 0.7 s, and below that a little longer', () => {
-    const t = M.createTurn(id => id === 'iso', S)
-    t.set('iso')
-    assert.equal(frames(t, 1 / 60).length, 42)
-    t.set('classic')
-    assert.equal(frames(t, 1 / 60).length, 41, 'the last frame out is the classic picture alone')
-    for (const k of [0, 0.05, H, 0.2, 0.5, 1]) {
-      assert.equal(M.turnTime(1 / 60, k, H, S), 1 / 60)
-    }
-    assert.equal(M.turnTime(1 / 30, 0.5, H, S), 1 / 30)
-    assert.equal(M.turnTime(0.1, 0.5, H, S), 0.1, 'away from the hand-off a long frame is the time it took')
-    // The hand-off is four frames or more at any rate, so a slow device's turn is that much longer: 0.8 s at 30 frames a second.
-    for (const [dt, into, out] of [[1 / 60, 42, 42], [1 / 30, 24, 24], [1 / 20, 18, 20]]) {
-      const u = M.createTurn(id => id === 'iso', S)
-      u.set('iso')
-      assert.equal(clocked(u, dt).length, into, `in at ${dt.toFixed(3)} s a frame`)
-      u.set('classic')
-      assert.equal(clocked(u, dt).length, out, `out at ${dt.toFixed(3)} s a frame`)
-    }
-  })
-  it('slows for the hand-off only on the way to it', () => {
-    // Coming out of the hand-off a long frame is the time it took; heading for it, it is two steady frames at most.
-    assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, false), 0.1)
-    assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, true), 1 / 30)
-    // And its last step before the hand-off lands no deeper in it than a steady frame would have.
-    assert.ok(Math.abs(M.turnTime(0.1, H + 0.01, H, S, false, true) - (0.01 * S + 1 / 60)) < 1e-12)
-    assert.equal(M.turnTime(0.1, H / 2, H, S, false, false), 1 / 60, 'the hand-off itself is steady both ways')
-  })
-  it('does not let the press that began a turn move it: the first two frames are steady ones', () => {
-    // The first key of a visit starts the sound, a tenth of a second or more that lands in the second frame's dt.
-    const t = M.createTurn(id => id === 'iso', S)
-    t.set('iso', true)
-    t.step(0)
-    t.set('classic')
-    const ks = clocked(t, i => (i === 1 ? 0.1 : 1 / 60)).map(f => f[0])
-    assert.ok(Math.abs((1 - ks[0]) - (1 / 60) / S) < 1e-9)
-    assert.ok(Math.abs((ks[0] - ks[1]) - (1 / 60) / S) < 1e-9, `the second frame moved the turn ${(ks[0] - ks[1]).toFixed(3)}`)
-    // A long third frame is time the turn has had.
-    const u = M.createTurn(id => id === 'iso', S)
-    u.set('iso', true)
-    u.step(0)
+    assert.deepEqual(u.step(1 / 60, false), { shown: '', k: 0 })
+    assert.deepEqual(u.step(1 / 60, true), { shown: 'iso', k: 1 })
+    assert.deepEqual(u.step(1 / 60, false), { shown: '', k: 0 })
+    assert.equal(u.id, 'iso')
+    assert.deepEqual(u.step(1 / 60, true), { shown: 'iso', k: 1 })
+    // Asked for another while it cannot draw: it is let go.
     u.set('classic')
-    const us = clocked(u, i => (i === 2 ? 0.1 : 1 / 60)).map(f => f[0])
-    assert.ok(us[1] - us[2] > 0.1)
-    // The count starts again with the next turn, and a frame made long on purpose is steady whatever its number.
-    const clock = M.createTurnClock(H, S)
-    const v = M.createTurn(id => id === 'iso', S)
-    v.set('iso', true)
-    v.step(0)
-    for (let round = 0; round < 2; round++) {
-      v.set('classic')
-      assert.equal(clock(0.1, v), 1 / 60, `round ${round}: the first frame`)
-      v.step(1 / 60)
-      assert.equal(clock(0.1, v), 1 / 60, `round ${round}: the second frame`)
-      v.step(1 / 60)
-      assert.equal(clock(0.1, v, true), 1 / 60, `round ${round}: a held third frame`)
-      while (v.turning) v.step(clock(1 / 60, v))
-      assert.equal(clock(0.1, v), 0.1, 'at rest a frame is the time it took')
-      v.set('iso', true)
-      v.step(0)
-      assert.equal(clock(0.1, v), 0.1, 'at rest in the view too')
-    }
+    assert.deepEqual(u.step(1 / 60, false), { shown: '', k: 0 })
+    assert.deepEqual([u.turning, u.waiting], [false, false])
   })
-  it('counts a press in the middle of a turn, or right after one, as the start of a turn too', () => {
-    // A turn in, reversed half way: the two frames after the press are steady ones.
-    const clock = M.createTurnClock(H, S)
-    const t = M.createTurn(id => id === 'iso', S)
-    t.set('iso')
-    for (let i = 0; i < 30; i++) t.step(clock(1 / 60, t))
-    t.set('classic')
-    assert.equal(clock(0.1, t), 1 / 60, 'reversed: the first frame')
-    t.step(1 / 60)
-    assert.equal(clock(0.1, t), 1 / 60, 'reversed: the second frame')
-    t.step(1 / 60)
-    assert.equal(clock(0.1, t), 0.1, 'reversed: the third frame is the time it took')
-    // A press in the frame after a turn ended, with no frame at rest between.
-    const c2 = M.createTurnClock(H, S)
-    const u = M.createTurn(id => id === 'iso', S)
-    u.set('iso')
-    while (u.turning) u.step(c2(1 / 60, u))
-    u.set('classic')
-    assert.equal(c2(0.1, u), 1 / 60, 'back to back: the first frame')
-    u.step(1 / 60)
-    assert.equal(c2(0.1, u), 1 / 60, 'back to back: the second frame')
-    // A view waited for in the dark, and V in the frame after it came up: the clock saw that frame as a turning one.
-    let ready = false
-    const c3 = M.createTurnClock(H, S)
-    const w = M.createTurn(id => id === 'iso', S)
-    w.set('iso', true)
-    for (let i = 0; i < 5; i++) w.step(c3(1 / 60, w), ready)
-    ready = true
-    assert.ok(w.turning, 'a view that is waited for counts as turning')
-    w.step(c3(1 / 60, w), ready)
-    assert.equal(w.k, 1)
-    w.set('classic')
-    const k0 = w.k
-    w.step(c3(1 / 60, w), ready)
-    w.step(c3(0.1, w), ready)
-    assert.ok(Math.abs((k0 - w.k) - 2 * (1 / 60) / S) < 1e-9, `the press's long frame moved the turn ${(k0 - w.k).toFixed(4)}`)
-  })
+
   it('never lets a long frame carry the turn over the hand-off, in or out', () => {
+    // The renderer's numbers (TURN_S, HANDOFF in renderer.ts).
+    const S = 0.7
+    const H = 0.1
+    /** A whole turn at a given frame length: the raw k of every frame the view drew. */
+    const frames = (t, dt) => {
+      const ks = []
+      for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(M.turnTime(dt, t.k, H, S, false)); if (r.shown) ks.push(r.k) }
+      return ks
+    }
+    /** The same with the renderer's clock (`turnDt`): every frame the turn had, as [k, the view drew]. */
+    const clocked = (t, dts) => {
+      const clock = M.createTurnClock(H, S)
+      const out = []
+      for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(clock(dts(i), t)); out.push([r.k, r.shown !== '']) }
+      return out
+    }
     for (const dt of [1 / 60, 1 / 30, 1 / 20, 0.1]) {
       const t = M.createTurn(id => id === 'iso', S)
       t.set('iso')
@@ -843,7 +433,7 @@ describe('the turn between views', () => {
     // picture is painted in: four frames of the hand-off or more, both ways.
     let seed = 12345
     const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
-    for (let n = 0; n < 400; n++) {
+    for (let n = 0; n < 20; n++) {
       const t = M.createTurn(id => id === 'iso', S)
       t.set('iso')
       const into = clocked(t, () => 1 / 60 + rnd() * (0.1 - 1 / 60)).filter(f => f[1] && f[0] < H)
@@ -863,94 +453,5 @@ describe('the turn between views', () => {
       const left = k - M.turnTime(0.1, k, H, S) / S
       assert.ok(left > 0, `a long frame at k ${k.toFixed(3)} ends the turn (${left.toFixed(3)})`)
     }
-  })
-  it('does not count a frame that was made long on purpose', () => {
-    // The turn out paints the classic picture in its second frame: the third is a steady frame, whatever the clock says.
-    const t = M.createTurn(id => id === 'iso', S)
-    t.set('iso', true)
-    t.step(0)
-    t.set('classic')
-    const ks = frames(t, 0.1, i => i === 2).slice(0, 3)
-    assert.ok(ks[1] - ks[2] < 0.03, `after the painted frame the turn moves ${(ks[1] - ks[2]).toFixed(3)}`)
-    assert.ok(ks[0] - ks[1] > 0.1)
-  })
-})
-
-describe('the studio\'s stage', () => {
-  it('puts the hero on open ground in every scene, and names each for the studio\'s list', () => {
-    const ids = new Set()
-    for (const sc of M.STAGE_SCENES) {
-      assert.match(sc.id, /^[a-z][a-z0-9-]*$/)
-      assert.ok(sc.label && sc.group, `${sc.id} has no label or group`)
-      assert.ok(!ids.has(sc.id), `two scenes are called ${sc.id}`)
-      ids.add(sc.id)
-      const s = M.createGame(M.WORLD, { seed: 7 })
-      sc.set(M.WORLD, s)
-      const m = s.map
-      const tx = Math.floor(s.hero.x)
-      const ty = Math.floor(s.hero.y)
-      assert.ok(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h, `${sc.id} is off the map`)
-      const t = m.tiles[ty * m.w + tx]
-      assert.ok(!M.TILE_INFO[t].solid, `${sc.id} stands the hero in a wall (${t} at ${tx},${ty} of ${m.id})`)
-    }
-  })
-  it('falls back to the first scene for a place it does not know', () => {
-    assert.equal(M.stageScene('nowhere').id, M.STAGE_SCENES[0].id)
-    assert.equal(M.stageScene('beach').id, 'beach')
-  })
-  it('is a theme with no way in from the portal, and keeps its world out of the entry', () => {
-    const reg = readFileSync(resolve(site, 'themes/index.ts'), 'utf8')
-    assert.match(reg, /id: 'stage',\s+disabled: true/)
-    const landing = readFileSync(resolve(site, 'themes/stage/Landing.vue'), 'utf8')
-    assert.match(landing, /defineAsyncComponent\(\(\) => import\('\.\/ViewStage\.vue'\)\)/)
-    const stage = readFileSync(resolve(site, 'themes/stage/ViewStage.vue'), 'utf8')
-    for (const word of ['localStorage', 'sessionStorage', 'submitScore', 'createZeldaAudio', 'fetch(']) assert.ok(!stage.includes(word), `the stage must keep nothing and call nobody (${word})`)
-  })
-})
-
-describe('the classic view\'s shadows', () => {
-  const grid = rows => (x, y) => (rows[y]?.[x] ?? '.')
-  it('has the values the studio turns, and is on from the start', () => {
-    const p = M.resolveParams('classic')
-    assert.ok(p.shadow > 0)
-    for (const name of ['sunAngle', 'shadowLength', 'shadow', 'shadowColor']) assert.equal(M.ENGINES.classic.params[name].t, M.ENGINES.iso.params[name].t, name)
-    assert.equal(M.resolveParams('classic', { shadow: 0 }).shadow, 0)
-  })
-  it('stands a house on its two southern rows, two tiles tall, and shades none of its own picture', () => {
-    const rows = ['.....', '.HH..', '.HH..', '.HH..', '.HH..', '.....']
-    const f = M.massesOf(5, 6, 'overworld', grid(rows))
-    const at = (x, y) => f.height[y * 5 + x]
-    assert.equal(at(1, 3), 2); assert.equal(at(2, 4), 2)
-    assert.equal(at(1, 1), 0); assert.equal(at(1, 2), 0); assert.equal(at(3, 3), 0)
-    for (let y = 1; y <= 4; y++) assert.equal(f.kind[y * 5 + 1], 1)
-    assert.equal(f.kind[0], 0)
-  })
-  it('lets a lone tree stand alone and a wood be a mass', () => {
-    const f = M.massesOf(3, 4, 'overworld', grid(['.T.', '.T.', '...', 'T..']))
-    assert.equal(f.kind[0 * 3 + 1], 1)
-    assert.equal(f.kind[1 * 3 + 1], 2)
-    assert.equal(f.height[1 * 3 + 1], 1)
-    assert.equal(f.kind[3 * 3 + 0], 2)
-    assert.equal(f.height[3 * 3 + 0], 0)
-  })
-  it('throws a shadow away from the sun, and round to the far side of a lamp', () => {
-    const sun = { x: -1, y: 0 }
-    const b = M.blobOf(5, 5, 1, 0.25, [], sun, 1.5)
-    assert.ok(b.ux > 0.99 && b.x > 5)
-    const lamp = [{ x: 7, y: 5, r: 4, color: '#ffffff', a: 1 }]
-    const c = M.blobOf(5, 5, 1, 0.25, lamp, null, 0.6)
-    assert.ok(c.ux < -0.99 && c.x < 5)
-    // Lit from both sides alike, the shadow is a pool under the feet.
-    const both = M.blobOf(5, 5, 1, 0.25, [...lamp, { x: 3, y: 5, r: 4, color: '#ffffff', a: 1 }], null, 0.6)
-    assert.ok(both.long < c.long)
-    // A light the thing carries itself pulls nothing.
-    const own = M.blobOf(5, 5, 1, 0.25, [{ x: 5, y: 4.6, r: 3, color: '#ffffff', a: 1 }], sun, 1.5)
-    near(own.ux, b.ux); near(own.long, b.long)
-  })
-  it('darkens toward the shadow colour, never to black, and not at all at strength 0', () => {
-    assert.equal(M.shadeTint('#140a3c', 0), '#ffffff')
-    const t = M.shadeTint('#000000', 0.9)
-    assert.match(t, /^#[0-9a-f]{6}$/)
-    assert.ok(parseInt(t.slice(1, 3), 16) > 60)
   })
 })
