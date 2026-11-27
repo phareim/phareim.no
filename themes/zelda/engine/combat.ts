@@ -224,6 +224,8 @@ export interface HitOpts {
  */
 export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
   if (e.dead || STATS[e.kind].invulnerable || (BIG.has(e.kind) && !LAMP_BURNS.has(e.kind))) return false
+  // (Gold means open: a shut PHI takes no burn.)
+  if (e.kind === 'phi' && !phiOpen(e)) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
   e.hp -= dmg
   e.flash = 0.14
   const killed = e.hp <= 0
@@ -684,7 +686,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
     case 'no': return ['YOU GOT THE NO!', 'A CUT AT THE RIGHT MOMENT REFUSES A BLOW OR AN OFFER.']
     case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
-    case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES THE NEAREST METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
+    case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU. A CART RIDES ITS RAIL.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'stomp': return ['YOU GOT THE STOMP!', 'IN THE AIR, {A} COMES DOWN HARD.']
     case 'duck': return ['YOU GOT THE DUCK!', '{B} SETS IT DOWN. FOES LOOK AT IT. IT FLOATS.']
     case 'lens': return ['YOU GOT THE LENS!', 'STAND STILL A MOMENT. WHAT IS FALSE FADES.']

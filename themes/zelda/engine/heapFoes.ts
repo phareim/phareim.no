@@ -43,6 +43,8 @@ export const PHI = {
   line: 0.6, range: 6, aim: 0.5,
   /** Farther from the hero than this, its spiral leans toward them; so long without an aim, toward their line. */
   near: 4, restless: 3,
+  /** Seconds a PHI refused by a wall or a pillar's corner slides on its spiral alone, with no lean and no bias. */
+  slide: 0.7,
   /** Seconds: the tell, the rest at the lane's end, the stun the Magnet leaves, a flit, the breath before the next aim. */
   tell: 0.6, rest: 1.4, stun: 1.6, flitTime: 0.3, cool: 0.8,
   /** The lane's width and its most length (tiles). */
@@ -305,15 +307,23 @@ export function phi(c: Ctx, e: Enemy, dt: number) {
     const dy = h.y - e.y
     const away = Math.hypot(dx, dy)
     if ((ai.cool as number) <= 0) ai.idle = ((ai.idle as number | undefined) ?? 0) + dt
-    if (away > PHI.near) { vx += dx / away; vy += dy / away }
-    if (((ai.idle as number | undefined) ?? 0) > PHI.restless) {
-      if (Math.abs(dx) < Math.abs(dy)) vx += 1.5 * Math.sign(dx) * Math.min(1, Math.abs(dx) * 3)
+    // (Just refused by a wall or a pillar's corner: a short slide on the spiral alone, no lean, no bias.)
+    const slide = ((ai.slide as number | undefined) ?? 0) > 0
+    if (slide) ai.slide = (ai.slide as number) - dt
+    if (!slide && away > PHI.near) { vx += dx / away; vy += dy / away }
+    if (!slide && ((ai.idle as number | undefined) ?? 0) > PHI.restless) {
+      // The axis that has a clear line to the hero once it is lined up on it; with none, the larger gap.
+      const column = lineClear(c.w, c.s.map, h.x, e.y, h.x, h.y)
+      const row = lineClear(c.w, c.s.map, e.x, h.y, h.x, h.y)
+      const byX = column !== row ? column : column ? Math.abs(dx) < Math.abs(dy) : Math.abs(dx) > Math.abs(dy)
+      if (byX) vx += 1.5 * Math.sign(dx) * Math.min(1, Math.abs(dx) * 3)
       else vy += 1.5 * Math.sign(dy) * Math.min(1, Math.abs(dy) * 3)
     }
     const k = PHI.wander / (Math.hypot(vx, vy) || 1)
     const blocked = walk(c, e, vx * k, vy * k, dt)
     ai.th = (ai.th as number) + turn * ((PHI.wander * Math.cos(PITCH)) / (ai.rad as number)) * dt
     ai.rad = (ai.rad as number) + PHI.wander * Math.sin(PITCH) * dt
+    if (blocked) ai.slide = PHI.slide
     if (blocked || (ai.rad as number) > PHI.r1) coil(c, e)
     e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
     const d = (ai.cool as number) <= 0 ? phiSees(c, e) : null
@@ -386,7 +396,8 @@ export function heapTouch(c: Ctx, e: Enemy) {
   if (e.dead || e.stun > 0) return
   const h = c.s.hero
   const mode = e.ai.mode
-  const running = mode === 'roll' || mode === 'drill' || mode === 'dart'
+  // (A GROK that tells hurts what its lane paints, no more; on its feet it hurts by touch.)
+  const running = mode === 'roll' || mode === 'drill' || mode === 'dart' || (e.kind === 'grok' && mode === 'tell')
   if (e.kind === 'phi' ? mode !== 'dart' : mode === 'dazed') return
   if (running) {
     const v = dirVec(e.dir)
@@ -407,6 +418,8 @@ export function heapRule(c: Ctx, e: Enemy, src: HitSource): null | false | 'any'
   const cut = src === 'sword' || src === 'spin' || src === 'echo'
   if (e.kind === 'phi') {
     if (e.ai.mode === 'pulled') return false
+    // (Gold means open: the lamp's beam, a bomb and a pot do nothing to a shut PHI either.)
+    if (!phiOpen(e) && (src === 'bomb' || src === 'pot')) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
     if (!cut || phiOpen(e)) return null
     if (src !== 'echo' && e.ai.mode !== 'dart') phiFlit(c, e)
     return false

@@ -199,7 +199,7 @@ function enterCell(c: Ctx, index: number) {
     resetEnemy(e)
     if (wounded) {
       e.hp = wounded
-      if (e.hp <= e.maxHp / 2 && ['king', 'mistral', 'deepseek', 'mixtral', 'parrot'].includes(e.kind)) e.ai.phase = 2
+      if (e.hp <= e.maxHp / 2 && ['king', 'mistral', 'deepseek', 'mixtral', 'parrot', 'golem'].includes(e.kind)) e.ai.phase = 2
     }
   }
   m.enemies = m.enemies.filter(e => !e.id.startsWith('king.bat'))

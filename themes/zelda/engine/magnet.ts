@@ -232,15 +232,15 @@ function phiLanding(world: World, s: GameState, e: Enemy): Vec | null {
 }
 
 /**
- * What a tap along `aim` (rad) would take: the nearest metal in the cone that has a clear line, and where it ends up.
- * Null when there is none, or when the nearest cannot move (the tap fizzles).
+ * What a tap along `aim` (rad) would take: the nearest metal in the cone that has a clear line and somewhere to go, and
+ * where it ends up. Metal that cannot move is passed over for the next nearest. Null when none can (the tap fizzles).
  */
 export function magnetPlan(world: World, s: GameState, aim: number): MagnetPlan | null {
   const m = s.map
   const h = s.hero
   const info = mapInfo(world, m.id)
   const z = cellRect(info, cellIndex(info, h.x, h.y))
-  let best: { idx: number; d: number; off: number } | null = null
+  const found: { idx: number; gold: Enemy | null; d: number; off: number }[] = []
   for (let ty = z.y; ty < z.y + z.h; ty++) {
     for (let tx = z.x; tx < z.x + z.w; tx++) {
       const i = ty * m.w + tx
@@ -249,36 +249,39 @@ export function magnetPlan(world: World, s: GameState, aim: number): MagnetPlan 
       const d = Math.hypot(tx + 0.5 - h.x, ty + 0.5 - h.y)
       if (d < MAGNET.near - 1e-9 || d > MAGNET.reach + 1e-9) continue
       const off = angleDiff(Math.atan2(ty + 0.5 - h.y, tx + 0.5 - h.x), aim)
-      if (off > MAGNET.cone + 1e-9 || (best && (d > best.d + 1e-6 || (d > best.d - 1e-6 && off >= best.off)))) continue
-      if (sees(world, m, h, i, !isLoose(t))) best = { idx: i, d, off }
+      if (off > MAGNET.cone + 1e-9) continue
+      if (sees(world, m, h, i, !isLoose(t))) found.push({ idx: i, gold: null, d, off })
     }
   }
-  // Gold is metal: a PHI nearer than that (or as near and truer to the aim), on a line clear of walls and iron.
-  let gold: Enemy | null = null
+  // Gold is metal: a PHI on a line clear of walls and iron.
   for (const e of m.enemies) {
     if (e.kind !== 'phi' || e.dead || e.ai.mode === 'pulled' || e.cell !== s.zoneIndex) continue
     const d = Math.hypot(e.x - h.x, e.y - h.y)
     if (d < MAGNET.near - 1e-9 || d > MAGNET.reach + 1e-9) continue
     const off = angleDiff(Math.atan2(e.y - h.y, e.x - h.x), aim)
-    if (off > MAGNET.cone + 1e-9 || (best && (d > best.d + 1e-6 || (d > best.d - 1e-6 && off >= best.off)))) continue
+    if (off > MAGNET.cone + 1e-9) continue
     if (!line(m, h.x, h.y, e.x, e.y).every(i => !solidTile(world, m, i % m.w, Math.floor(i / m.w), 'shot') && !isIron(m.tiles[i]!))) continue
-    gold = e
-    best = { idx: -1, d, off }
+    found.push({ idx: -1, gold: e, d, off })
   }
-  if (!best) return null
-  if (gold) {
-    const to = phiLanding(world, s, gold)
-    return to ? { t: 'phi', id: gold.id, x: gold.x, y: gold.y, to } : null
+  // Nearest first, then the truest to the aim.
+  found.sort((a, b) => (Math.abs(a.d - b.d) > 1e-6 ? a.d - b.d : a.off - b.off))
+  for (const c of found) {
+    if (c.gold) {
+      const to = phiLanding(world, s, c.gold)
+      if (to) return { t: 'phi', id: c.gold.id, x: c.gold.x, y: c.gold.y, to }
+      continue
+    }
+    const t = m.tiles[c.idx]!
+    const at = mid(m, c.idx)
+    if (isBolt(t)) {
+      const to = boltLanding(world, m, h, c.idx)
+      if (to && !strands(world, s, { hero: tileOfPoint(m, to.x, to.y) })) return { t: 'bolt', idx: c.idx, ...at, to }
+      continue
+    }
+    const to = isRailed(t) ? cartLanding(world, s, c.idx) : looseLanding(world, s, c.idx)
+    if (to !== null) return { t: isRailed(t) ? 'cart' : 'loose', idx: c.idx, ...at, to }
   }
-  const idx = best.idx
-  const t = m.tiles[idx]!
-  const at = mid(m, idx)
-  if (isBolt(t)) {
-    const to = boltLanding(world, m, h, idx)
-    return to && !strands(world, s, { hero: tileOfPoint(m, to.x, to.y) }) ? { t: 'bolt', idx, ...at, to } : null
-  }
-  const to = isRailed(t) ? cartLanding(world, s, idx) : looseLanding(world, s, idx)
-  return to === null ? null : { t: isRailed(t) ? 'cart' : 'loose', idx, ...at, to }
+  return null
 }
 
 /** What B would take this moment, for the bracket: null unless the Magnet is in hand and the hero is free to use it. */

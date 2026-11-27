@@ -20,6 +20,7 @@ import { DARK_HOUND, HERO_R, TOUGH } from '../types'
 import { TILE_INFO } from '../world/tiles'
 import { orcaStunned } from './bossOrca'
 import { BIG, burnFoe, LAMP_BURNS, type Ctx } from './combat'
+import { phiOpen } from './heapFoes'
 import { echoOnTile } from './echo'
 import type { Emitter } from './puzzles/info'
 import { cellIndex, cellIsDark, circleOnTile, tileAt, type MapInfo } from './map'
@@ -167,7 +168,7 @@ export function stepLamp(c: Ctx, dt: number) {
     const shrug = (ai.lampShrug as number | undefined) ?? 0
     if (shrug > 0) ai.lampShrug = Math.max(0, shrug - dt)
     const burn = ai.lampBurn as number | undefined
-    const inBeam = !STATS[e.kind].invulnerable && (!BIG.has(e.kind) || LAMP_BURNS.has(e.kind)) && inLampBeam(s, e)
+    const inBeam = !STATS[e.kind].invulnerable && (!BIG.has(e.kind) || LAMP_BURNS.has(e.kind)) && !(e.kind === 'phi' && !phiOpen(e)) && inLampBeam(s, e)
     if (!inBeam) { if (burn !== undefined) delete ai.lampBurn; continue }
     // The first touch stuns, unless it shrugs the stun off still (its own clock, or the tough foe's).
     if (burn === undefined && e.stun <= 0 && shrug <= 0 && ((ai.shrug as number | undefined) ?? 0) <= 0) {
