@@ -132,6 +132,9 @@ no sound; the HUD (hearts, bits, items) is hidden and the clock stands
 still. The town is safe because it has no enemies or hazards, not because
 of a rule (`World.peaceful` was removed 2026-09-24).
 
+While DEV MODE is on, the owner's browser has a button that sends what is on the screen, where it is and a few words to
+Sleeper (`feedback/`, `docs/games/neon-shrine-feedback.md`).
+
 ## Look (`render/`)
 
 The world is drawn at 16 px per tile into a logical-resolution buffer, lit

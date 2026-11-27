@@ -98,6 +98,8 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
     async hold(name, ms) { await b.keyDown(name); await sleep(ms); await b.keyUp(name) },
     async touch(type, points) { await send('Input.dispatchTouchEvent', { type, touchPoints: points.map((p, i) => ({ x: p.x, y: p.y, id: p.id ?? i })) }) },
     async tap(x, y) { await b.touch('touchStart', [{ x, y }]); await sleep(60); await b.touch('touchEnd', []); await sleep(60) },
+    // The window changes size (an upright phone with its keyboard up), at the same pixel ratio and touch.
+    async resize(w, h) { await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: dpr, mobile }); await sleep(400) },
     async shot(path) { const r = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(path, Buffer.from(r.data, 'base64')) },
     sleep,
     // Snap's chromium-browser is a wrapper: killing it orphans the real

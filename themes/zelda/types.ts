@@ -668,7 +668,7 @@ export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 
 export type ExitTarget = { theme: string } | { home: true } | { url: string } | { reset: true } | { panel: PanelId }
 
 /** The shell's HTML panels an exit can open: `account` is the login console (`AccountConsole.vue`), `look` the NEW LOOK booth's mirror (`LookBooth.vue`), `news` the newsstand's reader (`NewsStand.vue`). `view` opens nothing: the viewfinder on the square turns the world to its next view (`views.ts`). */
-export type PanelId = 'account' | 'look' | 'news' | 'view'
+export type PanelId = 'account' | 'look' | 'news' | 'view' | 'feedback'
 
 /** How the renderer draws an exit. The engine ignores it. */
 export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'console' | 'sign' | 'booth' | 'stall' | 'scope'

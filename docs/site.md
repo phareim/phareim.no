@@ -75,12 +75,13 @@ One D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`), bound
 
 ## External APIs
 
-Five.
+Six.
 
 - **studio.phareim.no**: Neon Shrine reads the studio's published sprites from `/live/neon-shrine.json` after mount (public, no cookie) and draws them over its own (`themes/zelda/render/live.ts`, `docs/games/neon-shrine.md` → "Live art from the studio"); the build writes `public/studio/neon-shrine.json` (about 100 KB) for the studio to edit against.
 - **sleeper.phareim.md** (the news feed): the newsstand on the portal's coast fetches the feed's reader JSON (`/reader/index.json`, `/reader/<slug>.json`) from the browser, no cookie, and shows the pieces in a panel; the address is `NEWS_BASE` in `themes/zelda/newsLinks.ts` (`docs/games/portal.md` → "The newsstand").
 - **auth.phareim.no**, the site-wide account: the login console in Petter's house asks `GET /api/session` and `POST /api/sign-out` cross-origin with the cookie and links to its sign-in page; the address is `AUTH_BASE` in `themes/zelda/account.ts` (`docs/games/portal.md`). Mini World and Lag Din Figur also sign in through it (`POST /api/sign-in` from their own windows, `composables/useAccount.ts`), and the site's server and `mw-world` ask `GET /api/session` with the request's `session_token` cookie to lock them.
 - **wave-jobs** on Sleeper: `POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`, paints the Hall of Fame avatars. Painting is off since 2026-11-27 (`docs/games/hall-of-fame.md` → Avatars), so the site no longer calls it.
+- **feedback** on Sleeper: `https://sleeper.phareim.no/feedback` (`GET /can`, `POST /entry`, with the cookie), asked by Neon Shrine only while DEV MODE is on, for the owner's feedback button (`docs/games/neon-shrine-feedback.md`, `servers/feedback/README.md`).
 - **mw-world** on Sleeper: `wss://sleeper.phareim.no/mw-world/ws`, PM2, port 3034, code in `servers/mw-world/`, deployed by the sleeper-deploy webhook's `deploy.sh`; relays Mini World's shared world. Mini World plays solo when it is down.
 - **phareim-feedback** on Sleeper: `https://sleeper.phareim.no/feedback/`, PM2, port 3057, code in `servers/feedback/` (README there); Petter's in-game feedback box. Neon Shrine's dev-mode button posts a screenshot, a save and the hero's position and Petter reads them with `feedback list|show|done` on Sleeper. Only the allowlisted account gets an answer (session checked with auth.phareim.no); every other request gets one identical empty 404.
 
