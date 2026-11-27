@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 // ACT THREE in the running shell (a local dev server only), in headless Chrome, driven by real key and pointer events:
-// from the stair under Fogstage's stage through the Underside, the lens, the Three Doors, the Boards, the Flats and
-// the Wings into the Fly Loft, with keys at 1280 × 800 and on the touch deck at 390 × 844; the cards; the ring at
-// three moments; the glass up and down; the painted step, chests and door; the hidden ledges; what a resting thumb
-// does to the glass; and the frame time over ten seconds. The visit is given the blade and many hearts, the foes of a
-// room may be put away, and a move that misses sets the hero on its landing (each of these is printed); every move
-// that is pictured is an input. The page's frames are stepped by the script (a 60th of a second each), so that a busy
-// machine cannot move the hero past a mark; only the frame time is taken in real time. Every request that leaves this
-// machine is blocked.
+// from the stair under Fogstage's stage to the gondola's stair, with keys at 1280 × 800 and on the touch deck at
+// 390 × 844: the cards; the ring at three moments; the glass up and down; the painted step, chests and door; the hidden
+// ledges; what a resting thumb does to the glass; BARD's three pieces (tell, blow and opening, glass down and up) and
+// its fall; the fly loft's bags; the understudy and the great key; the great door; the cable, a painted clamp trusted
+// and the fall; the gondola; and the frame time over ten seconds, in the Wings and under the bags. The visit is given
+// the blade and many hearts and is healed as it goes, the foes of a room (not BARD, not the understudy) may be put
+// away, BARD's piece is chosen for its pictures, and a move that misses sets the hero on its landing (each of these is
+// printed); every move that is pictured is an input. The page's frames are stepped by the script (a 60th of a second
+// each), so that a busy machine cannot move the hero past a mark; only the frame time is taken in real time. Every
+// request that leaves this machine is blocked.
 //   CHROME_BIN=… node scripts/zelda-lab/actthree-shot.mjs http://localhost:3219 <outDir> [desk|phone]
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { launch } from './cdp.mjs'
 import { cachedBytes, readPins } from './lib/artcache.mjs'
 
@@ -19,6 +24,15 @@ if (!base || !out || !/^http:\/\/(localhost|127\.0\.0\.1):/.test(base)) { consol
 mkdirSync(out, { recursive: true })
 
 const R = 0.34
+// The engine's own clock for the sandbags, to wait them out as a player's eye does.
+const esbuild = createRequire(import.meta.url)('esbuild')
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const built = esbuild.buildSync({
+  stdin: { contents: `export * from './engine/index'; export * from './types'; export { WORLD } from './world/index'`, resolveDir: resolve(repo, 'themes/zelda'), loader: 'ts' },
+  bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+})
+const Z = await import('data:text/javascript;base64,' + Buffer.from(built.outputFiles[0].text).toString('base64'))
+const BAGS = Z.bagsOf(Z.mapInfo(Z.WORLD, 'actloft'))
 let failed = false
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) failed = true }
 const results = {}
@@ -110,7 +124,7 @@ async function run(size, opts) {
   const tick = (n = 1) => b.eval(`window.__tick(${Math.max(1, Math.round(n))})`)
   const I = phone ? touch(b, tick) : keys(b, tick)
   const shot = async name => { await b.sleep(150); await b.shot(`${out}/${size}-${name}.png`) }
-  const read = () => b.eval(`(() => { const s = window.__zelda.state, h = s.hero, d = h.side; return { map: s.map.id, entry: s.entry.entry, mode: s.mode, card: s.card ? { title: s.card.title, t: s.card.t } : null, x: h.x, y: h.y, feet: h.y + ${R}, vx: h.vx, ground: !!d?.ground, ladder: !!d?.ladder, act: h.act, hp: h.hp, keys: s.inv.keyrings.actthree ?? 0, lens: s.lens ? { still: s.lens.still, up: s.lens.up, k: s.lens.k, here: s.lens.here } : null, gone: (s.map.lensGone ?? []).map(g => g.t), seen: s.map.lensSeen?.length ?? 0, flags: Object.keys(s.flags).filter(f => /act|door:/.test(f)) } })()`)
+  const read = () => b.eval(`(() => { const s = window.__zelda.state, h = s.hero, d = h.side; return { map: s.map.id, entry: s.entry.entry, mode: s.mode, card: s.card ? { title: s.card.title, t: s.card.t } : null, x: h.x, y: h.y, feet: h.y + ${R}, vx: h.vx, ground: !!d?.ground, ladder: !!d?.ladder, act: h.act, hp: h.hp, keys: s.inv.keyrings.actthree ?? 0, lens: s.lens ? { still: s.lens.still, up: s.lens.up, k: s.lens.k, here: s.lens.here } : null, gone: (s.map.lensGone ?? []).map(g => g.t), seen: s.map.lensSeen?.length ?? 0, big: !!s.flags['bigkey:actthree'], bagT: s.map.bagT ?? 0, foe: (() => { const e = s.map.enemies.find(e => e.kind === 'bard' || e.tough); return e ? { x: e.x, y: e.y, r: e.r, hp: e.hp, dead: e.dead, mode: e.ai.mode, t: e.ai.t, piece: e.ai.piece, way: e.ai.way, tx: e.ai.tx, c: [e.ai.c0, e.ai.c1, e.ai.c2], took: e.ai.took ?? 0, vx: e.ai.vx ?? 0 } : null })(), flags: Object.keys(s.flags).filter(f => /act|door:/.test(f)) } })()`)
   const st = async () => (await read()) ?? (await b.sleep(200), await read()) ?? Promise.reject(new Error(`the page lost its game: ${b.errors.slice(-3).join(' | ')}`))
   /** Frames until `pred`, `max` at the most. */
   const until = async (pred, max = 240, step = 1) => { let s = await st(); for (let i = 0; i < max && !pred(s); i += step) { await tick(step); s = await st() } return s }
@@ -273,51 +287,133 @@ async function run(size, opts) {
   await I.a(); await tick(50)
 
   // -- the Boards ----------------------------------------------------------------
-  await shot('11-boards')
-  await walk(8.4); await walk(9.5); await climb(-1, 10)
-  await walk(13.4)
-  await shot('12-boards-ledge')
+  // BARD's line comes after the card.
+  await until(s => s.mode === 'dialog', 60); await tick(80)
+  await shot('11-boards-bards-line')
+  await words(); await tick(6)
+  await shot('12-boards')
+  check((await st()).foe?.mode === 'hide', 'BARD starts hidden')
+  /** Frames until BARD is in `mode` and `more` holds; with `moving`, the stick is nudged so that the glass stays down. */
+  const bardIn = async (mode, more = () => true, moving = false, max = 700) => {
+    let s = await st()
+    for (let i = 0; i < max && !(s.foe && s.foe.mode === mode && more(s)); i += 2) {
+      if (moving && s.ground && i % 24 === 0) await nudge(i % 48 ? -1 : 1)
+      await tick(2); s = await st()
+    }
+    check(s.foe?.mode === mode, `BARD reaches ${mode}`)
+    return s
+  }
+  const force = async (piece) => { await b.eval(`(() => { const e = window.__zelda.state.map.enemies.find(e => e.kind === 'bard'); e.hp = 10; e.ai.mode = 'hide'; e.ai.t = 2.4; e.ai.piece = '${piece}'; e.x = e.y = -30 })()`); note(`BARD put back behind the set as the ${piece}, hit points full`) }
+  let n = 13
+  for (const [piece, spot] of [['door', 6], ['chest', 6.5], ['rope', 6]]) {
+    for (const glass of [false, true]) {
+      await heal(); await words()
+      if ((await st()).feet < 11) await put(spot, 12, 'back on the floor')
+      await walk(spot)
+      await force(piece)
+      const tag = `${n++}-bard-${piece}-${glass ? 'glass-up' : 'glass-down'}`
+      if (glass) { await fidget(); await I.dir(0); await nudge(); await until(s => s.lens?.k === 1, 130, 2) } else await nudge()
+      await shot(`${tag}-0-hidden`)
+      await bardIn('tell', s => s.foe.t < 0.4, !glass)
+      await shot(`${tag}-1-tell`)
+      if (piece === 'door' && !glass) {
+        // The held jump over the band, by the B ${'$'}{phone ? 'pad' : 'key'}.
+        const hp = (await st()).hp
+        await bardIn('blow', s => Math.abs(s.foe.x - s.x) < 2.3, false, 120)
+        await I.bDown(); await tick(9)
+        await shot(`${tag}-2-blow`)
+        await until(s => s.ground, 90, 2); await I.bUp(); await tick(2)
+        s = await st()
+        results[`${size} held jump over the door`] = { cleared: s.hp === hp, heroX: +s.x.toFixed(2) }
+        check(s.hp === hp, `a held jump clears the door's charge (${phone ? 'the B pad' : 'the B key'})`)
+      } else {
+        await bardIn('blow', s => s.foe.t < (piece === 'chest' ? 0.35 : 0.1) || piece === 'door' && s.foe.x < 5.5, false, 120)
+        await shot(`${tag}-2-blow`)
+      }
+      await bardIn('open', s => s.foe.t < 1.9)
+      await shot(`${tag}-3-open`)
+      await bardIn('wings', () => true, !glass, 240)
+    }
+  }
+  // The fight to its end, by inputs.
+  await heal(); await force('chest')
+  const hpFight = (await st()).hp
+  let healed = 0
+  let struck = false
+  for (let i = 0; i < 2400; i++) {
+    s = await st()
+    if (s.foe.dead) break
+    if (s.hp < 8) { await heal(); healed++ }
+    if (s.mode !== 'play') { await words(); continue }
+    const e = s.foe
+    const onLedge = s.ground && Math.abs(s.feet - 10) < 0.1
+    if (e.mode === 'open') {
+      if (e.y + e.r < 10.5 && !onLedge) { await walk(10); await jump(10, 10, 'the floor, up to BARD'); continue }
+      let side = s.x < e.x ? -1 : 1
+      if (e.x + side * 1.7 < 1.4 || e.x + side * 1.7 > 13.8) side = -side
+      if (e.y + e.r < 10.5) side = -1
+      if (Math.abs(s.x - e.x - side * 1.7) > 0.5) { await walk(e.x + side * 1.7); continue }
+      await I.dir((phone ? 0.5 : 1) * Math.sign(e.x - s.x)); await tick(1); await I.dir(0); await tick(1)
+      await I.a(); await tick(8)
+      if (!struck && (await st()).foe.took > 0) { struck = true; await shot('19-bard-struck') }
+      continue
+    }
+    if (onLedge) { await I.dir(-1); await tick(6); await I.dir(0); continue }
+    if (e.mode === 'blow' && e.piece === 'door' && Math.abs(e.x - s.x) < 2.3 && s.ground) { await I.bDown(); await tick(9); await until(s => s.ground, 90, 2); await I.bUp(); await tick(2); continue }
+    if ((e.mode === 'tell' || e.mode === 'blow') && e.piece !== 'door') {
+      const bad = x => e.piece === 'chest' ? Math.abs(x - e.tx) < 1.7 : x < 9.3 && e.c.some(c => Math.abs(x - c) < 1.2)
+      if (bad(s.x)) { const to = [2, 3.5, 5, 6.5, 8, 9.8, 11, 12.5].filter(x => !bad(x)).sort((a, c) => Math.abs(a - s.x) - Math.abs(c - s.x))[0]; if (to !== undefined) { await I.dir(Math.sign(to - s.x)); await tick(6); await I.dir(0); continue } }
+      await tick(3); continue
+    }
+    if (e.mode === 'hide' && Math.abs(s.x - 6) > 0.5) { await walk(6); continue }
+    await tick(3)
+  }
+  s = await st()
+  check(!!s.foe.dead && s.flags.includes('actthree.bard'), `BARD falls to the blade (healed ${healed} times from ${hpFight})`)
+  await tick(60)
+  await shot('20-boards-gate-open')
+  if ((await st()).feet > 11) { await walk(9.5); await climb(-1, 10) }
   await walk(14.5)
   await through(0, -1, 'actflats')
 
   // -- the Flats -----------------------------------------------------------------
   await calm()
-  await shot('13-flats')
-  await look('14-flats')
+  await shot('21-flats')
+  await look('22-flats')
   await walk(3.2); await jump(4.9, 10, 'the floor, at the painted step')
   s = await st()
   check(Math.abs(s.feet - 10) < 0.05, `the painted step is air: down on the floor (${s.feet.toFixed(2)})`)
-  await shot('15-flats-through-the-painted-step')
+  await shot('23-flats-through-the-painted-step')
   await walk(6.3); await jump(7.9, 8, 'the floor')
   await jump(7.6, 6, 'the real step')
   await walk(7.5)
-  await shot('16-flats-three-chests')
+  await shot('24-flats-three-chests')
   await use(-1)
-  await still('17-flats-painted-chest-puff', s => s.gone[0] > 0.1, 30)
+  await still('25-flats-painted-chest-puff', s => s.gone[0] > 0.1, 30)
   await tick(30)
   check((await st()).gone.length === 1, 'a painted chest puffs and is gone')
-  await shot('18-flats-after-the-puff')
+  await shot('26-flats-after-the-puff')
   await walk(4.5); await opened('actthree.key2', 4.5, 6, -1); await words()
   await jump(4.5, 4, 'the chest tier')
   // The painted door at the east end: a bump.
   await walk(12); await I.dir(1); await tick(50); await I.dir(0); await tick(12)
   s = await st()
   check(s.map === 'actflats' && s.x < 14.7 && s.x > 14.4, `the painted door is a bump (${s.x.toFixed(2)})`)
-  await shot('19-flats-at-the-painted-door')
-  await look('20-flats-doors')
+  await shot('27-flats-at-the-painted-door')
+  await look('28-flats-doors')
   await walk(2.2)
   await through(-1, 0, 'actwings')
 
   // -- the Wings -----------------------------------------------------------------
   await calm()
-  await shot('21-wings')
+  await shot('30-wings')
   await walk(7)
-  await look('22-wings')
+  await look('31-wings')
   // Moved, and the picture all the way back: what was shown stays faint.
   await fidget(); await I.dir(0); await nudge(-1)
   s = await st()
   check(s.lens.k === 0 && s.seen >= 5, `the paint is back and the hidden things stay shown (${s.seen} tiles)`)
-  await shot('23-wings-remembered')
+  await shot('32-wings-remembered')
   if (phone) {
     // A thumb resting on B: it jumps once, then lies there.
     await walk(10)
@@ -327,7 +423,7 @@ async function run(size, opts) {
     for (; n < 150 && !(s = await st()).lens?.up; n++) await tick(1)
     results.restingThumbOnB = { up: !!s.lens?.up, secondsAfterLanding: +(n / 60).toFixed(2) }
     check(!!s.lens?.up, `a thumb resting on B counts as still (up ${(n / 60).toFixed(2)} s after landing)`)
-    await still('24-wings-thumb-on-b', s => s.lens && s.lens.k === 1)
+    await still('33-wings-thumb-on-b', s => s.lens && s.lens.k === 1)
     await I.bUp(); await tick(2)
     check(!(await st()).lens?.up, 'letting B go drops the glass')
     await fidget(); await I.dir(0)
@@ -336,7 +432,7 @@ async function run(size, opts) {
     s = await until(s => !!s.lens?.up, 150)
     results.restingFingerOnStick = !!s.lens?.up
     check(!!s.lens?.up, 'a finger inside the stick\'s dead zone counts as still')
-    await still('25-wings-finger-on-the-stick', s => s.lens && s.lens.k === 1)
+    await still('34-wings-finger-on-the-stick', s => s.lens && s.lens.k === 1)
     await I.move(1, { x: I.STICK.x + 6, y: I.STICK.y - 4 }); await tick(4)
     results.fingerJitter = !!(await st()).lens?.up
     await I.move(1, { x: I.STICK.x + 11, y: I.STICK.y }); await tick(4)
@@ -347,20 +443,20 @@ async function run(size, opts) {
     results.phone = { room, A, B, ROLL, stick: I.STICK }
   }
   await walk(5.4); await jump(5.1, 8, 'the floor, onto a hidden ledge')
-  await shot('26-wings-on-a-hidden-ledge')
+  await shot('35-wings-on-a-hidden-ledge')
   await walk(4.6); await jump(2.4, 6, 'the first hidden ledge')
   await walk(2.6); await jump(4.7, 4, 'the second hidden ledge')
   await walk(5.5)
-  await look('27-wings-top')
+  await look('36-wings-top')
   await opened('actthree.heart', 5.5, 4, 1)
-  await shot('28-wings-heart')
+  await shot('37-wings-heart')
   await words()
   await walk(3.5); await until(s => s.ground && Math.abs(s.feet - 10) < 0.05, 4000)
   if (Math.abs((await st()).feet - 10) > 0.05) await put(7, 10, 'not down off the ledges')
   // Ten seconds in the Wings in real time: a hop, then stillness until the glass is up, over and over.
   await walk(7)
   await b.eval('window.__free()')
-  results[`${size} frame time`] = await frameTime(b, async (ms) => {
+  results[`${size} frame time in the Wings`] = await frameTime(b, async (ms) => {
     const end = Date.now() + ms
     while (Date.now() < end) {
       await b.sleep(1300)
@@ -371,18 +467,16 @@ async function run(size, opts) {
   await b.sleep(600)
   await heal()
   await walk(10.8)
-  await shot('29-door-a')
+  await shot('38-door-a')
   await I.dir(1); s = await until(s => s.flags.some(f => f.startsWith('door:actwings')), 240); await I.dir(0)
   check(s.keys === 1, `door A opens to a key (${s.keys} left)`)
   await tick(18)
-  await shot('30-door-a-open')
+  await shot('39-door-a-open')
   await through(1, 0, 'actloft')
+  await still('40-card-scene-three', s => s.card && s.card.t > 0.9)
+  await I.a(); await tick(50)
   await heal(); await tick(30)
-  await shot('31-fly-loft')
-  await walk(11); await I.dir(1); s = await until(s => s.flags.some(f => f.startsWith('door:actloft')), 240); await I.dir(0)
-  check(s.keys === 0, `door B opens to the other key (${s.keys} left)`)
-  await tick(24)
-  await shot('32-fly-loft-door-b')
+  await shot('41-fly-loft')
   // A reload in the climb comes back at its last stair.
   await b.eval('window.__free()')
   await b.sleep(2500)
@@ -392,10 +486,160 @@ async function run(size, opts) {
   s = await st()
   check(s.map === 'actloft' && s.entry === 'rope', `a reload stays in the climb, at its stair (${s.map}:${s.entry})`)
   check(await view() === 'flat', 'a reload in the climb comes back in the side picture')
-  await b.eval(`(() => { const s = window.__zelda.state; s.dialog = null; s.hero.auto = null; s.mode = 'warp'; s.warp = { t: 0, to: 'actunder', entry: 'foot', swapped: false } })()`)
-  note('after the reload, set at the foot of the climb')
   await b.eval('window.__manual = true')
   await b.sleep(600)
+  await tick(30)
+  // (It passes by itself after 3 s, so it may be gone: the visit's list says it was raised.)
+  check(await b.eval(`window.__zelda.state.cardsSeen.some(c => c.startsWith('actloft'))`), 'the card is raised again after a reload')
+  await I.a(); await tick(50)
+  await calm()
+
+  // -- the Fly Loft ------------------------------------------------------------
+  /** Wait until no bag will fall on the way from here to x (feet on `row`) in the next `dur` s. */
+  const bagsClear = async (x, row, dur = 1) => {
+    for (let i = 0; i < 400; i++) {
+      const s = await st()
+      const [a, c] = [Math.min(s.x, x) - R, Math.max(s.x, x) + R]
+      const safe = BAGS.filter(g => g.x + 2 > a && g.x < c && g.y < Math.max(row, s.feet) && g.y + 4.5 > Math.min(row, s.feet) - 3).every(g => { for (let t = 0; t <= dur; t += 1 / 30) if (Z.bagAt(g, s.bagT + t).mode === 'fall') return false; return true })
+      if (safe) return
+      await tick(3)
+    }
+    check(false, `the bags leave a way to ${x}`)
+  }
+  const hop = async (x, row, from, dur = 1) => { await bagsClear(x, row, dur); await jump(x, row, from) }
+  const run2 = async (x, row) => { await bagsClear(x, row, Math.abs((await st()).x - x) / 5.4 + 0.35); await walk(x) }
+  /** The picture of a bag of the hero's part of the loft in `mode`. */
+  const bagShot = async (name, mode, rowFrom, rowTo, k = 0.6) => {
+    for (let i = 0; i < 400; i++) {
+      const s = await st()
+      if (BAGS.some(g => g.y >= rowFrom && g.y <= rowTo && Z.bagAt(g, s.bagT).mode === mode && Z.bagAt(g, s.bagT).k >= k)) return shot(name)
+      await tick(2)
+    }
+  }
+  await walk(8)
+  await hop(8, 20, 'the floor')
+  await bagShot('42-grid-bag-tell', 'tell', 14, 18)
+  await bagShot('43-grid-bag-fall', 'fall', 14, 18, 0.5)
+  await run2(4.4, 20)
+  await hop(2.2, 18, 'catwalk A'); await walk(2.6); await hop(4.6, 16, 'the west step')
+  await run2(8, 16); await run2(10.5, 16)
+  await hop(12.6, 14, 'catwalk C'); await walk(12.4); await hop(10.2, 12, 'the east step')
+  await run2(5.5, 12); await climb(-1, 8)
+  await walk(5.9)
+  await bagShot('44-leg-bag-tell', 'tell', 2, 2, 0.7)
+  await bagShot('45-leg-bag-fall', 'fall', 2, 2, 0.4)
+  await run2(9.5, 8)
+  await hop(11.6, 8, 'over the sign', 1.6)
+  const doors = s => s.flags.filter(f => f.startsWith('door:actloft:')).length
+  await I.dir(1); s = await until(s => doors(s) > 0, 240); await I.dir(0)
+  check(s.keys === 0, `door B opens to the other key (${s.keys} left)`)
+  await tick(24)
+  await shot('46-leg-door-b-open')
+  await through(1, 0, 'actstudy')
+
+  // -- the Dressing Room -------------------------------------------------------
+  await heal(); await tick(20)
+  await shot('47-dressing-room')
+  const pictured = new Set()
+  let under = 0
+  for (let i = 0; i < 1500; i++) {
+    s = await st()
+    const e = s.foe
+    if (e.dead) break
+    if (s.hp < 8) { await heal(); under++ }
+    if (s.ground && s.feet < 9.5) { await I.dir(0, 1); await tick(4); await I.dir(0, 0); await tick(6); continue }
+    const dx = e.x - s.x
+    if (e.mode === 'tell' && e.t < 0.25 && !pictured.has('tell')) { pictured.add('tell'); await shot('48-understudy-lane'); continue }
+    if (e.mode === 'spent' && e.t < 0.7 && !pictured.has('spent')) { pictured.add('spent'); await shot('49-understudy-spent') }
+    if (e.mode === 'spent' && e.took < 5) {
+      if (Math.abs(dx) > 1.6) { await I.dir(Math.sign(dx)); await tick(3); await I.dir(0); continue }
+      await I.dir((phone ? 0.5 : 1) * Math.sign(dx)); await tick(1); await I.dir(0); await tick(1); await I.a(); await tick(7); continue
+    }
+    if (e.mode === 'charge' && Math.abs(dx) < 2.6 && Math.sign(e.vx) === -Math.sign(dx) && s.ground) { await I.bDown(); await tick(3); await I.bUp(); await until(s => s.ground, 60, 2); continue }
+    if (e.mode === 'tell' || e.mode === 'charge') { await tick(2); continue }
+    const want = e.x - Math.sign(dx || 1) * 3.8
+    if (want < 1.6 || want > 14.4) { if (Math.abs(dx) < 2.2 && s.ground) { await jump(e.x + Math.sign(dx) * 3.2, 10, 'over the understudy') } else await tick(3); continue }
+    if (Math.abs(s.x - want) > 0.5) { await I.dir(Math.sign(want - s.x)); await tick(3); await I.dir(0); continue }
+    await tick(3)
+  }
+  s = await st()
+  check(!!s.foe.dead && s.flags.includes('actthree.understudy'), `the understudy falls to the blade (healed ${under} times)`)
+  await tick(50)
+  await shot('50-the-big-keys-chest')
+  await walk(12.2); await opened('actthree.bigkey', 12.2, 10, 1)
+  await tick(80)
+  await shot('51-the-big-key')
+  await words()
+  check((await st()).big, 'the Big Key is held')
+  await walk(2.4)
+  await through(-1, 0, 'actloft')
+  await heal()
+  await bagsClear(9.5, 8, 2); await walk(12.2); await jump(9.5, 8, 'the doorway')
+  await run2(5.9, 8)
+  await shot('52-the-big-door')
+  await bagsClear(2, 8, 1.2)
+  const shutBefore = doors(await st())
+  await I.dir(-1); s = await until(s => doors(s) > shutBefore, 240); await I.dir(0)
+  check(doors(s) > shutBefore, 'the great door opens to the Big Key')
+  await tick(20)
+  await shot('53-the-big-door-open')
+  await through(-1, 0, 'actcable')
+
+  // -- the Cable -----------------------------------------------------------------
+  await still('54-card-scene-four', s => s.card && s.card.t > 0.9)
+  await I.a(); await tick(50)
+  await heal()
+  await shot('55-cable-foot')
+  await walk(8.4); await jump(9.4, 20, 'the foot'); await walk(8.7); await jump(5.8, 18, 'clamp 1')
+  await look(); await shot('56-cable-first-pair-glass-up')
+  await fidget(); await I.dir(0); await tick(10); await shot('57-cable-first-pair-glass-down')
+  await walk(6.4); await jump(9, 16, 'clamp 2'); await walk(8.4); await jump(5.5, 14, 'clamp 3'); await walk(5.4); await jump(8.2, 12, 'clamp 4')
+  await walk(9.6)
+  await shot('58-cable-painted-clamp')
+  const hpCable = (await st()).hp
+  await I.dir(1); await I.bDown()
+  await still('59-cable-through-the-painted-clamp', s => s.x > 12.6 && s.feet > 10.6, 90)
+  for (let i = 0; i < 200; i++) { s = await st(); if (s.act === 'fall') break; await I.dir(s.x < 13.4 ? 1 : 0); await tick(2) }
+  await I.dir(0); await I.bUp()
+  await still('60-cable-the-fall', s => s.act === 'fall', 5)
+  await tick(70)
+  s = await st()
+  check(s.hp === hpCable - 1 && Math.abs(s.feet - 12) < 0.05, `half a heart, and back on the safe clamp (${s.x.toFixed(2)}, ${s.feet.toFixed(2)}, ${s.hp} of ${hpCable})`)
+  await shot('61-cable-back-on-the-safe-clamp')
+  await walk(7.4); await jump(4.2, 10, 'clamp 5'); await walk(4.7); await jump(7.8, 8, 'clamp 6'); await walk(7.4); await jump(4.2, 6, 'clamp 7')
+  await shot('62-cable-last-pair')
+  await walk(4.5); await jump(4.8, 4, 'clamp 8'); await tick(20)
+  await shot('63-cable-top')
+  await walk(6.4); await jump(8.6, 4, 'over the sign')
+  await through(1, 0, 'actgondola')
+
+  // -- the Gondola ---------------------------------------------------------------
+  await until(s => s.mode === 'dialog', 60); await tick(100)
+  await shot('64-gondola-card-line')
+  await words()
+  await tick(20)
+  await shot('65-gondola')
+  await walk(7.5); await tick(20)
+  await shot('66-gondola-on-the-plate')
+  await walk(12.4)
+  s = await st()
+  check(s.map === 'actgondola' && s.x < 12.7, 'the way out is shut')
+  await walk(2.6)
+  await through(-1, 0, 'actcable')
+  check((await st()).entry === 'top', 'and the way back is the cable')
+
+  // Ten seconds in real time under the Leg's bags, standing in a gap: stencils and bags on screen.
+  await b.eval(`(() => { const s = window.__zelda.state; s.mode = 'warp'; s.warp = { t: 0, to: 'actloft', entry: 'kdoor', swapped: false } })()`)
+  await tick(60); await heal()
+  await put(5.9, 8, 'in the first gap of the Leg, for the frame time')
+  await calm()
+  await b.eval('window.__free()')
+  results[`${size} frame time under the bags`] = await frameTime(b, async (ms) => { await b.sleep(ms) })
+  await b.eval('window.__manual = true')
+  await b.sleep(600)
+  // And the view on the way out, from the foot of the climb.
+  await b.eval(`(() => { const s = window.__zelda.state; s.dialog = null; s.hero.auto = null; s.mode = 'warp'; s.warp = { t: 0, to: 'actunder', entry: 'foot', swapped: false } })()`)
+  note('set at the foot of the climb, for the way out')
   await tick(60)
   if ((await st()).card) { await I.a(); await tick(50) }
   await through(-1, 0, 'understage')

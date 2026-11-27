@@ -20,6 +20,9 @@ export { STOMP, stompAim, type StompAim } from './stomp'
 export { CARD } from './cards'
 // The glass of Act Three (`lens.ts`): its seconds, what it knows, whether it is up.
 export { LENS, lensUp, lensScreen, glassThings, bossLens, type Lens } from './lens'
+// Act Three's BARD and the fly loft's sandbags: their numbers and what their blows cover.
+export { BARD, BARD_SET, bardPiece, bardOpen, bardBoxes, type BardPiece } from './bossBard'
+export { BAG, bagsOf, bagAt, column, type Box } from './sandbag'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'

@@ -7,6 +7,7 @@ import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH,
 import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
+import { bardOpen, bardRule, bardStruck } from './bossBard'
 import { heapRule, phiOpen } from './heapFoes'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
@@ -111,6 +112,8 @@ BOSSES.add('sycophant')
 // The Heap's (`heapFoes.ts`).
 BIG.add('grok')
 BOSSES.add('grok')
+// Act Three's BARD (`bossBard.ts`): heavy, but no boss: the gate it holds shut is its reward.
+BIG.add('bard')
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -157,6 +160,7 @@ export function bossOpen(e: Enemy): boolean {
     // Dazed, while this daze still has blows to give.
     case 'grok': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
     case 'phi': return phiOpen(e)
+    case 'bard': return bardOpen(e)
     default: return false
   }
 }
@@ -361,6 +365,14 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (rule !== false) return damage(c, e, dmg, fromX, fromY, rule === 'any' ? opt : { ...opt, cap: rule })
       turned(e, src, 0.2)
       return false
+    }
+    // BARD: the blade, while it stands open, so many hit points an opening (`bossBard.ts`).
+    case 'bard': {
+      const cap = bardRule(c, e, blade(src))
+      if (cap === null) { turned(e, src, 0.2); return false }
+      const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
+      bardStruck(e, opt)
+      return hit
     }
     case 'deepseek':
       if (ai.mode === 'under' || ai.mode === 'rise') {

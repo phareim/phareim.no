@@ -7,14 +7,21 @@
  * outline of what it pretended to be, never pink, never gold. A hidden thing is drawn by the glass alone, and once
  * shown stays faint for the visit.
  *
- * STAND-INS, drawn here in code: the backdrops (joists and fog; painted flats; ropes and rigging).
+ * And the stage's own hazards: the pieces BARD hides in and BARD itself, its stencils, the sandbags, the
+ * understudy's lane and the gondola's plate. Pink is a blow to come, and nothing false is ever pink or gold.
+ *
+ * STAND-INS, drawn here in code: the backdrops (joists and fog; painted flats; ropes and rigging; night and the
+ * cable); BARD's three pieces (a door, a chest, a rope end); the sandbag and its rope; the plate.
  */
-import type { GameState, MapDef, Rect } from '../types'
-import { HERO_R, TILE } from '../types'
+import type { Enemy, GameState, MapDef, MapState, Rect } from '../types'
+import { HERO_R, TILE, TOUGH } from '../types'
 import { LENS, glassThings, isFalse, lieGone, type GlassThing } from '../engine/lens'
+import { BARD, BARD_SET, bardBags, bardBoxes, bardOpen, bardOut, bardPiece, bardUnseen, type BardPiece } from '../engine/bossBard'
+import { BAG, bagAt, bagsOf, column, type Box } from '../engine/sandbag'
+import { PLATFORM } from '../world/tiles'
 import { has, mapInfo, type MapInfo } from '../engine/map'
 import { hash2 } from './tiles'
-import { makeCanvas } from './sheet'
+import { makeCanvas, silhouette, sprite } from './sheet'
 import { chest, doorway, platform, type Ink, type SideKit } from './side'
 
 type G = CanvasRenderingContext2D
@@ -95,7 +102,26 @@ function fog(g: G, x: number, y: number, w: number, h: number, z: Rect, time: nu
   }
   g.globalAlpha = was
 }
-const SCENES: Record<string, Scene> = { actunder: joists, actdoors: joists, actbard: flats, actflats: flats, actwings: flats, actloft: rigging }
+/** Scene four: night over the fog, the great cable going up through it, and the fog thick at the bottom. */
+const night: Scene = (g, x, y, w, h, dx, z, time) => {
+  for (let i = 0; i < (w * h) / 900; i++) r(g, i % 5 ? '#2a4a56' : '#7fa0aa', x + Math.floor(hash2(i, z.x, 91) * w), y + Math.floor(hash2(i, z.x, 92) * h * 0.8), 1, 1)
+  // The cable: from low on the left to high on the right, with a clip here and there.
+  for (let k = 0; k <= h; k += 2) {
+    const px = x + dx + Math.round(w * 0.3 + (1 - k / h) * w * 0.42)
+    r(g, '#1c3a44', px, y + k, 5, 2)
+    r(g, '#2c5560', px, y + k, 1, 2)
+    if (k % 56 === 28) r(g, '#2c5560', px - 2, y + k, 9, 3)
+  }
+  fog(g, x, y, w, h, z, time)
+  const was = g.globalAlpha
+  for (let i = 0; i < 5; i++) {
+    g.globalAlpha = was * 0.1
+    r(g, '#8fb4bc', x, y + h - 44 + i * 8, w, 44 - i * 8)
+  }
+  g.globalAlpha = was
+  fog(g, x, y + 8, w, h, z, time * 1.7)
+}
+const SCENES: Record<string, Scene> = { actunder: joists, actdoors: joists, actbard: flats, actflats: flats, actwings: flats, actloft: rigging, actstudy: rigging, actcable: night, actgondola: night }
 
 export function actBackdrop(def: MapDef): ((k: SideKit, z: Rect) => void) | null {
   if (!ofAct(def)) return null
@@ -267,4 +293,259 @@ export function glassRing(k: SideKit, s: GameState) {
       else { r(g, GLASS, x - w, y + row, w - inner, 1); r(g, GLASS, x + inner + 1, y + row, w - inner, 1) }
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// The stage's hazards
+// ---------------------------------------------------------------------------
+
+/** A blow to come: pink, with a one-pixel dark outline so that it reads on any ground. Its boxes are the hurt boxes. */
+const PINK = '#ff2fa0'
+const DARK = '#0b0616'
+
+function danger(k: SideKit, boxes: readonly Box[], p: number) {
+  const { g, cx, cy, time, reduced } = k
+  const blink = !reduced && p > 0.65 && Math.floor(time * 14) % 2 === 0
+  for (const b of boxes) {
+    const x = Math.round(b.x0 * T) - cx
+    const y = Math.round(b.y0 * T) - cy
+    const w = Math.round(b.x1 * T) - cx - x
+    const h = Math.round(b.y1 * T) - cy - y
+    faded(g, 0.18 + 0.27 * Math.max(0, Math.min(1, p)), () => r(g, PINK, x, y, w, h))
+    const edge = (c: string, i: number) => { r(g, c, x + i, y + i, w - i * 2, 1); r(g, c, x + i, y + h - 1 - i, w - i * 2, 1); r(g, c, x + i, y + i, 1, h - i * 2); r(g, c, x + w - 1 - i, y + i, 1, h - i * 2) }
+    edge(DARK, -1)
+    edge(blink ? '#ffc2e6' : PINK, 0)
+  }
+}
+
+/** Chevrons along a band, the way the door will run. */
+function chevrons(k: SideKit, b: Box, way: number) {
+  const { g, cx, cy, time, reduced } = k
+  const mid = Math.round(((b.y0 + b.y1) / 2) * T) - cy
+  const run = reduced ? 0 : Math.floor(time * 40) % T
+  const from = Math.round(b.x0 * T) - cx
+  const to = Math.round(b.x1 * T) - cx
+  for (let x = from + 6 + (way > 0 ? run : T - run); x < to - 6; x += T) {
+    for (let i = -4; i <= 4; i++) r(g, PINK, x - way * Math.abs(i), mid + i, 2, 1)
+  }
+}
+
+/**
+ * BARD's pictures are small ones, drawn at three times their size: 33 × 27 px, its 2 tiles across. Their trim is gold
+ * as drawn; gold means "open", so it is worn only dazed, and pale lilac while BARD sings.
+ */
+export const BARD_SCALE = 3
+const bards = new Map<string, Canvas>()
+function bardPicture(name: string, flip: boolean, white: boolean): Canvas {
+  const key = `${name}|${flip}|${white}`
+  let c = bards.get(key)
+  if (c) return c
+  const src = white ? silhouette(name, '#ffffff', flip) : sprite(name, flip)
+  c = makeCanvas(src.width * BARD_SCALE, src.height * BARD_SCALE)
+  const g = c.getContext('2d')!
+  g.imageSmoothingEnabled = false
+  g.drawImage(src, 0, 0, c.width, c.height)
+  if (!white && name === 'bard_sing') {
+    const img = g.getImageData(0, 0, c.width, c.height)
+    const d = img.data
+    for (let i = 0; i < d.length; i += 4) if (d[i]! > 220 && d[i + 1]! > 170 && d[i + 2]! < 130) { d[i] = 0xdc; d[i + 1] = 0xd6; d[i + 2] = 0xee }
+    g.putImageData(img, 0, 0)
+  }
+  bards.set(key, c)
+  return c
+}
+
+/** BARD as it stands out of the set (`renderer.ts` `drawEnemy`); behind the set, or still the piece, nothing. */
+export function drawBard(k: { g: G; lights: SideKit['lights'] }, e: Enemy, x: number, feet: number, name: string, flip: boolean, white: boolean) {
+  if (!bardOut(e)) return
+  const c = bardPicture(name, flip, white)
+  k.g.drawImage(c, Math.round(x - c.width / 2), Math.round(feet - c.height))
+  const open = bardOpen(e)
+  k.lights.push({ x: e.x, y: e.y - 0.2, r: 2.4, color: open ? '#ffd23f' : '#c4fbff', a: open ? 0.65 : 0.5 })
+}
+
+/** The three pieces of the set, STAND-INS: muted wood and lilac, no gold and no pink. */
+const pieces = new Map<BardPiece, Canvas>()
+function pieceOf(p: BardPiece): Canvas {
+  let c = pieces.get(p)
+  if (c) return c
+  const wood = '#6e5a62', woodL = '#c4b0b4', lilac = '#8f86ac', pale = '#dcd6ee', dim = '#4a4262'
+  if (p === 'door') {
+    c = makeCanvas(24, 34)
+    const g = c.getContext('2d')!
+    r(g, DARK, 0, 0, 24, 34)
+    r(g, lilac, 1, 1, 22, 33)
+    r(g, DARK, 3, 3, 18, 31)
+    r(g, wood, 4, 4, 16, 30)
+    for (const y of [7, 21]) { r(g, dim, 6, y, 12, 10); r(g, woodL, 6, y, 12, 1) }
+    r(g, pale, 16, 18, 2, 3)
+  } else if (p === 'chest') {
+    c = makeCanvas(24, 17)
+    const g = c.getContext('2d')!
+    r(g, DARK, 1, 0, 22, 17)
+    r(g, DARK, 0, 3, 24, 14)
+    r(g, wood, 2, 1, 20, 15)
+    r(g, woodL, 2, 1, 20, 1)
+    r(g, DARK, 1, 7, 22, 1)
+    for (const x of [4, 18]) r(g, lilac, x, 1, 2, 15)
+    r(g, pale, 10, 6, 4, 5)
+    r(g, DARK, 11, 8, 2, 2)
+  } else {
+    // From the ceiling to the ledge, with a loop and a frayed end lying on it.
+    const h = (BARD.ledge - 1) * T
+    c = makeCanvas(18, h)
+    const g = c.getContext('2d')!
+    for (let y = 0; y < h - 14; y += 2) { r(g, DARK, 6, y, 6, 2); r(g, (y / 2) % 3 ? woodL : wood, 7, y, 4, 2) }
+    r(g, DARK, 3, h - 16, 12, 12)
+    r(g, woodL, 4, h - 15, 10, 10)
+    r(g, DARK, 7, h - 12, 4, 4)
+    r(g, DARK, 1, h - 5, 16, 5)
+    r(g, woodL, 2, h - 4, 14, 3)
+    for (let x = 3; x < 16; x += 3) r(g, wood, x, h - 3, 1, 3)
+  }
+  pieces.set(p, c)
+  return c
+}
+
+/** BARD's set: its pieces, standing; the one it is about to step out of shudders in a pink outline. */
+function bardSet(k: SideKit, s: GameState) {
+  const { g, cx, cy, time, reduced } = k
+  const e = s.map.enemies.find(v => v.kind === 'bard')
+  for (const p of Object.keys(BARD_SET) as BardPiece[]) {
+    const mine = !!e && !e.dead && bardPiece(e) === p
+    // Stepped out of: BARD is that piece now.
+    if (mine && (e!.ai.mode === 'blow' || e!.ai.mode === 'open')) continue
+    const c = pieceOf(p)
+    const telling = mine && e!.ai.mode === 'tell'
+    const shake = telling && !reduced ? (Math.floor(time * 22) % 2 ? 1 : -1) : 0
+    const x = Math.round(BARD_SET[p].x * T - c.width / 2) - cx + shake
+    const y = BARD_SET[p].floor * T - c.height - cy
+    if (telling) {
+      const rim = silhouetteOf(c, PINK)
+      const dark = silhouetteOf(c, DARK)
+      for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2]] as const) g.drawImage(dark, x + dx, y + dy)
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1]] as const) g.drawImage(rim, x + dx, y + dy)
+    }
+    g.drawImage(c, x, y)
+  }
+  // Through the glass: its outline over the piece it is hiding in, the whole of its hiding.
+  const q = s.lens?.k ?? 0
+  if (e && !e.dead && e.ai.mode === 'hide' && q > 0) {
+    const at = BARD_SET[bardPiece(e)]
+    const o = outlineOf(bardPicture('bard_sing', false, false))
+    faded(g, q, () => g.drawImage(o, Math.round(at.x * T - o.width / 2) - cx, at.floor * T - o.height - cy))
+    k.lights.push({ x: at.x, y: at.floor - 0.9, r: 1.6, color: '#2ff3ff', a: 0.5 * q })
+  }
+}
+
+const flats2 = new WeakMap<Canvas, Map<string, Canvas>>()
+/** A picture's shape in one colour. */
+function silhouetteOf(src: Canvas, color: string): Canvas {
+  let all = flats2.get(src)
+  if (!all) flats2.set(src, all = new Map())
+  let c = all.get(color)
+  if (c) return c
+  c = makeCanvas(src.width, src.height)
+  const g = c.getContext('2d')!
+  g.drawImage(src, 0, 0)
+  g.globalCompositeOperation = 'source-in'
+  r(g, color, 0, 0, c.width, c.height)
+  all.set(color, c)
+  return c
+}
+
+/** BARD's blow: the stencil while it tells and lands, and its bags, falling and then lying. */
+function bardBlow(k: SideKit, s: GameState) {
+  const e = s.map.enemies.find(v => v.kind === 'bard')
+  if (!e || e.dead) return
+  const m = s.map
+  const piece = bardPiece(e)
+  const boxes = bardBoxes(m, e)
+  const whole = piece === 'rope' ? BARD.ropeTell : BARD.tell
+  danger(k, boxes, e.ai.mode === 'tell' ? 1 - e.ai.tell / whole : 1)
+  if (piece === 'door') for (const b of boxes) chevrons(k, b, e.ai.way as number)
+  if (piece !== 'rope' || bardUnseen(e)) return
+  for (const x of bardBags(e)) {
+    const wide = column(m, x - BARD.bagW / 2, x + BARD.bagW / 2, 1).sort((a, b) => (b.x1 - b.x0) - (a.x1 - a.x0))[0]
+    if (!wide) continue
+    const top = T + 14
+    const down = wide.y1 * T
+    const p = e.ai.mode === 'tell' ? 0 : e.ai.mode === 'blow' ? Math.max(0, Math.min(1, 1 - e.ai.t / BARD.drop)) : 1
+    sack(k, x * T - k.cx, Math.round(top + (down - top) * p * p) - k.cy, p < 1 ? T - k.cy : null)
+  }
+}
+
+/** A sandbag with its bottom middle at (x, y), STAND-IN; `rope`: the px its rope comes down from (null: none). */
+function sack(k: SideKit, x: number, y: number, rope: number | null) {
+  const { g } = k
+  const px = Math.round(x)
+  if (rope !== null) { r(g, DARK, px - 2, rope, 4, y - 14 - rope); r(g, '#c4b0b4', px - 1, rope, 2, y - 14 - rope) }
+  const rows: Array<[number, number]> = [[3, 14], [5, 13], [7, 12], [11, 11], [13, 10], [14, 9], [14, 8], [15, 7], [15, 6], [15, 5], [15, 4], [14, 3], [13, 2], [11, 1]]
+  for (const [half, up] of rows) r(g, DARK, px - half - 1, y - up, half * 2 + 2, 1)
+  for (const [half, up] of rows) r(g, up > 11 ? '#c4b0b4' : up > 5 ? '#a08c92' : '#7a666e', px - half, y - up, half * 2, 1)
+  r(g, DARK, px - 6, y - 12, 12, 1)
+  r(g, '#dcd6ee', px - 9, y - 8, 4, 1)
+}
+
+/** The fly loft's bags: the rope from above, the bag where its clock has it, and its column while it tells and falls. */
+function bags(k: SideKit, s: GameState, info: MapInfo) {
+  const { cx, cy, time, reduced } = k
+  const m = s.map
+  for (const b of bagsOf(info)) {
+    if (b.cell !== s.zoneIndex) continue
+    const boxes = column(m, b.x, b.x + BAG.w, b.y)
+    if (!boxes.length) continue
+    const at = bagAt(b, m.bagT ?? 0)
+    if (at.mode === 'tell' || at.mode === 'fall') danger(k, boxes, at.mode === 'tell' ? at.k : 1)
+    const hung = b.y * T + 14
+    const down = Math.min(...boxes.map(o => o.y1)) * T
+    const p = at.mode === 'fall' ? at.k * at.k : at.mode === 'rest' ? 1 : at.mode === 'haul' ? 1 - at.k : 0
+    const shake = at.mode === 'tell' && !reduced ? (Math.floor(time * 22) % 2 ? 1 : -1) : 0
+    // The rope comes down from whatever is over it: a wall, or the catwalk above.
+    let top = b.y
+    while (top > 0 && !roofed(m, b.x + 1, top - 1)) top--
+    // (A catwalk is a thin thing at the top of its tile: the rope starts under its planks.)
+    const under = top > 0 && m.tiles[(top - 1) * m.w + b.x + 1] === PLATFORM ? T - 5 : 0
+    sack(k, (b.x + BAG.w / 2) * T - cx + shake, Math.round(hung + (down - hung) * p) - cy, top * T - under - cy)
+  }
+}
+const roofed = (m: MapState, tx: number, ty: number) => m.tiles[ty * m.w + tx] === '#' || m.tiles[ty * m.w + tx] === PLATFORM
+
+/** The understudy's strike, stencilled: level, from where it stands to where the charge will end. */
+function lanes(k: SideKit, s: GameState) {
+  const h = s.hero
+  for (const e of s.map.enemies) {
+    if (!e.tough || e.dead || e.kind !== 'sentry' || e.cell !== s.zoneIndex || (e.ai.mode !== 'tell' && e.ai.mode !== 'charge')) continue
+    // (Telling, the line follows the hero until it is fixed at the tell's end.)
+    const way = Math.sign(h.x - e.x) || 1
+    const end = e.ai.mode === 'tell' ? h.x + way * TOUGH.past : e.x + (e.ai.vx as number) * Math.max(0, e.ai.t)
+    const reach = e.r + HERO_R - 0.05
+    const box = { x0: Math.max(1, Math.min(e.x, end) - reach), x1: Math.min(s.map.w - 1, Math.max(e.x, end) + reach), y0: e.y - reach, y1: e.y + e.r }
+    danger(k, [box], e.ai.mode === 'tell' ? 1 - e.ai.tell / TOUGH.tell : 1)
+    chevrons(k, box, e.ai.mode === 'tell' ? way : Math.sign(e.ai.vx as number) || 1)
+  }
+}
+
+/** The gondola's plate: where the glass will be switched on, in cyan, flush with the floor. */
+const PLATE = { x0: 6.5, x1: 8.5, floor: 12 }
+function plate(k: SideKit) {
+  const { g, cx, cy, lights } = k
+  const x = PLATE.x0 * T - cx
+  const w = (PLATE.x1 - PLATE.x0) * T
+  const y = PLATE.floor * T - cy
+  r(g, DARK, x - 1, y - 4, w + 2, 6)
+  r(g, '#1a6f80', x, y - 3, w, 4)
+  r(g, '#2ff3ff', x + 1, y - 3, w - 2, 1)
+  for (let i = 5; i < w - 3; i += 7) r(g, '#b4f6ff', x + i, y - 1, 2, 1)
+  lights.push({ x: (PLATE.x0 + PLATE.x1) / 2, y: PLATE.floor - 0.1, r: 1.5, color: '#2ff3ff', a: 0.45 })
+}
+
+/** What Act Three lays on the stage, in front of the tiles and under everything that moves (`side.ts`). */
+export function actStage(k: SideKit, s: GameState) {
+  const info = mapInfo(k.world, s.map.id)
+  if (!ofAct(info.def)) return
+  if (s.map.id === 'actgondola') plate(k)
+  if (s.map.id === 'actbard') { bardSet(k, s); bardBlow(k, s) }
+  bags(k, s, info)
+  lanes(k, s)
 }

@@ -21,7 +21,7 @@ import { CLASSIC, realmLook } from './looks'
 import { itemSpriteName } from './itemIcon'
 import { eraBackdrop, eraInk } from './eras'
 import { diveStreak } from './lateshowPaint'
-import { actBackdrop, actInk, glassHides, glassRing, glassThingsPaint, veiledTiles } from './actthreePaint'
+import { actBackdrop, actInk, actStage, glassHides, glassRing, glassThingsPaint, veiledTiles } from './actthreePaint'
 import { frameCount, hasSprite, makeCanvas, paintRows, sprite } from './sheet'
 
 type G = CanvasRenderingContext2D
@@ -320,6 +320,9 @@ export function paintSide(k: SideKit, s: GameState) {
       } else if ((t === 'L' || t === 'K') && m.tiles[(ty + 1) * m.w + tx] !== t) lights.push({ x: tx + 0.5, y: ty + 0.5, r: 1.4, color: '#ffd23f', a: 0.5 })
     }
   }
+
+  // Act Three's set, bags and stencils: over the tiles, under everything that moves.
+  actStage(k, s)
 
   for (const d of m.drops) {
     if (d.life - d.t < 2 && Math.floor(time * 12) % 2 === 0) continue

@@ -280,7 +280,10 @@ function solve(W) {
  * What a dungeon that is landing part by part cannot open yet. The list is exact: the part that opens a thing takes
  * its line out, and a finished world has none.
  */
-const OWED = []
+const OWED = [
+  // Act Three, parts one and two: the gondola's way out waits on the boss of part three.
+  'actgondola: gate actgondola.13,10',
+]
 
 describe('the whole world can be opened', () => {
   it('reaches every chest, key, locked door and gate in some order, with only what the world gives', () => {

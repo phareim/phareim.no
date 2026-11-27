@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 // Measures ACT THREE's rooms against the jump as built, by playing them: every step and gap on the way and to its
 // prizes, with the width of the take-off ground each is cleared from (a standing start, B held or let go at once);
-// the jumps that must not be there; that no lock can be jumped; and how long standing still takes to show a thing.
-// The script sets the hero down where each try starts and puts the foes away.
+// the jumps that must not be there; the cable's pairs and safe ledges; that no lock or gate can be got past; the door
+// a jump may not go through; how long standing still takes to show a thing; BARD's cycle and how long it and the
+// understudy last against the scripted controllers (`tests/zelda-act-three-bots.mjs`).
+// The geometry's tries set the hero down where each starts, with the foes away and every hidden thing shown.
 //   node scripts/zelda-lab/actthree-measure.mjs
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { reelPlayer } from '../../tests/zelda-reel.mjs'
+import { fightBard, fightUnderstudy } from '../../tests/zelda-act-three-bots.mjs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -29,6 +33,10 @@ function at(map, x, row) {
   Z.enterMap(W, s, map, entry, [], { x, y: row - R - 1e-4 })
   delete s.card
   for (const e of s.map.enemies) e.dead = true
+  // (A room's lines are taken as heard.)
+  for (const c of Object.values(W.maps[map].cells ?? {})) for (const ev of c.events ?? []) s.flags[ev.set] = true
+  // (The jumps are measured with every hidden thing shown: until then it is not there.)
+  s.map.lensSeen = Z.glassThings(Z.mapInfo(W, map)).map(t => t.i)
   const step = (o = {}) => Z.stepGame(W, s, DT, { ...Z.NO_INPUT, move: { x: 0, y: 0 }, ...o })
   if (Z.circleBlocked(W, s.map, x, s.hero.y, R)) return null
   for (let i = 0; i < 4; i++) step()
@@ -98,6 +106,25 @@ const MOVES = [
   ['actwings', 'floor → first hidden ledge', 10, [2.4, 7.6], 8, [4, 6], 2, 0, 'prize'],
   ['actwings', 'first → second hidden ledge', 8, [4.0, 6.0], 6, [1, 3], 2, 1, 'prize'],
   ['actwings', 'second → third hidden ledge (chest on it)', 6, [1.35, 3.3], 4, [4, 6], 2, 1, 'prize'],
+  ['actloft', 'floor → first catwalk (A), in the gap of its bags', 22, [7.35, 8.65], 20, [7, 9], 2, 0, 'way'],
+  ['actloft', 'A → west step', 20, [4.35, 5.3], 18, [1, 3], 2, 1, 'way'],
+  ['actloft', 'west step → second catwalk', 18, [1.35, 3.3], 16, [4, 7], 2, 1, 'way'],
+  ['actloft', 'second catwalk → east step', 16, [9.0, 11.3], 14, [12, 15], 2, 1, 'way'],
+  ['actloft', 'east step → third catwalk', 14, [11.7, 14.6], 12, [8, 11], 2, 1, 'way'],
+  ['actloft', 'over the Leg\'s sign, east', 8, [7.4, 9.6], 8, [11, 13], 1, 1, 'way'],
+  ['actloft', 'over the Leg\'s sign, back', 8, [11.35, 12.6], 8, [8, 10], 1, 1, 'way'],
+  ['actstudy', 'floor → west shelf', 10, [4.0, 7.9], 8, [4, 8], 2, 0, 'or'],
+  ['actstudy', 'floor → east shelf', 10, [9.2, 13.0], 8, [9, 13], 2, 0, 'or'],
+  ['actcable', 'foot → clamp 1', 22, [5.4, 9.6], 20, [8, 11], 2, 0, 'way'],
+  ['actcable', 'clamp 1 → 2', 20, [8.0, 10.6], 18, [4, 7], 2, 1, 'way'],
+  ['actcable', 'clamp 2 → 3 (real, right)', 18, [4.35, 7.0], 16, [8, 11], 2, 1, 'way'],
+  ['actcable', 'clamp 3 → 4', 16, [8.0, 10.6], 14, [3, 6], 2, 2, 'way'],
+  ['actcable', 'clamp 4 → 5', 14, [3.35, 6.0], 12, [7, 10], 2, 1, 'way'],
+  ['actcable', 'clamp 5 → 6 (real, left)', 12, [7.0, 9.6], 10, [2, 5], 2, 2, 'way'],
+  ['actcable', 'clamp 6 → 7', 10, [2.35, 5.0], 8, [7, 10], 2, 2, 'way'],
+  ['actcable', 'clamp 7 → 8 (real, left)', 8, [7.0, 9.6], 6, [2, 5], 2, 2, 'way'],
+  ['actcable', 'clamp 8 → the top', 6, [3.35, 5.0], 4, [3, 7], 2, 0, 'way'],
+  ['actcable', 'over the top\'s sign', 4, [4.4, 6.6], 4, [8, 11], 1, 1, 'way'],
 ]
 console.log('| Room | Jump | Needs | Held margin | Tapped margin | Ground held / tapped, of tried |')
 console.log('|---|---|---|---|---|---|')
@@ -118,6 +145,14 @@ for (const [map, what, from, a, to, span] of [
   ['actwings', 'floor → second hidden ledge', 10, [1.35, 6.0], 6, [1, 3]],
   ['actwings', 'first → third hidden ledge', 8, [4.0, 6.0], 4, [4, 6]],
   ['actbard', 'ledge → the catwalk over the doorway', 10, [10.0, 12.6], 2, [13, 14]],
+  ['actloft', 'floor → west step past the first catwalk', 22, [1.4, 6.0], 18, [1, 3]],
+  ['actloft', 'first → second catwalk without the step (4 up)', 20, [4.35, 11.6], 16, [4, 11]],
+  ['actloft', 'second → third catwalk without the step (4 up)', 16, [4.35, 10.6], 12, [4, 11]],
+  ['actloft', 'third catwalk → the Leg without the ladder (4 up)', 12, [4.35, 10.6], 8, [3, 13]],
+  ['actcable', 'foot → clamp 2', 22, [5.4, 9.6], 18, [4, 7]],
+  ['actcable', 'clamp 2 → 4 (4 up)', 18, [4.35, 6.6], 14, [3, 6]],
+  ['actcable', 'clamp 5 → 7 (4 up)', 12, [7.4, 9.6], 8, [7, 10]],
+  ['actcable', 'clamp 7 → the top (4 up)', 8, [7.4, 9.6], 4, [3, 13]],
 ]) {
   const g = ground(map, from, a, to, span)
   if (g.held > 0.001) bad++
@@ -133,11 +168,202 @@ for (const id of Object.keys(W.maps).filter(id => W.maps[id].keyring === 'actthr
     const top = Math.floor(i / info.w)
     let height = 0
     while (info.base[i + height * info.w] === t) height++
-    const walled = Array.from({ length: top }, (_, y) => info.base[y * info.w + x]).every(u => Z.TILE_INFO[u].wall)
-    if (!walled) bad++
-    console.log(`  ${id}: ${t} at ${x},${top}, ${height} tall: ${walled ? 'walled to the top' : 'OPEN ABOVE'}`)
+    let solid = 0
+    while (solid < top && Z.TILE_INFO[info.base[(top - 1 - solid) * info.w + x]].wall) solid++
+    // (BARD's shaft is open again at its own top, five rows over the gate: no jump is that high.)
+    if (solid < top && solid < 5) bad++
+    console.log(`  ${id}: ${t} at ${x},${top}, ${height} tall: ${solid === top ? 'walled to the top' : `${solid} rows of wall over it, then open`}`)
   })
 }
+
+console.log('\nPast a shut lock or gate by any play (random stick and B, 1500 runs of 30 s each; want never):')
+{
+  let seed = 1
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  for (const [map, entry, past] of [['actbard', 'trapdoor', 'actflats'], ['actwings', 'wings', 'actloft'], ['actloft', 'rope', 'actstudy'], ['actloft', 'rope', 'actcable'], ['actgondola', 'stair', 'fogstage']]) {
+    let found = 0
+    for (let run = 0; run < 1500 && !found; run++) {
+      const s = Z.createGame(W, { seed: run + 1, at: { map, entry } })
+      s.inv.sword = true
+      delete s.card
+      for (const e of s.map.enemies) e.dead = true
+      let k = {}
+      for (let i = 0, hold = 0; i < 1800 && s.mode !== 'warp'; i++) {
+        if (hold-- <= 0) { hold = 4 + Math.floor(rnd() * 28); const r = rnd(); k = { x: r < 0.4 ? -1 : r < 0.8 ? 1 : 0, y: rnd() < 0.35 ? -1 : rnd() < 0.1 ? 1 : 0, jump: rnd() < 0.55, fresh: true } }
+        Z.stepGame(W, s, 1 / 60, { ...Z.NO_INPUT, move: { x: k.x, y: k.y }, jumpHeld: k.jump, jumpPress: k.jump && k.fresh, bPress: k.jump && k.fresh })
+        k.fresh = false
+        if (s.mode === 'dialog') { s.dialog = null; s.mode = 'play' }
+      }
+      if (s.mode === 'warp' && s.warp.to === past) found = run + 1
+    }
+    if (found) bad++
+    console.log(`  ${map} → ${past}: ${found ? `REACHED in run ${found}` : 'never'}`)
+  }
+}
+
+console.log('\nA jump straight up from the floor under the real door\'s pad (must not leave the room in the air):')
+for (const x of [11.9, 12.5, 13.1, 13.5]) {
+  const P = at('actdoors', x, 10)
+  let air = false
+  let went = ''
+  P.step({ bPress: true, jumpPress: true, jumpHeld: true })
+  for (let i = 0; i < 200 && !went; i++) {
+    P.step({ jumpHeld: true })
+    if (P.s.mode === 'warp') went = P.s.hero.side.ground ? 'standing on the pad' : 'IN THE AIR'
+    else if (P.down() && i > 20) break
+  }
+  if (went === 'IN THE AIR') { bad++; air = true }
+  console.log(`  from x ${x}: ${went ? `through the door, ${went}` : `no door; stands at feet ${f2(P.feet())}`}`)
+}
+
+console.log('\nThe cable\'s pairs (clamps are 3 wide; x is a clamp\'s middle). A painted one must have no real clamp, nor the foot, within 3 in x under it:')
+{
+  const info = Z.mapInfo(W, 'actcable')
+  const runs = (test) => {
+    const out = []
+    for (let y = 0; y < info.h; y++) for (let x = 0; x < info.w; x++) if (test(x, y) && !(x > 0 && test(x - 1, y))) { let n = 1; while (x + n < info.w && test(x + n, y)) n++; out.push({ x0: x, w: n, mid: x + n / 2, y }) }
+    return out
+  }
+  const real = runs((x, y) => info.base[y * info.w + x] === '¯')
+  const lies = new Set(Z.glassThings(info).map(t => t.i))
+  const painted = runs((x, y) => lies.has(y * info.w + x))
+  const floor = Array.from({ length: info.w }, (_, x) => x).filter(x => info.base[22 * info.w + x] === '#')
+  console.log('| Rung row | Clamp below (x) | Real (x, side, from below) | Painted (x, side, from below) | Nearest real clamp under the painted one, in x | Nearest foot tile under it | Trusted, a hero |')
+  console.log('|---|---|---|---|---|---|---|')
+  for (const p of [...painted].sort((a, b) => b.y - a.y)) {
+    const twin = real.find(c => c.y === p.y)
+    const below = real.find(c => c.y === p.y + 2)
+    const under = Math.min(...real.filter(c => c.y > p.y).map(c => Math.abs(c.mid - p.mid)))
+    const foot = Math.min(...floor.map(x => Math.abs(x + 0.5 - p.mid)))
+    // Played: from the clamp below, jump for the painted one.
+    const side = p.mid < below.mid ? -1 : 1
+    const P = at('actcable', below.mid + side * 1.1, below.y)
+    let fell = false
+    const before = P.s.hero.hp
+    P.step({ move: { x: side, y: 0 }, bPress: true, jumpPress: true, jumpHeld: true })
+    for (let i = 0; i < 400 && !fell; i++) { P.step({ move: { x: (p.mid - P.s.hero.x) * side > 0.1 ? side : 0, y: 0 }, jumpHeld: true }); fell = P.s.hero.act === 'fall'; if (P.down() && i > 30) break }
+    for (let i = 0; i < 200; i++) P.step()
+    if (under <= 3 || foot <= 3 || !fell) bad++
+    const word = v => (v < below.mid ? 'left' : 'right')
+    console.log(`| ${p.y} | ${below.mid} | ${twin.mid}, ${word(twin.mid)}, ${Math.abs(twin.mid - below.mid)} | ${p.mid}, ${word(p.mid)}, ${Math.abs(p.mid - below.mid)} | ${under} | ${foot} | ${fell ? `falls to the fog, ${before - P.s.hero.hp} half heart, back on feet ${f2(P.feet())}` : `STANDS at ${f2(P.feet())}`} |`)
+  }
+  console.log(`  safe ledges (rows stood on): foot 22, ${[...new Set(info.marks.filter(m => m.ent.t === 'ledge').map(m => m.y + 1))].sort((a, b) => b - a).join(', ')}`)
+  console.log(`  real rungs, middle x from the bottom: ${real.filter(c => c.y < 22 && c.y > 4).sort((a, b) => b.y - a.y).map(c => c.mid).join(', ')}`)
+}
+
+/** A game at a map's door with the blade, hearts enough to count blows with, and (if asked) THE LENS. */
+function fight(map, entry, seed, lens, hp = 40) {
+  const s = Z.createGame(W, { seed, at: { map, entry } })
+  Z.grant(s, 'sword')
+  if (lens) Z.grant(s, 'lens')
+  s.hero.maxHp = s.hero.hp = hp
+  const P = reelPlayer(Z, s)
+  P.card()
+  P.idle(2)
+  if (s.mode === 'dialog') P.settle()
+  return { s, P }
+}
+const spread = a => { const v = [...a].sort((x, y) => x - y); return `${f2(v[0])} / ${f2(v[v.length >> 1])} / ${f2(v[v.length - 1])}` }
+
+console.log('\nBARD\'s cycle, one of each piece (mode: seconds; the stencil in tiles):')
+{
+  const seen = new Set()
+  const { s, P } = fight('actbard', 'trapdoor', 3, false, 400)
+  P.walk(6)
+  const e = s.map.enemies[0]
+  let was = e.ai.mode
+  let t = 0
+  let line = []
+  for (let i = 0; i < 60 * 120 && seen.size < 3; i++) {
+    P.step(s.mode === 'dialog' && i % 12 === 0 ? { aPress: true } : {})
+    if (s.mode !== 'play') continue
+    t += 1 / 60
+    if (e.ai.mode === was) continue
+    const piece = Z.bardPiece(e)
+    line.push(`${was} ${f2(t)}`)
+    if (e.ai.mode === 'tell') line.push(`[${piece}: ${Z.bardBoxes(s.map, e).map(b => `x ${f2(b.x0)}–${f2(b.x1)}, y ${f2(b.y0)}–${f2(b.y1)}`).join('; ')}; hero at ${f2(s.hero.x)}]`)
+    if (e.ai.mode === 'wings') { if (!seen.has(piece)) console.log(`  ${line.join(' → ')}`); seen.add(piece); line = [] }
+    was = e.ai.mode
+    t = 0
+  }
+}
+
+console.log('\nBARD, 40 seeds each (a controller that reads the state; seconds from the first hide, fewest / middle / most):')
+for (const react of [0, 0.5]) for (const glass of [false, true]) {
+  const out = []
+  for (let seed = 1; seed <= 40; seed++) {
+    const { s, P } = fight('actbard', 'trapdoor', seed, glass)
+    out.push(fightBard(Z, s, P, { glass, react, max: 300 }))
+  }
+  console.log(`  ${glass ? 'with the glass' : 'blade only    '}, ${react} s to react: ${spread(out.map(o => o.seconds))} s; openings ${spread(out.map(o => o.openings))}; half hearts lost per fight ${f2(out.reduce((n, o) => n + o.hits * 2, 0) / out.length)}; from open to the first blow that bites ${spread(out.flatMap(o => o.waits))} s; hp taken an opening ${f2(10 * out.length / out.reduce((n, o) => n + o.openings, 0))}`)
+}
+{
+  // Standing still where he came in: what the stencils do to a hero who ignores them.
+  const t = []
+  for (let seed = 1; seed <= 10; seed++) {
+    const { s, P } = fight('actbard', 'trapdoor', seed, false, 6)
+    P.walk(6)
+    let i = 0
+    while (s.mode !== 'dying' && i++ < 60 * 300) P.step(s.mode === 'dialog' && i % 12 === 0 ? { aPress: true } : {})
+    t.push(i / 60)
+  }
+  console.log(`  a hero with three hearts who only stands on the floor (x 6) falls after ${spread(t)} s`)
+}
+
+console.log('\nTHE UNDERSTUDY, 20 seeds (blade only; from the floor, hopping each charge):')
+{
+  const out = []
+  for (let seed = 1; seed <= 20; seed++) {
+    const { s, P } = fight('actstudy', 'studyin', seed, false)
+    P.idle(seed * 3)
+    out.push(fightUnderstudy(Z, s, P))
+  }
+  const ends = out.flatMap(o => o.ends)
+  if (ends.some(p => Math.abs(p.feet - 10) > 0.01)) bad++
+  console.log(`  ${spread(out.map(o => o.seconds))} s; openings ${spread(out.map(o => o.openings))}; hits taken ${out.reduce((n, o) => n + o.hits, 0)}`)
+  console.log(`  ${ends.length} charges ended: feet ${spread(ends.map(p => p.feet))} (the floor is 10), x ${spread(ends.map(p => p.x))} (the walls are 1 and 15)`)
+}
+
+console.log('\nBARD\'s door, jumped on the floor by a hero who stands still: when B may be pressed, from the start of the tell (the tell is 0.9 s):')
+for (const held of [true, false]) {
+  for (const x of [2.5, 4.5, 6]) {
+    const good = []
+    for (let press = 0; press < 100; press++) {
+      const { s, P } = fight('actbard', 'trapdoor', 1, false, 40)
+      P.walk(x)
+      const e = s.map.enemies[0]
+      Object.assign(e.ai, { mode: 'hide', t: 0.001, piece: 'door' })
+      for (let i = 0; i < 5 && e.ai.mode !== 'tell'; i++) P.step()
+      const hp = s.hero.hp
+      for (let f = 0; f < 150; f++) P.step(f === press ? { bPress: true, jumpPress: true, jumpHeld: true } : held && f > press ? { jumpHeld: true } : {})
+      if (s.hero.hp === hp) good.push(press / 60)
+    }
+    console.log(`  hero at x ${x}, B ${held ? 'held  ' : 'tapped'}: clears when pressed ${good.length ? `${f2(good[0])} to ${f2(good[good.length - 1])} s (a window of ${f2(good.length / 60)} s)` : 'never'}`)
+  }
+}
+
+console.log('\nThe hidden chest and the A button, in the Wings, the hero set on the third ledge\'s row facing it:')
+{
+  const P = at('actwings', 5.5, 4)
+  const s = P.s
+  // Before the glass has shown anything.
+  delete s.map.lensSeen
+  P.step()
+  const before = { tile: Z.tileAt(s.map, 6, 3), ledge: Z.tileAt(s.map, 5, 4) }
+  Object.assign(s.hero, { x: 5.5, y: 4 - R - 1e-4, dir: 'right' })
+  before.a = Z.aWould(W, s)
+  Z.grant(s, 'lens')
+  s.map.lensSeen = Z.glassThings(Z.mapInfo(W, 'actwings')).map(t => t.i)
+  P.step()
+  Object.assign(s.hero, { x: 5.5, y: 4 - R - 1e-4, dir: 'right' })
+  delete s.hero.side
+  const after = { tile: Z.tileAt(s.map, 6, 3), ledge: Z.tileAt(s.map, 5, 4), a: Z.aWould(W, s) }
+  if (before.a !== 'blade' || before.tile !== '.' || after.a !== 'open') bad++
+  console.log(`  unshown: chest tile '${before.tile}', ledge tile '${before.ledge}', A is ${before.a}; shown: '${after.tile}', '${after.ledge}', A is ${after.a}`)
+}
+
+console.log(`\nSandbags: ${Object.entries(Z.BAG).map(([k, v]) => `${k} ${v}`).join(', ')}`)
+for (const b of Z.bagsOf(Z.mapInfo(W, 'actloft'))) console.log(`  column x ${b.x}–${b.x + 2} under row ${b.y}, down to row ${Math.min(...Z.column(Z.createGame(W, { seed: 1, at: { map: 'actloft', entry: 'rope' } }).map, b.x, b.x + 2, b.y).map(o => o.y1))}, phase ${b.phase} s`)
 
 console.log('\nThe glass: seconds of stillness to the ring, the glass and the whole change:')
 {

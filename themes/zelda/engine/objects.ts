@@ -18,6 +18,7 @@ import { nextId, rndRange } from './util'
 import { isTube } from '../world/tubes'
 import { stepAttendants } from './attendants'
 import { stepGifts } from './gifts'
+import { stepSandbags } from './sandbag'
 import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, puzzleInfo, stepPhysics } from './puzzles/index'
 
 export function stepObjects(c: Ctx, dt: number) {
@@ -36,6 +37,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepNpcs(c, dt)
   stepAttendants(c, dt)
   stepGifts(c, dt)
+  stepSandbags(c, dt)
 }
 
 // ---------------------------------------------------------------------------

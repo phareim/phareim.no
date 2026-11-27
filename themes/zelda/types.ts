@@ -469,6 +469,7 @@ export type EnemyKind =
   | 'sycophant' // boss: never attacks; refused, its smile slips and the blade bites (`engine/bossSycophant.ts`)
   | 'grok' // miniboss: rolls down a stencilled lane; open only while a wall or iron has it dazed
   | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
+  | 'bard' // miniboss, side maps: hides as a piece of the set, steps out as it; open after its blow (`engine/bossBard.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -522,13 +523,15 @@ export type EntDef =
   }
   | {
     t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond
-    /** Drawn only through the glass (THE LENS); solid and openable as any chest, glass up or down. */
+    /** Not there until the glass (THE LENS) has shown it; then a chest like any other for the visit. */
     hidden?: true
   }
   /** A painted thing (side maps): it only looks like one. Its own tile (air, or a wall's) says what it is. */
   | { t: 'lie'; as: 'ledge' | 'door' | 'chest' }
-  /** On a real platform's tile (side maps): a ledge drawn only through the glass. */
+  /** On a platform's tile (side maps): a ledge that is not there until the glass has shown it, then for the visit. */
   | { t: 'veil' }
+  /** Side maps: a bag on a rope, this tile its tip, 2 tiles wide, falling on a clock (`engine/sandbag.ts`). */
+  | { t: 'sandbag'; period?: number; phase?: number }
   /** Lies on the floor, one-time. `atFall`: it appears where the foe whose `once` flag it waits on fell. */
   | { t: 'item'; id: string; item: ItemId; appear?: Cond; atFall?: boolean }
   | {
@@ -1077,6 +1080,8 @@ export interface MapState {
   /** THE LENS (`engine/lens.ts`), for this visit: the hidden things shown, and the false chests opened (tile, age). */
   lensSeen?: number[]
   lensGone?: Array<{ i: number; t: number }>
+  /** The sandbags' clock, s since the map was loaded (`engine/sandbag.ts`). */
+  bagT?: number
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1456,6 +1461,7 @@ export type GameEvent =
   /** The stomp's impact (`engine/stomp.ts`): on what it came down. */
   | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' }
   | { type: 'lens' } // the glass has risen over something (`engine/lens.ts`)
+  | { type: 'roar'; x: number; y: number } // BARD announces a blow (`engine/bossBard.ts`)
   | { type: 'puff'; x: number; y: number } // a false chest, opened: nothing in it
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */

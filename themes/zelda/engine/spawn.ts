@@ -27,6 +27,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   sycophant: { hp: 4, r: 1.0, dmg: 0, flying: true },
   grok: { hp: 12, r: 0.5, dmg: 2 },
   phi: { hp: 2, r: 0.4, dmg: 2 },
+  // Its touch never hurts (`dmg: 0`): only its stencilled blows do (`bossBard.ts`). 'flying': it places itself.
+  bard: { hp: 10, r: 1.0, dmg: 0, flying: true },
 }
 
 export function spawnEnemy(
