@@ -16,7 +16,7 @@
  */
 import type { Dir, Enemy, GameState, MapState, PhysState, Thrown, TileChar } from '../../types'
 import { HERO_R, PUSH_TIME, roomed } from '../../types'
-import { TILE_INFO } from '../../world/tiles'
+import { TILE_INFO, isIron } from '../../world/tiles'
 import { WEIGHT_PLATES, isMirror } from '../../world/puzzles'
 import { STATS } from '../spawn'
 import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
@@ -323,7 +323,7 @@ export function knockHazard(c: Ctx, e: Enemy): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * The weight on tile `idx` now: a block or mirror 2, a boulder 3, a pot or rock 1, the hero 1 (2 carrying), the echo
+ * The weight on tile `idx` now: a block, a mirror or iron 2, a boulder 3, a pot or rock 1, the hero 1 (2 carrying), the echo
  * 1, the Duck 1, a foe 1 (a big one 3), Luna 1. A float plate that has drained takes none.
  */
 export function weightOn(c: Ctx, idx: number): number {
@@ -339,6 +339,8 @@ export function weightOn(c: Ctx, idx: number): number {
     if (t === 'b' || t === 'B' || isMirror(t)) w += 2
     else if (t === 'κ') w += 3
     else if (t === 'o' || t === 'r') w += 1
+    // (A resting iron crate weighs as a block does: the Counting Room's plates take it.)
+    else if (isIron(t)) w += 2
   }
   const h = s.hero
   if (!s.demo && at(h.x, h.y) && h.act !== 'fall' && !s.hook) w += h.carry ? 2 : 1

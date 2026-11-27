@@ -300,6 +300,8 @@ export default function isoView(kit: Kit): View {
     const sh = shapes[ty * m.w + tx]!
     if (sh.k !== 'card') return sh
     const t = m.tiles[ty * m.w + tx]
+    // (A chest only THE LENS shows lies flat here: the glass draws it, `../balance.ts`.)
+    if (t === '$' && mapInfo(world, m.id).chests.get(ty * m.w + tx)?.hidden) return FLAT
     if ((t === 'P' || t === 'C') && !raised(world, m, tx, ty)) return FLAT
     if (isViewBlock(t!) && !blockUp(t!, m.view)) return FLAT
     return sh

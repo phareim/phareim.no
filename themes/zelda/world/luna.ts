@@ -32,5 +32,7 @@ export const LUNA_TALK: TalkBranch[] = [
     ],
   },
   { when: { notFlag: 'boss' }, lines: ['LUNA: THE GATE IS SHUT. THE KING HAS NOTHING LEFT TO LEAN ON.', 'LUNA: GO GET YOUR SUN. I AM COMING TOO.'] },
+  // Once, with the prism in hand: something under the pedestal is counting.
+  { when: { flags: ['item:prism'], not: ['maximizer', 'luna.hum'] }, set: 'luna.hum', lines: ['LUNA: THE PEDESTAL HUMS. LIKE SOMEONE COUNTING.'] },
   { lines: ['LUNA: FRIENDS DON\'T LIE. YOU DID IT.', 'LUNA: … CAN WE GET WAFFLES NOW?'] },
 ]

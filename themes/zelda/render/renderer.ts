@@ -40,6 +40,7 @@ import { drawExamCard, drawStillWash, queueExam, timeStands } from './examinatio
 import { drawGolem, drawGolemFall, golemSprite, golemStand } from './golemPaint'
 import { GOLEM } from '../engine/bossGolem'
 import { boxSprite } from '../engine/bossBlackBox'
+import { drawBalanceFloor, drawBalanceHud, drawBalanceOver, queueBalance } from './balance'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -1586,6 +1587,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (s.lamp) items.push(lampItem(g, s, cx, cy, time, ui.reducedMotion))
     if (!ui.attract) queueHeap(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
     if (!ui.attract) queueExam(g, world, s, cx, cy, time, ui.reducedMotion, items)
+    if (!ui.attract) queueBalance(g, world, s, cx, cy, items, lights)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
@@ -1742,6 +1744,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (!ui.attract) drawFloorMarks(g, world, s, cx, cy, time, ui.reducedMotion)
     if (!ui.attract) drawRings(g, world, s, cx, cy, time, ui.reducedMotion)
     if (!ui.attract) drawPaper(g, world, s, cx, cy)
+    if (!ui.attract) drawBalanceFloor(g, world, s, cx, cy, time, ui.reducedMotion)
   }
 
   /** The afterimages: where the hero was, how high, in which frame, and how long it stays. */
@@ -2104,6 +2107,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         drawHud(g, s, sp.vw - left - right, time, ui.touch, skin, world)
         // The examination's score card (no dialog: play goes on under it).
         drawExamCard(g, s, sp.vw - left - right, sp.vh - top - bottom, ui.reducedMotion)
+        drawBalanceHud(g, s, skin)
         g.restore()
       }
       // A combo's name where it lands (`moves.ts` credit).
@@ -2360,6 +2364,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const h = s.hero
     // TIME WAITS: the world one step paler, under the sparks and the bars, the hero left in full colour.
     if (timeStands(s)) { const at = place(h.x, h.y); drawStillWash(g, at.x, at.y - 6) }
+    // THE BALANCE's beam, counter and labels, under every effect (`squash` under 1: another view than from above).
+    if (h.x > -10) drawBalanceOver(g, s, place, squash >= 1)
     // Dust at the hero's heels: off a roll, behind the finisher's lunge, where a run turns round.
     for (const what of heroFx) {
       const a = h.swing?.a ?? Math.atan2(h.vy, h.vx)

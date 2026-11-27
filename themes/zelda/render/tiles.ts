@@ -1260,6 +1260,8 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           break
         case '$': {
           const ch = info.chests.get(ty * m.w + tx)
+          // (A chest only THE LENS shows is the glass's to draw, open or shut: `balance.ts`.)
+          if (ch?.hidden) break
           const open = ch ? has(s, `chest:${ch.id}`) : true
           const name = ch?.big ? (open ? 'bigchest_open' : 'bigchest') : open ? 'chest_open' : 'chest'
           const spr = sprite(name)

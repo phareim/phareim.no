@@ -14,6 +14,7 @@ import { MAPS as lateshow } from './lateshow'
 import { MAPS as actthree } from './actthree'
 import { EXAMINATION, EXAMTOP } from './examination'
 import { HEAP_MAPS as heap } from './heap'
+import { MAPS as balance } from './balance'
 
 export const DUNGEONS: Record<string, MapDef> = {
   ...echobarrow,
@@ -25,4 +26,6 @@ export const DUNGEONS: Record<string, MapDef> = {
   examination: EXAMINATION,
   examtop: EXAMTOP,
   ...heap,
+  // The last one, under the Shrine's pedestal.
+  ...balance,
 }

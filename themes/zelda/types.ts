@@ -657,7 +657,7 @@ export type EntDef =
   | { t: 'plate'; id: string }
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
   | { t: 'ledge' } // side maps: a safe ledge; a fall off the room's bottom puts the hero on the last one stood by
-  | { t: 'warp'; to: string; entry: string } // stepping on this tile warps
+  | { t: 'warp'; to: string; entry: string; when?: Cond } // stepping on this tile warps (with `when`: floor until it holds)
   /**
    * On one tile of an X run (tile 'X'). A shut gate opens for good once `open` holds. With a `latch` it is a held
    * gate: open only while `open` holds (a plate stood on), shut again when it does not, and open for good once `latch`
@@ -772,6 +772,8 @@ export interface Warp {
   h?: number
   to: string // map id
   entry: string // entry id in that map
+  /** The warp is floor until this holds; then its stair appears and works (`engine/objects.ts`). Read live, never saved. */
+  when?: Cond
 }
 
 export interface CellDef {
@@ -1230,6 +1232,8 @@ export interface MapState {
   chase?: { left: number; wait: number }
   /** The sandbags' clock, s since the map was loaded (`engine/sandbag.ts`). */
   bagT?: number
+  /** THE BALANCE (`engine/balance.ts`): the seconds towards the next pan, or the level. */
+  balance?: { t: number }
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1732,6 +1736,8 @@ export type GameEvent =
    * Sycophant falls.
    */
   | { type: 'theEnd'; phase: 'begin' | 'over' | 'torn' | 'fall' }
+  /** A Weight has gone down onto its pan in the Balance. */
+  | { type: 'pan'; x: number; y: number }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

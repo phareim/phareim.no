@@ -432,6 +432,8 @@ export default function isoView(kit: Kit): View {
     const sh = shapes[ey * ew + ex]!
     if (sh.k !== 'card') return sh
     const t = outer[ey * ew + ex]
+    // (A chest only THE LENS shows lies flat here: the glass draws it, `../balance.ts`.)
+    if (t === '$' && mapInfo(world, m.id).chests.get(ty * m.w + tx)?.hidden) return FLAT
     if ((t === 'P' || t === 'C') && !raised(world, m, tx, ty)) return FLAT
     if (isViewBlock(t!) && !blockUp(t!, m.view)) return FLAT
     return sh
@@ -1790,7 +1792,7 @@ export default function isoView(kit: Kit): View {
       for (const [i, ch] of info.chests) {
         const tx = i % m.w
         const ty = Math.floor(i / m.w)
-        if (m.tiles[i] !== '$' || has(s, `chest:${ch.id}`) || !inRoom(tx, ty) || tx < R.x || ty < R.y || tx >= R.x + R.w || ty >= R.y + R.h) continue
+        if (ch.hidden || m.tiles[i] !== '$' || has(s, `chest:${ch.id}`) || !inRoom(tx, ty) || tx < R.x || ty < R.y || tx >= R.x + R.w || ty >= R.y + R.h) continue
         const p = toScene(cam, tx + 0.5 + (hash2(tx, ty, 31) - 0.5) * 0.3, ty + 0.5, ch.big ? 0.75 : 0.55)
         chestStar(xg, Math.round(p.x) / zoom, Math.round(p.y) / zoom, time, tx * 31 + ty, ch.big ? 1.3 : 1)
       }

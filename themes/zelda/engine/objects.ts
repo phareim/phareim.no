@@ -348,12 +348,36 @@ function stepPuzzles(c: Ctx, dt: number) {
     setFlag(s, `appear:${ch.id}`)
     c.ev.push({ type: 'secret' })
   }
+  stepWaitingWarps(c)
   for (const p of m.pickups) {
     // (From the side, as a chest does, it waits until the hero steps off.)
     if (p.hidden && condMet(s, c.w, p.appear, -1) && !(c.info.def.kind === 'side' && Math.hypot(p.x - h.x, p.y - h.y) < HERO_R + 0.45)) {
       p.hidden = false
       c.ev.push({ type: 'secret' })
     }
+  }
+}
+
+/**
+ * A warp with a `when` (the Shrine's lid, the Balance's floor): once it holds, the stair its mark names appears, as
+ * soon as the hero stands on none of its tiles (the tiles to the same place on the same condition open together).
+ */
+function stepWaitingWarps(c: Ctx) {
+  const s = c.s
+  const m = s.map
+  const h = s.hero
+  const shut = c.info.warps.filter(w => w.when && m.tiles[w.y * m.w + w.x] !== c.info.base[w.y * m.w + w.x])
+  const done = new Set<string>()
+  for (const w of shut) {
+    const key = `${w.to} ${w.entry} ${JSON.stringify(w.when)}`
+    if (done.has(key)) continue
+    done.add(key)
+    if (!condMet(s, c.w, w.when, -1)) continue
+    const group = shut.filter(o => `${o.to} ${o.entry} ${JSON.stringify(o.when)}` === key)
+    if (group.some(o => circleOnTile(h.x, h.y, HERO_R, o.x, o.y))) continue
+    for (const o of group) m.tiles[o.y * m.w + o.x] = c.info.base[o.y * m.w + o.x]!
+    m.version++
+    c.ev.push({ type: 'secret' })
   }
 }
 

@@ -311,6 +311,10 @@ is the way out. LENNY speaks of the door until the Scaffold has been seen, and o
 the picture once the Weight is held. No reel has a tune of its own: they play the
 game's tracks.
 
+### UNDER THE NEON SHRINE (`balance`, `supply`, `supplyroom`)
+Off the grid, down a stair south of the pedestal once the prism is in hand: the Balance, three store rooms and the
+Supply Room: `docs/games/neon-shrine-balance.md`.
+
 ## Rules for every land
 
 - Ids: map id as above; chests `<map>.<name>`, never reusing a chest id from
