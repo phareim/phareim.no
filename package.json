@@ -34,7 +34,8 @@
     "test:miniworld": "node scripts/test-affected.mjs --area miniworld",
     "test:figur": "node scripts/test-affected.mjs --area figur",
     "test:deploy": "node scripts/test-affected.mjs --area deploy",
-    "smoke:zelda": "node scripts/zelda-lab/smoke.mjs"
+    "smoke:zelda": "node scripts/zelda-lab/smoke.mjs",
+    "smoke:feedback": "node scripts/zelda-lab/feedback-shell.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",

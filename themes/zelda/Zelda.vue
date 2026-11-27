@@ -125,6 +125,7 @@
   <KeysPageButtons v-if="phase === 'play' && paused && menuPage === 'keys' && !confirmReset && !touchUI && keyButtons" :buttons="keyButtons" @press="keysPage.press" />
   <!-- DEV MODE's line along the top edge (`devMode.ts`); the HUD and the corner stand under it (`safeInsets`). -->
   <DevStrip v-if="devOn" :text="devText" />
+  <FeedbackButton v-if="devOn && fb.allowed.value && phase === 'play'" :away="paused || !!panel || talking || leaving" @press="fb.begin(); openPanel('', 'feedback')" />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
@@ -187,6 +188,7 @@
   <LookBooth v-if="panel === 'look'" :class="{ px16: dress16 }" :touch="touchUI" :current="heroLook" :figure="figureColors" :reduced-motion="reducedMotion" @close="closePanel" @wear="wearLook" />
   <!-- The newsstand on the coast: Sleeper's feed, read here. Its own chunk, fetched when the stand is first used. -->
   <NewsStand v-if="panel === 'news'" :class="{ px16: dress16 }" :touch="touchUI" @close="closePanel" />
+  <FeedbackPanel v-if="panel === 'feedback'" :class="{ px16: dress16 }" :fb="fb" :touch="touchUI" @close="closePanel" />
 </template>
 
 <script setup lang="ts">
@@ -271,6 +273,7 @@ import DevStrip from './DevStrip.vue'
 import LogPageButtons from './LogPageButtons.vue'
 import { STRIP_H, createDevMode } from './devMode'
 import { createLogShell } from './logShell'
+import { useFeedback } from './feedback/useFeedback'
 import KeysPageButtons from './KeysPageButtons.vue'
 import { createKeysShell } from './keysShell'
 import { loadKeys, saveKeys, syncKeys, watchKeyNames } from './keysStore'
@@ -300,6 +303,8 @@ import { viewsOf } from './types'
 
 /** The newsstand's reader stays out of the entry (what `/` costs): nobody pays for it before using the stand. */
 const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
+const FeedbackButton = defineAsyncComponent(() => import('./feedback/FeedbackButton.vue'))
+const FeedbackPanel = defineAsyncComponent(() => import('./feedback/FeedbackPanel.vue'))
 
 type Phase = 'play' | 'won'
 type Spot = World['start']
@@ -812,6 +817,7 @@ function applyLiveViews(live: LiveViews | null) {
 /** DEV MODE (`devMode.ts`): its strip's words, and whether it is on. */
 const dev = createDevMode(CHANGE_LOG.version)
 const { on: devOn, text: devText } = dev
+const fb = useFeedback({ devOn, snapshot: () => ({ state, world: WORLD, renderer, canvas: canvas.value, touch: touchUI.value, signedIn, paused: paused.value }) })
 /** The LOG page's own keys, its page of the change list and its buttons (`logShell.ts`). */
 const logPage = createLogShell({ repaint: () => { pausedDrawn = false }, turned: () => audio?.sfx('select'), toggleDev })
 const { at: logAt } = logPage
