@@ -16,20 +16,13 @@ import { PAL as BASE_PAL } from '../../base/pixel/palette'
 import { WILD_RAW } from './spritesWild'
 import { ITEMS_PAGE_ICONS } from './spritesItemsPage'
 import { APAD_RAW } from './spritesPad'
-import { LIGHTHOUSE_RAW } from './spritesLighthouse'
-import { HEAP_RAW } from './spritesHeap'
-import { GOLEM_RAW } from './spritesGolem'
-import { BANNER_RAW, GIFT_RAW, HOUSE_RAW, SYCOPHANT_RAW } from './spritesSycophant'
+import { CARRIED_RAW } from './spritesCarried'
 import { BEACH_RAW } from './spritesBeach'
 import { intermediateBlades } from './bladeAngles'
 import { COMBAT_MARK_RAW } from './combatMarks'
 import { FOE_HURT_RAW } from './foeHurtSprites'
 import { WILDLIFE_RAW } from './wildlifeSprites'
-import { EXAM_RAW } from './spritesExamination'
-import { WEAVER_RAW } from './spritesWeaver'
-import { COPILOT_SIDE_RAW } from './spritesCopilotSide'
 import { FRONTIER_RAW } from './frontierSprites'
-import { HALLUCINATOR_SPRITES } from './spritesHallucinator'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
 
@@ -1620,20 +1613,52 @@ const RAW: Record<string, Rows> = {
   ...FRONTIER_RAW,
   ...ITEMS_PAGE_ICONS,
   ...APAD_RAW,
-  ...LIGHTHOUSE_RAW,
-  ...HEAP_RAW,
-  ...SYCOPHANT_RAW,
-  ...GIFT_RAW,
-  ...EXAM_RAW,
-  ...HOUSE_RAW,
-  ...BANNER_RAW,
-  ...GOLEM_RAW,
-  ...WEAVER_RAW,
-  ...COPILOT_SIDE_RAW,
-  ...HALLUCINATOR_SPRITES,
+  ...CARRIED_RAW,
+  // (A dungeon's rows are not spread here: `spritesDungeons.ts`, added when its chunk comes.)
 }
 
 
 export const SPRITES: Record<string, SpriteDef> = Object.fromEntries(
   Object.entries(RAW).map(([name, rows]) => [name, { rows }]),
 )
+
+const addedListeners: Array<(names: string[]) => void> = []
+
+/** `heard` is told the names of every set of rows `addSprites` adds: whatever was made by name must be made again. */
+export function onSpritesAdded(heard: (names: string[]) => void): void {
+  addedListeners.push(heard)
+}
+
+/** What is wrong with a sprite's rows, or null: a rectangle of palette letters and `.`. */
+function badRows(rows: Rows): string | null {
+  if (!rows.length || !rows[0]!.length || rows.some(r => r.length !== rows[0]!.length)) return 'its rows are no rectangle'
+  const odd = rows.join('').split('').find(ch => ch !== '.' && !PAL[ch])
+  return odd === undefined ? null : `'${odd}' is not a palette letter`
+}
+
+/**
+ * Rows for the table after it was built (the dungeons', `spritesDungeons.ts`). A name that is there already with
+ * other rows, or rows that are no picture, is an error in development; in production that sprite is left out (the
+ * table keeps what it had). The same rows again are nothing to do. Returns the names added.
+ */
+export function addSprites(rows: Record<string, Rows>): string[] {
+  const added: string[] = []
+  const wrong: string[] = []
+  for (const [name, next] of Object.entries(rows)) {
+    const had = SPRITES[name]
+    if (had?.rows === next) continue
+    const why = had ? 'the name is taken' : badRows(next)
+    if (why) wrong.push(`${name}: ${why}`)
+    else {
+      SPRITES[name] = { rows: next }
+      added.push(name)
+    }
+  }
+  if (added.length) for (const heard of addedListeners) heard(added)
+  if (wrong.length && import.meta.dev) {
+    const message = `addSprites: ${wrong.join('; ')}`
+    console.error(message)
+    throw new Error(message)
+  }
+  return added
+}

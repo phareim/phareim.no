@@ -41,7 +41,8 @@ word: the thing its Assessor never had.
   `keyring`, reached by a tile swapped for a door in the land. No shipped map changes size.
 - **Registered in one place.** A dungeon's maps go in `themes/zelda/world/dungeons.ts`, one import and one spread (and
   a line in `world/dungeon-bits.ts` for a chest that pays bits), never in `lands.ts` or `index.ts`: every dungeon map
-  is `resume: true`, off the atlas and without an `exit`.
+  is `resume: true`, off the atlas and without an `exit`. Its sprite rows go in `render/spritesDungeons.ts`, never in
+  `render/sprites.ts` (a treasure's icon, or anything else seen outside the dungeon, in `render/spritesCarried.ts`).
 - **Any order.** A dungeon needs the blade, and nothing from another new dungeon. The one exception is the Underglow,
   which already needs the hook and bombs. A treasure is used in its own dungeon, in the last dungeon, and for a secret
   or two out in the lands. A fight never needs bombs or anything else that runs out: what it needs, the room lends,

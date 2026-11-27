@@ -49,7 +49,8 @@ downloads no dungeon.
 - *The parts.* `world/core.ts` is the home page's world: every map that is not
   a dungeon's, with `World.lazy = { pending: true }`. `world/dungeons.ts`
   exports `DUNGEONS`, the dungeons' maps, and is the only file that imports a
-  dungeon module; the site's build makes it a chunk of its own.
+  dungeon module; the site's build makes them a chunk of their own (with their
+  pictures, below).
   `world/index.ts` joins the two into the full `WORLD`, synchronously, for the
   tests, the labs and the stage (`themes/stage/ViewStage.vue`, itself fetched
   only when asked for). The shell and the Portal's landing import `core.ts`.
@@ -58,6 +59,16 @@ downloads no dungeon.
   outside the dungeons only by a warp. The Underglow, the Puzzle Lab and the
   Turning Room stay core. A new dungeon is one import and one spread there;
   never a line in `lands.ts` or `index.ts`.
+- *Pictures.* A dungeon's sprite rows (its bosses and props) come with the maps:
+  `render/spritesDungeons.ts` is the one place they are spread, and the chunk's
+  module, `dungeonChunk.ts`, adds them to the table (`addSprites`,
+  `render/sprites.ts`) as it loads, before the maps arrive in the world, so no
+  frame of a dungeon is asked for before its rows are there; `index.ts` imports
+  it too. A name asked for early draws nothing, and `sheet.ts` forgets what it
+  made for it (and applies the studio's rows for it, skipped until then).
+  What is seen outside a dungeon stays on the home page: a treasure's icon, the
+  Storm Lamp set down (`render/spritesCarried.ts`). A taken name or ragged rows
+  are an error in development and left out in production.
 - *Rewards.* A wallet adopts a save when the game begins, so what a dungeon's
   chest or floor item pays is known beforehand, in `world/dungeon-bits.ts`
   (a dungeon that pays no bits adds nothing).
@@ -90,8 +101,8 @@ downloads no dungeon.
   is applied after, as at any start.
 - *Tests.* `tests/zelda-load.mjs` bundles the full world, so a dungeon's tests
   need nothing new. `tests/zelda-dungeon-chunk.test.mjs` holds the split,
-  the held door and the failed fetch; `tests/zelda-world.test.mjs` the sizes
-  and that no dungeon module is on `/`.
+  the held door, the failed fetch and the pictures; `tests/zelda-world.test.mjs`
+  the sizes and that no dungeon module or file of dungeon rows is on `/`.
 
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
 wholesale on 2026-09-22; it is in git history up to `a110530`. The separate
@@ -106,12 +117,12 @@ and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 `cells.ts`. `core.ts` holds the home page's world (`CORE`; start: the plaza),
 `worldExits()` and `worldStartingAt()`; `dungeons.ts` the dungeons' maps;
 `index.ts` the two joined (`WORLD`, below). `dungeonLoad.ts` fetches the
-dungeons. `engine/` — pure simulation split by concern
+dungeons (`dungeonChunk.ts`: their maps and pictures). `engine/` — pure simulation split by concern
 (`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `action.ts` (what a press of A does), `moves.ts` (the acrobatics and the hop), `enemies.ts`,
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
 `bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the
 classic view, and the turn between views), `iso/` (the isometric view),
-`tiles.ts`, `sprites.ts` + `sheet.ts` (+ `spritesWild*.ts`), `heroFrames.ts` +
+`tiles.ts`, `sprites.ts` + `sheet.ts` (+ `spritesWild*.ts`; the dungeons' rows `spritesDungeons.ts`), `heroFrames.ts` +
 `heroLook.ts` (the hero's frames per shape and the look from the NEW LOOK
 stall), `tones.ts` (the
 world's named colours as hex), `hud.ts`, `labTiles.ts` (the labs' look and

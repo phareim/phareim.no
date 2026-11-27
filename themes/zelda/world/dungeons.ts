@@ -1,8 +1,9 @@
 /**
- * The dungeons' maps. The browser fetches this module as a chunk of its own (`dungeonLoad.ts`), so a visitor who
- * only walks the town downloads none of it; `world/index.ts` (tests, labs, the stage) holds it from the start.
+ * The dungeons' maps. The browser fetches them as a chunk of their own, with their pictures (`dungeonChunk.ts`,
+ * `dungeonLoad.ts`), so a visitor who only walks the town downloads none of it; `world/index.ts` (tests, labs, the
+ * stage) holds it from the start.
  *
- * A new dungeon: one import and one spread here. Nowhere else.
+ * A new dungeon's maps: one import and one spread here. Nowhere else. (Its sprite rows: `render/spritesDungeons.ts`.)
  * (A chest or floor item that pays bits also takes a line in `dungeon-bits.ts`.) A map belongs here when it is
  * `resume`, is not on the atlas, holds no `exit`, and every way into it from outside the dungeons is a warp.
  */

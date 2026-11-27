@@ -1,8 +1,9 @@
 /**
  * The dungeons' chunk: fetching it, and what the shell does while it is on its way. The home page's world
- * (`world/core.ts`) has no dungeon maps; this is the one file that asks for them (`world/dungeons.ts`), and it puts
- * them into that world in place. No Vue and no `window`: `Zelda.vue` calls it, and the tests drive it with loaders
- * of their own.
+ * (`world/core.ts`) has no dungeon maps and its sprite table none of their pictures; this is the one file that asks
+ * for them (`dungeonChunk.ts`, which adds the pictures to the table as it loads) and puts the maps into that world in
+ * place: in that order, so no frame of a dungeon is asked for before its rows are there. No Vue and no `window`:
+ * `Zelda.vue` calls it, and the tests drive it with loaders of their own.
  */
 import type { GameState, SaveData, World } from './types'
 import { WARP_TIME } from './types'
@@ -14,7 +15,7 @@ import { CORE } from './world/core'
 export const HOLD_S = 8
 
 export type FetchMaps = () => Promise<World['maps']>
-const fetchDungeons: FetchMaps = () => import('./world/dungeons').then(m => m.DUNGEONS)
+const fetchDungeons: FetchMaps = () => import('./dungeonChunk').then(m => m.DUNGEONS)
 
 /** The fetch on its way, by the world's `lazy` (which its copies share, as they share `maps`). */
 const flights = new WeakMap<object, Promise<void>>()

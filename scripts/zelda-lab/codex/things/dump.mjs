@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
 const root = fileURLToPath(new URL('../../../../themes/zelda', import.meta.url))
-const out = esbuild.buildSync({ stdin: { contents: `export { SPRITES, PAL } from './render/sprites'`, resolveDir: root, loader: 'ts' }, bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error' })
+const out = esbuild.buildSync({ stdin: { contents: `export { SPRITES, PAL } from './render/sprites'; import './world/index'`, resolveDir: root, loader: 'ts' }, bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error' })
 const M = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 const live = JSON.parse(readFileSync(process.argv[2], 'utf8')).sprites
 const FAM = process.argv[3].split(',')

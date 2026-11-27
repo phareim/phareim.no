@@ -1,63 +1,9 @@
 /**
  * The Lighthouse's pictures (`world/lighthouse.ts`), in the shared palette, drawn for the dungeons job
- * (`tmp/dungeons/art/`) and copied here: the storm lamp's icon (16×16); the lamp standing on the floor, two frames of
- * flicker (16×16); and THE BLACK BOX, seven frames of 48×48 (shut and its bob, thinking, one panel off, two, open, struck).
+ * (`tmp/dungeons/art/`) and copied here: THE BLACK BOX, seven frames of 48×48 (shut and its bob, thinking, one panel
+ * off, two, open, struck). (The storm lamp's own pictures are `spritesCarried.ts`: it is seen outside the dungeon.)
  */
 export const LIGHTHOUSE_RAW: Record<string, string[]> = {
-  item_lamp: [
-    '......kk........',
-    '......ykY.......',
-    '......y.Y.......',
-    '.....kyyyk......',
-    '....kyyyYYk.....',
-    '...kkYyYYYkk....',
-    '...vkkkkkkkv....',
-    '...v.qqqqc.v....',
-    '...v.qqyqc.v....',
-    '..kkkqyyyckkk...',
-    '..kkkqyyyckkk...',
-    '..kkkqyyyckkk...',
-    '..kk.kkkkk.kk...',
-    '...kkkYYYkkk....',
-    '....yyyyyYY.....',
-    '...kYYYYYYYk....',
-  ],
-  lamp_down: [
-    '......kkkk......',
-    '.....kGGGGk.....',
-    '....kGk..kG.....',
-    '....kG....G.....',
-    '.....GkkkkG.....',
-    '......kggk......',
-    '.....kggggk.....',
-    '....kKKKKKhk....',
-    '....kkyyyYkk....',
-    '....kYyyyyYk....',
-    '....kYyeyyYk....',
-    '....kYyeeyYk....',
-    '....kkYyyYkk....',
-    '....kkggggkk....',
-    '....kggggggk....',
-    '....kkkkkkkk....',
-  ],
-  lamp_down_1: [
-    '......kkkk......',
-    '.....kGGGGk.....',
-    '....kGk..kG.....',
-    '....kG....G.....',
-    '.....GkkkkG.....',
-    '......kggk......',
-    '.....kggggk.....',
-    '....kKKKKKhk....',
-    '....kkyyyYkk....',
-    '....kYyyyyYk....',
-    '....kYyyeyYk....',
-    '....kYyeeyYk....',
-    '....kkYyyYkk....',
-    '....kkggggkk....',
-    '....kggggggk....',
-    '....kkkkkkkk....',
-  ],
   box_0: [
     '................................................',
     '.....................kkkkk......................',

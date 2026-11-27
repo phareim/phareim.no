@@ -1,5 +1,5 @@
 /** Sprite canvases built once from the pixel maps in sprites.ts (and mirrored on demand). */
-import { PAL, SPRITES } from './sprites'
+import { onSpritesAdded, PAL, SPRITES } from './sprites'
 import { heroColorsKey, heroPalette } from './heroColors'
 import { heroFrames } from './heroFrames'
 import { DRAWN_LOOK, heroLookKey, lookFromColors, lookPalette, type HeroLook } from './heroLook'
@@ -18,6 +18,8 @@ let heroRows: Record<string, string[]> | null = null
 let heroKey = ''
 /** Rows the studio (studio.phareim.no) drew instead of the registry's, by sprite name (render/live.ts). */
 let overrides: Record<string, readonly string[]> = {}
+/** The set the studio last asked for, whole: some of its names may be for sprites still to come. */
+let asked: Record<string, readonly string[]> = {}
 /** Bumped whenever the studio's rows change, so whatever was made from rows can tell it is stale. */
 let revision = 0
 
@@ -290,6 +292,7 @@ function sameSize(a: readonly string[], b: readonly string[]): boolean {
  * applied.
  */
 export function setSpriteOverrides(next: Record<string, readonly string[]>): string[] {
+  asked = next
   const applied: Record<string, readonly string[]> = {}
   const index = (n: string) => Number(FRAME.exec(n)?.[2] ?? 0)
   for (const [name, rows] of Object.entries(next).sort(([a], [b]) => index(a) - index(b))) {
@@ -320,5 +323,16 @@ export function spriteRevision(): number {
 export function hasSprite(name: string) {
   return !!SPRITES[name] || !!overrides[name]
 }
+
+// Rows that come after the table was built (a dungeon's): nothing made for their names while they were missing may
+// stay (the 1×1 blank, its silhouettes, a frame count, a view's verdict that its art is stale: `spriteRevision`), and
+// what the studio drew for them, skipped until now, is applied.
+onSpritesAdded((names) => {
+  const added = new Set(names)
+  for (const m of [cache, tinted]) for (const k of [...m.keys()]) if (added.has(k.split('|')[0]!)) m.delete(k)
+  counts.clear()
+  revision++
+  if (Object.keys(asked).length) setSpriteOverrides(asked)
+})
 
 export { makeCanvas }

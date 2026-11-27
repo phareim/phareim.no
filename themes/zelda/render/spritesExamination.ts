@@ -24,25 +24,7 @@ function pane(draw: (rect: (x: number, y: number, w: number, h: number, c: strin
 }
 
 export const EXAM_RAW: Record<string, string[]> = {
-  // THE DUCK's icon (drawn): the B box, the ITEMS page, and the duck set down until a floor one is drawn (STAND-IN).
-  item_duck: [
-    '....kkkkkk......',
-    '...kyyyyyk......',
-    '..kyyyyyyk......',
-    '.kkyykyyyyk.....',
-    'oookyyyyyyk.....',
-    'koookyyyyYk..kk.',
-    '.kkkyyyyyk.kkyk.',
-    '..kyyyyyyykyyyk.',
-    '..kyyyyiiiiYyyk.',
-    '.kyyyyiyyyyyiyk.',
-    '.kyyyyiyyyyiyyk.',
-    '.kyyyyyiyyiiyyk.',
-    '.kyyyyyyYiyyykk.',
-    '..kyyyyyyyyyyk..',
-    '..kkkkkkkkkkk...',
-    '................',
-  ],  pane_cactus: pane((rect) => {
+  pane_cactus: pane((rect) => {
     // A saguaro: a tall trunk and two raised arms, outlined, ribbed.
     const limb = (x: number, y: number, w: number, h: number) => { rect(x - 1, y - 1, w + 2, h + 2, 'k'); }
     limb(13, 5, 6, 22); limb(6, 11, 4, 8); limb(9, 16, 5, 3); limb(22, 8, 4, 8); limb(18, 13, 5, 3)
