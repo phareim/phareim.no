@@ -167,7 +167,7 @@ describe('the Late Show', () => {
     const still = enter(true)
     let t = 0
     for (; still.s.mode === 'play' && t < 30; t += 1 / 60) Z.stepGame(Z.WORLD, still.s, 1 / 60, Z.NO_INPUT)
-    assert.ok(still.s.mode === 'dying' && t > 8 && t < 15, `three hearts last some twelve seconds: ${still.s.mode} after ${t.toFixed(1)} s`)
+    assert.ok(still.s.mode === 'dying' && t > 5 && t < 15, `three hearts last some twelve seconds: ${still.s.mode} after ${t.toFixed(1)} s`)
 
     // Alive and cutting for a minute and a half: the hands come down, lie, lift, and nothing ends.
     const { s, P } = enter(false)
@@ -177,6 +177,42 @@ describe('the Late Show', () => {
     assert.ok(lifts >= 8, `${lifts} lifts`)
     assert.deepEqual([e.dead, e.hp, e.ai.n, s.mode], [false, 12, 0, 'play'])
     assert.ok(![1, 2, 3].some(n => Z.has(s, `weaver.h${n}`)))
+
+    // The floor is no safe place: the slam comes down to it, and no finger is struck from it by a held jump that
+    // is as high as a jump goes (the second and the third are for the step before them).
+    const floor = (n) => {
+      const g = Z.createGame(Z.WORLD, { seed: 4, at: { map: 'weaver', entry: 'stair' } })
+      Z.grant(g, 'sword')
+      Z.grant(g, 'stomp')
+      for (let k = 1; k <= n; k++) g.flags[`weaver.h${k}`] = true
+      Z.enterMap(Z.WORLD, g, 'weaver', 'stair', [], { x: 2.5 + 3 * n, y: 21 - Z.HERO_R })
+      const F = reelPlayer(Z, g)
+      F.idle(10)
+      F.settle()
+      return { g, F, e: F.weaver() }
+    }
+    const hit = floor(1)
+    const hp0 = hit.g.hero.hp
+    for (let i = 0; i < 600 && hit.e.ai.mode !== 'rest'; i++) hit.F.step()
+    assert.deepEqual([hit.e.ai.mode, hit.g.hero.hp], ['rest', hp0 - Z.WEAVER.dmg], 'the hand comes down on the floor under it')
+    for (const n of [1, 2]) {
+      // (The hand held at rest over a floor with no steps on it: nothing to stand on but the floor.)
+      const { g, F, e } = floor(0)
+      Object.assign(e.ai, { n, mode: 'rest', t: 99 })
+      g.hero.x = 2.5 + 3 * n
+      const struck = () => F.events.some(v => v.type === 'stomp' && v.on === 'finger')
+      for (let i = 0; i < 60 * 12 && !struck(); i++) {
+        g.hero.hp = g.hero.maxHp
+        Object.assign(e.ai, { mode: 'rest', t: 99, sk: '', clk: 0 })
+        const f = Z.weaverFinger(Z.mapInfo(Z.WORLD, 'weaver'), e)
+        const air = !F.standing()
+        F.step({
+          move: { x: air ? Math.sign(f.x - g.hero.x) : 0, y: 0 },
+          ...(!air ? { bPress: true, jumpPress: true, jumpHeld: true } : { jumpHeld: true, aPress: true, a: true }),
+        })
+      }
+      assert.ok(!struck() && e.ai.n === n, `hand ${n + 1} is not put right from the floor`)
+    }
   })
 
   it('loads a save made in a reel at its lens and before the Weaver at the part reached, no card or screen in it', () => {
@@ -258,9 +294,34 @@ describe('the Late Show', () => {
     for (let i = 0; i < 200 && fight.mode !== 'play'; i++) Z.stepGame(Z.WORLD, fight, 1 / 60, Z.NO_INPUT)
     reached(fight, 'after a death')
     reached(reload(fight), 'after a reload')
+
+    // The face, cut once in a yawn: the hero steps out by the stair and comes back, and it has the wound. A death
+    // starts it over at the part reached (three hands, no wound).
+    const face = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'weaver', entry: 'stair' } })
+    for (const k of [1, 2, 3]) face.flags[`weaver.h${k}`] = true
+    Z.enterMap(Z.WORLD, face, 'weaver', 'stair', [])
+    Z.grant(face, 'sword')
+    Z.grant(face, 'stomp')
+    const V = reelPlayer(Z, face)
+    V.idle(10)
+    V.settle()
+    assert.equal(V.weaver().hp, 6, 'three hands right')
+    V.theWeaver({ until: e => e.hp <= 3 })
+    assert.equal(V.weaver().hp, 3, 'cut once in its yawn')
+    Z.enterMap(Z.WORLD, face, 'showbooth', 'kdoor', [])
+    V.idle(10)
+    Z.enterMap(Z.WORLD, face, 'weaver', 'stair', [])
+    V.idle(10)
+    V.settle()
+    assert.equal(V.weaver().hp, 3, 'it keeps its wound when the hero steps out and back')
+    Z.hurtHero(Z.ctx(Z.WORLD, face, []), 99, face.hero.x - 1, face.hero.y)
+    for (let i = 0; i < 200 && face.mode !== 'play'; i++) Z.stepGame(Z.WORLD, face, 1 / 60, Z.NO_INPUT)
+    V.idle(10)
+    V.settle()
+    assert.equal(V.weaver().hp, 6, 'a death starts the face over: the hands stay, the wound does not')
   })
 
-  it('holds together: the validator, its keys and doors, the door in the screen, its words', () => {
+  it('holds together: the validator, its keys and doors, the door in the screen, its words, and no way round the Stomp or the Usher', () => {
     assert.deepEqual(Z.validateWorld(Z.WORLD).filter(p => /rerun|showbooth|reel|chase|weaver/.test(p)), [])
     const defs = MAPS.map(id => Z.WORLD.maps[id])
     assert.ok(defs.every(d => d.keyring === 'lateshow' && d.resume && !d.away && d.realm === 'rerun'))
@@ -301,6 +362,38 @@ describe('the Late Show', () => {
         assert.ok(font.wrapText(l, 180).length <= 3, `more than three rows: ${l}`)
       }
     }
+    // The heart piece under the cracked top is not reached by a jump: from the floor, from the sign's right edge,
+    // held or tapped, east or still, and then on foot.
+    const store = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'reel1986', entry: 'lens' } })
+    Z.grant(store, 'sword')
+    const S = reelPlayer(Z, store)
+    S.card()
+    let deepest = 0
+    for (const [x, feet] of [[3.0, 21], [3.5, 21], [3.9, 21], [4.3, 21], [4.6, 21], [2.7, 20], [3.2, 20]]) for (const hold of [true, false]) for (const dir of [1, 0.4, 0]) {
+      Z.enterMap(Z.WORLD, store, 'reel1986', 'lens', [], { x, y: feet - Z.HERO_R })
+      S.idle(10)
+      S.step({ move: { x: dir, y: 0 }, bPress: true, jumpPress: true, jumpHeld: true })
+      for (let i = 0; i < 240; i++) {
+        store.hero.hp = store.hero.maxHp
+        S.step({ move: { x: i < 90 ? dir : 1, y: 0 }, ...(hold && i < 40 ? { jumpHeld: true } : {}) })
+        // In the nook: east of the wall that closes it and down on the block's top.
+        if (store.hero.x > 5.5 && S.feet() > 18.5 && S.feet() < 19.1 && store.hero.x < 7.2) deepest++
+      }
+      S.step({ aPress: true, a: true })
+    }
+    assert.ok(!Z.has(store, 'chest:lateshow.piece') && deepest === 0, `the heart piece waits for the Stomp (${deepest})`)
+
+    // The 2086 lens is not reached while the Usher lives: with the key in hand and the Snack Bar's gate shut behind
+    // him, up from in front of the lock goes nowhere.
+    const snack = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'showbooth', entry: 'lens2' } })
+    Z.grant(snack, 'sword')
+    Z.grant(snack, 'smallKey')
+    snack.flags['lateshow.copilot'] = true
+    Z.enterMap(Z.WORLD, snack, 'showbooth', 'lens2', [], { x: 40.5, y: 4.5 })
+    const U = reelPlayer(Z, snack)
+    for (let i = 0; i < 240; i++) { snack.hero.hp = snack.hero.maxHp; U.step({ move: { x: 0, y: -1 } }) }
+    assert.deepEqual([snack.map.id, Z.keyCount(snack), Z.tileAt(snack.map, 40, 2), Z.tileAt(snack.map, 40, 3)], ['showbooth', 1, 'L', 'X'], 'the lock waits for the Usher')
+
     const booth = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'showbooth', entry: 'door' } })
     assert.match(Z.itemText(booth, 'bigKey')[0], /LAST REEL/)
     for (const item of ['stomp', 'bigKey']) for (const l of Z.itemText(booth, item)) assert.ok(font.wrapText(font.subst(l, font.TOUCH_KEYS), 180).length <= 3, l)

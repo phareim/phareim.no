@@ -18,7 +18,9 @@
  * it that a step, a jump or the blade clears. (It scribbles through a hand's rest too: a hero who only stands still
  * loses in some twelve seconds.)
  *
- * A retry, and a reload, start at the part reached: the flags say how many hands are right.
+ * A hero who steps out and comes back finds the face as wounded as he left it (`GameState.wounds`, the rule that a
+ * boss keeps its wounds). A death or a reload starts at the part reached: the flags say how many hands are right, and
+ * the face's wounds are lost.
  */
 import type { Enemy, TileChar } from '../types'
 import { HERO_R, SPIN_TIME, SWORD_REACH, WINDUP } from '../types'
@@ -31,13 +33,14 @@ import { PLATFORM } from '../world/tiles'
 
 /**
  * Seconds, tiles (the room's own) and tiles/s. `face`: the face's middle at rest, and sunk. `floor`: the floor's top.
- * `finger`: the stomp's ring round a gold finger. `scribble`: how often, by the hands put right (the last: the
+ * `finger`: the stomp's ring round a gold finger, `up` tiles over its slot's top: a held jump from the step before
+ * the slot gets the feet to within 0.15 of it, a held jump from any lower footing stops 0.25 short of the ring. `scribble`: how often, by the hands put right (the last: the
  * face's watch), its lane's width, how long it lies, and the pellet's speed. `bite`: what the snap takes.
  */
 export const WEAVER = {
   face: { x: 8, y: 11.5, low: 16.4 },
   floor: 21,
-  finger: 1.1,
+  finger: 0.6, up: 2.05,
   gap: 1.5, draw: 1.1, slam: 0.3, lift: 0.8, rest: [6, 5, 4.5],
   dmg: 2,
   /** What a finger's stomp takes, and the most the blade takes in one yawn. */
@@ -59,17 +62,17 @@ export function weaverSlot(info: MapInfo, n: number): { x: number; y: number } {
   return { x: i % info.w, y: Math.floor(i / info.w) }
 }
 
-/** The gold finger while a hand rests: at the hand's near end, half a tile over the slot's top. */
+/** The gold finger while a hand rests: at the hand's near end, over the hand's top (`WEAVER.up`). */
 export function weaverFinger(info: MapInfo, e: Enemy): { x: number; y: number } | null {
   if (e.dead || e.kind !== 'weaver' || e.ai.mode !== 'rest') return null
   const s = weaverSlot(info, handsRight(e))
-  return { x: s.x + 0.5, y: s.y - 0.5 }
+  return { x: s.x + 0.5, y: s.y - WEAVER.up }
 }
 
-/** The footprint of the hand now being drawn or laid on its slot: three wide, two tall. */
+/** The footprint of the hand now being drawn or laid on its slot: three wide, down from the hand's top to the floor. */
 export function weaverFootprint(info: MapInfo, n: number): StencilShape & { t: 'box' } {
   const s = weaverSlot(info, n)
-  return { t: 'box', x: s.x, y: s.y - 2, w: 3, h: 2 }
+  return { t: 'box', x: s.x, y: s.y - 2, w: 3, h: WEAVER.floor - s.y + 2 }
 }
 
 /** Does the floor's row bear a wave at tile `tx`: a ledge or a wall stops one. */
@@ -84,11 +87,15 @@ function waveEnd(c: Ctx, x: number, way: number): number {
   return way > 0 ? c.s.map.w : 0
 }
 
-/** The two strips along the floor where the ripple will run, stencilled while the hand is drawn and falls. */
+/**
+ * The two strips along the floor where the ripple will run, stencilled while the hand is drawn and falls, and, in
+ * the third round, again until the second pair has set off (from where the first did).
+ */
 export function weaverStrips(c: Ctx, e: Enemy): Array<StencilShape & { t: 'box' }> {
   const n = handsRight(e)
-  if (e.dead || n < 1 || n > 2 || (e.ai.mode !== 'draw' && e.ai.mode !== 'slam')) return []
-  const mid = weaverSlot(c.info, n).x + 1.5
+  const second = num(e, 'again') > 0
+  if (e.dead || (!second && (n < 1 || n > 2 || (e.ai.mode !== 'draw' && e.ai.mode !== 'slam')))) return []
+  const mid = second ? num(e, 'from') : weaverSlot(c.info, n).x + 1.5
   return [-1, 1].map(way => {
     const end = waveEnd(c, mid, way)
     return { t: 'box', x: Math.min(mid, end), y: WEAVER.floor - 1, w: Math.abs(end - mid), h: 1 }
@@ -211,10 +218,12 @@ function handClank(c: Ctx, e: Enemy) {
   // (The hand lies three tiles from its finger on: the nearest of it to the hero.)
   const x = Math.max(f.x, Math.min(f.x + 2.2, h.x))
   const dx = x - h.x
-  const dy = f.y - h.y
+  // (The hand's own body, half a tile over the slot: the finger stands higher.)
+  const y = f.y + WEAVER.up - 0.5
+  const dy = y - h.y
   if (Math.hypot(dx, dy) > SWORD_REACH + 0.4 || !inSideCut(h.dir, dx, dy, 0.4)) return
   sw.hit.push('hand')
-  c.ev.push({ type: 'clank', x, y: f.y })
+  c.ev.push({ type: 'clank', x, y })
 }
 
 /** The stomp has come down on the gold finger (`stomp.ts`): the hand is put right, for good. */
@@ -246,7 +255,8 @@ export function weaver(c: Ctx, e: Enemy, dt: number) {
   if (ai.mode === 'idle') {
     const n = c.info.def.stamps!.findIndex(st => !has(c.s, st.flag))
     ai.n = n < 0 ? 3 : n
-    e.hp = e.maxHp - WEAVER.stomp * handsRight(e)
+    // (The hands are flags; the face's wounds are what the hero left it with, if he stepped out.)
+    e.hp = Math.min(e.maxHp - WEAVER.stomp * handsRight(e), c.s.wounds?.weaver ?? e.maxHp)
     ai.clk = 0
     to(e, 'gap', WEAVER.gap)
   }
@@ -297,6 +307,7 @@ export function weaver(c: Ctx, e: Enemy, dt: number) {
   ripple(c, e, dt)
   scribble(c, e, dt)
   handClank(c, e)
+  ;(c.s.wounds ??= {}).weaver = e.hp
 }
 
 /** The face at rest again: two scribbles come in the watch, the second gone before the yawn. */

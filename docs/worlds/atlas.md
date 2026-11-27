@@ -291,10 +291,10 @@ and dressed in its year. A reload comes back at the last door or lens.
 |---|---|---|
 | THE SCAFFOLD (`showbooth` 0,0) | | the catwalk behind the screen over the dark; the stair back out; its line, once (`lateshow.seen`) |
 | THE BOOTH (`showbooth` 1,0) | | the hub: a lens in the north wall for 1958 and for 1986, the second behind a locked door; the PROJECTIONIST; pots; east a gate COPILOT's fall opens; south the great door over the stair to the Screen |
-| THE SNACK BAR (`showbooth` 2,0) | | THE USHER behind a trap gate; the lens of 2086 behind a locked door |
-| MAIN STREET (`reel1958` 0,0) | 1958 | the porch the door opens on, a blob below it, a curb, a sentry in the gutter, a manhole, and a ladder up the shop and down its far side, with a small key on the roof |
+| THE SNACK BAR (`showbooth` 2,0) | | THE USHER behind a trap gate; the lens of 2086 behind a locked door and a gate that opens when the Usher falls |
+| MAIN STREET (`reel1958` 0,0) | 1958 | the porch the door opens on, a gutter (a hero who walks off the porch lands clear of everything), a blob on the curb, a sentry in the gutter, a manhole, and a ladder up the shop and down its far side, with a small key on the roof |
 | THE BACKLOT (`reel1958` 1,0) | 1958 | a bat; a cracked floor over a nook with 20 bits; a platform up to the alcove ledge and THE STOMP; a blob below the ledge, to try it on |
-| THE VIDEO STORE (`reel1986` 0,0) | 1986 | a spring pad up onto the shelves, a heart piece in the nook under their cracked top, a second pad up to the balcony and the way to the Road; two blobs and a ladder behind the shelves |
+| THE VIDEO STORE (`reel1986` 0,0) | 1986 | a spring pad up onto the shelves, a heart piece in the nook under their cracked top (closed on every side; only the stomp opens it, from above), a second pad up to the balcony and the way to the Road; two blobs and a ladder behind the shelves |
 | THE ROAD (`chase1986` 0,0, 64 wide) | 1986 | the chase: the screen scrolls by itself over three pits and three parked wagons; COPILOT; the second key; the way back to the booth |
 | THE OVERGROWN LOT (`reel2086` 0,0) | 2086 | two spring pads to the high slab, with the third key on it; two bats below, and a ladder |
 | THE LAST REEL (`reel2086` 1,0) | 2086 | down from the slab; a pad either side of a block; the third locked door and the Big Key behind it; a bat, a blob; the way out |

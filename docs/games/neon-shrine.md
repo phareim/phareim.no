@@ -319,7 +319,8 @@ classic picture. `/?view=<id>` asks for one.
   nothing below it is the ordinary air cut. What it takes, the nearest across
   first (a foe, then a pad, then a crack at the same distance), at most 6 down
   with no floor between: a foe 0.9 across and 0.6 or more below the feet (never
-  a zapper, an eye or a spitter; COPILOT only while it stands still); a spring
+  a zapper, an eye or a spitter; COPILOT only while it stands still; BARD only
+  while it stands open, when a stomp counts as a blow of the blade); a spring
   pad or a cracked floor 1.1 across. The dive starts once the hero is falling or
   at the top. A press on the way up that the rise will bring over any of them (the
   path as the stick bends it) waits for the top of the jump (0.45 s), so a press
@@ -330,7 +331,7 @@ classic picture. `/?view=<id>` asks for one.
   held jump's height. Plain ground takes the blow in a ring of 1.3 tiles that
   stuns small foes 1 s. Every impact gives 0.3 s of mercy, without the blink of
   a hurt. **A gold finger** (the Uncanny Weaver's, while its hand rests) is
-  struck at once when the feet are within 1.1 tiles of it, from any side, rising
+  struck at once when the feet are within 0.6 tiles of it, from any side, rising
   or falling: nothing is dived at, nothing waits, and a press 0.12 s early
   counts. Measured by `node scripts/zelda-lab/lateshow-measure.mjs`, shot in the
   running shell by `node scripts/zelda-lab/lateshow-shot.mjs <local url>
@@ -1247,21 +1248,30 @@ classic picture. `/?view=<id>` asks for one.
     Snack Bar and brings up the second key's chest down the road. The screen
     scrolls on to its end either way. Its pictures are its own, from the side
     (`render/spritesCopilotSide.ts`, 48 × 16): driving, honking, rusted, struck.
+    Its road is a map of its own: a death or a way out starts the fight over
+    (hp 8), as the Hallucinator's does.
   - *The Usher* (the Late Show's Snack Bar): a tough sentry with a card of its
-    own (THE USHER. SEATS ARE ASSIGNED. SO IS BLAME.) behind a trap gate.
+    own (THE USHER. SEATS ARE ASSIGNED. SO IS BLAME.) behind a trap gate. A
+    second gate stands over the 2086 lock's alcove and opens when he falls
+    (`lateshow.usher`), so the lens is not reached round him.
   - *The Uncanny Weaver* (`weaver`, the Late Show's boss; hp 12, radius 1.4;
     `engine/bossWeaver.ts`, every number in `WEAVER`). Its card, in the Screen:
     THE UNCANNY WEAVER. IT HAS DRAWN A THOUSAND HANDS. IT HAS NEVER SEEN ONE. A
     face on the blank screen that never hurts by touch. Three rounds, a hand
     each, on three pencilled slots that climb to the right: *draw* (1.1 s: the
-    arm comes down, the 3 × 2 footprint over the slot is stencilled pink; from
-    the second round two strips along the floor too); *slam* (0.3 s: 2 half
-    hearts in the footprint; from the second round two waves a tile high run out
-    along the floor at 6.5 tiles/s until a ledge or a wall, twice in the third;
-    a jump or a ledge clears them); *rest* (6, 5 and 4.5 s: open; the hand lies
-    on its slot, its gold finger at the near end under a gold ring and chevron;
-    the blade does nothing to it; in the last second the slot's outline fills
-    pink); *lift* (0.8 s) and the round again, nothing lost. A stomp on the
+    arm comes down, the footprint (3 wide, from the hand's top down to the
+    floor) is stencilled pink; from the second round two strips along the floor
+    too); *slam* (0.3 s: 2 half hearts to a hero in the footprint, on the floor
+    as on a step; from the second round two waves a tile high run out along the
+    floor at 6.5 tiles/s until a ledge or a wall; the third round sends a second
+    pair 0.9 s after the first, from the same spot, its strips stencilled again
+    for that time; a jump or a ledge clears them); *rest* (6, 5 and 4.5 s: open;
+    the hand lies on its slot, its gold finger at the near end, 2.05 tiles over
+    the slot's top, under a gold ring of 0.6 and a chevron; the blade does
+    nothing to it; in the last second the slot's outline fills pink; the ring
+    is reached by a held jump from the step before the slot, with 0.57 to
+    spare, and from no lower footing: the floor is 0.25 short for the second
+    finger, so the steps matter); *lift* (0.8 s) and the round again, nothing lost. A stomp on the
     finger puts the hand right: it becomes a ledge three tiles wide
     (`weaver.h1` to `h3`, saved), the Weaver loses 2, and 1.5 s later the next
     slot is drawn. With all three right (hp 6, `bossPhase`) only the face is
@@ -1272,7 +1282,10 @@ classic picture. `/?view=<id>` asks for one.
     at where the hero stands every 3.2, 2.8 and 2.4 s by the round and 2.6 in
     the watch (twice): a pink lane 1.2 wide for 1 s, then a pellet down it at 12
     tiles/s that a step, a jump or the blade clears. A hero who only stands loses
-    in some 11 s. A death or a reload starts at the part reached. Felled, a line,
+    in some 8 s. A hero who steps out of the room and comes back finds the face as
+    wounded as he left it (`GameState.wounds`); a death or a reload starts the
+    fight over at the part reached: the hands, which are flags, stay, the face's
+    wounds are lost. Felled, a line,
     and the Weight of FINGERS appears on the top ledge once the hero is off its
     spot. Its pictures: `render/spritesWeaver.ts`.
   - *The Stochastic Parrot* (`parrot`, the Echo Barrow's boss; hp 16, radius

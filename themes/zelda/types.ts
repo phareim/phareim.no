@@ -1534,6 +1534,11 @@ export interface GameState {
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }
   /**
+   * The wounds a boss that lives alone in its map keeps while the hero steps out and back (the Weaver's face,
+   * `engine/bossWeaver.ts`): hit points by enemy kind. A death clears it (`respawn`); never saved.
+   */
+  wounds?: Record<string, number>
+  /**
    * A beat the world holds for: THE END that comes down after the Sycophant's third cut (`engine/bossSycophant.ts`).
    * While it is set `play` steps nothing else; `mode` stays 'play'. Never saved.
    */

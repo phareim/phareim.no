@@ -148,9 +148,9 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
   function mainStreetEast() {
     idle(20)
     const blob = live('blob', 0, 16)
-    // The blob in its pen below the porch, cut from the step.
-    fell(blob, 1.8)
+    // Off the porch into the gutter, and the blob up on the curb, cut from below as it comes to the edge.
     walk(3.3)
+    fell(blob, 3.4)
     jump(4.9, 20, 'the curb')
     // The sentry in the gutter below, cut from the curb.
     walk(5.4)
@@ -246,6 +246,9 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
     jump(8.5, 20, 'up on the stoop')
     walk(8.2)
     jump(5.2, 20, 'up on the curb')
+    // The blob is on the curb again: cut down where it stands.
+    const blob = live('blob', 0, 16)
+    if (!blob.dead) fell(blob, 5.2)
     walk(3.1)
     jump(1.6, 20, 'up on the porch')
     warpBy({ x: -1, y: 0 }, 'showbooth')
@@ -472,6 +475,8 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
       const face = n >= 3
       // Where to be: below the step a hand will come to; on the top ledge for the face, off it for the bite.
       let want = face ? (mode === 'bite' || mode === 'snap' || mode === 'rise' ? 6.6 : 8.2) : stands[n].x
+      // The first hand's footprint reaches down to the floor: wait out of it until the hand has come down.
+      if (n === 0 && (mode !== 'rest' || !stomps)) want = 6.4
       const row = face ? (mode === 'bite' || mode === 'snap' || mode === 'rise' ? 19 : 18) : stands[n].row
       // Out from under a lane: a step to the side that is clear of it, on the same footing.
       if (lane && mode !== 'yawn') {
@@ -498,12 +503,14 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
         else if (face && mode === 'yawn' && near && since >= react) { a = i % 5 === 0; if (a) mx = -1 }
       } else {
         const f = Z.weaverFinger(Z.mapInfo(W, s.map.id), e)
+        // (The finger is reached by a held jump from the step before it.)
+        if (air === 'stomp') hold = true
         if (air === 'climb') { hold = true; mx = Math.abs(h().x - want) < 0.2 ? 0 : Math.sign(want - h().x) }
         // A thumb's stomp: B was only tapped; A when the feet are at the finger.
         if (f) {
-          mx = Math.sign(f.x - h().x) * (air === 'stomp' ? 1 : 0)
-          if (Math.hypot(h().x - f.x, feet() - f.y) <= Z.STOMP.wide - 0.05) a = i % 3 === 0
-          if (air === 'stomp') mx = 0
+          // (Steered over it in the air: the ring is no wider than the step's edge is from the finger.)
+          mx = Math.abs(f.x - h().x) < 0.1 ? 0 : Math.sign(f.x - h().x) * (air === 'stomp' ? 1 : 0)
+          if (Math.hypot(h().x - f.x, feet() - f.y) <= Z.WEAVER.finger - 0.05) a = i % 3 === 0
         }
       }
       // A pellet about to arrive is cut.

@@ -451,9 +451,9 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       turned(e, src, 0.2)
       return false
     }
-    // BARD: the blade, while it stands open, so many hit points an opening (`bossBard.ts`).
+    // BARD: the blade, or a stomp as the blade, while it stands open, so many hit points an opening (`bossBard.ts`).
     case 'bard': {
-      const cap = bardRule(c, e, blade(src))
+      const cap = bardRule(c, e, blade(src) || src === 'stomp')
       if (cap === null) { turned(e, src, 0.2); return false }
       const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
       bardStruck(e, opt)
@@ -685,7 +685,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'no': return ['YOU GOT THE NO!', 'A CUT AT THE RIGHT MOMENT REFUSES A BLOW OR AN OFFER.']
     case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
     case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES THE NEAREST METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
-    case 'stomp': return ['YOU GOT THE STOMP!', 'IN THE AIR, {A} COMES DOWN HARD.']
+    case 'stomp': return ['YOU GOT THE STOMP!', 'SEEN FROM THE SIDE, {A} IN THE AIR COMES DOWN HARD.']
     case 'duck': return ['YOU GOT THE DUCK!', '{B} SETS IT DOWN. FOES LOOK AT IT. IT FLOATS.']
     case 'lens': return ['YOU GOT THE LENS!', 'STAND STILL A MOMENT. WHAT IS FALSE FADES.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
