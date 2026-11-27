@@ -486,7 +486,7 @@ function king(c: Ctx, e: Enemy, dt: number) {
   const s = c.s
   const h = s.hero
   const p2 = ai.phase === 2
-  if (typeof ai.ang !== 'number') { ai.ang = 0; ai.shards = 15; ai.fire = 2.5; ai.tx = e.x; ai.ty = e.y; ai.mode = 'float'; ai.phase = 1 }
+  if (typeof ai.ang !== 'number') { ai.ang = 0; ai.shards = 15; ai.fire = 2.5; ai.tx = e.x; ai.ty = e.y; ai.mode = 'float'; ai.phase = ai.phase === 2 ? 2 : 1 }
   ai.ang = (ai.ang as number) + dt * (p2 ? 2.5 : 1.6)
   const room = cellRect(c.info, e.cell)
   if (ai.mode === 'float') {

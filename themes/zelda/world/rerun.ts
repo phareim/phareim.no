@@ -83,7 +83,7 @@ export const RERUN: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTT................,,......:................:...............T',
     '~#####################################,,##############################%########~',
     '~~----------------------d-------------,,--------------------------------------~~',
-    '~~,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,~~',
+    '~~,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,~~',
     '~~~----------=------------------------==---------------------=k--------------~~~',
     '~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~~~~~~=~~~~~----~~~~~~~~~',
@@ -189,10 +189,11 @@ export const RERUN: MapDef = {
     lantern('violet', 41.5, 20.5),
     lantern('violet', 48.5, 20.5),
     lantern('violet', 56.5, 23.5),
-    // THE MARINA: the promenade's lamps, the bike kid's bike, the one flamingo on the members' island.
+    // THE MARINA: the promenade's lamps, the bike kid's bike, the one flamingo on the members' island (south of the
+    // chest: further north it walls (70,34), where the hook lands from the promenade, off from the way back).
     ...[6, 18, 30, 46, 56, 74].map(x => lantern('cyan', x + 0.5, 30.5)),
     prop('bike', 26.5, 30.5, at(26, 30)),
-    prop('rerun_flamingo', 69.6, 34.5, at(69, 34)),
+    prop('rerun_flamingo', 69.6, 36.5, at(69, 36)),
   ],
   marks: {
     'A': gateHome('lawns'),

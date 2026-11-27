@@ -34,9 +34,27 @@ const KEYS = {
   KeyV: { key: 'v', code: 'KeyV', keyCode: 86 },
 }
 
+/**
+ * A port nothing listens on. (Several lab scripts run at once on one machine: a random port that another script's
+ * Chrome already holds would hand this script that Chrome.)
+ */
+async function freePort() {
+  const { createServer } = await import('node:net')
+  for (let tries = 0; tries < 40; tries++) {
+    const port = 9300 + Math.floor(Math.random() * 6000)
+    const free = await new Promise(done => {
+      const probe = createServer()
+      probe.once('error', () => done(false))
+      probe.listen(port, '127.0.0.1', () => probe.close(() => done(true)))
+    })
+    if (free) return port
+  }
+  throw new Error('cdp: no free port for the browser')
+}
+
 // `args`: more flags for the browser (`side-shot.mjs` takes the frame limit off to time frames).
 export async function launch({ width = 1440, height = 900, dpr = 1, mobile = false, args = [] } = {}) {
-  const port = 9300 + Math.floor(Math.random() * 500)
+  const port = await freePort()
   mkdirSync(join(homedir(), 'zshots'), { recursive: true })
   const profile = mkdtempSync(join(homedir(), 'zshots', 'prof-'))
   // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU). The mock keychain keeps a Mac's
