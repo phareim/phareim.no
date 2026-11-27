@@ -167,12 +167,36 @@ CLINKER is the smelter camp of the people the town turned away (RAGNA,
 TRIXIE); OLA's WINDMILL; THE SHELLYARD with grazers; THE CLEAN WELL, whose
 stair goes down to THE UNDER (the silent spirit and the seed); THE ROOT HOLLOW
 in the south, with the grazers' pool to its east.
-A door in the Steamhouse's south face leads into THE STEAMHOUSE, a dungeon
-with no keys (`docs/games/neon-shrine.md`).
+A door in the Steamhouse's south face (tile (39, 24), back out at the entry
+`steamhouse`) leads into THE STEAMHOUSE, a dungeon with no keys (*The
+Steamhouse* below). Once its first offer has been made, MS. B sends the hero
+in; once the Weight of NO is held, MS. B has no form for that.
 Fights: two slag hounds stalk the grazers' pool, on the road to the Clean
 Well; in the Shellyard's pen three calm grazers patrol and leave the hero be
 until struck, and a pink one, a tough foe, guards the shells chest: it stalks
 and charges whoever it sees.
+
+### THE STEAMHOUSE (`steamhouse`, `steamsuite`)
+The Sporelight's dungeon, under the bathhouse: two maps in
+`world/steamhouse.ts`, both views, no keys, a tab reloaded inside stays inside
+(`resume`). Attendants offer a warm towel; a YES (or standing too long after a
+NO, or a gift that lands) is a bath: back in the lobby, in a robe, at full
+hearts, with nothing else changed. Seven rooms:
+
+| room | what is there |
+| --- | --- |
+| THE LOBBY | the door, the pool (where a bath ends), the desk, the rack that takes the robe, the first attendant, the barred gate to the boiler |
+| THE BATHS | the view rule: folding screens hide the north doorway in the isometric view |
+| THE LAUNDRY | hung sheets, two baskets on two plates, an attendant over one of them |
+| THE BOILER ROOM | two hounds (one tough), THE NO in its chest, the lever to the lobby, PUFF, and the stair behind a gate that wants THE NO |
+| THE GIFT SHOP | optional: two attendants throw souvenirs; four refused open the heart piece |
+| THE STAIR | the checkpoint before the boss |
+| THE BEST ROOM | THE SYCOPHANT; THE END, which is paper; the Weight of NO; the door out to the lobby's desk |
+
+The way: lobby, baths, laundry, boiler, stair, Best Room; the lobby's north
+gate, once the lever is thrown, makes it boiler, stair, Best Room. How the
+attendants, THE NO, the gifts and the boss work:
+`docs/games/neon-shrine.md`, *The Steamhouse*.
 
 ### STILLSAND (`stillsand`)
 A pastel desert after sunrise. From the graves gate the BONE ROAD runs east

@@ -752,6 +752,8 @@ export interface CellDef {
   card?: { title: string; lines: string[] }
   /** The room is a round of an examination (`engine/exam.ts`). */
   round?: RoundDef
+  /** Once this flag is set, the room's own `track` (a boss's) is over: the map's plays here again. */
+  calm?: string
 }
 
 /**
@@ -1467,6 +1469,11 @@ export interface GameState {
   dialog: Dialog | null
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }
+  /**
+   * A beat the world holds for: THE END that comes down after the Sycophant's third cut (`engine/bossSycophant.ts`).
+   * While it is set `play` steps nothing else; `mode` stays 'play'. Never saved.
+   */
+  beat?: { kind: 'end'; t: number }
   /** Area banner (overworld regions, dungeon rooms). */
   area: string
   elapsed: number
@@ -1646,6 +1653,11 @@ export type GameEvent =
   | { type: 'scraps'; x: number; y: number; refused: boolean }
   /** The Sycophant's half heart to a hurt hero. */
   | { type: 'adore'; x: number; y: number }
+  /**
+   * The Sycophant's fake ending (never the real one): the beat begins and is over, the banner is torn down, and the
+   * Sycophant falls.
+   */
+  | { type: 'theEnd'; phase: 'begin' | 'over' | 'torn' | 'fall' }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

@@ -305,93 +305,185 @@ export const SYCOPHANT_RAW: Record<string, string[]> = {
   ],
 }
 
-/**
- * THE SIX GIFTS, 12×12: STAND-INS (plain rows of the right names and sizes) until they are drawn. The boss's own art
- * has them only as 5 to 7 px blobs inside the figure.
- */
+/** The six gifts, 12×12 (`engine/gifts.ts`): drawn for the dungeons job (`tmp/dungeons/art/steamlight`) and copied here. */
 export const GIFT_RAW: Record<string, string[]> = {
   gift_towel: [
     '............',
-    '............',
     '..kkkkkkkk..',
-    '.kwwwwwwwwk.',
-    '.kttttttttk.',
-    '.kwwwwwwwwk.',
-    '.kWWWWWWWWk.',
-    '.kwwwwwwwwk.',
-    '.kttttttttk.',
-    '.kWWWWWWWWk.',
-    '..kkkkkkkk..',
-    '............',
-  ],
-  gift_tea: [
-    '....w..w....',
-    '...w..w.....',
-    '....w..w....',
-    '.kkkkkkkk...',
-    '.keeeeeekkk.',
-    '.kccccccktk.',
-    '.kccccccktk.',
-    '.kccccccktk.',
-    '.kccccccckk.',
-    '..kCCCCCk...',
+    '.kwwwwwcCwk.',
+    '.kwwwwccwwk.',
+    '.kwwwwcCwwk.',
+    '.kkkkkCCkkW.',
+    '.kWWWWcCWWk.',
+    '.kkkkkCCkkk.',
+    '.kwwwwcCwwk.',
+    '.kwwwwcCwwk.',
     '.kkkkkkkkk..',
     '............',
   ],
+  gift_tea: [
+    '....W..W....',
+    '...WW..WW...',
+    '..WW..WW....',
+    '...W..W.....',
+    '...kkkkk....',
+    '..kwwwwwk...',
+    '.kwkkkkwwkk.',
+    '.kwwwwwtkwk.',
+    '.kwwwwwtkwk.',
+    '.ktttttkkk..',
+    '..kttttk....',
+    '...kkkk.....',
+  ],
   gift_heart: [
-    '............',
-    '..kk....kk..',
-    '.kppk..kppk.',
-    'kpmmpkkppppk',
-    'kpmppppppppk',
+    '..kkk...kkk.',
+    '.kmmpk.kppkk',
+    'kmmpppkppppk',
     'kppppppppppk',
-    '.kppppppppk.',
-    '..kppppppk..',
-    '...kppppk...',
-    '....kppk....',
-    '.....kk.....',
-    '............',
+    'kppyyppyyypk',
+    'kppyyYyYYYpk',
+    'kPppRyPyPpPk',
+    '.kPpyypyypPk',
+    '..kPpRpPPRk.',
+    '...kPpppRk..',
+    '....kPpRk...',
+    '.....kkk....',
   ],
   gift_star: [
     '.....kk.....',
     '....keek....',
     '....keyk....',
-    'kkkkkyykkkkk',
-    'keeyyyyyyyyk',
-    '.kyyyyyyyyk.',
-    '..kyyyyyyk..',
-    '..kyyyyyyk..',
-    '.kyyykkyyyk.',
-    '.kyyk..kyyk.',
-    '.kkk....kkk.',
+    '.kkkeeyykkk.',
+    'kyeeeyyyyyYk',
+    'kkyyyyyyyYkk',
+    '.kkyyyyyYkk.',
+    '..kyyyyYYk..',
+    '..kyyYYYYk..',
+    '.kyYYkkYYYk.',
+    '.kkkk.kkkkk.',
     '............',
   ],
   gift_flower: [
-    '....kkkk....',
-    '...kmmmmk...',
-    '.kkkmmmmkkk.',
-    'kmmmkyykmmmk',
-    'kmmmyyyymmmk',
-    '.kkkkyykkkk.',
-    '...kmmmmk...',
-    '....kmmk....',
-    '..k..lk..k..',
-    '.klk.lk.klk.',
-    '..kllllllk..',
-    '...kkkkkk...',
+    '....kkkkk...',
+    '....kmppk...',
+    '.kkkppppkkk.',
+    'kmmpkppkmmpk',
+    'kmpppyypmppk',
+    'kpppyyyypppk',
+    '.kkkyyyykkk.',
+    '..kmpyypmpk.',
+    '.kmpppkmppk.',
+    '.kppppppppk.',
+    '.kkkkkkkkkk.',
+    '............',
   ],
   gift_bell: [
     '.....kk.....',
-    '....kyyk....',
-    '...keyyyk...',
-    '..keyyyyYk..',
-    '..keyyyyYk..',
-    '..keyyyyYk..',
-    '.keyyyyyyYk.',
-    'keyyyyyyyyYk',
-    'kYYYYYYYYYYk',
+    '....kyYk....',
+    '....kkkk....',
+    '...keeyyk...',
+    '..keeyyyYk..',
+    '..kyyyyyYk..',
+    '..kyyyyYYk..',
+    '..kYYYYYYk..',
+    '.keeeeeeeek.',
     '.kkkkkkkkkk.',
-    '.....kYk....',
-    '......k.....',
+    '....kYYk....',
+    '.....kk.....',
   ],
 }
+
+/** The house's two drawn props, 16×16, from the same sheets: the lobby's rack of hooks and the baths' folding screen. */
+export const HOUSE_RAW: Record<string, string[]> = {
+  rack_hooks: [
+    'kkkkkkkkkkkkkkkk',
+    'kiiiiiiiiiiiiiik',
+    'kaaaaaaaaaaaaaak',
+    'kkiikkkiikkkiikk',
+    '..kk...kk...kk..',
+    '..kk..kaak..kk..',
+    '..kk.kCkkCk.kk..',
+    '....kwCwwCwk....',
+    '...kwWwCCwWwk...',
+    '...kwWwCwwWwk...',
+    '...kkkwCwwkkk...',
+    '.....kCCCCk.....',
+    '....kwwCCwWk....',
+    '....kwwCCwWk....',
+    '....kwwCwwWk....',
+    '....kkkkkkkk....',
+  ],
+  screen_fold: [
+    '.....kkkkkk.....',
+    'kkkkkhwwwWkkkkkk',
+    'kGGGBhwwwWhGGGGk',
+    'kwwwWhwwmWhwwwWk',
+    'kwwwWhwwwWhwwwWk',
+    'kwwwWhmwmWhwwwWk',
+    'kwwwWhwmwWhwwwWk',
+    'kwwwWhwwmWhwwwWk',
+    'kwwwWhWwwWhwwwWk',
+    'kwwwWhmwwWhwwwWk',
+    'kwwwWhmmwWhwwwWk',
+    'kwwwWhwwwWhwwwWk',
+    'kwwwWBwwwWhwwwWk',
+    'kWWWWBWWWWhWWWWk',
+    'kkkkkhkkkhhkkkkk',
+    '.....k...kk.....',
+  ],
+}
+
+/**
+ * THE BANNER (A STAND-IN until it is drawn): `banner_end` and `banner_loose`, a paper strip six tiles wide and three
+ * high with THE END in block letters, its lower east corner come loose: the two frames of its flapping.
+ */
+function banner(lift: number): string[] {
+  const W = 96
+  const H = 48
+  const px = Array.from({ length: H }, () => Array<string>(W).fill('.'))
+  const fill = (x: number, y: number, w: number, h: number, c: string) => {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (i >= 0 && j >= 0 && i < W && j < H) px[j]![i] = c
+  }
+  // The rod it hangs from, a knob at each end.
+  fill(0, 0, W, 5, 'k')
+  fill(1, 1, W - 2, 1, 'j')
+  fill(1, 2, W - 2, 2, 'i')
+  // The paper: an ink edge, a shaded fold or two, a torn hem.
+  fill(2, 5, 92, 41, 'k')
+  fill(3, 5, 90, 40, 'w')
+  fill(3, 5, 90, 2, 'W')
+  for (const x of [24, 69]) fill(x, 7, 1, 38, 'W')
+  for (let x = 3; x < 93; x++) if ((x >> 2) % 2) { fill(x, 44, 1, 1, 'k'); fill(x, 45, 1, 1, '.') }
+  fill(5, 9, 86, 1, 'p')
+  fill(5, 40, 86, 1, 'p')
+  // THE END, each stroke two px wide and three high per cell.
+  const FONT: Record<string, string[]> = {
+    T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+    H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+    N: ['#...#', '##..#', '##..#', '#.#.#', '#..##', '#..##', '#...#'],
+    D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
+  }
+  let x = 8
+  for (const ch of 'THE END') {
+    if (ch === ' ') { x += 8; continue }
+    FONT[ch]!.forEach((row, j) => [...row].forEach((on, i) => { if (on === '#') fill(x + i * 2, 14 + j * 3, 2, 3, 'k') }))
+    x += 12
+  }
+  // The loose corner: the paper gone from it, and the flap turned up, gold on its back.
+  const size = 15 + lift
+  for (let d = 0; d < size; d++) {
+    const y = H - 1 - d
+    const from = 93 - (size - d)
+    fill(from, y, W - from, 1, '.')
+    // The flap, folded over the fold line toward the paper.
+    const flap = size - d
+    fill(from - flap, y, flap, 1, 'y')
+    fill(from - flap, y, 1, 1, 'k')
+    fill(from - 1, y, 1, 1, 'e')
+    fill(from, y, 1, 1, 'k')
+  }
+  fill(93 - size * 2, H - 1, size, 1, 'k')
+  return px.map(r => r.join(''))
+}
+export const BANNER_RAW: Record<string, string[]> = { banner_end: banner(0), banner_loose: banner(4) }

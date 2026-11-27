@@ -1481,7 +1481,8 @@ function trackFor(s: GameState): TrackId {
   if (def.cell) {
     const cols = Math.ceil(def.rows[0]!.length / def.cell.w)
     const key = `${s.zoneIndex % cols},${Math.floor(s.zoneIndex / cols)}`
-    return def.cells?.[key]?.track ?? def.track
+    const room = def.cells?.[key]
+    return (room?.calm && s.flags[room.calm] ? undefined : room?.track) ?? def.track
   }
   return def.track
 }
@@ -1673,6 +1674,13 @@ function handleEvents(events: GameEvent[]) {
       case 'buy': if (!e.ok) a?.sfx('error'); break
       case 'bath': if (e.phase === 'begin') a?.sfx('bath'); else if (e.phase === 'robeOff') a?.sfx('cut'); save = save || e.phase === 'arrive'; break
       case 'bossDown': a?.sfx('bossDie'); a?.jingle('fanfare'); save = true; break
+      // The Sycophant's fake ending, never the real one: the music stops for the beat (the fanfare, no ending track),
+      // comes back while the banner hangs, and the boss's stops for good at the fall.
+      case 'theEnd':
+        if (e.phase === 'begin') { track = null; a?.hush(); a?.jingle('fanfare') }
+        else if (e.phase === 'torn') { a?.sfx('shatter'); a?.sfx('cut') }
+        else playTrack(trackFor(state))
+        break
       case 'unlock': case 'gate': save = true; break
       case 'enter':
         save = true

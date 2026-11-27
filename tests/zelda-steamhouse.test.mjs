@@ -1,13 +1,14 @@
 // THE STEAMHOUSE (docs/games/neon-shrine.md, "The Steamhouse"): the Sporelight's dungeon with no keys. By the owner's
-// rule of 2026-11-27 this file holds few end-to-end tests and no specialised ones (at most four when the whole job is
-// done). Parts one and two:
-//   (a) one scripted play-through by a hero with the blade only, from the door in the Sporelight to the Sycophant's
-//       third cut (a tab reloaded on the way): THE NO, the lobby's gate, the Gift Shop's four refusals and heart piece,
-//       the stair, three volleys refused (a cut, a spin, a cut), the way a player plays it;
+// rule of 2026-11-27 this file holds few end-to-end tests and no specialised ones (four):
+//   (a) one scripted play-through by a hero with the blade only, from the door in the Sporelight to the Sacred Weight
+//       in hand (a YES on the way, and a tab reloaded halfway): THE NO, the lobby's gate, the Gift Shop's four refusals
+//       and heart piece, the stair, three volleys refused (a cut, a spin, a cut), THE END's banner cut at its corner,
+//       the one true thing and the way out, the way a player plays it;
 //   (b) the map: the world is clean, the key rule holds with zero keys, every room can be walked to, and the boiler's
 //       east gate stays shut to a hero without THE NO;
 //   (c) a hero who says YES to everything and cuts nothing: the lobby, the robe, full hearts, nothing else touched, no
-//       heart ever lost to the Sycophant, and nothing opened.
+//       heart ever lost to the Sycophant, and nothing opened;
+//   (d) THE END is never the ending, saves nothing, and locks nobody in.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -73,9 +74,9 @@ function player(opts) {
 }
 
 describe('the Steamhouse', () => {
-  it('can be played from the door in the Sporelight to the Sycophant\'s third cut, by a hero with the blade only', () => {
-    const me = player({ at: { map: 'sporelight', entry: 'steamhouse' }, seed: 3 })
-    const { s } = me
+  it('can be played from the door in the Sporelight to the Weight in hand, by a hero with the blade only', () => {
+    let me = player({ at: { map: 'sporelight', entry: 'steamhouse' }, seed: 3 })
+    let { s } = me
     const idx = (x, y) => y * s.map.w + x
     s.hero.maxHp = s.hero.hp = 30
     // A hero who is hurt and carries things, so that a bath can be seen to take only the hurt.
@@ -116,11 +117,6 @@ describe('the Steamhouse', () => {
     assert.deepEqual(Object.keys(s.flags).filter(f => !before.flags.includes(f)).sort(), ['steamhouse.bathed', 'steamhouse.bathed.said', 'steamhouse.visited'], 'no flag but the house\'s own')
     assert.ok(before.flags.every(f => s.flags[f]), 'and none lost')
     assert.ok(me.events.some(e => e.type === 'bath' && e.phase === 'begin'))
-    // A tab reloaded here continues in the house, at the pool, without the robe (it is never saved).
-    const save = Z.toSave(s)
-    assert.ok(Z.awayMap(Z.WORLD, save.map, save.entry) && Z.loadSpot(Z.WORLD, save, null, true) === null, 'a reloaded tab is not thrown out')
-    const reloaded = Z.createGame(Z.WORLD, { save })
-    assert.deepEqual([reloaded.map.id, reloaded.entry.entry, !!reloaded.hero.robe], ['steamhouse', 'baths', false])
     // The rack takes the robe off (A, facing it).
     me.walk(20.5, 20.5); me.walk(28.5, 20.5); me.walk(28.5, 14.6)
     for (let i = 0; i < 20; i++) me.tick({ move: { x: 0, y: -0.2 } })
@@ -231,17 +227,26 @@ describe('the Steamhouse', () => {
     me.walk(23.5, 9.5)
     me.until(() => s.zoneIndex === 4 && s.mode === 'play', 600, () => ({ move: { x: 0, y: 1 } }))
     assert.equal(s.map.id, 'steamhouse')
-    // A tab reloaded now is in the lobby, and the doors it opened are open.
-    const again = Z.createGame(Z.WORLD, { save: Z.toSave(s) })
-    assert.deepEqual([again.map.id, again.entry.entry, again.flags['item:no'], again.flags['steamhouse.back'], again.flags['gate:steamhouse.14,5']], ['steamhouse', 'baths', true, true, true])
-    assert.equal(again.map.tiles[idx(23, 11)], '.')
+    // Halfway: one more YES at the pool, and the tab is reloaded in the robe. It continues in the house, at the pool,
+    // unrobed (the robe is never saved), with THE NO and every door it opened still open; the walk goes on from there.
+    me.walk(23.5, 14.6); me.walk(29.5, 14.6); me.walk(29.5, 20.5); me.walk(25.5, 20.5)
+    for (let i = 0; i < 20; i++) me.tick({ move: { x: 0, y: -0.2 } })
+    me.tick({ aPress: true })
+    me.read(1)
+    me.until(() => s.mode === 'play' && s.hero.robe, 300)
+    const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+    assert.ok(Z.awayMap(Z.WORLD, save.map, save.entry) && Z.loadSpot(Z.WORLD, save, null, true) === null, 'a reloaded tab is not thrown out')
+    me = player({ save, seed: 4 })
+    s = me.s
+    assert.deepEqual([s.map.id, s.entry.entry, !!s.hero.robe], ['steamhouse', 'baths', false])
+    assert.ok(s.flags['item:no'] && s.flags['steamhouse.back'] && s.flags['gate:steamhouse.14,5'] && s.map.tiles[idx(23, 11)] === '.')
 
     // The Gift Shop, east: two throwers, a lane on the floor before each gift, and the heart piece behind a gate that
     // four refusals open. The thumb is not aimed (`autoFace`): a press when a gift is near turns to it and cuts.
     const gifts = () => s.map.projectiles.filter(q => q.kind === 'gift')
     const nearest = () => gifts().reduce((m, q) => Math.min(m, Math.hypot(q.x - s.hero.x, q.y - s.hero.y)), Infinity)
     const thumb = (within, f) => inp({ autoFace: true, aPress: nearest() < within && f % 8 === 0, a: nearest() < within && f % 8 === 0 })
-    me.walk(23.5, 14.6); me.walk(29.5, 14.6); me.walk(29.5, 17.5)
+    me.walk(20.5, 20.5); me.walk(28.5, 20.5); me.walk(29.5, 17.5)
     me.leave(1, 0, () => s.zoneIndex === 5)
     me.walk(40.5, 17.5)
     assert.equal(s.map.tiles[idx(45, 15)], 'X', 'the heart piece is behind a shut gate')
@@ -293,6 +298,9 @@ describe('the Steamhouse', () => {
     me.until(() => boss.ai.mode === 'offer', 600, at(2, 12))
     assert.ok(me.events.slice(heard).some(e => e.type === 'clank') && boss.hp === 4 && !Z.bossOpen(boss), 'behind its card the blade clanks')
     let healed = false
+    /** The camera of a narrow screen, where it was the frame before: THE END may not move it. */
+    const narrow = () => Z.cameraFor(s, 9, 14)
+    let camera
     for (const how of ['cut', 'spin', 'cut']) {
       const cuts = 4 - boss.hp
       // To the open floor under it, and wait for the offer.
@@ -316,22 +324,62 @@ describe('the Steamhouse', () => {
       assert.ok(Z.bossOpen(boss) && !gifts().length && sent >= 1 && sent <= cuts + 1, 'open, and nothing more is thrown')
       if (how === 'spin') assert.ok(spun, 'by the spin')
       const hp = s.hero.hp
-      me.until(() => boss.hp < 4 - cuts, 3 * FPS, at(1.9, 6))
+      me.until(() => boss.hp < 4 - cuts, 3 * FPS, f => { camera = narrow(); return at(1.9, 6)(f) })
       assert.equal(boss.hp, 3 - cuts, 'one cut, one hit point')
+      if (cuts === 2) break
       // (The rest of the swing, and of the chain, take nothing more.)
       for (let f = 0; f < 40; f++) me.tick({ aPress: f % 8 === 0 })
       assert.equal(boss.hp, 3 - cuts)
       assert.ok(s.hero.hp >= hp, 'cutting it costs no heart')
     }
     assert.ok(healed, 'and it tops a hurt hero up')
-    // THE STAND-IN END (part two): the third cut fells it, and the north gate opens.
-    me.until(() => s.mode === 'play', 120)
-    for (let i = 0; i < 30; i++) me.tick()
+
+    // THE END. The third cut ends nothing: the world holds for a beat, with the hero, the hearts and the camera where
+    // they were, and a mashed button moves nothing.
+    const held = () => JSON.stringify([s.hero.x, s.hero.y, s.hero.hp, s.inv, s.elapsed, narrow()])
+    assert.ok(s.beat && !boss.dead && boss.hp === 1 && !s.flags.sycophant)
+    assert.ok(Math.hypot(narrow().x - camera.x, narrow().y - camera.y) < 0.25, `the camera stays where the cut found it (${JSON.stringify([camera, narrow()])})`)
+    const still = held()
+    let beat = 0
+    while (s.beat) { me.tick({ aPress: beat % 8 === 0, move: { x: 0, y: -1 } }); if (s.beat) assert.equal(held(), still); beat++ }
+    assert.ok(beat > 2 * FPS && beat < 3 * FPS, `a surprise lasts seconds (${(beat / FPS).toFixed(1)} s)`)
+    assert.match(s.dialog.lines[0], /GLUED ON AT ONE CORNER/)
+    me.read()
+    // The paper holds the hero south of it, and the blade finds nothing but the loose corner, at its east end.
+    me.walk(23.5, 7.5)
+    for (let i = 0; i < 3 * FPS; i++) me.tick({ move: { x: 0, y: -1 } })
+    assert.ok(s.hero.y > 4 && s.hero.y < 4.5, `the banner holds (${s.hero.y.toFixed(2)})`)
+    for (let i = 0; i < FPS; i++) me.tick({ aPress: i % 8 === 0 })
+    assert.ok(boss.hp === 1 && !s.dialog && !Z.bossOpen(boss), 'a cut at its middle passes through')
+    me.walk(26.5, 6)
+    me.until(() => boss.ai.mode !== 'hung', 3 * FPS, f => ({ move: unit(26.5 - s.hero.x, 4.3 - s.hero.y, s.hero.y > 4.5 ? 1 : 0.2), aPress: s.hero.y <= 4.6 && f % 8 === 0 }))
+    assert.equal(boss.hp, 1, 'the corner takes no hit point')
+    // Down it comes; the room says so; it steps out bare-faced and says one true thing; and only then does it fall.
+    me.until(() => s.mode === 'dialog', 3 * FPS)
+    assert.match(s.dialog.lines[0], /THE END HAS BEEN POSTPONED/)
+    me.read()
+    me.until(() => s.mode === 'dialog', 3 * FPS)
+    assert.deepEqual([s.dialog.who, /NEVER ONCE TOLD ANYONE THEY WERE WRONG/.test(s.dialog.lines[0])], ['sycophant', true])
+    assert.ok(!boss.dead && !s.flags.sycophant && s.map.tiles[idx(23, 1)] === 'X', 'nothing is saved yet')
+    me.read()
+    me.until(() => s.mode === 'dialog', 4 * FPS)
     assert.ok(boss.dead && s.flags.sycophant && me.events.some(e => e.type === 'bossDown' && e.kind === 'sycophant'))
+    assert.match(s.dialog.lines[0], /THE STEAMHOUSE IS QUIET/)
+    me.read()
+    // The Weight lies where the way out opens: take it, and go.
+    me.walk(24.5, 6)
+    me.until(() => s.mode !== 'play', 3 * FPS, () => ({ move: unit(24.5 - s.hero.x, 4.5 - s.hero.y) }))
+    me.until(() => s.mode === 'dialog', 200)
+    assert.match(s.dialog.lines.join(' '), /STAMPED NO/)
+    me.read()
+    assert.ok(s.flags['item:weightNo'] && s.flags['took:steamhouse.weight'])
+    for (let i = 0; i < 30; i++) me.tick()
+    assert.equal(s.mode, 'play', 'the room\'s last line was said once')
     assert.equal(s.map.tiles[idx(23, 1)], '.')
     me.walk(23.5, 5.5)
     me.leave(0, -1, () => s.map.id === 'steamhouse')
     assert.equal(s.entry.entry, 'checkout', 'out by the desk')
+    assert.ok(!s.flags.won && !me.events.some(e => e.type === 'won'))
   })
 
   it('is one clean map in both views, with no keys, whose rooms can all be walked to and whose east gate wants THE NO', () => {
@@ -438,5 +486,51 @@ describe('the Steamhouse', () => {
     assert.ok(!still.events.some(e => e.type === 'hurt' || e.type === 'bossDown'))
     const upstairs = Z.createGame(Z.WORLD, { save: { ...Z.toSave(s), map: 'steamsuite', entry: 'stair' } })
     assert.deepEqual(upstairs.map.enemies.map(e => [e.kind, e.hp]), [['sycophant', 4]])
+  })
+
+  it('hangs THE END without ending anything: never won, nothing saved, and nobody locked in', () => {
+    const me = player({ at: { map: 'steamsuite', entry: 'stair' }, seed: 7 })
+    const { s } = me
+    s.flags['item:no'] = true
+    const intoTheRoom = () => {
+      me.walk(14.5, 5.5)
+      me.leave(1, 0, () => s.zoneIndex === 1 || s.mode === 'dialog')
+      me.until(() => s.mode !== 'scroll', 200)
+      me.tick()
+      me.read()
+      return s.map.enemies.find(e => e.kind === 'sycophant')
+    }
+    const boss = intoTheRoom()
+    // Two cuts are taken as given: the third is made as it is made in play, a gift refused and a blow on the open face.
+    // The hero stands close under where the banner will hang.
+    boss.hp = 2
+    me.walk(24.5, 4.3)
+    const never = () => assert.ok(s.mode !== 'won' && !s.flags.won && !s.flags.sycophant && !s.flags['item:weightNo'], `mode ${s.mode}`)
+    const nearest = () => s.map.projectiles.filter(q => q.kind === 'gift').reduce((m, q) => Math.min(m, Math.hypot(q.x - s.hero.x, q.y - s.hero.y)), Infinity)
+    me.until(() => !!s.beat, 40 * FPS, f => {
+      const open = Z.bossOpen(boss)
+      const press = f % 8 === 0 && (open ? Math.hypot(boss.x - s.hero.x, boss.y - s.hero.y) < 1.9 : nearest() < 2.1)
+      return { autoFace: true, move: open ? unit(boss.x - s.hero.x, boss.y - s.hero.y, 0.3) : { x: 0, y: 0 }, aPress: press, a: press }
+    })
+    const from = me.events.length
+    // Through the whole beat, and long after it with the banner hanging.
+    while (s.beat) { me.tick(); never() }
+    assert.ok(s.hero.y > 4.3, 'a hero under the paper is moved south of it as it settles')
+    me.read()
+    for (let i = 0; i < 20 * FPS; i++) { me.tick(); never() }
+    assert.ok(!me.events.slice(from).some(e => ['won', 'exit', 'toss', 'bath', 'bossDown'].includes(e.type)), 'no ending, no more gifts, nothing saved')
+    // A save made now (with THE NO) loads as any save does, and finds the fight at its start.
+    const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+    const again = Z.createGame(Z.WORLD, { save })
+    assert.deepEqual([again.map.id, again.entry.entry, again.flags['item:no'], again.mode, again.beat], ['steamsuite', 'stair', true, 'play', undefined])
+    assert.deepEqual(again.map.enemies.map(e => [e.kind, e.hp]), [['sycophant', 4]])
+    // The way you came is open under the banner: out to the stair and back in, and there is no banner.
+    const out = () => ({ move: unit(14.5 - s.hero.x, 5.8 - s.hero.y) })
+    me.walk(18, 6)
+    me.until(() => s.zoneIndex === 0 && s.mode === 'play', 600, out)
+    const fresh = intoTheRoom()
+    assert.deepEqual([fresh.hp, fresh.ai.mode === 'hung', !!s.flags.sycophant], [4, false, false])
+    me.walk(23.5, 7); me.walk(23.5, 2.6)
+    never()
   })
 })
