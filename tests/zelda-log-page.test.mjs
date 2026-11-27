@@ -9,7 +9,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { OUT, PREFIX, pixelText, readChanges, writeChanges } from '../scripts/zelda-changes.mjs'
+import { OUT, PREFIX, lineOf, pixelText, readChanges, writeChanges } from '../scripts/zelda-changes.mjs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -46,7 +46,8 @@ test('the build step: this repository has a version and a list in the pixel face
   const commits = git('log', '--format=%ct%x09%h%x09%s').split('\n').map(r => r.split('\t')).filter(c => c[2]?.startsWith(PREFIX)).sort((a, b) => b[0] - a[0])
   assert.equal(log.version, commits.length)
   assert.equal(log.hash, commits[0][1])
-  assert.equal(lines[0], pixelText(commits[0][2].slice(PREFIX.length)))
+  // (A subject may be reworded or kept out of the list by the script's own table: `lineOf`.)
+  assert.equal(lines[0], pixelText(commits.map(c => lineOf(c[1], c[2])).find(l => l !== null)))
 
   const tmp = mkdtempSync(join(tmpdir(), 'zelda-changes-'))
   t.after(() => rmSync(tmp, { recursive: true, force: true }))

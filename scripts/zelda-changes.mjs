@@ -43,6 +43,27 @@ export function pixelText(text) {
 
 const NONE = () => ({ version: 0, date: '', hash: '', changes: [] })
 
+/**
+ * Lines said another way than their commit's subject, by the commit's hash (its first seven characters): a subject
+ * that tells how a boss or a puzzle is beaten, or names the last boss, is reworded here; `null` keeps a commit out
+ * of the list (a note for the builders, a tool only the owner sees). Every one still counts for the version.
+ */
+const REWORDED = {
+  '99970f9': "the Steamhouse's last room: THE END comes down, and the Weight NO can be won",
+  '3f59c15': "the Steamhouse's Gift Shop throws gifts, and the Sycophant waits in the Best Room",
+  '23bc13f': 'the Echo Barrow after its review: a boss keeps its wounds when you step out, and there are two new places to come back to',
+  '5ceadcb': "ORCA rows the Lighthouse's flooded cellar, and something hunts unseen in the dark oil store",
+  '7c26523': null,
+  '57f3645': null,
+  '70b98fa': null,
+  'f6275c3': null,
+  '7090e39': null,
+  'b7aabf9': null,
+}
+/** The list's line for a commit (not yet in the pixel face); null: it has none. */
+export const lineOf = (hash, subject) => { const k = hash.slice(0, 7); return k in REWORDED ? REWORDED[k] : subject.slice(PREFIX.length) }
+const said = c => lineOf(c.hash, c.subject)
+
 /** `2026-11-27` as `27 NOV 2026`. */
 function day(iso) {
   const [y, m, d] = iso.split('-')
@@ -79,10 +100,10 @@ export function readChanges(dir = REPO) {
       .sort((a, b) => b.time - a.time)
     if (!found.length) return NONE()
     const days = new Map()
-    for (const c of found.slice(0, NEWEST)) {
+    for (const c of found.filter(c => said(c) !== null).slice(0, NEWEST)) {
       const date = day(c.date)
       if (!days.has(date)) days.set(date, [])
-      days.get(date).push(pixelText(c.subject.slice(PREFIX.length)))
+      days.get(date).push(pixelText(said(c)))
     }
     return {
       version: found.length,
