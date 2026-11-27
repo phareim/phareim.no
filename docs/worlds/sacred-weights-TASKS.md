@@ -10,9 +10,11 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [x] Second opinions from Codex and Antigravity on the design (`tmp/dungeons/opinions/`, 2026-11-27).
 
 ## Shared
-- [ ] Kit one: the seven Weights as items, rooms that lock until clear, the boss bar, the save cap, the B list.
-- [ ] The view rule: square and diamond blocks, STAND CLEAR, the fallback without the isometric engine.
-- [ ] THE TURN ROOM in the Puzzle Lab.
+- [x] Kit one: the seven Weights as items, rooms that lock until clear, the boss bar, the save cap, the B list (commit c609996, live 2026-11-27; no map uses a trap gate yet, the bars were seen in a local build).
+- [x] The view rule: square and diamond blocks, STAND CLEAR, the fallback without the isometric engine (commit 2bff6bd, live 2026-11-27).
+- [x] THE TURN ROOM in the Puzzle Lab (commit 2bff6bd; walked with real keys in a local build in both views, not walked on the live site).
+- [ ] Going on where one was: a new visit starts in town, and a reload inside a cave does too. A dungeon must be picked up again at its last stair, and a new visit should offer it.
+- [ ] The test suite pruned to end-to-end tests (Petter, 2026-11-27): three files of this work were 226 of the suite's 280 seconds.
 - [ ] One side room as a trial, on a phone.
 - [ ] The ITEMS page as a grid, with the Weights.
 - [ ] Cards (intertitles, score cards, THE END).
