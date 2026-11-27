@@ -18,6 +18,7 @@ import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitO
 import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, stepClear, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
+import { useMagnet } from './magnet'
 import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { isTube } from '../world/tubes'
@@ -1001,6 +1002,7 @@ const TOOL_USE: Record<ToolId, (c: Ctx, inp: Input) => void> = {
   bombs: setBomb,
   echo: c => { setEcho(c) },
   lamp: c => { useLamp(c) },
+  magnet: useMagnet,
 }
 
 function useItem(c: Ctx, inp: Input) {

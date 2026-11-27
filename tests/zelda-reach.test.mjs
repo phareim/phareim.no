@@ -14,7 +14,7 @@ let Z
 before(async () => { Z = await load() })
 
 /** Solid tiles a hand alone gets past (pots, rocks) or that are puzzles, solved by their own tests. */
-const PUZZLES = new Set([...'orbPC¤ωμνκ□◇'])
+const PUZZLES = new Set([...'orbPC¤ωμνκ□◇▣▤▥▦'])
 /** Solid tiles that give way to something held. */
 const NEEDS = { '*': 'item:sword', R: 'item:bombBag', '%': 'item:bombBag', l: 'item:arc', B: 'luna' }
 /** The bosses that cannot be felled with the blade alone (`zelda-gauntlet.test.mjs` fights them all). */
@@ -161,6 +161,18 @@ function round(W, world, opened) {
           if (Z.TILE_INFO[t].wall && !PUZZLES.has(t)) break
         }
       }
+      // The Magnet: to a bolt, over anything low, up to seven tiles off in the same room (the Heap's iron that moves,
+      // crates and carts, is a puzzle: `PUZZLES`).
+      if (flags['item:magnet']) for (const [dx, dy] of STEPS) {
+        for (let k = 1; k <= 7; k++) {
+          const ax = x + dx * k
+          const ay = y + dy * k
+          if (ax < 0 || ay < 0 || ax >= info.w || ay >= info.h || m.cell(ax, ay) !== m.cell(x, y)) break
+          const t = info.base[m.at(ax, ay)]
+          if (t === '▧') { if (k > 1 && open(m, m.at(ax - dx, ay - dy))) push(m.id, ax - dx, ay - dy); break }
+          if (Z.TILE_INFO[t].wall && !PUZZLES.has(t)) break
+        }
+      }
     }
   }
   /** Is a thing at (x, y) within a hand's reach: on a walked tile or beside one, or across a shop counter? */
@@ -182,7 +194,7 @@ function round(W, world, opened) {
     assert.ok(turns < 200, 'the walk settles')
     changed = false
     // (A new walk only when something has changed what can be walked on.)
-    const way = [...Object.values(NEEDS), 'item:hook'].filter(f => flags[f]).join() + guardsNow().join() + Object.keys(flags).filter(f => f.startsWith('gate:')).length
+    const way = [...Object.values(NEEDS), 'item:hook', 'item:magnet'].filter(f => flags[f]).join() + guardsNow().join() + Object.keys(flags).filter(f => f.startsWith('gate:')).length
     if (way !== walkedWay) { walkedWay = way; walk(); changed = true }
     for (const m of Object.values(maps)) {
       const ring = m.def.keyring ?? 'shrine'

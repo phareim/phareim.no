@@ -1575,6 +1575,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   slip: 'slip',
   echo: 'echo', echoCut: 'echoCut', restock: 'plate', lamp: 'lamp',
   refuse: 'refuse',
+  latch: 'echoCut', fizzle: 'clank', iron: 'clank',
 }
 
 function handleEvents(events: GameEvent[]) {

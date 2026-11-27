@@ -32,6 +32,7 @@ import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from 
 import { copySprite, doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
 import { drawFloorMarks } from './floorMarks'
 import { drawClock, drawRings, drawTurban } from './steamPaint'
+import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -634,6 +635,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'restock': spark(e.x, e.y, 8, '#ffd23f', 3, 0.4); pulse(e.x, e.y, 1.6, '#ffd23f', 0.25); break
         case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
         case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
+        // The Magnet: cyan on the metal it takes, a grey spark at the hand for a tap that takes nothing.
+        case 'latch': spark(e.x, e.y, 6, '#2ff3ff', 4, 0.3); pulse(e.x, e.y, 1.8, '#2ff3ff', 0.18); break
+        case 'fizzle': spark(e.x, e.y, 5, '#8f86b8', 3, 0.25); break
+        case 'iron': spark(e.x, e.y, 5, '#cfc6ff', 3, 0.2); break
         case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; pulse(e.x, e.y, 2.5, '#b6ff4a', 0.2); break
         case 'glyph': if (e.ok) fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.4, color: '#2ff3ff', size: 0.6 }); break
         case 'join': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.8, color: '#ff8ae0', size: 1.6, name: 'hero' }); break
@@ -1352,6 +1357,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       items.push({ x: e.x, foot: 6 / T, y: e.y, draw: () => drawEcho(g, s, cx, cy, lights) })
     }
     queuePuzzles(g, s, cx, cy, items)
+    if (!ui.attract) queueHeap(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
@@ -1493,6 +1499,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /** What is painted flat on the floor (`floorMarks.ts`): the foes' stencils, pot stands, the echo's ring. */
   function floorMarks(g: G, s: GameState, ui: FrameUI, cx: number, cy: number) {
+    if (!ui.attract) drawHeapFloor(g, world, s, cx, cy, time, ui.reducedMotion)
     if (!ui.attract) drawFloorMarks(g, world, s, cx, cy, time, ui.reducedMotion)
     if (!ui.attract) drawRings(g, world, s, cx, cy, time, ui.reducedMotion)
   }
@@ -1855,6 +1862,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     items.sort((a, b) => a.y - b.y)
     for (const it of items) it.draw()
     drawHookChain(g, s, cx, cy, lights)
+    drawLatchLines(g, s, cx, cy, time, ui.reducedMotion, lights)
     if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g, dayOf('classic')?.fireflies ?? 1)
     const look = kind === 'overworld' && !ui.attract ? realmLook(info.def.look) : null
     const flies = look ? MOOD[look].flies : null

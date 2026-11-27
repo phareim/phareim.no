@@ -493,7 +493,9 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'disc': return ['YOU GOT THE PRISM DISC!', 'PRESS {B} TO THROW IT. IT STUNS FOES, FETCHES LOOT AND FLIPS FAR SWITCHES.', '{CYCLE} SWAPS BETWEEN BOMBS AND THE DISC.']
     case 'smallKey': return ['A SMALL KEY. WALK INTO A LOCKED DOOR TO OPEN IT.']
     // (The Shrine's ring is the one with the King behind its great door.)
-    case 'bigKey': return [s.map.ring === 'shrine' ? 'THE BIG KEY! IT OPENS THE GREAT DOOR TO THE KING.' : 'THE BIG KEY! IT OPENS THE GREAT DOOR HERE.']
+    case 'bigKey':
+      if (s.map.ring === 'underglow') return ['THE BIG KEY! IT OPENS THE DOOR AT THE FOOT OF THE HEAP.']
+      return [s.map.ring === 'shrine' ? 'THE BIG KEY! IT OPENS THE GREAT DOOR TO THE KING.' : 'THE BIG KEY! IT OPENS THE GREAT DOOR HERE.']
     case 'heartPiece': return s.inv.pieces === 0
       ? ['A PIECE OF HEART!', 'THAT MAKES FOUR. YOUR LIFE GREW BY ONE HEART!']
       : [`A PIECE OF HEART! (${s.inv.pieces}/4)`]
@@ -506,6 +508,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
     case 'no': return ['YOU GOT THE NO!', 'A CUT AT THE RIGHT MOMENT REFUSES A BLOW OR AN OFFER.']
     case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
+    case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES THE NEAREST METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
@@ -553,6 +556,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'arc': inv.arc = true; inv.sword = true; break
     case 'echo': inv.echo = true; inv.selected = 'echo'; break
     case 'lamp': inv.lamp = true; inv.selected = 'lamp'; break
+    case 'magnet': inv.magnet = true; inv.selected = 'magnet'; break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break

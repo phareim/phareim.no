@@ -1,0 +1,264 @@
+// Neon Shrine, THE HEAP (docs/games/neon-shrine-heap.md), under the Underglow's rails: the whole way through it by one
+// scripted player, what the Magnet leaves in a save, and the two maps' own bargain with the world. Nobody plays it by
+// hand before it ships, so the play-through is the proof that every room can be left the way it says.
+//
+// `HEAP_LOG=1` prints the play-through's checkpoints.
+import { describe, it, before } from 'node:test'
+import assert from 'node:assert/strict'
+import { load } from './zelda-load.mjs'
+import { walker } from './zelda-walk.mjs'
+
+let Z
+let P
+before(async () => { Z = await load(); P = walker(Z) })
+
+/** The rooms' top-left tiles (cells of 16 × 12); a room's own coordinates are added to them. */
+const ROOMS = {
+  heap1: { hollow: [0, 0], sorting: [16, 0], strongroom: [32, 0], line: [16, 12], pump: [32, 12], dark: [48, 12] },
+}
+const tileAt = (s, x, y) => s.map.tiles[y * s.map.w + x]
+
+describe('the Heap', () => {
+  it('is played from the hollow wall to the Pump House, with the blade and what the Heap gives', () => {
+    const log = []
+    let s
+    let room = 'rails'
+    /** One checkpoint: what was done in which room. A failure names its place and what was passed before it. */
+    const check = (step, fn) => {
+      try { fn() } catch (e) {
+        e.message = `${room}: ${step}: FAILED at ${s.map.id} ${s.hero.x.toFixed(2)},${s.hero.y.toFixed(2)} (${s.mode})\n${e.message}\n--- passed:\n${log.join('\n')}`
+        throw e
+      }
+      log.push(`${room}: ${step}: ok`)
+    }
+    /** Where tile (x, y) of the room is on its map. */
+    const at = (x, y) => { const [ox, oy] = ROOMS.heap1[room]; return [ox + x, oy + y] }
+    const tile = (x, y) => tileAt(s, ...at(x, y))
+    const walk = (x, y) => P.walkTo(s, ...at(x, y))
+    const stands = (x, y) => {
+      const [tx, ty] = at(x, y)
+      assert.ok(Math.hypot(s.hero.x - tx - 0.5, s.hero.y - ty - 0.5) < 0.7, `not at ${x},${y}: ${s.hero.x - at(0, 0)[0]},${s.hero.y - at(0, 0)[1]}`)
+    }
+    /** Walk on through a doorway until the camera stands in the next room. */
+    const cross = (to, x, y) => {
+      const [ox, oy] = ROOMS.heap1[to]
+      P.walkTo(s, ox + x, oy + y)
+      P.until(s, () => s.mode === 'play')
+      room = to
+      assert.deepEqual([s.zone.x, s.zone.y], [ox, oy], `not in the ${to}`)
+    }
+    /** B with the Magnet, facing `dir`, played out until nothing flies; returns what it said. */
+    const latch = (dir) => {
+      P.frames(s, 30)
+      s.hero.dir = dir
+      const ev = P.step(s, P.inp({ bPress: true }))
+      for (let k = 0; k < 240 && (s.hook || s.map.iron?.flights.length); k++) { s.hero.invuln = 1; ev.push(...P.step(s)) }
+      P.frames(s, 30)
+      return ev.map(e => e.type)
+    }
+
+    // --- the rails: the hollow wall --------------------------------------------------------------------------------
+    s = Z.createGame(Z.WORLD, { seed: 5, at: { map: 'underglow1', entry: 'up' } })
+    Object.assign(s.inv, { sword: true, bombBag: true, bombs: 8, selected: 'bombs' })
+    check('a bomb opens the crack', () => {
+      P.walkTo(s, 27, 10)
+      assert.equal(tileAt(s, 27, 11), '%')
+      s.hero.dir = 'down'
+      P.step(s, P.inp({ bPress: true }))
+      P.walkTo(s, 24, 9)
+      P.frames(s, 90)
+      assert.equal(tileAt(s, 27, 11), '.')
+    })
+    check('the hole leads into the Heap', () => {
+      P.walkTo(s, 27, 11)
+      P.until(s, () => s.map.id === 'heap1' && s.mode === 'play', P.inp())
+      P.frames(s, 5)
+      P.settle(s)
+      room = 'hollow'
+      assert.deepEqual(s.entry, { map: 'heap1', entry: 'door' })
+      assert.ok(s.flags['heap1.hollow'], 'the hollow has had its say')
+    })
+
+    // --- the sorting floor: the Magnet, a crate to a plate, across by a bolt ---------------------------------------
+    check('the chest holds the Magnet', () => {
+      cross('sorting', 1, 5)
+      walk(3, 4)
+      s.hero.dir = 'left'
+      P.pressA(s)
+      assert.equal(s.inv.magnet, true)
+      assert.equal(s.inv.selected, 'magnet')
+    })
+    check('station A: the crate comes over the pit onto the plate, and the shutter opens', () => {
+      walk(2, 8)
+      assert.equal(tile(7, 5), 'X')
+      assert.ok(latch('right').includes('latch'))
+      assert.equal(tile(3, 8), '▣')
+      assert.equal(tile(6, 8), '.')
+      assert.equal(tile(7, 5), '.')
+      assert.equal(tile(7, 6), '.')
+    })
+    check('station B: the bolt takes the hero to the far lip', () => {
+      walk(3, 2)
+      assert.ok(latch('right').includes('latch'))
+      stands(6, 2)
+    })
+    check('the strongroom is through the shutter', () => { cross('strongroom', 1, 5) })
+
+    // --- the strongroom: the cart in two taps ----------------------------------------------------------------------
+    check('the first tap rolls the cart half way', () => {
+      walk(7, 6)
+      latch('left')
+      assert.equal(tile(2, 2), '.')
+      assert.equal(tile(7, 2), '▦')
+      assert.equal(tile(3, 8), 'X')
+    })
+    check('the second sends it onto the plate, and the bars open', () => {
+      walk(12, 6)
+      latch('left')
+      assert.equal(tile(12, 2), '▦')
+      assert.equal(tile(3, 8), '.')
+      assert.equal(tile(3, 9), '.')
+    })
+    check('the small key', () => {
+      walk(2, 8)
+      s.hero.dir = 'left'
+      P.pressA(s)
+      assert.equal(Z.keyCount(s), 1)
+    })
+
+    // --- back over the sorting floor, and the line -----------------------------------------------------------------
+    check('station C: the bolt in the rim brings the hero home', () => {
+      cross('sorting', 14, 5)
+      walk(6, 2)
+      assert.equal(tile(6, 8), '▣', 'the crate went home')
+      latch('left')
+      stands(1, 2)
+    })
+    check('down to the line', () => { cross('line', 2, 1) })
+    check('over by the pillar bolt, from the west lip', () => {
+      walk(5, 8)
+      assert.equal(tile(6, 5), 'X', 'the drawbridge is up')
+      latch('right')
+      stands(10, 8)
+    })
+    check('the lever lets the drawbridge down', () => {
+      walk(13, 9)
+      s.hero.dir = 'down'
+      P.pressA(s)
+      P.frames(s, 10)
+      assert.ok(s.flags['heap1.bridge'])
+      for (let x = 6; x <= 9; x++) for (const y of [5, 6]) assert.equal(tile(x, y), '.')
+      walk(3, 5)
+    })
+    check('the islet and its piece of heart, there and on by bolts', () => {
+      walk(5, 2)
+      latch('right')
+      stands(8, 2)
+      walk(7, 2)
+      P.settle(s)
+      assert.ok(s.flags['took:heap1.piece'])
+      walk(8, 3)
+      latch('right')
+      stands(10, 3)
+    })
+
+    // --- a reload --------------------------------------------------------------------------------------------------
+    check('a reloaded tab goes on from the hollow, with all that was opened', () => {
+      const saved = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+      assert.equal(Z.awayMap(Z.WORLD, saved.map, saved.entry), true)
+      const spot = Z.loadSpot(Z.WORLD, saved, { map: 'overworld', entry: 'start' }, true)
+      assert.equal(spot, null, 'the tab continues where the save is')
+      s = Z.createGame(Z.WORLD, { seed: 6, save: saved, at: spot })
+      room = 'hollow'
+      P.settle(s)
+      assert.deepEqual([s.map.id, s.entry.entry], ['heap1', 'door'])
+      assert.equal(Z.keyCount(s), 1)
+      assert.equal(s.inv.selected, 'magnet')
+      assert.equal(tileAt(s, 23, 5), '.', 'the sorting floor shutter')
+      assert.equal(tileAt(s, 35, 8), '.', 'the strongroom bars')
+      assert.equal(tileAt(s, 22, 17), '.', 'the drawbridge')
+      assert.equal(tileAt(s, 22, 8), '▣', 'the crate at home')
+      assert.equal(tileAt(s, 34, 2), '▦', 'the cart at home')
+    })
+
+    // --- the pump house's door -------------------------------------------------------------------------------------
+    check('walking all the way to the east bank', () => {
+      cross('sorting', 1, 5)
+      cross('line', 2, 1)
+      walk(14, 5)
+    })
+    check('the key opens the door to the Pump House', () => {
+      assert.equal(tile(15, 5), 'L')
+      for (let k = 0; k < 90 && tile(15, 5) === 'L'; k++) { s.hero.invuln = 1; P.step(s, P.inp({ move: { x: 1, y: 0 } })) }
+      assert.equal(tile(15, 5), '.')
+      assert.equal(tile(15, 6), '.')
+      assert.equal(Z.keyCount(s), 0)
+      cross('pump', 1, 5)
+    })
+    if (process.env.HEAP_LOG) console.log(log.join('\n'))
+  })
+
+  it('keeps the Magnet in a save as an item and a flag and nothing else', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'heap1', entry: 'door' } })
+    s.inv.sword = true
+    const before = Z.toSave(s)
+    Z.grant(s, 'magnet')
+    Z.enterMap(Z.WORLD, s, 'heap1', 'door', [], { x: 18.5, y: 8.5 })
+    s.mode = 'play'
+    s.hero.dir = 'right'
+    P.step(s, P.inp({ bPress: true }))
+    assert.equal(s.map.iron.flights.length, 1, 'iron is in the air')
+    const flying = Z.toSave(s)
+    assert.deepEqual(Object.keys(flying).sort(), Object.keys(before).sort())
+    assert.deepEqual(flying.inv, { ...before.inv, magnet: true, selected: 'magnet' })
+    assert.deepEqual(flying.flags.filter(f => !before.flags.includes(f)), ['item:magnet'])
+
+    const loaded = Z.parseSave(JSON.parse(JSON.stringify(flying)))
+    assert.deepEqual([loaded.inv.magnet, loaded.inv.selected], [true, 'magnet'])
+    const again = Z.createGame(Z.WORLD, { seed: 2, save: loaded })
+    assert.equal(again.inv.selected, 'magnet')
+    assert.equal(tileAt(again, 22, 8), '▣', 'the iron stands where the map has it')
+
+    const old = JSON.parse(JSON.stringify(before))
+    delete old.inv.magnet
+    const parsed = Z.parseSave(old)
+    assert.ok(parsed, 'a save from before the Magnet loads')
+    assert.equal(parsed.inv.magnet, false)
+    assert.ok(!Z.useItems(Z.createGame(Z.WORLD, { save: parsed })).includes('magnet'))
+  })
+
+  it('is a wing of the Underglow that fits the world: valid maps, a key for every lock, a door you can walk to', () => {
+    assert.deepEqual(Z.validateWorld(Z.WORLD), [])
+    // The Underglow's one keyring, the wing's key and locks with the floors'.
+    const ring = Object.values(Z.WORLD.maps).filter(d => d.keyring === 'underglow')
+    assert.deepEqual(ring.map(d => d.id).sort(), ['heap1', 'heap2', 'underglow1', 'underglow2', 'underglow3'])
+    const items = ring.flatMap(d => Object.values(d.marks).map(m => m.ent.item))
+    /** Locked doors of one kind: runs of touching lock tiles. */
+    const doors = ch => ring.reduce((n, d) => {
+      const seen = new Set()
+      d.rows.forEach((r, y) => [...r].forEach((t, x) => {
+        if (t !== ch || seen.has(`${x},${y}`)) return
+        n++
+        for (const st = [[x, y]]; st.length;) {
+          const [a, b] = st.pop()
+          if (seen.has(`${a},${b}`) || d.rows[b]?.[a] !== ch) continue
+          seen.add(`${a},${b}`)
+          st.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1])
+        }
+      }))
+      return n
+    }, 0)
+    assert.deepEqual([items.filter(i => i === 'smallKey').length, doors('L')], [4, 4])
+    assert.deepEqual([items.filter(i => i === 'bigKey').length, doors('K')], [1, 1])
+    // The rails room keeps its size; the hole in its wall and the way back are where the Heap says.
+    const under = Z.WORLD.maps.underglow1
+    assert.deepEqual([under.rows[0].length, under.rows.length], [48, 24])
+    const info = Z.mapInfo(Z.WORLD, 'underglow1')
+    const hole = info.warps.find(w => w.to === 'heap1')
+    assert.ok(Z.mapInfo(Z.WORLD, hole.to).entries[hole.entry], 'the hole lands on an entry')
+    assert.ok(Z.mapInfo(Z.WORLD, 'heap1').entries.door && info.entries.heap)
+    const s = Z.createGame(Z.WORLD, { at: { map: 'underglow1', entry: 'up' } })
+    assert.equal(tileAt(s, hole.x, hole.y), '%')
+    assert.ok(P.path(s, hole.x, hole.y - 1), 'the hollow wall can be walked up to')
+  })
+})

@@ -364,6 +364,7 @@ describe('a shut trap gate is a wall', () => {
 describe('a big key', () => {
   const KING = 'THE BIG KEY! IT OPENS THE GREAT DOOR TO THE KING.'
   const HERE = 'THE BIG KEY! IT OPENS THE GREAT DOOR HERE.'
+  const FOOT = 'THE BIG KEY! IT OPENS THE DOOR AT THE FOOT OF THE HEAP.'
 
   it('names the King in the Shrine\'s ring, and "here" in every other', () => {
     const rings = new Map()
@@ -371,10 +372,12 @@ describe('a big key', () => {
     assert.ok(rings.has('shrine') && rings.has('lab1') && rings.has('deep'))
     for (const [ring, id] of rings) {
       const s = Z.createGame(Z.WORLD, { seed: 1, at: { map: id, entry: Object.keys(Z.mapInfo(Z.WORLD, id).entries)[0] } })
-      assert.deepEqual(Z.itemText(s, 'bigKey'), [ring === 'shrine' ? KING : HERE], `${id} (${ring})`)
+      // (A ring with a line of its own: the Underglow's great door is at the foot of the Heap.)
+      assert.deepEqual(Z.itemText(s, 'bigKey'), [ring === 'shrine' ? KING : ring === 'underglow' ? FOOT : HERE], `${id} (${ring})`)
     }
     fits(KING)
     fits(HERE)
+    fits(FOOT)
   })
 })
 

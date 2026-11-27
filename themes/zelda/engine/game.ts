@@ -20,6 +20,7 @@ import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { stepEcho } from './echo'
 import { lampHome } from './lamp'
+import { homeIron } from './magnet'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -30,7 +31,7 @@ import { ART_IDS, endMoves, resetMoves, stepSlow } from './moves'
 function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
-    hook: false, arc: false, echo: false, lamp: false, bigBag: false, shrooms: 0, keyrings: {},
+    hook: false, arc: false, echo: false, lamp: false, magnet: false, bigBag: false, shrooms: 0, keyrings: {},
   }
 }
 
@@ -211,6 +212,8 @@ function enterCell(c: Ctx, index: number) {
     }
   }
   resetPuzzleRoom(c, index)
+  // Iron goes home (`magnet.ts`), solved room or not.
+  homeIron(c, index)
   s.hero.safe = { x: s.hero.x, y: s.hero.y }
   placeLuna(s)
   const area = areaAt(c.w, s)

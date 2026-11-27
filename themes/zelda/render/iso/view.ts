@@ -32,6 +32,7 @@ import { blockUp, isViewBlock } from '../../world/tiles'
 import { SIDE_PATCH } from '../viewBlocks'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
+import { drawLatchLines } from '../heapMarks'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { TONES } from '../tones'
 import { drawDecals } from '../decals'
@@ -1720,6 +1721,7 @@ export default function isoView(kit: Kit): View {
     // The floor's paint goes on once whatever stands has been taken off the ground, so no card carries it up.
     kit.floorMarks(fg, s, ui, bx, by)
     if (s.hook) drawHookChain(fg, s, bx, by, lights)
+    drawLatchLines(fg, s, bx, by, time, reduced, lights)
     if (m.id === 'overworld') kit.lakeSun(fg, s, bx, by, reduced, bw, bh)
 
     // --- shots, sparks, the flash: over the lit scene ------------------------------------
