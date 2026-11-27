@@ -11,12 +11,6 @@ import { MAPS as rerun } from './rerun'
 import { MAPS as lumenby } from './lumenby'
 import { MAPS as fogstage } from './fogstage'
 import { MAPS as underglow } from './underglow'
-import { MAPS as echobarrow } from './echobarrow'
-import { MAPS as lighthouse } from './lighthouse'
-import { MAPS as lateshow } from './lateshow'
-import { MAPS as actthree } from './actthree'
 
-export const LANDS: Record<string, MapDef> = { ...seterfell, ...yulefjord, ...sporelight, ...stillsand, ...rerun, ...lumenby, ...fogstage, ...underglow, ...echobarrow, ...lighthouse }
-// (A dungeon's maps, a line of their own.)
-Object.assign(LANDS, lateshow)
-Object.assign(LANDS, actthree)
+export const LANDS: Record<string, MapDef> = { ...seterfell, ...yulefjord, ...sporelight, ...stillsand, ...rerun, ...lumenby, ...fogstage, ...underglow }
+// (A dungeon's maps are not a land's: `dungeons.ts` takes them, never this file.)

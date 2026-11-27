@@ -43,6 +43,56 @@ may carry a second text (`alt: { when, lines }`), read instead of its lines
 while the condition holds (Rerun's phone booth once the Gate is shut). How the
 lands use their words: `docs/worlds/README.md`, "How the lands speak".
 
+**The world in two parts** (2026-11-27). A visitor who only walks the town
+downloads no dungeon.
+
+- *The parts.* `world/core.ts` is the home page's world: every map that is not
+  a dungeon's, with `World.lazy = { pending: true }`. `world/dungeons.ts`
+  exports `DUNGEONS`, the dungeons' maps, and is the only file that imports a
+  dungeon module; the site's build makes it a chunk of its own.
+  `world/index.ts` joins the two into the full `WORLD`, synchronously, for the
+  tests, the labs and the stage (`themes/stage/ViewStage.vue`, itself fetched
+  only when asked for). The shell and the Portal's landing import `core.ts`.
+- *What is a dungeon* (what goes in `dungeons.ts`): a map that is
+  `resume: true`, is not on the atlas, holds no `exit`, and is entered from
+  outside the dungeons only by a warp. The Underglow, the Puzzle Lab and the
+  Turning Room stay core. A new dungeon is one import and one spread there;
+  never a line in `lands.ts` or `index.ts`.
+- *Rewards.* A wallet adopts a save when the game begins, so what a dungeon's
+  chest or floor item pays is known beforehand, in `world/dungeon-bits.ts`
+  (a dungeon that pays no bits adds nothing).
+- *The loader* (`dungeonLoad.ts`, no Vue, no `window`). `loadDungeons()` puts
+  the maps into the core world's `maps` in place and clears `lazy.pending`;
+  `lazy` is an object, so a copy of the world (`worldStartingAt`) sees it too.
+  A fetch that fails is forgotten and asked for again; `withRetry` asks once
+  more at once, except when the browser says the answer was no script or the
+  tab is older than the build. `doorAhead` says when to fetch ahead: the hero
+  on a map with a warp to a map still missing. The shell then fetches in an
+  idle moment (not with Save-Data). In development it fetches at mount, for
+  the lab scripts that jump into a dungeon; `?lazy=1` turns that off.
+- *The hold.* The engine loads nothing. While `lazy.pending`, `warp()` keeps a
+  warp into a missing map at full dark (`t == WARP_TIME`), the lens not
+  counting. `holdStep` (once a frame) starts the fetch and says `'abort'` when
+  it has failed or after `HOLD_S` (8 s); `abortWarp` (`engine/abortWarp.ts`)
+  then sets the hero on the nearest open tile beside the door, runs the second
+  half of the fade, skips the land's first words and says THE DOOR WON'T OPEN.
+  TRY AGAIN. (CHECK THE CONNECTION. offline). The save never named the map.
+  When Nuxt has seen a newer build (`app:manifest:update`), a failed door
+  saves and reloads the page instead, once per build and never offline.
+- *A reload inside a dungeon.* `awayMap` answers true for an id nobody knows
+  while the chunk is pending, and `rescueSave` keeps such a map's explored
+  tiles (an id `World.rescue` knows is gone, and is dropped as ever).
+  `bootPlan` says `'wait'` for a save that continues on such a map: the shell
+  is in the phase `boot` (no HUD, no menu, nothing stepped or written, the
+  canvas its night colour) until the chunk is there. When it does not come the
+  hero starts in town, or before the last exit used, with everything but the
+  place in the dungeon. A newer save from the profile that arrives meanwhile
+  is applied after, as at any start.
+- *Tests.* `tests/zelda-load.mjs` bundles the full world, so a dungeon's tests
+  need nothing new. `tests/zelda-dungeon-chunk.test.mjs` holds the split,
+  the held door and the failed fetch; `tests/zelda-world.test.mjs` the sizes
+  and that no dungeon module is on `/`.
+
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
 wholesale on 2026-09-22; it is in git history up to `a110530`. The separate
 theme page (title screen, attract mode, the hut's back door THE WAY HOME)
@@ -53,8 +103,10 @@ marker chars: `overworld.ts` (town + coast, 104×48), `town.ts` (the arcade
 and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 `shrine.ts`, `intro.ts` (the Keeper's story), tile behaviour (`tiles.ts`),
 `validate.ts`; the Wildwood: `wildwood.ts`, `lab1.ts`, `lab2.ts`, `luna.ts`,
-`cells.ts`. `index.ts` holds `WORLD` (start: the plaza), `worldExits()`
-and `worldStartingAt()`. `engine/` — pure simulation split by concern
+`cells.ts`. `core.ts` holds the home page's world (`CORE`; start: the plaza),
+`worldExits()` and `worldStartingAt()`; `dungeons.ts` the dungeons' maps;
+`index.ts` the two joined (`WORLD`, below). `dungeonLoad.ts` fetches the
+dungeons. `engine/` — pure simulation split by concern
 (`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `action.ts` (what a press of A does), `moves.ts` (the acrobatics and the hop), `enemies.ts`,
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
 `bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the

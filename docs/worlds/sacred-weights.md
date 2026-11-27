@@ -39,6 +39,9 @@ word: the thing its Assessor never had.
 
 - **A new map behind a door.** A dungeon is one or more new `kind: 'dungeon'` maps (or `kind: 'side'`) with its own
   `keyring`, reached by a tile swapped for a door in the land. No shipped map changes size.
+- **Registered in one place.** A dungeon's maps go in `themes/zelda/world/dungeons.ts`, one import and one spread (and
+  a line in `world/dungeon-bits.ts` for a chest that pays bits), never in `lands.ts` or `index.ts`: every dungeon map
+  is `resume: true`, off the atlas and without an `exit`.
 - **Any order.** A dungeon needs the blade, and nothing from another new dungeon. The one exception is the Underglow,
   which already needs the hook and bombs. A treasure is used in its own dungeon, in the last dungeon, and for a secret
   or two out in the lands. A fight never needs bombs or anything else that runs out: what it needs, the room lends,

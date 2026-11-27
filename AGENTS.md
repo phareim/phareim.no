@@ -40,11 +40,12 @@ There is no menu and no page route but `/`. `servers/mw-world/` is not part of t
 
 ## Key Patterns
 
-- **What `/` costs** (296 KB over the wire in 5 requests at last measurement; numbers in `docs/site.md`). Four rules, each broken once:
+- **What `/` costs** (296 KB over the wire in 5 requests at last measurement; numbers in `docs/site.md`). Five rules, the first four each broken once:
   - **A landing imports no game.** A `Landing.vue` reaches its game through `defineAsyncComponent(() => import(...))`, never a static import of `Game.vue`.
   - **No prefetch hints.** `server/plugins/no-prefetch.ts` strips them; it rewrites `html.head` as a string, and filtering that array removes the entire head.
   - **Styles are a file, not inline.** `features.inlineStyles: false` in `nuxt.config.ts`.
   - **No dead assets in `public/`.**
+  - **No dungeon on `/`.** `Zelda.vue` and `themes/portal/Landing.vue` import `themes/zelda/world/core.ts`, never `world/index.ts`; a dungeon's maps are registered in `world/dungeons.ts` only (and what its chests pay in `world/dungeon-bits.ts`).
 - **Neon Shrine's keys come from `themes/zelda/bindings.ts`** (the player changes them): never write a literal `KeyboardEvent.code` or key letter for an action in the game's or the shell's own code or text.
 - **A commit whose subject begins `Neon Shrine: ` is a line of the game's change list** (the menu's LOG page) and raises its version, so write it for a player: what is new, never how a boss or a puzzle is beaten, and nothing only the owner can see (`REWORDED` in `scripts/zelda-changes.mjs` rewords or drops a line after the fact). Details: `docs/site.md` → "Build-time values".
 - **Neon Shrine's iso art packs**: the stalls, machines and realm kits are PNG packs in the fixer art library, pinned in `themes/zelda/render/iso/artIndex.ts`; bake them only with `scripts/zelda-lab/art-pack.mjs` (via `frontier-art.mjs`, `codex/kit-bake.mjs` or `--splice`), never as TS (`tests/zelda-size.test.mjs`'s ceiling is what catches a big table in the bundle); `npm run art:pull` fills the tests' `.art-cache/`. Details: `docs/games/neon-shrine.md` → "The art packs".

@@ -478,6 +478,9 @@ function warp(c: Ctx, dt: number) {
     return
   }
   if (!w.swapped && w.t >= WARP_TIME) {
+    // A map of a chunk that is still to come (`World.lazy`): held at full dark until the shell has it, or gives up
+    // (`abortWarp.ts`). The lens does not count the dark as standing still.
+    if (c.w.lazy?.pending && !mapDef(c.w, w.to)) { w.t = WARP_TIME; if (s.lens) s.lens.still = 0; return }
     w.swapped = true
     enterMap(c.w, s, w.to, w.entry, c.ev, w.at)
     if (w.white) bathArrive(c)
@@ -498,8 +501,10 @@ function warp(c: Ctx, dt: number) {
   if (w.t >= WARP_TIME * 2) {
     s.warp = null
     s.mode = 'play'
-    // Arriving in a land (by a gate, the ferry, a seam) opens the first-visit words of the area arrived in.
-    if (mapInfo(c.w, s.map.id).def.away) areaIntro(c, areaAt(c.w, s))
+    // A door that would not open says so. Otherwise arriving in a land (by a gate, the ferry, a seam) opens the
+    // first-visit words of the area arrived in.
+    if (w.aborted) openDialog(c, [w.aborted], null)
+    else if (mapInfo(c.w, s.map.id).def.away) areaIntro(c, areaAt(c.w, s))
   }
 }
 
@@ -654,7 +659,8 @@ function rescueSave(world: World, v: SaveData): SaveData {
   if (mapDef(world, v.map)) return { ...v, entry: Object.keys(mapInfo(world, v.map).entries)[0]! }
   const to = world.rescue?.(v.map, v.entry)
   const spot = to && hasEntry(world, to.map, to.entry) ? to : world.start
-  const gone = (id: string) => !mapDef(world, id)
+  // (A map still to come in a chunk is not gone: `rescue` knows no dungeon's id, so what it does know is gone.)
+  const gone = (id: string) => !mapDef(world, id) && !(world.lazy?.pending && !world.rescue?.(id, ''))
   const explored = v.explored ? Object.fromEntries(Object.entries(v.explored).filter(([id]) => !gone(id))) : undefined
   return { ...v, map: spot.map, entry: spot.entry, ...(explored ? { explored } : {}) }
 }
@@ -667,7 +673,9 @@ export function awayMap(world: World, map: string, entry = ''): boolean {
   const def = mapDef(world, map)
   if (def) return !!def.away || !!def.resume
   const to = world.rescue?.(map, entry)
-  return !!to && !!mapDef(world, to.map)?.away
+  // (An id nobody knows, while a chunk is still to come, is one of its maps, and those are all `resume`.)
+  if (!to) return !!world.lazy?.pending
+  return !!mapDef(world, to.map)?.away
 }
 
 /**

@@ -27,14 +27,13 @@
  *   The Sun Below lies in the Core's floor; stepping onto it is the Geyser, which goes all the way up to Lumenby.
  *
  * The new wing: a hollow wall at the east of the rails (a bomb) leads into THE HEAP (`world/heap.ts`: two maps on
- * the same keyring, spread into `MAPS` here); `underglow1:heap` is the way back.
+ * the same keyring, registered in `dungeons.ts`); `underglow1:heap` is the way back.
  *
  * Entries on every floor: `up` (beside the stairs up) and `down` (beside the stairs down, or the Geyser).
  * Marker chars are listed in each floor's `marks`.
  */
 import type { EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { joinCells } from './cells'
-import { HEAP_MAPS } from './heap'
 import { at, cycle, light, prop } from './scenery'
 
 type Npc = Extract<EntDef, { t: 'npc' }>
@@ -562,4 +561,4 @@ export const UNDERGLOW3: MapDef = {
 }
 
 /** The Underglow's floors by id (`lands.ts` collects them into the world). */
-export const MAPS: Record<string, MapDef> = { underglow1: UNDERGLOW1, underglow2: UNDERGLOW2, underglow3: UNDERGLOW3, ...HEAP_MAPS }
+export const MAPS: Record<string, MapDef> = { underglow1: UNDERGLOW1, underglow2: UNDERGLOW2, underglow3: UNDERGLOW3 }

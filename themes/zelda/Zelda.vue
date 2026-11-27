@@ -201,6 +201,9 @@
  * the hero plays on; the NEW GAME machine in Petter's house is the only
  * reset (its lines close into `startOver`, and the shell asks yes or no).
  *
+ * The world here is `world/core.ts`: the dungeons' maps are a chunk of their own, fetched near a door into one
+ * and waited for behind the door's fade, or at a reload inside one (`dungeonLoad.ts`).
+ *
  * Start: in front of the exit last used (sessionStorage `portal.return`,
  * { map, entry }), else the plaza start; the save brings items, hearts and
  * flags. It is written (here and on the profile) only once the hero has the
@@ -258,11 +261,14 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
+import { abortWarp, artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
 import { jumpIcon } from './render/side'
 import { A_PAD, createAPad } from './aPad'
 import { fetchSession } from './account'
-import { WORLD, worldStartingAt } from './world/index'
+// (Never `world/index`: that is every dungeon on the home page. They come as a chunk, `dungeonLoad.ts`.)
+import { CORE as WORLD, worldStartingAt } from './world/core'
+import { DUNGEON_BITS } from './world/dungeon-bits'
+import { bootPlan, doorAhead, holdStep, loadDungeons, newHold, withRetry } from './dungeonLoad'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { viewSide } from './render/turn'
@@ -306,13 +312,15 @@ const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
 const FeedbackButton = defineAsyncComponent(() => import('./feedback/FeedbackButton.vue'))
 const FeedbackPanel = defineAsyncComponent(() => import('./feedback/FeedbackPanel.vue'))
 
-type Phase = 'play' | 'won'
+/** 'boot': a page load that waits for the dungeon its save is in (`waitForDungeon`); nothing steps and no menu opens. */
+type Phase = 'play' | 'won' | 'boot'
+type ShownPhase = Exclude<Phase, 'boot'>
 type Spot = World['start']
 
 const emit = defineEmits<{
   /** The visitor walked for the first time (the page hint can go). */
   moved: []
-  phase: [phase: Phase]
+  phase: [phase: ShownPhase]
   result: [result: { elapsed: number; best: number | null }]
 }>()
 
@@ -407,8 +415,71 @@ let bannerArea = ''
 let wonAt = 0
 const walletApi: WalletApi = { read: readWallet, add: addToWallet }
 // A chest pays into the wallet once per browser, not once per run.
-const purse = createBitsBridge(walletApi, { rewards: bitRewards(WORLD), paid: paidFlagStore(() => localStorage) })
+const purse = createBitsBridge(walletApi, { rewards: new Map([...bitRewards(WORLD), ...Object.entries(DUNGEON_BITS)]), paid: paidFlagStore(() => localStorage) })
 let askedAt = 0
+
+// ---- the dungeons' chunk (`dungeonLoad.ts`) --------------------------------------
+
+/** The page load is waiting for the save's dungeon: the screen stays dark and nothing is written. */
+let booting = false
+/** The site has a newer build than this tab (Nuxt looks once an hour): a chunk this tab asks for may be gone. */
+let outdated = false
+const nuxtApp = useNuxtApp()
+const buildId = useRuntimeConfig().app.buildId
+/** The build this tab last reloaded away from, so one that stays stale reloads once only. */
+const STALE_KEY = 'zelda.stale'
+let unhookBuild: (() => void) | null = null
+const fetchChunk = () => withRetry(loadDungeons, () => outdated)
+const doorHold = newHold(fetchChunk)
+
+/** The hero has come to a map with a door into a dungeon: the chunk is fetched while there is nothing else to do. */
+function lookAhead(map: string) {
+  if (!doorAhead(WORLD, map) || (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return
+  const fetch = () => { void loadDungeons().catch(() => { /* the door asks again */ }) }
+  if (window.requestIdleCallback) window.requestIdleCallback(fetch, { timeout: 2000 })
+  else window.setTimeout(fetch, 300)
+}
+
+/** A reload inside a dungeon with the chunk still to come. When it does not come the hero starts in town. */
+function waitForDungeon(local: SaveData) {
+  booting = true
+  phase.value = 'boot'
+  // (A profile pull meanwhile is judged against the save we are about to begin.)
+  loadedSave = local
+  const go = (at: Spot | null) => {
+    // (A `begin` from anywhere else wins.)
+    if (!booting || !alive) return
+    // The profile may have answered during the wait: its newer save still comes at the first calm frame.
+    const held = pendingPull
+    begin(local, at)
+    if (held) pendingPull = held
+    playHint()
+  }
+  void fetchChunk().then(() => go(null), () => go(loadSpot(WORLD, null, readReturn(), false)))
+}
+
+/** A held door is given up on: a tab older than the site reloads, once; else the door stays shut, with a line. */
+function doorShut() {
+  const offline = navigator.onLine === false
+  // (Never offline: the page would not come back.)
+  if (doorHold.failed && outdated && !offline && reloadStale()) return
+  abortWarp(state, WORLD, offline)
+}
+
+function reloadStale(): boolean {
+  try {
+    if (sessionStorage.getItem(STALE_KEY) === buildId) return false
+    sessionStorage.setItem(STALE_KEY, buildId)
+  } catch { return false }
+  persist()
+  // (The screen stays dark until the new page is here.)
+  booting = true
+  window.location.reload()
+  return true
+}
+
+/** The page's hint (portal/Landing.vue) may come up: the game is on screen, in its dress and its unit. */
+function playHint() { canvas.value?.parentElement?.style.setProperty('--zelda-hint-play', 'running') }
 
 const ui: FrameUI = {
   paused: false, confirmReset: false, muted: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
@@ -1302,6 +1373,7 @@ function clearReturn() {
 
 /** A new state at `at` (null: the save's own continue point) from `save` (items, hearts, flags, play time); the bits are the wallet's. */
 function begin(save: SaveData | null, at: Spot | null, banner = false) {
+  booting = false
   loadedSave = save
   pendingPull = null
   // The rule in force goes over to the new state (it stands on its entry, floor in both views).
@@ -1357,7 +1429,7 @@ async function syncProfile() {
 
 // ---- phases, saves --------------------------------------------------------------
 
-function setPhase(p: Phase) {
+function setPhase(p: ShownPhase) {
   if (phase.value !== p) {
     phase.value = p
     emit('phase', p)
@@ -1367,6 +1439,8 @@ function setPhase(p: Phase) {
 
 /** Saves here and on the player's profile (the first save creates the player) — once the hero has the blade. */
 function persist() {
+  // (Waiting for a dungeon, `state` is not the player's run yet.)
+  if (booting) return
   writeOut(state)
   if (!state.inv.sword) return
   const save = toSave(state)
@@ -1759,6 +1833,8 @@ function frame(nowMs: number) {
   // Nothing is on screen to change while the tab is in the background, and a
   // backgrounded phone may still be running this loop (2026-09-30).
   if (document.hidden) return
+  // (The save's dungeon is on its way: the canvas stays its night colour, and the view's own night has not begun.)
+  if (booting) return
   if (!nightFrom) nightFrom = performance.now()
   // (A slow network must not keep the page dark: after the night the classic view plays until the code is here.)
   if (viewHold) { if (nightLeft() > 0) return; viewHold = false; syncDress() }
@@ -1839,7 +1915,7 @@ function frame(nowMs: number) {
   purse.step(state.inv, state.flags)
   renderer.onEvents(events)
   handleEvents(events)
-  if (state.map.id !== fitMap) fitView()
+  if (state.map.id !== fitMap) { fitView(); lookAhead(state.map.id) }
   // Asked again now the hero has moved, before the picture does: a turn they have walked into is taken back while it
   // is still short of its half, so the dress never crosses over for a turn that will not happen.
   stepRule(renderer.viewState())
@@ -1854,6 +1930,8 @@ function frame(nowMs: number) {
     stuckT += dt
     if (stuckT > (leavingUrl ? STUCK_URL_S : STUCK_S)) comeBack()
   }
+  // A door into a dungeon whose chunk is still on its way is held dark, so long and no longer.
+  if (holdStep(state, WORLD, doorHold, dt) === 'abort') doorShut()
   drawFrame(nowMs, dt)
   if (state.mode === 'won') finishWon()
 }
@@ -2009,15 +2087,22 @@ onMounted(() => {
   // Bits carried by a save from before the wallet move into it, once per browser.
   const local = readLocalSave()
   try { migrateSaveBits(local, localStorage, walletApi) } catch { /* no storage: nothing to move */ }
+  unhookBuild = nuxtApp.hook('app:manifest:update', () => { outdated = true })
+  // In development the dungeons are fetched at once, so a script that jumps into one finds it there; `?lazy=1`
+  // leaves them to come as they do on the site.
+  if (import.meta.dev && new URLSearchParams(location.search).get('lazy') !== '1') void loadDungeons().catch(() => {})
   // Start at once on this browser's save; the profile's copy may replace it in a moment. A reload out in the
   // frontier continues at the save's continue point there; anything else starts in front of the exit last used, or in town.
-  begin(local, loadSpot(WORLD, local, readReturn(), readOut()))
+  // (Only a reload inside a dungeon waits: for its chunk.)
+  const back = readReturn()
+  const out = readOut()
+  if (bootPlan(WORLD, local, back, out) === 'wait') waitForDungeon(local!)
+  else begin(local, loadSpot(WORLD, local, back, out))
   walletStop = onWalletChange(b => purse.external(state.inv, b))
   // The session first (a signed-in visitor plays under the account's profile), then the profile's save and keys.
   void checkSession().then(() => { void syncProfile(); void syncKeys(keysRemote) })
   resize()
-  // (The page's hint may come up now: its dress and its unit are the real ones.)
-  canvas.value.parentElement?.style.setProperty('--zelda-hint-play', 'running')
+  if (!booting) playHint()
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)
   window.addEventListener('resize', resize)
@@ -2050,6 +2135,8 @@ onBeforeUnmount(() => {
   canvas.value?.parentElement?.style.removeProperty('--zelda-corner-u')
   liveStop?.()
   liveStop = null
+  unhookBuild?.()
+  unhookBuild = null
   keysPage.leave()
   for (const stop of keysStop) stop()
   keysStop = []

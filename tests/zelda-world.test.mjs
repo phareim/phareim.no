@@ -2,7 +2,7 @@
 // check of the real world by the validator; every seam between two lands walked both ways; each of the six gates
 // walked into its land and back, calm at both ends, locked the way it says, a save made at it continuing there;
 // nobody out there without a blade; every land reached from the start; and the data gates (foes off the ways in,
-// chest ids, the words in the font and the box, the size on `/`). Old saves are `zelda-old-saves.test.mjs`, the
+// chest ids, the words in the font and the box, the size on `/` and of the dungeons' chunk). Old saves are `zelda-old-saves.test.mjs`, the
 // landmarks' art `zelda-things.test.mjs`, what can be opened `zelda-reach.test.mjs`.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -348,12 +348,45 @@ describe('the lands', () => {
     }
   })
 
-  it('keeps the world small on /: every map\'s data, the lands with it, in a few tens of KB gzipped', () => {
-    const r = esbuild.buildSync({ entryPoints: [join(zelda, 'world', 'index.ts')], bundle: true, minify: true, write: false, format: 'esm', platform: 'neutral', logLevel: 'error' })
-    const code = r.outputFiles[0].contents
-    const gz = gzipSync(code).length
-    if (process.env.WORLD_SIZE) console.log(`world: ${code.length} B min, ${gz} B gz`)
-    // (2026-11-25: the generated frontier made this 156 KB min / 54 KB gz; the hand-made world must stay near it.)
-    assert.ok(gz <= 72_000, `world data ${gz} B gzipped`)
+  it('keeps the world a visitor to `/` downloads small, the dungeons not included, and their chunk too', () => {
+    const opts = { bundle: true, minify: true, write: false, format: 'esm', platform: 'neutral', logLevel: 'error', metafile: true, absWorkingDir: zelda }
+    /** `contents` as the site splits it: what arrives at once (the entry and every chunk it imports statically), and what behind an `import()`. */
+    const split = contents => {
+      const r = esbuild.buildSync({ ...opts, splitting: true, outdir: 'out', stdin: { contents, resolveDir: zelda, loader: 'ts' } })
+      const outputs = r.metafile.outputs
+      const files = new Map(r.outputFiles.map(f => [f.path, f.contents]))
+      const home = new Set()
+      const walk = k => {
+        if (home.has(k)) return
+        home.add(k)
+        for (const imp of outputs[k].imports) if (imp.kind === 'import-statement') walk(imp.path)
+      }
+      walk(Object.keys(outputs).find(k => outputs[k].entryPoint === '<stdin>'))
+      const later = Object.keys(outputs).filter(k => !home.has(k))
+      return {
+        home: [...home], later,
+        gz: keys => keys.reduce((n, k) => n + gzipSync(files.get(join(zelda, k))).length, 0),
+        held: keys => new Set(keys.flatMap(k => Object.keys(outputs[k].inputs))),
+      }
+    }
+    // The sizes: the home page's world, and the dungeons behind an `import()`.
+    const world = split(`export * from './world/core'; export const dungeons = () => import('./world/dungeons')`)
+    const [now, chunk] = [world.gz(world.home), world.gz(world.later)]
+    if (process.env.WORLD_SIZE) console.log(`world on /: ${now} B gz; the dungeons' chunk: ${chunk} B gz`)
+    // No dungeon module on `/`, to the byte: each one `dungeons.ts` imports comes later and never at once, seen from
+    // the world, the shell's own loader and the painters.
+    const modules = esbuild.buildSync({ ...opts, entryPoints: ['world/dungeons.ts'] }).metafile.inputs['world/dungeons.ts'].imports.map(i => i.path)
+    assert.ok(modules.length, 'world/dungeons.ts imports no dungeon')
+    const site = split(`export * from './world/core'; export * from './dungeonLoad'; export * from './render/renderer'`)
+    for (const build of [world, site]) {
+      const [onHome, onLater] = [build.held(build.home), build.held(build.later)]
+      for (const m of modules) {
+        assert.ok(!onHome.has(m), `${m} is on /: something the home page imports statically imports it; a dungeon is registered in world/dungeons.ts only`)
+        assert.ok(onLater.has(m), `${m} is not in the dungeons' chunk`)
+      }
+    }
+    // (2026-11-27: 59,548 B on `/` and 10,057 B in the chunk. docs/site.md, "What `/` costs".)
+    assert.ok(now <= 62_000, `the world on / is ${now} B gzipped`)
+    assert.ok(world.later.length > 0 && chunk <= 22_000, `the dungeons' chunk is ${chunk} B gzipped, in ${world.later.length} files`)
   })
 })

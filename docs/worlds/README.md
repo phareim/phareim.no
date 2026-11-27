@@ -89,9 +89,11 @@ edits are dropped, and so are tonics a save holds.
   every gate walked through and back, calm at both ends, locked the way it says and a save at it continuing there;
   nobody out there without a blade; every land and every map a land leads into reached from the start; foes kept off
   the ways in; chest ids the world's own; every line in the pixel font and three rows of the narrowest box, each
-  speaker named first; the world's data small on `/`. Old frontier saves continuing in the right land:
-  `tests/zelda-old-saves.test.mjs`. Every landmark's art in its map's kits: `tests/zelda-things.test.mjs`. Every
-  chest, key, locked door and gate reachable in some order: `tests/zelda-reach.test.mjs`.
+  speaker named first; the world small on `/`, with no dungeon in it, and the dungeons' chunk small too. A dungeon's
+  door held until its chunk has come, and a chunk that fails: `tests/zelda-dungeon-chunk.test.mjs`. Old frontier saves
+  continuing in the right land: `tests/zelda-old-saves.test.mjs`. Every landmark's art in its map's kits:
+  `tests/zelda-things.test.mjs`. Every chest, key, locked door and gate reachable in some order:
+  `tests/zelda-reach.test.mjs`.
 - `node scripts/world-lab/map-png.mjs <out.png> <map>|atlas`: a whole map, or the whole grid, as a picture
   (`scripts/world-lab/README.md`).
 - `heavy -x chrome -- env LIFE=<map>,<x>,<y> VIEW=iso node scripts/zelda-lab/shot.mjs <dir> life`: the game's own

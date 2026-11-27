@@ -50,7 +50,7 @@
 import { profile } from '~/themes/content'
 import { liveThemes } from '~/themes'
 import Zelda from '~/themes/zelda/Zelda.vue'
-import { worldExits } from '~/themes/zelda/world/index'
+import { worldExits } from '~/themes/zelda/world/core'
 import { NEWS_BASE, WRITING_URL } from '~/themes/zelda/newsLinks'
 import { formatPlayTime } from '~/themes/zelda/progress'
 import { setTreeCounts } from '~/themes/zelda/render/tree'
