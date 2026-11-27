@@ -45,7 +45,8 @@ State on 2026-11-27, late evening. "Played by script" means door to Weight with 
   - Whole in three parts (commits ed347e9, 7718b1d, fed7639). Played by script.
   - Reviewed: the findings that held are fixed (commit f95e0ff), not seen in a browser. The iron tiles, the rails and four of the Golem's frames are stand-ins; the drawn ones are in `tmp/dungeons/art/heap2/`.
 - [ ] 7. Fogstage: ACT THREE. The Lens. Bard. THE HALLUCINATOR. Weight: SOURCES.
-  - Whole in three parts (commits 46c9e60, 91c7f02, 26c0594). Played by script. Its review is running.
+  - Whole in three parts (commits 46c9e60, 91c7f02, 26c0594). Played by script.
+  - Reviewed: nine findings held and are fixed (the merge of `dungeon-act3fix`, 2026-11-27), not seen in a browser.
 
 ## The end
 - [ ] THE BALANCE under the Shrine's pedestal.
