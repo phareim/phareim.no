@@ -18,7 +18,7 @@ import { ITEMS_PAGE_ICONS } from './spritesItemsPage'
 import { APAD_RAW } from './spritesPad'
 import { LIGHTHOUSE_RAW } from './spritesLighthouse'
 import { HEAP_RAW } from './spritesHeap'
-import { GIFT_RAW, SYCOPHANT_RAW } from './spritesSycophant'
+import { BANNER_RAW, GIFT_RAW, HOUSE_RAW, SYCOPHANT_RAW } from './spritesSycophant'
 import { BEACH_RAW } from './spritesBeach'
 import { intermediateBlades } from './bladeAngles'
 import { COMBAT_MARK_RAW } from './combatMarks'
@@ -1619,6 +1619,8 @@ const RAW: Record<string, Rows> = {
   ...HEAP_RAW,
   ...SYCOPHANT_RAW,
   ...GIFT_RAW,
+  ...HOUSE_RAW,
+  ...BANNER_RAW,
 }
 
 

@@ -58,6 +58,8 @@ export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOve
 export interface ZeldaAudio {
   unlock(): void
   music(track: TrackId | null): void
+  /** The playing track out, quickly, and nothing in its place: the site radio stays parked (a beat's silence). */
+  hush(): void
   sfx(name: SfxName): void
   jingle(name: JingleName): void
   pause(on: boolean): void
@@ -3249,6 +3251,10 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
       warm16(track)
       parkRadio()
       ensureTimer()
+    },
+
+    hush() {
+      if (current) { fadeOut(current, 0.25); current = null }
     },
 
     sfx(name) {

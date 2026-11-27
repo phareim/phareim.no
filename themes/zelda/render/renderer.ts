@@ -32,7 +32,7 @@ import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { copySprite, doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
 import { drawFloorMarks } from './floorMarks'
-import { drawClock, drawGifts, drawRings, drawRobe, queueRack, steamLights, SYCO_HOVER, sycophantGold, sycophantLift, sycophantLight, sycophantSprite } from './steamPaint'
+import { drawClock, drawGifts, drawPaper, drawRings, drawRobe, queueHouse, steamLights, SYCO_HOVER, sycophantAlpha, sycophantBar, sycophantGold, sycophantLift, sycophantLight, sycophantShown, sycophantSprite } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
@@ -588,6 +588,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           fx.push({ kind: 'star', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.14, color: '#2ff3ff', size: 10, lift: 6 })
           break
         case 'kill':
+          // (The Sycophant walks off and fades: nothing bursts.)
+          if (e.kind === 'sycophant') break
           fx.push(fxSprite('poof', 0.36, e.x, e.y, -0.1))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
           pulse(e.x, e.y, 3, '#ff2fa0', 0.2)
@@ -595,11 +597,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
             for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
-          }
-          if (e.kind === 'sycophant') {
-            for (let i = 0; i < 5; i++) fx.push(fxSprite('poof', 0.6, e.x + (Math.random() - 0.5) * 2, e.y - 0.4 + (Math.random() - 0.5) * 2, -i * 0.15))
-            flashT = 0.4
-            flashColor = '#fff4ff'
           }
           break
         case 'clank':
@@ -1175,6 +1172,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       return
     }
+    // (Behind its banner, there is nothing of the Sycophant to draw, shadow and all.)
+    if (e.kind === 'sycophant' && !sycophantShown(e)) return
     if (e.kind !== 'eye' && e.kind !== 'blade' && !flat) shadow(g, x, feet - 1, Math.round(e.r * T * 1.6))
     if (flying && !flat) feet -= 6 + Math.round(Math.sin(time * 6 + e.home.x) * 1.5)
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
@@ -1184,8 +1183,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Steam: it floats and bobs, and wears gold round it while its smile is slipped.
       const y = feet - sycophantLift(time, frameReduced)
       sycophantGold(e, time, frameReduced, (dx, dy, color) => put(g, name, x + dx, y + dy, false, false, 1, 1, color))
+      g.globalAlpha = sycophantAlpha(e)
       put(g, name, x + shiver(e), y, false, flashing(e))
-      lights.push(sycophantLight(e))
+      g.globalAlpha = 1
+      if (sycophantAlpha(e) > 0.5) lights.push(sycophantLight(e))
       return
     }
     if (e.kind === 'mixtral') {
@@ -1272,7 +1273,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const e of s.map.enemies) {
       const big = BIG.has(e.kind)
       // (The same foes the queue draws.)
-      if ((!e.tough && !big) || e.dead || e.away) continue
+      if ((!e.tough && !big) || e.dead || e.away || (e.kind === 'sycophant' && !sycophantBar(e))) continue
       if (roomed(def.kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
@@ -1485,7 +1486,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (n.look === 'keeper') lights.push({ x: n.x + 0.3, y: n.y - 0.9, r: 1.6, color: '#2ff3ff', a: 0.7 })
       if (n.look === 'ghost') lights.push({ x: n.x, y: n.y, r: 2, color: '#cfc6ff', a: 0.4 })
     }
-    queueRack(g, world, s, cx, cy, items)
+    queueHouse(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
     if (!ui.attract) steamLights(lights, world, s, time, ui.reducedMotion)
     emit.length = 0
     const beforeExits = items.length
@@ -1545,6 +1546,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (!ui.attract) drawHeapFloor(g, world, s, cx, cy, time, ui.reducedMotion)
     if (!ui.attract) drawFloorMarks(g, world, s, cx, cy, time, ui.reducedMotion)
     if (!ui.attract) drawRings(g, world, s, cx, cy, time, ui.reducedMotion)
+    if (!ui.attract) drawPaper(g, world, s, cx, cy)
   }
 
   /** The afterimages: where the hero was, how high, in which frame, and how long it stays. */

@@ -13,7 +13,8 @@
  * The route: lobby, the baths (the north doorway is hidden behind diamond screens in the isometric view: turn to the
  * plan to pass), the laundry (two baskets on two plates open the gate to the boiler), the boiler (two hounds, and
  * THE NO in a chest in the north-east corner; the east gate opens only to a hero who holds it), the stair, the
- * Best Room and THE SYCOPHANT (`engine/bossSycophant.ts`). A lever in the boiler opens the barred lobby gate: the
+ * Best Room and THE SYCOPHANT (`engine/bossSycophant.ts`): THE END, which is paper, and after it the Sacred Weight
+ * of NO and the door out to the lobby's desk. A lever in the boiler opens the barred lobby gate: the
  * short way home. The Gift Shop is optional: two attendants throw souvenirs, and four refused in one visit open the
  * gate to a heart piece (`engine/gifts.ts`).
  * No keyring: no keys, no lock, no Big Key (a Shrine key in hand shows in the house; that is accepted).
@@ -210,13 +211,14 @@ const STAIR = [
 ]
 
 // Plain, spotless, carpeted. The Sycophant floats in the north half (`z`); the gate in the north wall opens when it
-// falls, and the door behind it comes out at the lobby's desk. Nothing in the room is solid but its four pillars.
+// falls, the door behind it comes out at the lobby's desk, and the Weight lies in front of it (`W`). Nothing in the
+// room is solid but its four pillars.
 const BEST = [
   '#######DD#######',
   '#######yX#######',
   '#I....,,,,....I#',
   '#.....,,z,.....#',
-  '#.....,,,,.....#',
+  '#.....,,W,.....#',
   '......,,,,.....#',
   '......,,,,.....#',
   '#.....,,,,.....#',
@@ -241,7 +243,12 @@ export const STEAMSUITE: MapDef = {
     '1,0': {
       name: 'THE BEST ROOM',
       track: 'boss',
-      events: [{ when: { notFlag: 'sycophant' }, lines: ['THE SYCOPHANT. IT AGREES WITH YOU. IT ALWAYS HAS.'], set: 'steamsuite.met' }],
+      // (The boss's music ends with it.)
+      calm: 'sycophant',
+      events: [
+        { when: { notFlag: 'sycophant' }, lines: ['THE SYCOPHANT. IT AGREES WITH YOU. IT ALWAYS HAS.'], set: 'steamsuite.met' },
+        { when: { flag: 'sycophant' }, lines: ['(THE STEAMHOUSE IS QUIET. SOMEWHERE A GUEST SAYS NO TO A TOWEL.)'], set: 'steamsuite.quiet' },
+      ],
     },
   },
   rows: joinCells([[STAIR, BEST]]),
@@ -251,6 +258,8 @@ export const STEAMSUITE: MapDef = {
     D: { tile: 'D', ent: { t: 'warp', to: 'steamhouse', entry: 'checkout' } },
     y: { tile: 'X', ent: { t: 'gate', open: { flag: 'sycophant' } } },
     z: { ent: { t: 'enemy', kind: 'sycophant', once: 'sycophant' } },
+    // The Weight, on the floor south of where the banner hung, once it has fallen.
+    W: { tile: ',', ent: { t: 'item', id: 'steamhouse.weight', item: 'weightNo', appear: { flag: 'sycophant' } } },
   },
 }
 

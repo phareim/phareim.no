@@ -1002,7 +1002,7 @@ classic picture. `/?view=<id>` asks for one.
     - *Day and night.* It stands where it is at every hour: no rank, no twin
       (`settleFoes`).
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
-    DeepSeek, the twins, Mixtral, the Stochastic Parrot). The tough foes' bar over each of their heads, in
+    DeepSeek, the twins, Mixtral, the Stochastic Parrot, the Sycophant). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
     36 for the king): what is left is pink, gold while the boss is open
     (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
@@ -1012,7 +1012,8 @@ classic picture. `/?view=<id>` asks for one.
     the bar rides over the fin); a twin on its feet, so always, except while it
     lies fallen; Mixtral dazed, while that daze still has blows to give; the
     Parrot thinking, while that thought still has blows to give; the
-    llama never, its wool turns the blade. A stunned or dazed
+    Sycophant while its smile is slipped (its bar counts cuts; *The
+    Steamhouse* below); the llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
     `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs`, which plays
     each boss (a hero who stands is hurt, one who does what it asks wins) and
@@ -1621,9 +1622,9 @@ squares. Two of it:
     does (`B_WORDS`, beside `B_ITEMS` in `types.ts`); nothing on an empty socket.
     It keeps the room of the longest, so the page does not move with the cursor.
   - **ALWAYS**: what needs no slot, each shown once owned (`ALWAYS`): the blade or
-    the Arc Blade, the big bomb bag, the Sun Prism, and THE NO, THE STOMP and
-    THE LENS, which nothing grants yet (their flags: `item:no`, `item:stomp`,
-    `item:lens`).
+    the Arc Blade, the big bomb bag, the Sun Prism, THE NO (the Steamhouse's),
+    THE STOMP (the Late Show's) and THE LENS, which nothing grants yet (their
+    flags: `item:no`, `item:stomp`, `item:lens`).
   - **The Weights**: a beam with seven hooks; a Weight held hangs in its pan with
     its own icon, an empty pan is a dim ring, `n/7` beside it. Not drawn until
     the first is held.
@@ -1950,8 +1951,8 @@ heart container's jingle and a picture of its own
 (`item_weight_meaning` … `item_weight_sources`: the brass weight, each with
 its band; `item_weight` is the plain one), and the ITEMS page hangs each on
 its beam with the same picture. The Echo Barrow gives MEANING when the Parrot
-falls; no map gives the others yet (`docs/worlds/sacred-weights.md` is the
-plan). A reward that is to lie where a foe fell is an `item` mark with
+falls, and the Steamhouse gives NO when the Sycophant does
+(`docs/worlds/sacred-weights.md` is the plan). A reward that is to lie where a foe fell is an `item` mark with
 `appear: { flag }` (the foe's `once`) and `atFall`.
 
 **The Echo** (`engine/echo.ts`; item `echo`, a B item; the Echo Barrow's
@@ -1987,16 +1988,14 @@ YOU CUT, IT CUTS.
   when it cuts (`echoCut`).
 
 **The Steamhouse** (`world/steamhouse.ts`; the Sporelight's dungeon with no
-keys; in so far: the house, the attendants, THE NO, the gifts, the Gift Shop
-(`engine/gifts.ts`) and the Sycophant up to its third cut, where it falls at
-once, a stand-in for its ending). A door in the bathhouse's
-south face (the `6` tile at (39,24); the path tile before it, `8`, is where the
-way back lands) leads to `steamhouse` (48x24, six rooms: the lobby, the baths,
-the laundry, the boiler, the gift shop, rock) and, past the boiler's stair,
-`steamsuite` (the stair, and the Best Room, where the Sycophant floats,
-`engine/bossSycophant.ts`).
-Both maps allow both views, have no `keyring` (the HUD shows a key counter
-there all the same) and are marked `resume` (below).
+keys). A door in the bathhouse's south face (the `6` tile at (39,24); the path
+tile before it, `8`, is where the way back lands) leads to `steamhouse` (48x24,
+six rooms: the lobby, the baths, the laundry, the boiler, the gift shop, rock)
+and, past the boiler's stair, `steamsuite` (the stair, and the Best Room, where
+THE SYCOPHANT floats). Both maps allow both views, have no `keyring` (the HUD
+shows a key counter there all the same) and are marked `resume` (below).
+Everything in the house is pleasant, and every pleasant thing ends the same
+way: in the lobby, in a robe, at full hearts. The loop is never a lock.
 - *Attendants* (`engine/attendants.ts`; an `npc` with `attend: { mode: 'ask',
   ring }`; `Npc.att` holds its state, never saved) offer and never hunt: not
   foes, no hit points, solid as any person. The first time the hero stands or
@@ -2008,44 +2007,114 @@ there all the same) and are marked `resume` (below).
   in the ring (white arc over the head, pink for its last 1.5 s; outside the ring
   it drains at twice the speed, and it never runs in a dialog); full, the
   attendant says its YES and the bath begins. A visit lasts until the hero leaves the
-  room or is bathed. A press of A on an attendant asks again, whenever.
-- *THE BATH.* The world holds, the fade runs to white (`warp.white`) and back
-  into the lobby at the pool (entry `baths`, the new continue point), hearts
-  full, in the robe (`Hero.robe`: 0.8 walking speed, a robe and a towel painted
-  over the hero; never saved, cleared by the rack (A, a `sign` with `robe`), by
-  death, by any door out of the house and by a reload). Nothing else is touched: flags, deck,
-  B item, purse and every solved gate stay; what a map load always loses is
-  lost, so foes and baskets and a boss fight start over. The lobby attendant
-  counts its offer as made, with no clock, so the hero is not asked again at
-  once. The first bath says its line once (`steamhouse.bathed`).
+  room or is bathed. A press of A on an attendant asks again, whenever. The
+  words are the same at every attendant ("ATTENDANT: WELCOME! A WARM TOWEL? YOU
+  LOOK SO TIRED.").
+- *THE BATH and the robe.* The world holds, the fade runs to white
+  (`warp.white`) and back into the lobby at the pool (entry `baths`, the new
+  continue point), hearts full, in the robe (`Hero.robe`: 0.8 walking speed, a
+  robe and a towel painted over the hero; never saved, cleared by the rack (A, a
+  `sign` with `robe`), by death, by any door out of the house and by a reload).
+  Nothing else is touched: flags, deck, B item, purse and every solved gate
+  stay; what a map load always loses is lost, so foes and baskets and a boss
+  fight start over. The lobby attendant counts its offer as made, with no clock,
+  so the hero is not asked again at once. The first bath says its line once
+  (`steamhouse.bathed`).
 - *THE NO* (`engine/refuse.ts`; item `no`, held by the flag `item:no`, no slot,
-  not on B). A cut meets a blow: the window opens at the hit frame of the
-  chain's opening swing, or with a spin, and closes 0.10 s after the swing ends
-  (about 0.25 s; 0.5 s for the spin); after one has opened no other does for
-  0.9 s (`Hero.refuseCool`), so mashing A never covers a hero for more than a
-  third of the time. A foe's contact or lunge at the moment it would have hurt
-  (one call in `contact()`, `enemies.ts`), from a foe within 2.2 tiles in the
-  front half of the swing's aim (all round for the spin), does nothing to the hero: no hurt,
-  no knock, no mercy spent, a `refuse` event (gold ring, sound `refuse`), and the foe
-  reels 1.0 s (`Enemy.stun`: a tough foe is open to the blade then, which takes
-  its 5). Never a `BIG` foe's blow, never a shot, shard, spike, bomb or fall. A
-  press made late, with a plain foe already inside the blade's reach, strikes
-  it and shoves it as the blade always did; the refusal is the early press (a
-  lunge from three tiles is refused by a press in its first moments), and the
-  only answer to a tough foe, whose poise turns the blade. The numbers are `REFUSE` in
-  `refuse.ts`.
+  not on B; the big chest in the boiler). Its words: YOU GOT THE NO! / A CUT AT
+  THE RIGHT MOMENT REFUSES A BLOW OR AN OFFER. It does two things:
+  - *A blow, anywhere in the world.* The window opens at the hit frame of the
+    chain's opening swing, or with a spin, and closes 0.10 s after the swing ends
+    (about 0.25 s; 0.5 s for the spin); after one has opened no other does for
+    0.9 s (`Hero.refuseCool`), so mashing A never covers a hero for more than a
+    third of the time. An ordinary or tough foe's contact or lunge at the moment
+    it would have hurt (one call in `contact()`, `enemies.ts`), from a foe
+    within 2.2 tiles in the front half of the swing's aim (all round for the
+    spin), does nothing to the hero: no hurt, no knock, no mercy spent, a
+    `refuse` event (gold ring, sound `refuse`), and the foe reels 1.0 s
+    (`Enemy.stun`: a tough foe is open to the blade then, which takes its 5).
+    Never a `BIG` foe's blow, never a shot, shard, spike, bomb or fall: the
+    other dungeons' bosses fight as they did. A press made late, with a plain
+    foe already inside the blade's reach, strikes it and shoves it as the blade
+    always did; the refusal is the early press (a lunge from three tiles is
+    refused by a press in its first moments), and the only answer to a tough
+    foe, whose poise turns the blade. The numbers are `REFUSE` in `refuse.ts`.
+  - *An offer*: a gift (next).
+- *Gifts* (`engine/gifts.ts`, numbers in `GIFTS`; a projectile of kind `gift`:
+  towel, tea, heart, star, flower, bell). A pink lane 1.4 tiles wide is painted
+  on the floor from the thrower to where the hero stands as the 1.2 s tell
+  begins; the gift then flies it at 2.0 tiles/s without steering, hits no foe
+  and is gone at the wall. It lands when it touches a hero neither rolling nor
+  in the air (not in its first 0.35 s), and that is a YES: THE BATH. With THE NO
+  any of the hero's swings that touches it (the blade's reach and 0.6 tiles, the
+  front half of the aim; the spin all round) refuses it, with every other gift
+  in the air and what was still to come of its volley. Without THE NO the blade
+  passes through it. It turns gold when a cut pressed now will meet it; touch's
+  `autoFace` turns the blade to a gift within 3 tiles.
+- *The Gift Shop* (optional). Two attendants in `throw` mode (`attend.stock`)
+  lob a gift each every 3.0 s, 1.5 s apart. Four gifts refused in one visit set
+  `steamhouse.shop`: the gate to a heart piece opens and they stand still.
+- *The other rooms.* The lobby's barred gate (`steamhouse.back`) opens only from
+  the boiler's lever. The baths' north doorway hides behind folding screens
+  (diamond blocks): in the isometric view the hero cannot pass, in the plan they
+  are outlines on the floor. The laundry, hung with sheets (fence tiles), opens
+  its east gate when two baskets stand on two plates (leaving the room puts them
+  home until the gate has opened). The boiler's trap gate shuts behind the hero
+  while a hound lives; its east gate wants THE NO, so the Sycophant is never met
+  without it. The house paints the sheets, the screens and the rack itself
+  (`queueHouse`, `houseTile` in `render/steamPaint.ts`).
+- *THE SYCOPHANT* (boss; `sycophant`, radius 1.0, floating;
+  `engine/bossSycophant.ts`, numbers in `SYCO`). Its card, the first time in its
+  room: THE SYCOPHANT. IT AGREES WITH YOU. IT ALWAYS HAS. It never attacks and
+  never hurts. Its 4 hit points are counted in cuts, so every blade is worth the
+  same. Rounds: *fawning* (2.2 s first, 1.5 s after) with a compliment card held
+  out (FASCINATING. / WHAT A CUT! / YOU WERE RIGHT. / I SAID THAT TOO.),
+  drifting sideways, giving a hurt hero half a heart every 1.5 s; *offering*, a
+  sleeve raised and the lanes painted (1.2, 1.0, 0.9 s by the cuts taken), then
+  one gift, then two, then three. A gift refused slips its smile: for 2.8 s it
+  drifts to the hero and is open (gold; `bossOpen`), and the first blow of the
+  blade takes one hit point. At any other time the blade clanks off the card, as
+  everything else does at all times. A gift that lands is THE BATH, and the
+  fight starts again. The room's music is the boss's until it falls
+  (`CellDef.calm`).
+- *THE END* (the third cut; it is a fake ending and never the game's).
+  - *The beat* (2.2 s, `GameState.beat`): `play` steps nothing but the beat
+    (`stepBeat`), so the hero, the hearts, the camera and every clock stand
+    where they were; the HUD stays and pause works. Black bars slide in top and
+    bottom, the music stops for a fanfare (event `theEnd`), the Sycophant backs
+    away and a paper banner six tiles wide, THE END, unrolls across the north
+    third of the room, over the way out (local x 5 to 10, rows 1 to 3).
+  - *The banner* is a painted prop and a clamp, not tiles: the hero is kept out
+    of its rectangle (one who stood in it is moved two tiles south as the beat
+    ends), and the blade passes through the paper. The Sycophant hides at its
+    east end, where a gold corner flaps: its hit circle is the corner. The room
+    says (THE END IS GLUED ON AT ONE CORNER.), and the boss music is back.
+  - *The corner.* The first blow of the blade there tears the banner down (no
+    hit point): a pile of paper, (THE END HAS BEEN POSTPONED.), and the
+    Sycophant steps out bare-faced and says SYCOPHANT: I HAVE NEVER ONCE TOLD
+    ANYONE THEY WERE WRONG. IT WAS NOT KINDNESS.
+  - *The fall.* When that is read it walks off and fades (a room changed
+    meanwhile fells it at once), and only then `killEnemy` runs: `once`
+    `sycophant`, `bossDown` (fanfare, save), the Weight of NO on the floor south
+    of where the banner hung, the north gate open to the lobby's desk, the boss
+    music gone, and once: (THE STEAMHOUSE IS QUIET. SOMEWHERE A GUEST SAYS NO TO
+    A TOWEL.) A reload between the third cut and the fall finds the fight at its
+    start; so does leaving by the stair while the banner hangs.
+  - *What keeps it from `won`.* The beat and the banner never set `mode` to
+    `won` or the flag `won`, push no `won` event, so the shell's `finishWon`
+    (the ending panel, the profile's `won` and best time, the `ending` track)
+    is never reached. A bath, a death or any map entry clears the beat.
+- *The camera* in the Best Room (`sycophantFocus`, `sycophantFrame`) leans
+  toward the boss and, on a screen smaller than the room, keeps its card in the
+  picture and, from the second cut on, the place where the banner comes down, so
+  that the beat is seen with nothing moving; never so far that the hero leaves
+  the screen. The card itself is held inside the screen's edges.
 - *The reload mark.* `MapDef.resume` makes `awayMap` true for a map without
   `away`'s other doing (the first-visit words, `seen:<id>`, the MAP page's land): a
   tab reloaded inside the house continues at the last entry used, with its
   gates as saved.
-- *The rooms.* The lobby's barred gate (`steamhouse.back`) opens only from the
-  boiler's lever. The baths' north doorway hides behind diamond screens: in the
-  isometric view the hero cannot pass, in the plan they are floor. The laundry
-  opens its east gate when two baskets stand on two plates (leaving the room
-  puts them home until the gate has opened); the boiler's trap gate shuts behind
-  the hero while a hound lives; its east gate wants THE NO. Words: the same offer
-  at every attendant ("ATTENDANT: WELCOME! A WARM TOWEL? YOU LOOK SO TIRED.").
-  Tests: `tests/zelda-steamhouse.test.mjs`.
+- *Tests*: `tests/zelda-steamhouse.test.mjs` (the whole play-through, the map,
+  the hero who says YES to everything, and THE END that ends nothing).
 **The Storm Lamp** (`engine/lamp.ts`; item `lamp`, a B item; the Lighthouse's
 treasure): B sets it down shining the way the hero faces; its beam feeds
 receivers and burns foes. All of it in `docs/games/neon-shrine-lighthouse.md`.

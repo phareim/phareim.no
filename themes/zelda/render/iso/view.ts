@@ -31,7 +31,8 @@ import { aimOf, airTime, has, heroZ, mapInfo, raised, swingAngle, swingDur } fro
 import { blockUp, isViewBlock } from '../../world/tiles'
 import { SIDE_PATCH } from '../viewBlocks'
 import { dirAngle } from '../../engine/util'
-import { sycophantFocus } from '../../engine/bossSycophant'
+import { sycophantFocus, sycophantFrame } from '../../engine/bossSycophant'
+import { houseTile } from '../steamPaint'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { drawLatchLines } from '../heapMarks'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -1024,7 +1025,11 @@ export default function isoView(kit: Kit): View {
         const t = Math.min(1, s.scroll.t / SCROLL_TIME)
         const e = t * t * (3 - 2 * t)
         ci = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e }
-      } else ci = centreIn(P0, focus, s.zone, vw, vh, RISE)
+      } else {
+        ci = centreIn(P0, focus, s.zone, vw, vh, RISE)
+        // The Sycophant's room: its card, and where THE END comes down, are kept in a picture smaller than the room.
+        ci = sycophantFrame(s, ci, { x: vw, y: vh }, (x, y) => ({ x: x * P0.ex.x + y * P0.ey.x, y: x * P0.ex.y + y * P0.ey.y }))
+      }
       c = { x: cClassic.x + (ci.x - cClassic.x) * k, y: cClassic.y + (ci.y - cClassic.y) * k }
     }
     const jitter = { x: 0, y: 0 }
@@ -1230,6 +1235,8 @@ export default function isoView(kit: Kit): View {
       }
       const shp = shapeAt(tx, ty)
       const t = tileAt(m, kind, tx, ty)
+      // The Steamhouse paints some of its tiles' things itself (`steamPaint.ts`): nothing of the tile's own stands.
+      if (houseTile(info, t, tx, ty, s.view)) { bare((tx - R.x) * T, (ty - R.y) * T, T, T); continue }
       // (A counter or a fence that runs north lies flat as a card, and stands as a thing of this view's own.)
       const ownThing = solid && ((t === 'n' && def.look !== 'lab') || (t === 'F' && outdoors))
       /** Furniture drawn by hand for this view stands for this tile (part 23, `furnitureAt`). */

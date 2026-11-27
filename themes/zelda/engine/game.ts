@@ -7,14 +7,14 @@
  * hero left through an exit, the shell navigates) are terminal.
  */
 import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
-import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME, bItem, roomed } from '../types'
+import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, TILE, WARP_TIME, bItem, roomed } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, condMet, has, loadMap, mapDef, mapInfo, moveCircle, stepClear } from './map'
 import { stepObjects } from './objects'
 import { bathArrive, keepRobe, startBath } from './attendants'
-import { sycophantFocus } from './bossSycophant'
+import { stepBeat, sycophantFocus, sycophantFrame, sycophantGone } from './bossSycophant'
 import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
@@ -135,6 +135,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.disc = null
   s.hook = null
   s.echo = null
+  delete s.beat
   if (!at) s.entry = { map: mapId, entry: entryId }
   keepRobe(s, mapId)
   // A land walked into is drawn on the MAP page's chart of the world (and the QUEST line stops pointing at the gates).
@@ -167,7 +168,7 @@ function areaAt(world: World, s: GameState): { name: string; track: TrackId; ent
     }
   }
   const cd = roomed(def.kind) ? cellDef(info, s.zoneIndex) : undefined
-  return { name: def.name, track: cd?.track ?? def.track }
+  return { name: def.name, track: (cd?.calm && has(s, cd.calm) ? undefined : cd?.track) ?? def.track }
 }
 
 /** Entering a dungeon room: fresh enemies, reset blocks, clear leftovers. */
@@ -176,6 +177,7 @@ function enterCell(c: Ctx, index: number) {
   const m = s.map
   lampHome(s)
   setZone(c.w, s, index)
+  sycophantGone(c)
   for (const e of m.enemies) {
     if (e.cell !== index) continue
     if (e.once && has(s, e.once)) continue
@@ -261,6 +263,8 @@ function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEve
 
 function play(c: Ctx, dt: number, inp: Input) {
   const s = c.s
+  // A beat (the Sycophant's THE END): the world holds, and nothing but the beat moves.
+  if (s.beat) return stepBeat(c, dt)
   if (!s.demo) {
     // The quest clock starts with the blade: strolling round the town is free.
     if (s.inv.sword) s.elapsed += dt
@@ -747,7 +751,10 @@ export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y:
     const e = t * t * (3 - 2 * t)
     return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e }
   }
-  return clampTo(s.zone)
+  const cam = clampTo(s.zone)
+  // The Sycophant's room: its card, and where THE END comes down, are kept in a picture smaller than the room.
+  const f = sycophantFrame(s, { x: (cam.x + vw / 2) * TILE, y: (cam.y + vh / 2) * TILE }, { x: vw * TILE, y: vh * TILE }, (x, y) => ({ x: x * TILE, y: y * TILE }))
+  return { x: s.zone.w > vw ? f.x / TILE - vw / 2 : cam.x, y: s.zone.h > vh ? f.y / TILE - vh / 2 : cam.y }
 }
 
 export { NO_INPUT, HERO_R }
