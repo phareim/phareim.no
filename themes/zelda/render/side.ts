@@ -19,7 +19,7 @@ import { LADDER, PLATFORM, SPRING, TILE_INFO } from '../world/tiles'
 import { chestStar, hash2, type Light } from './tiles'
 import { CLASSIC, realmLook } from './looks'
 import { itemSpriteName } from './itemIcon'
-import { eraBackdrop, eraInk } from './eras'
+import { eraBackdrop, eraFilm, eraInk } from './eras'
 import { diveStreak, lateshowOver, lateshowUnder } from './lateshowPaint'
 import { actBackdrop, actInk, glassHides, glassRing, glassThingsPaint, veiledTiles } from './actthreePaint'
 import { CHASE } from '../engine/chase'
@@ -307,6 +307,8 @@ export function paintSide(k: SideKit, s: GameState) {
   }
   for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) { if (sky) sky(k, z, m.id); else backdrop(k, ink, z) }
   g.drawImage(layerOf(world, m), -cx, -cy)
+  // The film's own grain or tracking band: over the set, under everything else (`eras.ts`).
+  for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) eraFilm(k, info.def, z)
   // What lies on the stage and under everything that moves (`lateshowPaint.ts`).
   lateshowUnder(k, s)
   // A pad just struck, pressed flat for a moment (the still layer has it at rest).

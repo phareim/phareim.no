@@ -1,7 +1,8 @@
 // THE LATE SHOW (docs/worlds/atlas.md "The Late Show"; docs/games/neon-shrine.md "The Stomp"): a few end-to-end
-// tests, four at the most (Petter, 2026-11-27). A scripted player goes from the door in the drive-in screen as far as
-// the dungeon goes, pressing what a player presses; saves load where they should; and the maps hold together. The
-// jump's reach in these rooms is measured by `scripts/zelda-lab/lateshow-measure.mjs`, not pinned here.
+// tests, four at the most (Petter, 2026-11-27). A scripted player goes from the door in the drive-in screen to the
+// Sacred Weight, pressing what a player presses; the Weaver beats who stands still and cannot be beaten without the
+// stomp; saves load where they should; and the maps hold together. The jump's reach in these rooms, and the fingers',
+// are measured by `scripts/zelda-lab/lateshow-measure.mjs`, not pinned here.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -31,8 +32,9 @@ function reload(s) {
 }
 
 describe('the Late Show', () => {
-  it('is played from the door in the screen to the stair under the great door, with a reload on the way', () => {
-    let s = Z.createGame(Z.WORLD, { seed: 11, at: { map: 'rerun', entry: 'screen' } })
+  it('is played from the door in the screen to the Sacred Weight, with a reload on the way', () => {
+    // (Any seed: `LATESHOW_SEED=n` runs it on another.)
+    let s = Z.createGame(Z.WORLD, { seed: Number(process.env.LATESHOW_SEED ?? 11), at: { map: 'rerun', entry: 'screen' } })
     Z.grant(s, 'sword')
     let P = reelPlayer(Z, s)
 
@@ -91,13 +93,13 @@ describe('the Late Show', () => {
         seen.add(car.ai.mode)
         const copy = structuredClone(s)
         const e = copy.map.enemies.find(o => o.id === car.id)
-        e.invuln = 0
-        const hp = e.hp
-        Z.hitEnemy(Z.ctx(Z.WORLD, copy, []), e, 1, e.x - 2, e.y, 'sword')
-        assert.equal(e.hp < hp || e.dead, Z.bossOpen(car), `COPILOT ${car.ai.mode}: the bar and the blade differ`)
+        const bites = src => { e.invuln = 0; const hp = e.hp; Z.hitEnemy(Z.ctx(Z.WORLD, copy, []), e, 1, e.x - 2, e.y, src); return e.hp < hp || e.dead }
+        assert.equal(bites('sword'), Z.bossOpen(car), `COPILOT ${car.ai.mode}: the bar and the blade differ`)
+        // One stomp a stall: a second rings off.
+        if (car.ai.mode === 'stall' && e.hp > 6) assert.deepEqual([bites('stomp'), bites('stomp')], [!car.ai.stomped, false])
       },
     })
-    assert.deepEqual([...seen].sort(), ['behind', 'honk', 'leave', 'pass', 'rev', 'stall'])
+    assert.deepEqual([...seen].sort(), ['back', 'behind', 'honk', 'leave', 'pass', 'rev', 'stall'])
     assert.deepEqual([s.map.id, s.entry.entry, Z.keyCount(s)], ['showbooth', 'lens2', 1])
 
     // Halfway: the tab reloads, and the booth is where it comes back, with everything done as it was.
@@ -139,10 +141,45 @@ describe('the Late Show', () => {
     P.settle()
     assert.ok(P.heard.some(l => /NEVER SEEN ONE/.test(l)))
     assert.deepEqual([s.map.id, s.entry.entry, s.mode], ['weaver', 'stair', 'play'])
-    assert.ok(s.hero.hp > 0)
+
+    // THE UNCANNY WEAVER: three fingers, up the steps the hands leave, and two yawns of its face.
+    const opened = []
+    let was = ''
+    P.theWeaver({ watch: e => { if (e.ai.mode !== was && (e.ai.mode === 'rest' || e.ai.mode === 'yawn')) opened.push(`${e.ai.mode} ${e.hp}`); was = e.ai.mode } })
+    assert.deepEqual(opened, ['rest 12', 'rest 10', 'rest 8', 'yawn 6', 'yawn 3'], 'three hands and two yawns, none wasted')
+    assert.ok(Z.has(s, 'weaver') && !Z.has(s, 'item:weightFingers'))
+    P.takeTheWeight()
+    assert.ok(P.heard.some(l => /NOBODY ASKED FOR ANOTHER/.test(l)), 'the room has its line')
+    assert.ok(Z.hasWeight(s, 'weightFingers'), `the Weight in hand: ${P.where()}`)
+    assert.ok(s.hero.hp > 0 && !s.card)
   })
 
-  it('loads a save made in a reel at its lens, with the cards and the screen never in it', () => {
+  it('is lost by who stands still before the Weaver, and never won by who does not stomp', () => {
+    const enter = (stomp) => {
+      const s = Z.createGame(Z.WORLD, { seed: 4, at: { map: 'weaver', entry: 'stair' } })
+      Z.grant(s, 'sword')
+      if (stomp) Z.grant(s, 'stomp')
+      const P = reelPlayer(Z, s)
+      P.idle(10)
+      P.settle()
+      return { s, P }
+    }
+    const still = enter(true)
+    let t = 0
+    for (; still.s.mode === 'play' && t < 30; t += 1 / 60) Z.stepGame(Z.WORLD, still.s, 1 / 60, Z.NO_INPUT)
+    assert.ok(still.s.mode === 'dying' && t > 8 && t < 15, `three hearts last some twelve seconds: ${still.s.mode} after ${t.toFixed(1)} s`)
+
+    // Alive and cutting for a minute and a half: the hands come down, lie, lift, and nothing ends.
+    const { s, P } = enter(false)
+    let lifts = 0
+    P.theWeaver({ secs: 90, stomps: false, watch: e => { if (e.ai.mode === 'lift' && e.ai.t > 0.79) lifts++ } })
+    const e = P.weaver()
+    assert.ok(lifts >= 8, `${lifts} lifts`)
+    assert.deepEqual([e.dead, e.hp, e.ai.n, s.mode], [false, 12, 0, 'play'])
+    assert.ok(![1, 2, 3].some(n => Z.has(s, `weaver.h${n}`)))
+  })
+
+  it('loads a save made in a reel at its lens and before the Weaver at the part reached, no card or screen in it', () => {
     const s = Z.createGame(Z.WORLD, { seed: 5, at: { map: 'reel1958', entry: 'lens' } })
     Z.grant(s, 'sword')
     assert.equal(s.card?.title, '1958.')
@@ -196,6 +233,31 @@ describe('the Late Show', () => {
     for (let i = 0; i < 900 && re.hero.hp === hp; i++) W2.step()
     assert.equal(re.hero.hp, hp - 1)
     assert.ok(re.hero.x >= re.map.chase.left + Z.CHASE.ahead - 0.05, `put ahead of the screen: ${W2.where()}, screen at ${re.map.chase.left}`)
+
+    // Two of the Weaver's hands put right in play, then a death: back at the stair with two ledges standing, the
+    // boss four lighter and the third hand next. A reload there finds the same.
+    const fight = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'weaver', entry: 'stair' } })
+    Z.grant(fight, 'sword')
+    Z.grant(fight, 'stomp')
+    const F = reelPlayer(Z, fight)
+    F.idle(10)
+    F.settle()
+    F.theWeaver({ until: e => e.ai.n === 2 })
+    const reached = (g, how) => {
+      const P = reelPlayer(Z, g)
+      P.idle(10)
+      P.settle()
+      const e = P.weaver()
+      assert.deepEqual([g.map.id, g.entry.entry, e.hp, e.ai.n], ['weaver', 'stair', 8, 2], how)
+      // Rows 20, 19 and 18: the two steps there, the third still air.
+      assert.deepEqual([[2, 20], [4, 20], [5, 19], [7, 19], [8, 18]].map(([x, y]) => Z.tileAt(g.map, x, y) === '¯'), [true, true, true, true, false], how)
+      for (let i = 0; i < 200 && e.ai.mode !== 'draw'; i++) P.step()
+      assert.equal(Z.weaverFootprint(Z.mapInfo(Z.WORLD, 'weaver'), e.ai.n).x, 8, `${how}: the third hand is drawn`)
+    }
+    Z.hurtHero(Z.ctx(Z.WORLD, fight, []), 99, fight.hero.x - 1, fight.hero.y)
+    for (let i = 0; i < 200 && fight.mode !== 'play'; i++) Z.stepGame(Z.WORLD, fight, 1 / 60, Z.NO_INPUT)
+    reached(fight, 'after a death')
+    reached(reload(fight), 'after a reload')
   })
 
   it('holds together: the validator, its keys and doors, the door in the screen, its words', () => {

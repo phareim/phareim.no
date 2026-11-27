@@ -540,6 +540,7 @@ export type EnemyKind =
   | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
   | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
   | 'copilot' // miniboss: the Road's wagon, run on the screen's own coordinates (`engine/bossCopilot.ts`)
+  | 'weaver' // boss (the Late Show): draws hands; a stomp on a gold finger puts one right (`engine/bossWeaver.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -846,6 +847,12 @@ export interface MapDef {
   era?: Era
   /** A screen that scrolls by itself (`engine/chase.ts`): tiles a second, its left edge from and to (tiles), and the still moment first (s). */
   autoscroll?: { vx: number; from: number; to: number; wait: number }
+  /**
+   * Floor that is not there at the start: with `flag` set, the tiles `at` (indexes into the map's tiles) are `ch`.
+   * Laid on every load; whoever sets the flag in play writes the tiles and bumps `MapState.version` (the Weaver's
+   * ledges, `engine/bossWeaver.ts`).
+   */
+  stamps?: { flag: string; at: number[]; ch: TileChar }[]
 }
 
 export type Era = '1958' | '1986' | '2086' | 'screen'
@@ -1546,7 +1553,7 @@ export type GameEvent =
   | { type: 'roll' }
   | { type: 'jump' } // side maps: off the ground
   /** The stomp's impact (`engine/stomp.ts`): on what it came down. */
-  | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' }
+  | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' | 'finger' }
   | { type: 'lens' } // the glass has risen over something (`engine/lens.ts`)
   | { type: 'puff'; x: number; y: number } // a false chest, opened: nothing in it
   /** COPILOT's horn from past the screen's left edge: a pass is coming. */
@@ -1613,6 +1620,8 @@ export type GameEvent =
   | { type: 'lamp'; x: number; y: number; up: boolean }
   /** A room's pot stands got their pots back. */
   | { type: 'restock'; x: number; y: number }
+  /** Something heavy comes down at (x, y) with no blast: the Weaver's hand, and its bite. */
+  | { type: 'slam'; x: number; y: number }
   /** The Magnet (`engine/magnet.ts`): it latched the metal at (x, y); a tap that took nothing; iron come to rest. */
   | { type: 'latch'; x: number; y: number }
   | { type: 'fizzle'; x: number; y: number }

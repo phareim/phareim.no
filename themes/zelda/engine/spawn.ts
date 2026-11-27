@@ -31,6 +31,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   orca: { hp: 10, r: 0.9, dmg: 0 },
   // (It harms by its pass alone, never by touch: `engine/bossCopilot.ts`.)
   copilot: { hp: 8, r: 1.2, dmg: 0, flying: true },
+  // (It harms by what it draws, never by touch: `engine/bossWeaver.ts`.)
+  weaver: { hp: 12, r: 1.4, dmg: 0, flying: true },
 }
 
 export function spawnEnemy(

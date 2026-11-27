@@ -375,6 +375,8 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
   }
   if (s.session) for (let i = 0; i < tiles.length; i++) if (tiles[i] === '¤') tiles[i] = '.'
   for (const g of info.gates) if (flag(`gate:${g.id}`)) for (const i of g.tiles) tiles[i] = '.'
+  // Floor a flag has laid (`MapDef.stamps`).
+  for (const st of info.def.stamps ?? []) if (flag(st.flag)) for (const i of st.at) tiles[i] = st.ch
   for (const c of info.chestList) if (c.appear) tiles[c.idx] = flag(`appear:${c.id}`) ? '$' : '.'
   // Psi blocks moved out in the open, and blocks dropped here from the floor above.
   for (const f of Object.keys(s.flags)) {

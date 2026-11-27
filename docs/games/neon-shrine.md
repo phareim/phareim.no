@@ -277,13 +277,26 @@ classic picture. `/?view=<id>` asks for one.
   stands stunned 1.4 s; a tough one that is not open clanks; the hero bounces a
   held jump's height. Plain ground takes the blow in a ring of 1.3 tiles that
   stuns small foes 1 s. Every impact gives 0.3 s of mercy, without the blink of
-  a hurt. There is no form of it seen from above. Measured by
-  `node scripts/zelda-lab/lateshow-measure.mjs`, shot in the running shell by
-  `node scripts/zelda-lab/lateshow-shot.mjs <local url> <outDir>`. The dungeon
-  from its door to the Screen is played in the shell one frame at a time by
-  `node scripts/zelda-lab/lateshow-reels-shot.mjs <local url> <outDir> desk|phone`
-  (`lockstep.mjs`); COPILOT is measured by `lateshow-copilot.mjs`, the keys by
-  `lateshow-keys.mjs`.
+  a hurt. **A gold finger** (the Uncanny Weaver's, while its hand rests) is
+  struck at once when the feet are within 1.1 tiles of it, from any side, rising
+  or falling: nothing is dived at, nothing waits, and a press 0.12 s early
+  counts. Measured by `node scripts/zelda-lab/lateshow-measure.mjs`, shot in the
+  running shell by `node scripts/zelda-lab/lateshow-shot.mjs <local url>
+  <outDir>`. The dungeon from its door to its Weight is played in the shell one
+  frame at a time by `node scripts/zelda-lab/lateshow-reels-shot.mjs <local url>
+  <outDir> desk|phone` (`lockstep.mjs`); COPILOT is measured by
+  `lateshow-copilot.mjs`, the keys by `lateshow-keys.mjs`.
+- **The Stomp from above is not built.** There is no form of it on a top-down
+  map yet. Its rule, for the job that hides things for it out in the lands: A
+  pressed in the last 0.15 s of the HOP's air time, the stick neutral, is the
+  STOMP: the hero slams down where he stands; foes within 1.3 tiles are stunned
+  1.4 s; he weighs 2 on a plate for 0.5 s; every `%` within 1.3 tiles breaks as
+  a bomb's blast breaks it. A held stick, the rising half and a press after
+  landing stay the HOP CUT.
+- **Floor laid by a flag** (`MapDef.stamps: { flag, at, ch }[]`). With the flag
+  set, the tiles `at` (indexes into the map) are `ch`: laid on every load, and
+  written in play by whoever sets the flag (`MapState.version` bumped, as under
+  a bomb). The Uncanny Weaver's three ledges are the only ones.
 - **Springs and cracked floor.** `▲` is a spring pad flush with the floor:
   ground to stand, walk and cut on; only a stomp springs it, to 1.6 held jumps
   (5.1 tiles), so a ledge 4 up is a pad's and no plain jump's. A cracked floor
@@ -338,7 +351,13 @@ classic picture. `/?view=<id>` asks for one.
   boards and poles. 2086 is violet and acid green under a white-lilac ringed
   world: the drive-in screen torn and grown over, its foes in acid green.
   `screen` is the blank screen, dark slate with pencilled hands. A map without a
-  year wears its own look. Stand-ins all, drawn in code.
+  year wears its own look. Stand-ins all, drawn in code. **The film's look**
+  (`eraFilm`) lies over a year's sky and tiles and under every warning, gold
+  mark, foe and hero: 1958 has grain at twelve pictures a second, a scratch now
+  and then and a dark rim; 1986 a tracking band that rolls down every seven
+  seconds or so (one slice of the picture drawn 4 px aslant). Reduced motion
+  keeps only the rim. The reels play the game's own tracks: the realm sketch's
+  three era tunes are not made.
 - **A reload in a dungeon's rooms** (`MapDef.resume`). A tab reloaded in such a
   map continues at its last stair or door, as out in a land, with none of the
   rest of what `away` does.
@@ -1056,6 +1075,8 @@ classic picture. `/?view=<id>` asks for one.
     lies fallen; Mixtral dazed, while that daze still has blows to give; the
     Parrot thinking, while that thought still has blows to give; COPILOT stalled,
     while that stall still has blows to give (off its screen it wears no bar);
+    the Uncanny Weaver while a hand rests (its finger, to the stomp) or while its
+    yawn still has blows to give;
     the llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
     `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs` (or names the test
@@ -1089,18 +1110,47 @@ classic picture. `/?view=<id>` asks for one.
     screen's own coordinates and ignores the road's pits and parked wagons;
     harmless to touch but in a pass. *Behind* (off the left edge, 3 s after the
     screen first moves, then 2.2 s); *honk* (1.2 s: the horn, headlights at the
-    edge, a pink lane to 9 tiles in, 0.9 high, and a great `!`); *pass* (11
-    tiles/s from 4 off the screen to 9 in: 2 half hearts to a hero whose feet are
-    under 0.9 over the road within 0.6 tiles of its middle; a jump or a parked
-    wagon clears it, a roll does not); *stall* (3.6 s, open: the blade takes at
-    most 4 a stall, and a stomp takes 3); a 0.5 s tell with pink lamps, still a
-    thing to stomp; *leave* (12 tiles/s, 1 s). At every other time the blade
-    clanks. Felled (`lateshow.copilot`), it spins out; the flag opens the booth's
-    gate to the Snack Bar and brings up the second key's chest down the road. The
-    screen scrolls on to its end either way. Its pictures are the frontier
-    sprites `copilot_neon`, `_honk` and `_rust` at three times their size.
+    edge, a pink lane the whole screen across, as high as the wagon, and a great
+    `!`); *pass* (11 tiles/s from 4 off the screen to its right edge: 2 half
+    hearts to a hero whose feet are under 15 px over the road within 0.6 tiles of
+    its middle; any jump clears it, and so does a parked wagon, by a px; a roll
+    does not; nowhere on the screen is out of its way); *back* (it rolls back to
+    9 tiles in, harmless); *stall* (3.6 s, open: the blade takes at most 4 a
+    stall, and a stomp takes 3, **one stomp a stall**: a second bounces off with
+    a clank); a 0.5 s tell with pink lamps, still a thing to stomp; *leave*
+    (12 tiles/s, 1 s). At every other time the blade clanks. Felled
+    (`lateshow.copilot`), it spins out; the flag opens the booth's gate to the
+    Snack Bar and brings up the second key's chest down the road. The screen
+    scrolls on to its end either way. Its pictures are its own, from the side
+    (`render/spritesCopilotSide.ts`, 48 × 16): driving, honking, rusted, struck.
   - *The Usher* (the Late Show's Snack Bar): a tough sentry with a card of its
     own (THE USHER. SEATS ARE ASSIGNED. SO IS BLAME.) behind a trap gate.
+  - *The Uncanny Weaver* (`weaver`, the Late Show's boss; hp 12, radius 1.4;
+    `engine/bossWeaver.ts`, every number in `WEAVER`). Its card, in the Screen:
+    THE UNCANNY WEAVER. IT HAS DRAWN A THOUSAND HANDS. IT HAS NEVER SEEN ONE. A
+    face on the blank screen that never hurts by touch. Three rounds, a hand
+    each, on three pencilled slots that climb to the right: *draw* (1.1 s: the
+    arm comes down, the 3 × 2 footprint over the slot is stencilled pink; from
+    the second round two strips along the floor too); *slam* (0.3 s: 2 half
+    hearts in the footprint; from the second round two waves a tile high run out
+    along the floor at 6.5 tiles/s until a ledge or a wall, twice in the third;
+    a jump or a ledge clears them); *rest* (6, 5 and 4.5 s: open; the hand lies
+    on its slot, its gold finger at the near end under a gold ring and chevron;
+    the blade does nothing to it; in the last second the slot's outline fills
+    pink); *lift* (0.8 s) and the round again, nothing lost. A stomp on the
+    finger puts the hand right: it becomes a ledge three tiles wide
+    (`weaver.h1` to `h3`, saved), the Weaver loses 2, and 1.5 s later the next
+    slot is drawn. With all three right (hp 6, `bossPhase`) only the face is
+    left: *watch* (3.6 s, it clanks the blade), *sink* to the top ledge, *yawn*
+    (2.1 s, open, a gold outline: at most 3 hit points a yawn), *bite* (0.9 s,
+    a pink rectangle over the top ledge: step left off it, or drop), *snap* (2
+    half hearts in it), *rise*. All but its sink to rise, it aims a *scribble*
+    at where the hero stands every 3.2, 2.8 and 2.4 s by the round and 2.6 in
+    the watch (twice): a pink lane 1.2 wide for 1 s, then a pellet down it at 12
+    tiles/s that a step, a jump or the blade clears. A hero who only stands loses
+    in some 11 s. A death or a reload starts at the part reached. Felled, a line,
+    and the Weight of FINGERS appears on the top ledge once the hero is off its
+    spot. Its pictures: `render/spritesWeaver.ts`.
   - *The Stochastic Parrot* (`parrot`, the Echo Barrow's boss; hp 16, radius
     0.9; `engine/parrot.ts`, every number in `PARROT`). Its card, the first
     time in its room: THE STOCHASTIC PARROT. IT HAS HEARD EVERYTHING. IT HAS

@@ -9,6 +9,7 @@ import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
 import { heapRule, phiOpen } from './heapFoes'
 import { COPILOT, copilotStill } from './bossCopilot'
+import { WEAVER } from './bossWeaver'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
 import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
@@ -115,6 +116,9 @@ BIG.add('grok')
 BOSSES.add('grok')
 BIG.add('orca')
 BOSSES.add('orca')
+// The Late Show's (`bossWeaver.ts`).
+BIG.add('weaver')
+BOSSES.add('weaver')
 /** The `BIG` ones the storm lamp's beam burns and stuns (`engine/lamp.ts`): a boss is left alone unless it is named here. */
 export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 
@@ -167,6 +171,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'orca': return (mode === 'planted' || mode === 'off' || e.stun > 0) && ((e.ai.took as number | undefined) ?? 0) < ORCA.take
     // Stalled in the road, while this stall still has blows to give.
     case 'copilot': return mode === 'stall' && ((e.ai.took as number | undefined) ?? 0) < COPILOT.take
+    // A hand at rest (its finger, to the stomp), or its yawn while this one still has blows to give.
+    case 'weaver': return mode === 'rest' || (mode === 'yawn' && ((e.ai.took as number | undefined) ?? 0) < WEAVER.take)
     default: return false
   }
 }
@@ -397,16 +403,32 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (!damage(c, e, dmg, fromX, fromY, opt)) return false
       if ((ai.hits as number) >= 3 && !e.dead) { ai.hits = 0; ai.mode = 'under'; ai.t = 2.2; ai.tell = 0; e.invuln = 1.4 }
       return true
-    // COPILOT: the stomp bites while it stands still, the blade only while it is stalled, `COPILOT.take` a stall.
+    // THE UNCANNY WEAVER: a stomp on a resting hand's finger (`bossWeaver.ts` `fingerStruck`), the blade only on its
+    // face as it yawns, `WEAVER.take` a yawn. Anything else clanks.
+    case 'weaver': {
+      const left = WEAVER.take - ((ai.took as number | undefined) ?? 0)
+      const stomped = src === 'stomp' && ai.mode === 'rest'
+      if (!stomped && !(blade(src) && ai.mode === 'yawn' && left > 0)) {
+        c.ev.push({ type: 'clank', x: e.x, y: e.y })
+        turned(e, src, 0.2)
+        return false
+      }
+      const hit = damage(c, e, stomped ? WEAVER.stomp : dmg, fromX, fromY, stomped ? opt : { ...opt, cap: left })
+      e.knock = null
+      return hit
+    }
+    // COPILOT: the stomp bites while it stands still (once a stall), the blade only while it is stalled, `COPILOT.take` a stall.
     case 'copilot': {
       const left = COPILOT.take - ((ai.took as number | undefined) ?? 0)
-      const stomped = src === 'stomp' && copilotStill(e)
+      // (A second stomp in the same stall rings off.)
+      const stomped = src === 'stomp' && copilotStill(e) && !ai.stomped
       if (!stomped && !(blade(src) && ai.mode === 'stall' && left > 0)) {
         c.ev.push({ type: 'clank', x: e.x, y: e.y })
         turned(e, src, 0.2)
         return false
       }
       const hit = damage(c, e, stomped ? COPILOT.stomp : dmg, fromX, fromY, stomped ? opt : { ...opt, cap: left })
+      if (stomped) ai.stomped = true
       // (It stands where its cycle puts it: nothing shoves it.)
       e.knock = null
       return hit

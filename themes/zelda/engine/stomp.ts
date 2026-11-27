@@ -17,6 +17,7 @@ import { enemyActive } from './enemies'
 import { moveCircle, setFlag, solidTile, tileAt } from './map'
 import { corner, FOOT, footing, SIDE, sideOf, type SideHero } from './side'
 import { copilotStill } from './bossCopilot'
+import { fingerStruck, WEAVER, weaverFinger } from './bossWeaver'
 
 /**
  * Tiles, tiles/s and seconds. Reach: a foe `across` from the hero's middle and at least `below` the feet; a pad or a
@@ -34,12 +35,21 @@ export const STOMP = {
 export type StompAim = { on: 'foe'; id: string } | { on: 'spring' | 'crack'; i: number } | { on: 'ground' }
 
 /** What can be stomped, in the order that breaks a tie of distance. The tiles are read straight under the hero. */
-const NO_STOMP: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['zapper', 'eye', 'spitter'])
+// (The Weaver's face is no thing to come down on: its fingers are, `finger`.)
+const NO_STOMP: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['zapper', 'eye', 'spitter', 'weaver'])
 const TILES: Array<{ ch: string; on: 'spring' | 'crack' }> = [{ ch: SPRING, on: 'spring' }, { ch: '%', on: 'crack' }]
 const ORDER = { foe: 0, spring: 1, crack: 2, ground: 3 } as const
 
 /** Is this a foe the stomp comes down on? (COPILOT only while it stands still: a wagon on the move is a plain jump.) */
 const takes = (e: Enemy) => !NO_STOMP.has(e.kind) && (e.kind !== 'copilot' || copilotStill(e))
+
+/** The Weaver whose gold finger the feet at (x, feet) are at: within its ring, from any side. */
+function finger(c: Ctx, x: number, feet: number): Enemy | undefined {
+  return c.s.map.enemies.find(e => {
+    const f = enemyActive(c, e) ? weaverFinger(c.info, e) : null
+    return !!f && Math.hypot(x - f.x, feet - f.y) <= WEAVER.finger
+  })
+}
 
 /** Is the way from (x0, y0) down to (x, y) free of floors? */
 function clearTo(c: Ctx, x0: number, y0: number, x: number, y: number): boolean {
@@ -135,6 +145,12 @@ export function stompPress(c: Ctx, inp: Input, dt: number): Input {
   }
   const feet = h.y + HERO_R
   const rising = sd.vy < -STOMP.rise
+  // A finger in reach is struck at once, rising or falling: nothing is dived at and nothing waits.
+  const hand = (inp.aPress || (sd.press ?? 0) > 0 || (sd.wait ?? 0) > 0) ? finger(c, h.x, feet) : undefined
+  if (hand) {
+    onFinger(c, sd, hand)
+    return taken()
+  }
   let waits = false
   if (inp.aPress) {
     // On keys, down and A always dives.
@@ -186,6 +202,20 @@ function onFoe(c: Ctx, sd: SideHero, e: Enemy) {
     e.stagger = 0
   }
   c.ev.push({ type: 'stomp', x: h.x, y: h.y + HERO_R, on: 'foe' })
+  bounce(c, sd, STOMP.bounce.foe)
+}
+
+/** On a gold finger: the hand is put right and the hero thrown up off it. */
+function onFinger(c: Ctx, sd: SideHero, e: Enemy) {
+  const h = c.s.hero
+  sd.press = sd.wait = 0
+  h.swing = null
+  h.spin = null
+  h.charge = -1
+  h.bufA = 0
+  h.act = 'idle'
+  fingerStruck(c, e)
+  c.ev.push({ type: 'stomp', x: h.x, y: h.y + HERO_R, on: 'finger' })
   bounce(c, sd, STOMP.bounce.foe)
 }
 

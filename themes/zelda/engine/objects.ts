@@ -345,7 +345,8 @@ function stepPuzzles(c: Ctx) {
     c.ev.push({ type: 'secret' })
   }
   for (const p of m.pickups) {
-    if (p.hidden && condMet(s, c.w, p.appear, -1)) {
+    // (From the side, as a chest does, it waits until the hero steps off.)
+    if (p.hidden && condMet(s, c.w, p.appear, -1) && !(c.info.def.kind === 'side' && Math.hypot(p.x - h.x, p.y - h.y) < HERO_R + 0.45)) {
       p.hidden = false
       c.ev.push({ type: 'secret' })
     }

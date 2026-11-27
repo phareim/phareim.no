@@ -674,6 +674,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           break
         }
         case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
+        // The Weaver's hand down, or its bite: dust, and no flash over what is to be read.
+        case 'slam': dust(e.x - 0.8, e.y - 0.3, 6); dust(e.x + 0.8, e.y - 0.3, 6); break
         // The Magnet: cyan on the metal it takes, a grey spark at the hand for a tap that takes nothing.
         case 'latch': spark(e.x, e.y, 6, '#2ff3ff', 4, 0.3); pulse(e.x, e.y, 1.8, '#2ff3ff', 0.18); break
         case 'fizzle': spark(e.x, e.y, 5, '#8f86b8', 3, 0.25); break
@@ -1112,8 +1114,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           : e.ai.mode === 'recite' && e.ai.on && !e.ai.act ? 'parrot_tell' : `parrot_${f('parrot')}`
         return { name, flip: e.dir === 'right' }
       }
-      // Neon while it drives, its horn's face for the tell, rust while it stands (and as it spins out).
-      case 'copilot': return { name: e.dead || e.ai.mode === 'stall' || e.ai.mode === 'rev' ? 'copilot_rust' : e.ai.mode === 'honk' ? 'copilot_honk' : 'copilot_neon', flip: false }
+      // From the side: neon while it drives (its wheels turning), its horn blown for the tell, rust while it stands
+      // (and as it spins out).
+      case 'copilot': return { name: e.dead || e.ai.mode === 'stall' || e.ai.mode === 'rev' ? 'copilot_side_rust' : e.ai.mode === 'honk' ? 'copilot_side_honk' : Math.floor(time * 12) % 2 ? 'copilot_side_neon_1' : 'copilot_side_neon', flip: false }
+      // Watching; half shut as it yawns; a flash of its hurt face on every blow.
+      case 'weaver': return { name: e.dead || (e.hitT ?? 1) < 0.35 ? 'weaver_face_hurt' : e.ai.mode === 'yawn' ? 'weaver_face_1' : 'weaver_face_0', flip: false }
       case 'sycophant': return { name: sycophantSprite(e, time), flip: false }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
       case 'grok': {
@@ -1232,11 +1237,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: e.x, y: e.y - 0.5, r: e.ai.tell > 0 ? 1.8 : 2.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.55 : 0.5 })
       return
     }
+    if (e.kind === 'weaver') {
+      // The face, about its middle; gold round it (in a dark rim) while its yawn is open to the blade.
+      const c = sprite(name, flip)
+      const left = Math.round(x + shiver(e) - c.width / 2)
+      const top = Math.round(feet - 1 - e.r * T - c.height / 2)
+      const open = e.ai.mode === 'yawn' && bossOpen(e)
+      if (open) {
+        for (const [color, d] of [[TOUGH_RIM, 3], [TOUGH_GOLD, 2], [TOUGH_GOLD, 1]] as const) {
+          const edge = silhouette(name, color, flip)
+          for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]] as const) g.drawImage(edge, left + dx, top + dy)
+        }
+      }
+      g.drawImage(c, left, top)
+      lights.push({ x: e.x, y: e.y, r: 3.6, color: open ? TOUGH_GOLD : '#c4fbff', a: open ? 0.7 : 0.45 })
+      return
+    }
     if (e.kind === 'copilot') {
-      // Its pictures are small ones, drawn at three times their size, standing on the road it drives on. (Rounded
-      // by its place on the screen, so that it does not shiver while the screen scrolls under it.)
+      // It stands on the road it drives on, as high as what its pass hurts. (Rounded by its place on the screen, so
+      // that it does not shiver while the screen scrolls under it.)
       const px = Math.round(((e.ai.r as number | undefined) ?? 0) * T) + Math.round((e.x - ((e.ai.r as number | undefined) ?? 0)) * T) - cx
-      put(g, name, px + shiver(e), copilotRoad(e) * T - cy + (flat ? 0 : 1), flip, flashing(e), 3, 3)
+      put(g, flashing(e) ? 'copilot_side_hurt' : name, px + shiver(e), copilotRoad(e) * T - cy + (flat ? 0 : 1), flip)
       lights.push({ x: e.x, y: e.y - 0.2, r: 3, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.7 : 0.45 })
       return
     }
@@ -1348,7 +1369,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : e.kind === 'copilot' ? 3 : 1)) - standsAbove(e)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
@@ -1373,6 +1394,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function standsAbove(e: Enemy): number {
     if (e.kind === 'king') return (e.ai.mode === 'down' ? 0 : 8) - 8
     if (e.kind === 'sycophant') return SYCO_HOVER
+    // (The Weaver's face hangs about its middle, its box a little under its foot point.)
+    if (e.kind === 'weaver') return Math.round(e.r * T) - 24
     // (The wagon's wheels are on its road, over its foot point.)
     if (e.kind === 'copilot') return Math.round((e.y + e.r - copilotRoad(e)) * T)
     if ((e.kind === 'mistral' || e.kind === 'gemini') && e.ai.mode !== 'down') return 7

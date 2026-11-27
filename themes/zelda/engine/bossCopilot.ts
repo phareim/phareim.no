@@ -6,8 +6,10 @@
  *
  *   behind   off the screen to the left
  *   honk     the tell: its headlights at the edge, the lane stencilled pink as high as what will hurt
- *   pass     it drives through; a hero whose feet are low as it goes by is hurt (a jump clears it)
- *   stall    it stands in the road: open to the blade (`take` a stall) and to the stomp
+ *   pass     it drives through, the whole screen across: a hero whose feet are low as it goes by is hurt (a jump
+ *            clears it). Nowhere on the screen is out of its way.
+ *   back     it brakes and rolls back to where it stands; harmless
+ *   stall    it stands in the road: open to the blade (`take` a stall) and to the stomp (one a stall)
  *   rev      the tell of its leaving: still standing, still a thing to stomp
  *   leave    it drives off to the right
  */
@@ -17,12 +19,12 @@ import { hurtHero, type Ctx } from './combat'
 
 /**
  * Seconds, tiles and tiles/s. `first`: the screen has moved this long before the first honk. `up`: its middle over
- * the road. `hit`: a pass hurts feet lower than this over the road, within `half` tiles of its middle (and the hero's
+ * the road. `hit`: the wagon as drawn is this high, and a pass hurts feet lower than this over the road, within `half` tiles of its middle (and the hero's
  * own radius). `take`: the most the blade takes in one stall. `stomp`: what a stomp takes.
  */
 export const COPILOT = {
-  first: 3, behind: 2.2, honk: 1.2, from: -4, to: 9, speed: 11, stall: 3.6, rev: 0.5, away: 12, leave: 1, off: -5,
-  up: 0.7, hit: 0.9, half: 0.6, dmg: 2, take: 4, stomp: 3, spin: 0.8,
+  first: 3, behind: 2.2, honk: 1.2, from: -4, past: 16, to: 9, speed: 11, stall: 3.6, rev: 0.5, away: 12, leave: 1, off: -5,
+  up: 0.7, hit: 15 / 16, half: 0.6, dmg: 2, take: 4, stomp: 3, spin: 0.8,
 } as const
 
 /** It stands still in the road: the stomp may come down on it (`stomp.ts`). */
@@ -50,8 +52,12 @@ export function copilot(c: Ctx, e: Enemy, dt: number) {
       if (ai.t <= 0) { to('pass', 0); r = COPILOT.from }
       break
     case 'pass':
-      r = Math.min(COPILOT.to, r + COPILOT.speed * dt)
-      if (r >= COPILOT.to) { to('stall', COPILOT.stall); ai.took = 0 }
+      r = Math.min(COPILOT.past, r + COPILOT.speed * dt)
+      if (r >= COPILOT.past) to('back', 0)
+      break
+    case 'back':
+      r = Math.max(COPILOT.to, r - COPILOT.speed * dt)
+      if (r <= COPILOT.to) { to('stall', COPILOT.stall); ai.took = 0; ai.stomped = false }
       break
     case 'stall':
       if (ai.t <= 0) to('rev', COPILOT.rev)

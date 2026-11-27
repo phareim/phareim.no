@@ -9,13 +9,15 @@
  *   reel1986    (0,0) THE VIDEO STORE
  *   chase1986   (0,0) THE ROAD (one wide room; its screen scrolls by itself, `engine/chase.ts`)
  *   reel2086    (0,0) THE OVERGROWN LOT   (1,0) THE LAST REEL
- *   weaver      (0,0) THE SCREEN (its floor and the outlines of what will land there)
+ *   weaver      (0,0) THE SCREEN (THE UNCANNY WEAVER, `engine/bossWeaver.ts`)
  *
  * The route: the screen's door, the Scaffold, the Booth; the 1958 lens; Main Street, with a small key on the shop
  * roof; the Backlot, where THE STOMP lies on the alcove ledge; back to the booth, whose locked lens (1986) the key
  * opens. The Video Store's springs, up to the Road; COPILOT, whose fall gives the second key and opens the booth's
  * gate; the Snack Bar and the Usher, the lens of 2086 behind its lock; the Overgrown Lot with the third key; the
- * Last Reel, its locked inner door and the Big Key; the booth's great door, down to the Screen.
+ * Last Reel, its locked inner door and the Big Key; the booth's great door, down to the Screen, where the Weaver
+ * draws hands: each one put right by a stomp is a step, the three steps lead to its face, and its fall leaves the
+ * Sacred Weight FINGERS.
  *
  * One small key a reel, and at the moment any is picked up exactly one lock can be reached: the Snack Bar stands
  * behind a gate COPILOT opens, so no key can be spent on the wrong door.
@@ -187,12 +189,21 @@ const LAST_REEL = reel({
 // The Screen
 // ---------------------------------------------------------------------------
 
-// Floor, walls, a ceiling, and the stair back up. (What lives here comes with the Screen's own fight.)
+// Floor, walls, a ceiling, the stair back up on a landing two steps high (so that no step aside from the fight walks
+// out of it), the face of the Weaver (`w`) and, on the top ledge to be, the Weight it leaves (`g`). The rest of what
+// stands here the fight draws: three ledges (`stamps` below).
 const SCREEN = reel({
   0: '################',
   ...Object.fromEntries(Array.from({ length: 20 }, (_, y) => [y + 1, '#..............#'])),
-  20: '#u.............#',
+  11: '#......w.......#',
+  17: '#........g.....#',
+  18: '#u.............#',
+  19: '##.............#',
+  20: '##.............#',
 })
+
+/** The ledge a hand put right leaves: three tiles from (x, y), laid by its flag. */
+const ledge = (n: number, x: number, y: number) => ({ flag: `weaver.h${n}`, at: [0, 1, 2].map(i => y * 16 + x + i), ch: '¯' as const })
 
 export const SHOWBOOTH: MapDef = {
   id: 'showbooth',
@@ -370,10 +381,24 @@ export const WEAVER: MapDef = {
   resume: true,
   era: 'screen',
   cell: { w: 16, h: 24 },
-  cells: { '0,0': { name: 'THE SCREEN', events: [{ when: { notFlag: 'weaver' }, lines: ['THE UNCANNY WEAVER. IT HAS DRAWN A THOUSAND HANDS. IT HAS NEVER SEEN ONE.'], set: 'weaver.card' }] } },
+  cells: {
+    '0,0': {
+      name: 'THE SCREEN',
+      events: [
+        { when: { notFlag: 'weaver' }, lines: ['THE UNCANNY WEAVER. IT HAS DRAWN A THOUSAND HANDS. IT HAS NEVER SEEN ONE.'], set: 'weaver.card' },
+        { when: { flag: 'weaver' }, lines: ['(A PROJECTOR CLICKS OFF, SOMEWHERE ABOVE YOU. NOBODY ASKED FOR ANOTHER.)'], set: 'weaver.after' },
+      ],
+    },
+  },
   rows: SCREEN,
   entries: { stair: { x: 2.5, y: 20.5, dir: 'right' } },
-  marks: { u: warp('>', 'showbooth', 'kdoor') },
+  // Each a step up and three tiles on from the one before.
+  stamps: [ledge(1, 2, 20), ledge(2, 5, 19), ledge(3, 8, 18)],
+  marks: {
+    u: warp('>', 'showbooth', 'kdoor'),
+    w: { ent: { t: 'enemy', kind: 'weaver', once: 'weaver' } },
+    g: { ent: { t: 'item', id: 'weaver.weight', item: 'weightFingers', appear: { flag: 'weaver' } } },
+  },
 }
 
 /** This dungeon's maps by id (`lands.ts` takes them into the world). */
