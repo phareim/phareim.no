@@ -206,9 +206,9 @@ export interface Parts {
   keyV: Box | null
 }
 
-const PLATE_H = 13
-const CAP_W = 9
-const CAP_H = 11
+export const PLATE_H = 13
+export const CAP_W = 9
+export const CAP_H = 11
 
 export function cornerParts(sh: CornerShape): Parts {
   const step = turnStep(sh.e)
@@ -468,10 +468,16 @@ export interface CornerPicture {
   px: Array<string | null>
 }
 
-class Buf implements CornerPicture {
-  w = CORNER_W
-  h = CORNER_H
-  px: Array<string | null> = new Array<string | null>(CORNER_W * CORNER_H).fill(null)
+/** A picture being painted, clear to begin with: the corner's canvas, or a size of its own (the MAP page's art). */
+export class Buf implements CornerPicture {
+  w: number
+  h: number
+  px: Array<string | null>
+  constructor(w = CORNER_W, h = CORNER_H) {
+    this.w = w
+    this.h = h
+    this.px = new Array<string | null>(w * h).fill(null)
+  }
   set(x: number, y: number, c: string) { if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.px[y * this.w + x] = c }
   get(x: number, y: number): string | null { return x >= 0 && y >= 0 && x < this.w && y < this.h ? this.px[y * this.w + x]! : null }
   /** A one-px ring round everything `inside` holds, looked for within `within` and a px past it. */
@@ -744,26 +750,50 @@ const HERO_IN_DOOR = ['.PP.', 'PPPP', 'PPPP', '.PP.']
 /** The hero's blink, in steps; steady when motion is reduced. */
 const blinkOn = (st: CornerState) => !!st.reduced || Math.floor((st.time ?? 0) * 2.5) % 2 === 0
 
-function paintGem(B: Buf, s: GameState, shape: CornerShape, parts: Parts, st: CornerState, skin: CornerSkin) {
-  if (!parts.gem) return
-  const art = parts.step >= 3 ? GEM_ART.diamond : GEM_ART.square
-  const pal: Record<string, string> = shape.pinned ? GEM_DULL : GEM_LIT
-  const gem = parts.gem
-  const x0 = gem.x
-  const y0 = gem.y + (st.pressed === 'gem' ? 1 : 0)
-  const phase = sunPhase(s.daytime)
+/** The Prism's art at (x, y): `face` the square or the diamond one, `phase` the sun in its window, `pinned` its facets dull, `ring` the ink (or focus) line round it. */
+export function stampGem(B: Buf, x: number, y: number, face: keyof typeof GEM_ART, phase: SunPhase, pinned: boolean, ring: string) {
+  const art = GEM_ART[face]
+  const pal: Record<string, string> = pinned ? GEM_DULL : GEM_LIT
   // The window starts at the first '#' row; its left column is the third.
   const top = art.findIndex(r => r.includes('#'))
-  const on = (x: number, y: number) => { const c = art[y - y0]?.[x - x0]; return !!c && c !== '.' }
+  const on = (i: number, j: number) => { const c = art[j - y]?.[i - x]; return !!c && c !== '.' }
   // An ink line round it, so it sits clean on the frame; the gold or pink ring goes on that line.
-  B.ring(on, st.focus === 'gem' ? skin.prize : st.nudge === 'gem' ? skin.hot : skin.outline, { ...gem, y: y0 })
+  B.ring(on, ring, { x, y, w: GEM_W, h: GEM_H })
   art.forEach((row, j) => {
     for (let i = 0; i < row.length; i++) {
       const c = row[i]!
-      if (c === '#') B.set(x0 + i, y0 + j, windowInk(phase, i - 3, j - top))
-      else if (c !== '.') B.set(x0 + i, y0 + j, pal[c]!)
+      if (c === '#') B.set(x + i, y + j, windowInk(phase, i - 3, j - top))
+      else if (c !== '.') B.set(x + i, y + j, pal[c]!)
     }
   })
+}
+
+function paintGem(B: Buf, s: GameState, shape: CornerShape, parts: Parts, st: CornerState, skin: CornerSkin) {
+  if (!parts.gem) return
+  const gem = parts.gem
+  stampGem(B, gem.x, gem.y + (st.pressed === 'gem' ? 1 : 0), parts.step >= 3 ? 'diamond' : 'square', sunPhase(s.daytime), !!shape.pinned,
+    st.focus === 'gem' ? skin.prize : st.nudge === 'gem' ? skin.hot : skin.outline)
+}
+
+/** The chain a pinned Prism's plate hangs on: two px wide, an ink line on either side. */
+export function stampChain(B: Buf, c: Box, skin: CornerSkin = CORNER_SKIN) {
+  for (let j = 0; j < c.h; j++) {
+    B.set(c.x - 1, c.y + j, skin.outline)
+    B.set(c.x, c.y + j, j & 1 ? QUIET : skin.dim)
+    B.set(c.x + 1, c.y + j, j & 1 ? skin.dim : QUIET)
+    B.set(c.x + 2, c.y + j, skin.outline)
+  }
+}
+
+/** A key cap with its letter, 9 × 11 L. */
+export function stampCap(B: Buf, key: string, b: Box, skin: CornerSkin = CORNER_SKIN) {
+  B.plate(b, '', WHITE, QUIET, skin.outline)
+  B.text(key, b.x + 2, b.y + 2, WHITE)
+}
+
+/** The plate with a view's name under or beside the Prism: text width + 6 by 13 L. */
+export function stampPlate(B: Buf, text: string, b: Box, skin: CornerSkin = CORNER_SKIN) {
+  B.plate(b, text, WHITE, skin.dim, skin.outline)
 }
 
 /** The 4 × 4 order the away steps thin the picture by. */
@@ -786,20 +816,13 @@ export function renderCorner(world: World, s: GameState, st: CornerState, skin: 
   if (ring) B.ring((x, y) => B.get(x, y) !== null, ring)
   paintGem(B, s, shape, parts, st, skin)
   if (shape.pinned && parts.chain && parts.plate) {
-    const c = parts.chain
-    for (let j = 0; j < c.h; j++) {
-      B.set(c.x - 1, c.y + j, skin.outline)
-      B.set(c.x, c.y + j, j & 1 ? QUIET : skin.dim)
-      B.set(c.x + 1, c.y + j, j & 1 ? skin.dim : QUIET)
-      B.set(c.x + 2, c.y + j, skin.outline)
-    }
-    B.plate(parts.plate, shape.pinned, WHITE, skin.dim, skin.outline)
+    stampChain(B, parts.chain, skin)
+    stampPlate(B, shape.pinned, parts.plate, skin)
   }
   if (st.keys) {
-    for (const [key, b] of [['M', parts.keyM], ['V', parts.keyV]] as const) if (b) B.plate(b, '', WHITE, QUIET, skin.outline)
     // (The stub is the pause: P. The chart opens the map: M.)
-    B.text(shape.chart ? 'M' : 'P', parts.keyM.x + 2, parts.keyM.y + 2, WHITE)
-    if (parts.keyV) B.text('V', parts.keyV.x + 2, parts.keyV.y + 2, WHITE)
+    stampCap(B, shape.chart ? 'M' : 'P', parts.keyM, skin)
+    if (parts.keyV) stampCap(B, 'V', parts.keyV, skin)
   }
   if (parts.tag && shape.tag) {
     const edge = st.nudge ? skin.hot : shape.pinned && shape.tag === refusalTag(shape.pinned) ? skin.dim : skin.cool

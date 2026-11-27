@@ -129,9 +129,10 @@ classic picture. `/?view=<id>` asks for one.
   - *Keys and focus.* A pointer press never leaves focus on the Prism.
     Reached by Tab, it owns Enter, Space and Tab only: `data-game-keys`
     makes `input.ts` hand every other key back to the game and blur it, so
-    arrows walk and V turns at once. (Tab is the swap key once the hero has
-    an item; the Prism is then reached by V and a screen reader's own
-    navigation.) Its name says which view is on and which a press gives (on
+    arrows walk and V turns at once. (In play Tab is the swap key once the hero
+    has an item; the Prism is then reached by V and a screen reader's own
+    navigation. While the menu is open Tab moves the focus, to the MAP page's
+    Prism among others.) Its name says which view is on and which a press gives (on
     a pinned Prism, that this is the only one here), and a live region says
     the view after every change. Focused, it wears a gold ring (read from
     the page each frame, so the ring goes with the focus, whatever takes
@@ -1272,7 +1273,8 @@ sessionStorage), and a reload in that tab continues at it (`loadSpot`). A new
 visit starts in town.
 
 **The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25; the
-corner, `render/corner.ts`, 2026-11-27). Every map but the rooms indoors is
+corner, `render/corner.ts`, and the MAP page, `render/mapPage.ts`,
+2026-11-27). Every map but the rooms indoors is
 cut into squares of 8 × 8 tiles, and a square is seen once the hero has been
 within 10 tiles of it; a dungeon room is seen whole on walking in. What is
 seen is kept per map as a string of six-bit digits, one bit a square
@@ -1356,20 +1358,100 @@ squares. Two of it:
   focus and key caps, the lessons, away, the tag, Lumenby's sockets, chests,
   pass tabs), the object over real pictures of the game, and the charts
   whole.
-- **The MAP page** of the menu (M): the name of the place, the chart of the
-  map in the same inks and fog, fitted to the panel round what has been
-  seen, the corner's marks at the page's scale, the names of the areas
-  seen, and once the blade is in hand THE WORLD beside it (under it on an
-  upright phone): every map of the grid where it lies in its own inks, the
-  coast and the Wildwood always, a land once walked into, the map the hero
-  is on in the prize colour and the hero a hot dot. The menu's three pages
-  stand as tabs over it: `P ITEMS`, `N MOVES` and `M MAP`.
+- **The MAP page** of the menu (M; `render/mapPage.ts`) is the corner's
+  chart unfolded, in the corner's five colours in both dresses, with no window:
+  it lies on the stopped world under a veil of its own, the same in both dresses
+  (the corner's ink at 0.86, `PAGE_VEIL`). It has the whole screen from the
+  menu's tabs (`P ITEMS`, `N MOVES`, `M MAP`), at the top with a small margin,
+  to the touch deck, or the line `ESC RESUME` beside a keyboard: on this page
+  alone the HUD's hearts, counters and item box are not drawn (they are back as
+  soon as the menu closes or turns to another page), and no banner, exit label
+  or talk box stands behind it. What is under the tabs takes the middle of the
+  rows that are left. A paused game is painted once, so nothing on it moves. Top
+  to bottom on an upright phone:
+  - **The title**: the map's name in gold, and under it in lilac the area the
+    hero is in, where the map has named ones.
+  - **The land**: the whole map, never cropped to what has been seen: the
+    unseen squares are the chart's fog with its ghost. North up and square in
+    the classic view, lying as the ground does in the isometric one, every px
+    of the finest grid sampling the tile under it; as many whole px a tile as
+    its box holds, never under one L (the HUD's logical px, the unit of the
+    chart's own art). Round it the corner's frame (an L of cyan and an L of
+    ink), the corner's marks on the seen squares (a pass is a gate at its own
+    tile; Lumenby's sockets stand where they are, as tall lamps of 2 × 4 L,
+    gold once lit), and the night tint. **The hero** is the corner's pink mark
+    in a wider ring of ink; nothing lies on it, no pin and not the Prism.
+  - **Pins**: each area whose middle square has been seen (and the one the
+    hero is in, on the seen tile nearest its middle until then) wears its
+    number on a small ink plate, lilac, gold where the hero is; a pin moves
+    off whatever mark it would cover, never over the hero. No name is written
+    on the land.
+  - **The Sun Prism** on the square's top right corner or the diamond's right
+    tip, its window showing the hour, with the view's name on a plate (`8-BIT`
+    beside it on the square; under the diamond's tip `ISO`, or where the land
+    allows one view dull facets and `ISO ONLY`, by the corner's own rule),
+    and, beside a keyboard, a `V` cap by the plate (none where the view is
+    pinned, since V does nothing there). Under the tip the plate
+    hangs 3 L at most (`PLATE_HANG`), on a chain when pinned; `ISO ONLY` goes
+    on two rows where one would lie on the land. **It is a button**, as in the
+    corner: the shell lays a bare `<button>` over it (`.zelda-page-prism`,
+    44 × 44 CSS px or more, from the layout's `gemHit`, under the deck) which
+    does what the deck's `VIEW:` button and V do, refusal and live region and
+    all; the keyboard's focus puts the corner's gold ring round the Prism. Tab
+    moves the focus while the menu is open.
+  - **The places**: the areas by number, in two columns where both fit, each as
+    wide as what it shows; a seen one by name, the hero's in gold, one not
+    seen `???`.
+  - **The legend**, every glyph in words: `YOU`, `CHESTS 0/3` (opened of the
+    map's chests), `HEARTS 0/1` (heart pieces taken of those lying about),
+    `DOORS`, `PASSES`, and in Lumenby `SIGN 3/7`; on two rows where one does
+    not hold. `chartTally` counts the whole map, seen or not, and never a
+    chest or heart piece whose condition is unmet; a kind the map has none of
+    is left out.
+  - **THE WORLD**, on and under the maps of the grid once the blade is in
+    hand: the nine maps where they lie, north up, as many tiles a fine px as
+    the width needs (one on a 390 px phone in the 16-bit dress, two in the
+    classic one: 182 logical px wide either way). All are drawn from the start:
+    one not walked into is two-tone fog with a `?`; one walked into (the coast
+    and the Wildwood always) is a plate of its ground with what has been seen
+    in its chart inks, its name (without THE, else a short form from
+    `WORLD_SHORT`: COAST, WOOD, FELL, FJORD, SPORE, SAND, RERUN, LUMENBY, FOG)
+    and a cyan notch at each pass. The hero's land has a gold frame and the
+    hero is a pink pip; that land is drawn from the live tiles, and the night
+    tint is the land chart's. A chart too small to name three in four of the
+    lands walked into names none (a 360 px phone in the 16-bit dress, where
+    the grid's 364 tiles miss the screen by four). A land too low for it goes
+    without its `?`, and on a very low one the pip is 2 L of pink with no ring,
+    so neither leaves its box or the gold frame.
+
+  Off the grid (the Shrine, the labs, the sea cave, the Underglow) there is the
+  title, the land and the legend, in the middle of the page. **Indoors** the
+  corner's stub (the door with the hero in it) stands large in the middle under
+  the room's name and `OUTSIDE: <land>`, the one map its ways out lead to
+  (`outsideOf`), with the world under it, the gold frame on that land and the
+  pip at the door.
+
+  A screen wider than it is tall puts the title, the land and the legend at the
+  left and the world and the places in a column at the right. When room is
+  short, parts give way in this order (`GIVE_WAY`): the list of places (the
+  pins stay), the legend's words (glyphs and tallies stay), the world's size
+  and with it its names, the world. The land and the title never go; the land
+  gives up at most a quarter of its size before a part does, and more only to
+  keep the world. On a wide screen the world is held at the size that names it
+  wherever giving up the list, and up to a third of the land, makes room. The
+  shell hands the renderer the top of the deck's buttons (`FrameUI.deckTop`,
+  measured while paused). `mapPageLayout`, `landPicture` and `worldPicture` are
+  pure (`tests/zelda-map-page.test.mjs`); `node scripts/zelda-lab/map-sheet.mjs
+  [outDir] [name,…]` draws the page with the real painter and the real world's
+  data on the real grids, in headless Chrome without the game's page
+  (`CHROME_BIN` for another browser).
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; pressed again, the next hit of the chain;
 hold after a swing, release to spin; in a roll, a flip; see "Combos and the hop");
 K/X/Shift = B (the item or art in hand); L or C rolls
-(once the hero has the blade); Q, or Tab when there is an item, swaps; P or an
+(once the hero has the blade); Q, or Tab when there is an item, swaps (in the
+menu Tab moves the focus); P or an
 Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
 current quest), N on its MOVES page (the combos, their mastery, the hop), M on
 its MAP page (see "The map"); the key of the open page or Escape closes it, another

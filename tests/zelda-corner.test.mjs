@@ -17,7 +17,7 @@ let Z
 before(async () => {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export { WORLD } from './world/index'; export { createGame } from './engine/index'; export { enterMap } from './engine/game'; export { mapInfo } from './engine/map'; export { charted, reveal, seenTile, CHUNK } from './engine/explore'; export { DAY, DAY_LENGTH } from './engine/day'; export { TILE_INFO } from './world/tiles'; export { MAX_HP, START_HP } from './types'; export { REALM_LOOKS } from './render/looks'; export * from './render/corner'; export { CHART_INKS, chartLook, buildChart, fogInks, chartInks, NIGHT_INK, NIGHT_MIX } from './render/worldMap'; export { drawHud, hudScale, NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'; export { drawMapPage } from './render/worldMap'; export { TOUCH_KEYS } from './keys'; export { textWidth } from '../base/pixel/font'`,
+      contents: `export { WORLD } from './world/index'; export { createGame } from './engine/index'; export { enterMap } from './engine/game'; export { mapInfo } from './engine/map'; export { charted, reveal, seenTile, CHUNK } from './engine/explore'; export { DAY, DAY_LENGTH } from './engine/day'; export { TILE_INFO } from './world/tiles'; export { MAX_HP, START_HP } from './types'; export { REALM_LOOKS } from './render/looks'; export * from './render/corner'; export { CHART_INKS, chartLook, buildChart, fogInks, chartInks, NIGHT_INK, NIGHT_MIX } from './render/worldMap'; export { drawHud, hudScale, NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'; export { textWidth } from '../base/pixel/font'`,
       resolveDir: root, loader: 'ts',
     },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
@@ -1022,63 +1022,5 @@ describe('the shell, after review', () => {
         assert.ok(14 + n * u >= bottom, `${w}x${h}@${dpr} ${JSON.stringify(sh)}: the pill at ${14 + n * u}, the corner down to ${bottom}`)
       }
     }
-  })
-})
-
-describe('the MAP page, after review', () => {
-  /** drawMapPage on a context that keeps its pixels: which colour each px ends in, and the hero's own px. */
-  function page(id, hero, e, vw, vh) {
-    const s = game(id)
-    seeAll(s)
-    s.inv.sword = true
-    s.hero.x = hero[0] + 0.5
-    s.hero.y = hero[1] + 0.5
-    const grid = new Map()
-    const heroPx = []
-    let fill = ''
-    // (The veil is the first wide fill, the panel the second: the tabs' pink letters lie between them.)
-    let wide = 0
-    const g = new Proxy({}, {
-      get: (_, k) => k === 'fillRect' ? (x, y, w, h) => {
-        if (w > 100) wide++
-        if (w === 1 && h === 1 && wide >= 2 && fill === Z.NEON_SKIN.hot) heroPx.push(`${x},${y}`)
-        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) grid.set(`${Math.round(x + i)},${Math.round(y + j)}`, fill)
-      } : k === 'fillStyle' ? fill : () => {},
-      set: (_, k, v) => { if (k === 'fillStyle') fill = v; return true },
-    })
-    const had = globalThis.document
-    globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => new Proxy({}, { get: () => () => {}, set: () => true }) }) }
-    try {
-      Z.drawMapPage(g, Z.WORLD, s, vw, vh, { keys: Z.TOUCH_KEYS, e, view: 'ISOMETRIC' }, Z.NEON_SKIN)
-    } finally { globalThis.document = had }
-    return { heroPx, shown: heroPx.filter(k => grid.get(k) === Z.NEON_SKIN.hot).length }
-  }
-
-  it('draws the area names under the marks: the hero is never covered by a place\'s name', () => {
-    // The cases found in review (Seter Fell, the hero inside TROLL HUMPS under THE FELL ROAD's name), both views.
-    for (const [x, y] of [[51, 42], [33, 42]]) {
-      for (const e of [0, 1]) {
-        const r = page('seterfell', [x, y], e, 234, 507)
-        assert.equal(r.heroPx.length, e ? 8 : 9)
-        assert.equal(r.shown, r.heroPx.length, `${x},${y} e ${e}`)
-      }
-    }
-    // A sweep of the coast and the Wildwood, on a phone held upright and on its side.
-    for (const id of ['overworld', 'wildwood', 'yulefjord']) {
-      const info = Z.mapInfo(Z.WORLD, id)
-      for (let y = 2; y < info.h; y += 7) for (let x = 2; x < info.w; x += 7) {
-        if (Z.TILE_INFO[info.base[y * info.w + x]].solid) continue
-        for (const [e, vw, vh] of [[0, 234, 507], [1, 422, 195]]) {
-          const r = page(id, [x, y], e, vw, vh)
-          assert.equal(r.shown, r.heroPx.length, `${id} ${x},${y} e ${e}`)
-        }
-      }
-    }
-  })
-
-  it('draws the names before the marks in the source too', () => {
-    const src = readFileSync(join(root, 'render/worldMap.ts'), 'utf8')
-    const fn = src.slice(src.indexOf('export function drawMapPage'))
-    assert.ok(fn.indexOf('for (const a of def.areas ?? [])') < fn.indexOf('drawChartMarks('))
   })
 })

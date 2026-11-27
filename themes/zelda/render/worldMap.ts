@@ -1,40 +1,18 @@
 /**
  * The chart: what has been seen of a map (`engine/explore.ts`), in that land's own inks, darker and flatter than the
- * world so that its marks stand out; fog where the hero has not been. The top right corner shows a window of it
- * round the hero (`render/corner.ts`), the menu's MAP page (M) the whole of what has been seen, with the world's
- * chart beside it. Both turn with the world: `e` is the view's turn (0 the classic view, north up; 1 the isometric
- * one, the map a diamond lying as the ground does), so what is up the screen in the world is up the map too.
+ * world so that its marks stand out; fog where the hero has not been. Here are its parts: the ink tables, one ink a
+ * tile (`chartPixels`), the marks drawn over it (`chartMarks`, `drawChartMarks`), the tally of what is left to find
+ * (`chartTally`) and the ways between lands (`landPasses`). The top right corner shows a window of it round the hero
+ * (`render/corner.ts`); the menu's MAP page (M) the whole land, with the world's chart (`render/mapPage.ts`).
  *
- * Everything is in the HUD's logical px; the caller sets the scale.
+ * Pure but for the layer cache: no canvas, no DOM.
  */
 import type { GameState, MapDef, MapState, TileChar, World } from '../types'
-import type { HudKeys } from '../keys'
 import { cellIndex, condMet, mapDef, mapInfo, type MapInfo } from '../engine/map'
-import { charted, chunkGrid, CHUNK, seenAny, seenTile } from '../engine/explore'
+import { charted, seenTile } from '../engine/explore'
 import { DAY } from '../engine/day'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { lumaOf } from './looks'
-import { projection } from './iso/project'
-import { TILE } from '../types'
-import { drawMenuTabs, hudFont, type HudSkin } from './hud'
-
-type G = CanvasRenderingContext2D
-
-/** One tile step on the chart, for a turn e and a zoom z (L px a tile in the classic view). */
-function axes(e: number, z: number) {
-  const p = projection(e)
-  return { ax: (p.ex.x / TILE) * z, ay: (p.ex.y / TILE) * z, bx: (p.ey.x / TILE) * z, by: (p.ey.y / TILE) * z }
-}
-
-/** Draws a one-px-a-tile canvas so that tile point (fx, fy) lands on (px, py). */
-function drawChart(g: G, c: HTMLCanvasElement, e: number, z: number, fx: number, fy: number, px: number, py: number) {
-  const { ax, ay, bx, by } = axes(e, z)
-  g.save()
-  g.imageSmoothingEnabled = false
-  g.transform(ax, ay, bx, by, px - (fx * ax + fy * bx), py - (fx * ay + fy * by))
-  g.drawImage(c, 0, 0)
-  g.restore()
-}
 
 // ---- the corner's chart (render/corner.ts): the land's own inks, the fog, the marks ------------------------
 
@@ -102,8 +80,8 @@ export const CHART_INKS: Readonly<Record<string, ChartInks>> = /* @__PURE__ */ O
   spore: /* @__PURE__ */ inks('225060 29606a 266468 70589a 6e465e 705a68 081440 1e5a94 3a80a0 3450a4 6a329c 7a3c94 4c3c80 30245a 221a4c 8a6a4a 5c4436 5c4a78 c8bce8 05030e 56447e', ['#182044', '#212c52'], '#a77cf0'),
   // Rerun Estates: cut lawns, pink-grey pavers, hedges, terracotta roofs, a cyan sea behind the beach.
   suburb: /* @__PURE__ */ inks('2e7452 367e58 357a52 aa8ea4 7c4a4e b89874 0f5688 52aad4 5aa8c8 17442e 22583a 6c9a34 74608e 4a3a66 5a4a7a b45434 763224 94607a ecdcf0 0a0614 4c5a66', ['#1a3a32', '#23483c'], '#ff9a5a'),
-  // Lumenby Quarry: rose earth and ochre benches, violet stone, dark pines, cyan rainwater.
-  quarry: /* @__PURE__ */ inks('84566a 8e6072 74584e aa8890 80503e b47648 0e4a6c 3892b4 56a0b8 2a1a48 3c2862 70582e 5c4478 3a2a58 76588e c07e3c 82502c 6c4a66 e4d4e8 120a1c 603c5a', ['#382444', '#442e52'], '#7a8cff'),
+  // Lumenby Quarry: dusky rose earth, pale pink-stone roads, ochre benches, violet stone over near-black pits.
+  quarry: /* @__PURE__ */ inks('764a60 825468 664a42 c4a0a4 8c5a42 b8784a 0e4a6c 46a8c8 56a0b8 22143e 342256 746030 7c5e9c 463068 5a4076 cc8a40 865230 5c3c58 f0e0f2 07030c 58365a', ['#2e1c3c', '#3a264a'], '#7a8cff'),
   // Fogstage: grey-mauve lowland, mauve cobbles, green turf on the hills, violet water, ochre booths.
   fog: /* @__PURE__ */ inks('7c667e 887088 6c5a76 c2a4ac 7a4e5c ac9498 1a1860 46449c 6a8cb0 163640 204a4c 2c5a4a 6a58a0 44366e 2a564a b8784c 7c4c38 7c5a78 ecd8ec 0c0818 5a4a68', ['#3a3052', '#483c60'], '#a8b0c8'),
   // The Shrine (and every dungeon painted in its stone): violet floors, lit wall rims, solid rock near black.
@@ -114,6 +92,15 @@ export const CHART_INKS: Readonly<Record<string, ChartInks>> = /* @__PURE__ */ O
   underglow: /* @__PURE__ */ inks('36265c 3e2c64 2e2052 5c447e 94583e 8a6050 12245e 2c58a8 4a88b0 3a2450 4a2e62 5a4a50 7e4ea0 4c2e6e 150c26 9a6440 66402c 7a5a78 e0ccf0 030106 8a5a7c', ['#281a44', '#332254'], '#ff8a3d'),
   // The plain violet chart of before: what a look without a table falls back to (a test names any map that does).
   old: /* @__PURE__ */ inks('3a2d5c 3a2d5c 2c2246 6d5a9a 6d5a9a 6b5470 1d5d8c 1d5d8c 5fa8c8 1f4a3d 1f4a3d 2b5c48 9a8cc4 9a8cc4 9a8cc4 c04a8c c04a8c 4e416f ffd23f 120a22 4e416f', ['#120a26', '#1c1238'], '#b9a8d9'),
+})
+
+/**
+ * What a land of the grid is called on the world's chart (`mapPage.ts`) where its own name (without a leading THE)
+ * is wider than the land: the forms to try, the first that fits.
+ */
+export const WORLD_SHORT: Readonly<Record<string, readonly string[]>> = /* @__PURE__ */ Object.freeze({
+  overworld: ['COAST'], wildwood: ['WILDWOOD', 'WOOD'], seterfell: ['FELL'], yulefjord: ['FJORD'], sporelight: ['SPORE'],
+  stillsand: ['SAND'], rerun: ['RERUN'], lumenby: ['LUMENBY'], fogstage: ['FOG'],
 })
 
 /**
@@ -148,6 +135,12 @@ const CORNER_KIND: Partial<Record<TileChar, Ground>> = {
 
 function cornerKind(ch: TileChar): Ground {
   return CORNER_KIND[ch] ?? (isTileChar(ch) && TILE_INFO[ch].solid ? 'thing' : 'ground')
+}
+
+/** Which tile of a block shows where the world's chart has one px for several (`mapPage.ts`): houses, roads and water before the ground they lie on. */
+const RANK_SMALL: Partial<Record<Ground, number>> = { house: 7, road: 6, bridge: 6, water: 5, ice: 4, door: 3, pit: 3, wall: 2, tree: 1, sand: 1 }
+export function tileRank(ch: TileChar): number {
+  return RANK_SMALL[cornerKind(ch)] ?? 0
 }
 
 /** A steady scatter, 0–1, by tile. */
@@ -209,6 +202,11 @@ export function chartNight(world: World, s: GameState): 0 | 1 | 2 {
   return mapDef(world, s.map.id)?.kind === 'overworld' ? nightLevel(s.daytime) : 0
 }
 
+/** An ink as the hour dims it (`ChartPaint.night`). */
+export function dimInk(ink: string, level: 0 | 1 | 2): string {
+  return level ? blend(ink, NIGHT_INK, NIGHT_MIX[level]) : ink
+}
+
 export interface ChartPaint {
   /** Unseen ground in fog (with the ghost of its water and cliffs out of doors); false: left clear (null). */
   fog: boolean
@@ -235,12 +233,12 @@ export function chartPixels(info: MapInfo, tiles: readonly TileChar[], terrain: 
     return true
   }
   const outline = (o.ghost ?? true) && info.def.kind === 'overworld'
-  const mix = NIGHT_MIX[o.night ?? 0]
+  const night = o.night ?? 0
   const dimmed = new Map<string, string>()
   const dim = (ink: string) => {
-    if (!mix) return ink
+    if (!night) return ink
     let d = dimmed.get(ink)
-    if (!d) dimmed.set(ink, d = blend(ink, NIGHT_INK, mix))
+    if (!d) dimmed.set(ink, d = dimInk(ink, night))
     return d
   }
   const px = new Array<string | null>(w * h)
@@ -325,8 +323,10 @@ export interface ChartView {
   near(tx: number, ty: number): boolean
   /** The middle of a tab on the rim, toward tile (tx, ty), clear of the gem and of `taken`. */
   rim(tx: number, ty: number, taken: readonly Box[]): readonly [number, number] | null
-  /** The two px of the frame's lower edge where the n-th of seven pips sits, left to right. */
+  /** The two px of the n-th of seven pips, left to right: on the frame's lower edge, or where its socket stands. */
   pip(n: number): ReadonlyArray<readonly [number, number]>
+  /** The pips stand on the land and not in the rim: drawn as this art (`MARK_ART.socket`), `G` its colour, in an ink line all round. */
+  pipArt?: readonly string[]
 }
 export interface Box { x: number; y: number; w: number; h: number }
 
@@ -334,8 +334,10 @@ export interface MarkInks { ink: string; edge: string; hot: string; prize: strin
 type Put = (x: number, y: number, color: string) => void
 
 const FAINT = '#7a6ab0'
-const SOCKET = '#54259e'
+export const SOCKET = '#54259e'
 const PALE = '#f2e9ff'
+/** The colours the marks' art is painted in (`MARK_ART`), besides the skin's own. */
+export const MARK_INKS = /* @__PURE__ */ Object.freeze({ L: '#fff1b0', R: '#ff5a6a', D: FAINT, P: PALE })
 export const HERO_NOSE = '#ffe4f6'
 export const HERO_BLINK = '#ff86cc'
 
@@ -347,12 +349,14 @@ export const MARK_ART = {
   taken: ['D.D', 'DDD', '.D.'],
   door: ['.P.', 'PKP', 'PKP'],
   gate: ['CCC', 'CKC', 'CKC'],
+  // A letter of the sign where it stands on the land: a tall lamp, nothing like a chest.
+  socket: ['GG', 'GG', 'GG', 'GG'],
   hero: ['PPP', 'PPP', 'PPP'],
   heroIso: ['.PP.', 'PPPP', '.PP.'],
 } as const
 
 /** Art with a one-px ink line round it, its top left at (x, y). */
-function stamp(put: Put, rows: readonly string[], x: number, y: number, pal: Record<string, string>, ink: string) {
+export function stampMark(put: Put, rows: readonly string[], x: number, y: number, pal: Record<string, string>, ink: string) {
   const on = (i: number, j: number) => !!rows[j]?.[i] && rows[j]![i] !== '.'
   for (let j = -1; j <= rows.length; j++) {
     for (let i = -1; i <= rows[0]!.length; i++) {
@@ -374,9 +378,10 @@ export function facing(dir: ChartMarkState, iso: boolean): readonly [number, num
 
 /**
  * The marks, drawn in the chart's px over the glass: never part of the cached chart, always on the grid. `lit`:
- * the hero's blink is on its bright step. `tab`: the ink of the land a pass leads to.
+ * the hero's blink is on its bright step. `tab`: the ink of the land a pass leads to. Returns the room each mark
+ * drawn has taken, the hero's first.
  */
-export function drawChartMarks(put: Put, marks: readonly ChartMark[], view: ChartView, c: MarkInks, lit: boolean, tab: (to: string) => string) {
+export function drawChartMarks(put: Put, marks: readonly ChartMark[], view: ChartView, c: MarkInks, lit: boolean, tab: (to: string) => string): Box[] {
   const taken: Box[] = []
   const jobs: Array<() => void> = []
   const order = [...marks].sort((a, b) => RANK[a.kind] - RANK[b.kind] || Number(b.state === 'closed' || b.state === 'lying') - Number(a.state === 'closed' || a.state === 'lying'))
@@ -391,7 +396,7 @@ export function drawChartMarks(put: Put, marks: readonly ChartMark[], view: Char
       const [dx, dy] = facing(m.state, view.iso)
       jobs.push(() => {
         const body = lit ? c.hot : HERO_BLINK
-        stamp(put, art, x, y, { P: body }, c.ink)
+        stampMark(put, art, x, y, { P: body }, c.ink)
         // The nose: a pale px just past the body, the way they face, in an ink line of its own.
         const nx = view.iso ? x + (dx > 0 ? w : -1) : x + 1 + dx * 2
         const ny = view.iso ? y + (dy > 0 ? 2 : 0) : y + 1 + dy * 2
@@ -403,11 +408,19 @@ export function drawChartMarks(put: Put, marks: readonly ChartMark[], view: Char
     }
     if (m.kind === 'pip') {
       // A socket let into the rim itself, so it is never taken for a chest on the land: two px of the edge and
-      // the ring under it, gold once its letter is lit, dark before, an ink line on either side.
+      // the ring under it, gold once its letter is lit, dark before, an ink line on either side. On a chart of the
+      // whole land (`pipArt`) it stands where it is, in a shape of its own.
       const cols = view.pip(m.n ?? 1)
       const [a, b] = [cols[0]!, cols[cols.length - 1]!]
-      taken.push({ x: a[0] - 1, y: Math.min(a[1], b[1]) - 1, w: b[0] - a[0] + 3, h: Math.abs(a[1] - b[1]) + 3 })
       const fill = m.state === 'lit' ? c.prize : SOCKET
+      const art = view.pipArt
+      if (art) {
+        const [x, y] = [a[0], a[1] - Math.floor(art.length / 2)]
+        taken.push({ x: x - 1, y: y - 1, w: art[0]!.length + 2, h: art.length + 2 })
+        jobs.push(() => stampMark(put, art, x, y, { G: fill }, c.ink))
+        continue
+      }
+      taken.push({ x: a[0] - 1, y: Math.min(a[1], b[1]) - 1, w: b[0] - a[0] + 3, h: Math.abs(a[1] - b[1]) + 3 })
       jobs.push(() => {
         for (const [x, y] of cols) { put(x, y - 1, c.ink); put(x, y, fill); put(x, y + 1, fill) }
         for (const [x, y] of [[a[0] - 1, a[1]], [b[0] + 1, b[1]]] as const) { put(x, y, c.ink); put(x, y + 1, c.ink) }
@@ -419,7 +432,7 @@ export function drawChartMarks(put: Put, marks: readonly ChartMark[], view: Char
       if (spot) {
         const [x, y] = spot
         taken.push({ x, y, w: 3, h: 3 })
-        jobs.push(() => stamp(put, MARK_ART.gate, x, y, { C: c.edge, K: c.ink }, c.ink))
+        jobs.push(() => stampMark(put, MARK_ART.gate, x, y, { C: c.edge, K: c.ink }, c.ink))
         continue
       }
       const at = view.rim(m.x, m.y, taken)
@@ -443,14 +456,15 @@ export function drawChartMarks(put: Put, marks: readonly ChartMark[], view: Char
     if (!spot) continue
     const [x, y] = spot
     taken.push({ x, y, w: 3, h: 3 })
-    const pal = { G: c.prize, L: '#fff1b0', K: c.ink, R: '#ff5a6a', D: FAINT, P: PALE }
+    const pal = { G: c.prize, K: c.ink, ...MARK_INKS }
     // What is done with lies flat on the chart, with no ink line to lift it.
     jobs.push(done
       ? () => art.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] !== '.') put(x + i, y + j, pal[row[i] as keyof typeof pal]) })
-      : () => stamp(put, art, x, y, pal, c.ink))
+      : () => stampMark(put, art, x, y, pal, c.ink))
   }
   // The most important last, on top.
   for (let i = jobs.length - 1; i >= 0; i--) jobs[i]!()
+  return taken
 }
 
 // ---- passes and marks ----------------------------------------------------------------------------------------
@@ -526,6 +540,59 @@ export function hasChart(world: World, s: GameState): boolean {
   return !!def && charted(def) && !s.demo
 }
 
+/** The ways indoors, below and out of the game on a map: one tile a doorway, stair or machine. */
+function doorsOf(world: World, id: string): Array<[number, number]> {
+  const info = mapInfo(world, id)
+  const doors = new Map<string, Array<[number, number]>>()
+  const door = (to: string, x: number, y: number) => doors.set(to, [...(doors.get(to) ?? []), [x, y]])
+  const onGrid = !!world.atlas?.[id]
+  for (const wp of info.warps) {
+    // (On the grid a way into another map of the grid is a pass, `landPasses`.)
+    if (onGrid && world.atlas?.[wp.to]) continue
+    for (let y = wp.y; y < wp.y + wp.h; y++) for (let x = wp.x; x < wp.x + wp.w; x++) door(wp.to, x, y)
+  }
+  for (const e of info.exits.values()) door(`exit:${e.id}`, Math.floor(e.x), Math.floor(e.y))
+  return [...doors.values()].flatMap(clusters)
+}
+
+/** The heart pieces lying about on the current map, taken or not: never one whose condition is unmet. */
+function heartsOf(world: World, s: GameState): Array<{ x: number; y: number; taken: boolean }> {
+  const info = mapInfo(world, s.map.id)
+  const out: Array<{ x: number; y: number; taken: boolean }> = []
+  for (const m of info.marks) {
+    const e = m.ent
+    if (e.t !== 'item' || e.item !== 'heartPiece') continue
+    const taken = s.flags[`took:${e.id}`] === true
+    if (!taken && e.appear && !condMet(s, world, e.appear, cellIndex(info, m.x + 0.5, m.y + 0.5))) continue
+    out.push({ x: m.x, y: m.y, taken })
+  }
+  return out
+}
+
+/** The chests of the current map, opened or not: never one that has not appeared. */
+function chestsOf(world: World, s: GameState): Array<{ x: number; y: number; opened: boolean }> {
+  const out: Array<{ x: number; y: number; opened: boolean }> = []
+  for (const c of mapInfo(world, s.map.id).chestList) {
+    const opened = s.flags[`chest:${c.id}`] === true
+    // (The engine sets `appear:<id>` the moment the chest's condition is met.)
+    if (c.appear && !opened && s.flags[`appear:${c.id}`] !== true) continue
+    out.push({ x: c.x, y: c.y, opened })
+  }
+  return out
+}
+
+/** The letters of Lumenby's sign: where each socket stands, its number (1–7) and whether it is lit. */
+function socketsOf(world: World, s: GameState): Array<{ x: number; y: number; n: number; lit: boolean }> {
+  const out: Array<{ x: number; y: number; n: number; lit: boolean }> = []
+  for (const m of mapInfo(world, s.map.id).marks) {
+    const e = m.ent
+    if (e.t !== 'socket') continue
+    const n = /^q\.lumenby\.sign([1-7])$/.exec(e.flag)?.[1]
+    if (n) out.push({ x: m.x, y: m.y, n: Number(n), lit: s.flags[e.flag] === true })
+  }
+  return out.sort((a, b) => a.n - b.n)
+}
+
 /**
  * What the chart marks, from the game's data and the save: the hero, then the doors, stairs and warps, the ways to
  * other lands, heart pieces and chests of the seen squares, and the seven letters of Lumenby's sign (a tally on
@@ -536,311 +603,48 @@ export function chartMarks(world: World, s: GameState): ChartMark[] {
   const id = s.map.id
   const info = mapInfo(world, id)
   const seen = (x: number, y: number) => seenTile(s, id, info.w, x, y)
-  const flag = (f: string) => s.flags[f] === true
   const out: ChartMark[] = [{ kind: 'hero', x: Math.floor(s.hero.x), y: Math.floor(s.hero.y), state: s.hero.dir }]
 
-  const doors = new Map<string, Array<[number, number]>>()
-  const door = (to: string, x: number, y: number) => doors.set(to, [...(doors.get(to) ?? []), [x, y]])
-  const onGrid = !!world.atlas?.[id]
-  for (const wp of info.warps) {
-    // (On the grid a way into another map of the grid is a pass, below.)
-    if (onGrid && world.atlas?.[wp.to]) continue
-    for (let y = wp.y; y < wp.y + wp.h; y++) for (let x = wp.x; x < wp.x + wp.w; x++) door(wp.to, x, y)
-  }
-  for (const e of info.exits.values()) door(`exit:${e.id}`, Math.floor(e.x), Math.floor(e.y))
-  for (const list of doors.values()) for (const [x, y] of clusters(list)) if (seen(x, y)) out.push({ kind: 'door', x, y, state: 'open' })
+  for (const [x, y] of doorsOf(world, id)) if (seen(x, y)) out.push({ kind: 'door', x, y, state: 'open' })
 
   for (const p of landPasses(world, id)) {
     if (!seen(p.x, p.y)) continue
     // The coast and the Wildwood are known from the start (as on the MAP page); a land once walked into.
-    const known = !mapDef(world, p.to)?.away || flag(`seen:${p.to}`)
+    const known = !mapDef(world, p.to)?.away || s.flags[`seen:${p.to}`] === true
     out.push({ kind: 'pass', x: p.x, y: p.y, state: known ? 'seen' : 'unseen', to: p.to })
   }
 
-  for (const m of info.marks) {
-    const e = m.ent
-    if (e.t !== 'item' || e.item !== 'heartPiece' || !seen(m.x, m.y)) continue
-    const taken = flag(`took:${e.id}`)
-    if (!taken && e.appear && !condMet(s, world, e.appear, cellIndex(info, m.x + 0.5, m.y + 0.5))) continue
-    out.push({ kind: 'heart', x: m.x, y: m.y, state: taken ? 'taken' : 'lying' })
-  }
+  for (const h of heartsOf(world, s)) if (seen(h.x, h.y)) out.push({ kind: 'heart', x: h.x, y: h.y, state: h.taken ? 'taken' : 'lying' })
+  for (const c of chestsOf(world, s)) if (seen(c.x, c.y)) out.push({ kind: 'chest', x: c.x, y: c.y, state: c.opened ? 'opened' : 'closed' })
 
-  for (const c of info.chestList) {
-    if (!seen(c.x, c.y)) continue
-    const opened = flag(`chest:${c.id}`)
-    // (The engine sets `appear:<id>` the moment the chest's condition is met.)
-    if (c.appear && !opened && !flag(`appear:${c.id}`)) continue
-    out.push({ kind: 'chest', x: c.x, y: c.y, state: opened ? 'opened' : 'closed' })
-  }
-
-  const pips: ChartMark[] = []
-  for (const m of info.marks) {
-    const e = m.ent
-    if (e.t !== 'socket') continue
-    const n = /^q\.lumenby\.sign([1-7])$/.exec(e.flag)?.[1]
-    if (n) pips.push({ kind: 'pip', x: m.x, y: m.y, n: Number(n), state: flag(e.flag) ? 'lit' : 'dark' })
-  }
-  return [...out, ...pips.sort((a, b) => a.n! - b.n!)]
+  return [...out, ...socketsOf(world, s).map((p): ChartMark => ({ kind: 'pip', x: p.x, y: p.y, n: p.n, state: p.lit ? 'lit' : 'dark' }))]
 }
 
-// ---- the MAP page -------------------------------------------------------------------------------------------
-
-/** The tiles round what has been seen of the current map, two tiles of room on every side, at least 24 × 16. */
-function seenBounds(s: GameState, w: number, h: number): { x: number; y: number; w: number; h: number } {
-  let x0 = Infinity
-  let y0 = Infinity
-  let x1 = -Infinity
-  let y1 = -Infinity
-  const { cw, ch } = chunkGrid(w, h)
-  for (let cy = 0; cy < ch; cy++) {
-    for (let cx = 0; cx < cw; cx++) {
-      if (!seenTile(s, s.map.id, w, cx * CHUNK, cy * CHUNK)) continue
-      x0 = Math.min(x0, cx * CHUNK); y0 = Math.min(y0, cy * CHUNK)
-      x1 = Math.max(x1, Math.min(w, (cx + 1) * CHUNK)); y1 = Math.max(y1, Math.min(h, (cy + 1) * CHUNK))
-    }
-  }
-  if (x0 > x1) return { x: 0, y: 0, w, h }
-  const grow = (a: number, b: number, least: number, max: number) => {
-    let lo = a - 2
-    let hi = b + 2
-    const short = least - (hi - lo)
-    if (short > 0) { lo -= short / 2; hi += short / 2 }
-    return [Math.max(0, lo), Math.min(max, hi)] as const
-  }
-  const [X0, X1] = grow(x0, x1, 24, w)
-  const [Y0, Y1] = grow(y0, y1, 16, h)
-  return { x: X0, y: Y0, w: X1 - X0, h: Y1 - Y0 }
-}
-
-/** The name over the map: the area the hero is in where the map has named ones, else the map's own. */
-function placeName(s: GameState, def: MapDef): string {
-  return (s.area || def.name || '').toUpperCase()
-}
-
-/** The grid's extent (`World.atlas`): every outdoor map's rectangle on it, and the box round them all. */
-function atlasBox(world: World) {
-  const rects = Object.entries(world.atlas ?? {}).flatMap(([id, o]) => {
-    const def = world.maps[id]
-    return def ? [{ id, x: o.x, y: o.y, w: def.rows[0]!.length, h: def.rows.length, away: !!def.away }] : []
-  })
-  const x0 = Math.min(...rects.map(r => r.x))
-  const y0 = Math.min(...rects.map(r => r.y))
-  const x1 = Math.max(...rects.map(r => r.x + r.w))
-  const y1 = Math.max(...rects.map(r => r.y + r.h))
-  return { rects, x0, y0, w: x1 - x0, h: y1 - y0 }
-}
-
-/** The world chart's size in px for a scale (px a tile). */
-export function worldChart(world: World, scale: number): { w: number; h: number } {
-  const b = atlasBox(world)
-  return { w: Math.ceil(b.w * scale), h: Math.ceil(b.h * scale) }
-}
-
-/** A chart as a one-px-a-tile canvas (null px left clear), cached against `key` in `cache` under `owner`. */
-function chartCanvas<K extends object>(cache: WeakMap<K, { key: string; c: HTMLCanvasElement }>, owner: K, key: string, w: number, h: number, paint: (g: G) => void): HTMLCanvasElement {
-  const hit = cache.get(owner)
-  if (hit?.key === key) return hit.c
-  const c = hit?.c ?? document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d')!
-  g.clearRect(0, 0, w, h)
-  paint(g)
-  cache.set(owner, { key, c })
-  return c
-}
-
-function fillPixels(g: G, px: ReadonlyArray<string | null>, w: number, ox = 0, oy = 0) {
-  for (let i = 0; i < px.length; i++) {
-    const c = px[i]
-    if (!c) continue
-    g.fillStyle = c
-    g.fillRect(ox + (i % w), oy + Math.floor(i / w), 1, 1)
-  }
-}
-
-/** The current map's chart as a canvas for the MAP page: the corner's own chart (`chartLayer`), one px a tile. */
-const pages = /* @__PURE__ */ new WeakMap<GameState['map'], { key: string; c: HTMLCanvasElement }>()
-function pageCanvas(world: World, s: GameState): HTMLCanvasElement {
-  const layer = chartLayer(world, s)
-  const key = `${s.map.version}|${s.explored?.[s.map.id] ?? ''}|${chartNight(world, s)}`
-  return chartCanvas(pages, s.map, key, layer.w, layer.h, g => fillPixels(g, layer.px, layer.w))
-}
-
-/** The whole grid as a chart, one px a tile, what has been seen of each known map drawn where it lies in its own inks. */
-const worlds = /* @__PURE__ */ new WeakMap<GameState['flags'], { key: string; c: HTMLCanvasElement }>()
-function worldCanvas(world: World, s: GameState): HTMLCanvasElement {
-  const b = atlasBox(world)
-  const known = b.rects.filter(r => !r.away || !!s.flags[`seen:${r.id}`] || r.id === s.map.id)
-  const key = known.map(r => `${r.id}:${s.explored?.[r.id] ?? ''}`).join('|')
-  return chartCanvas(worlds, s.flags, key, b.w, b.h, g => {
-    for (const r of known) {
-      const info = mapInfo(world, r.id)
-      fillPixels(g, chartPixels(info, info.base, undefined, (x, y) => seenTile(s, r.id, r.w, x, y), { fog: false }), r.w, r.x - b.x0, r.y - b.y0)
-    }
-  })
+/** What a map holds and how much of it is done: each pair is [done, all]. */
+export interface ChartTally {
+  chests: readonly [number, number]
+  hearts: readonly [number, number]
+  sockets: readonly [number, number]
+  /** Doorways, stairs and machines, and the ways to other lands. */
+  doors: number
+  passes: number
 }
 
 /**
- * The whole world on one small chart (`docs/worlds/atlas.md`): every map of the grid where it lies, with what has
- * been seen of it in the chart's colours, the coast and the Wildwood always, a land once walked into (`seen:<id>`).
- * The map the hero is on is framed in the prize colour and the hero is a hot dot. North is up: a plan of where the
- * lands lie and how much of them has been walked.
+ * The MAP page's tally of the current map, seen or not: the chests opened of all it holds, the heart pieces taken
+ * of all that lie about on it, the sockets of the sign lit, and how many doors and passes there are. A chest or a
+ * heart piece whose condition is unmet is not counted: the total never tells of it. Pure.
  */
-function drawWorldChart(g: G, world: World, s: GameState, x: number, y: number, scale: number, skin: HudSkin) {
-  const b = atlasBox(world)
-  // Each known map a dim block, so a land walked into shows where it lies before much of it is seen.
-  for (const r of b.rects) {
-    if (r.away && !s.flags[`seen:${r.id}`] && r.id !== s.map.id) continue
-    g.fillStyle = skin.slot
-    g.fillRect(x + Math.round((r.x - b.x0) * scale), y + Math.round((r.y - b.y0) * scale), Math.max(2, Math.round(r.w * scale)), Math.max(2, Math.round(r.h * scale)))
+export function chartTally(world: World, s: GameState): ChartTally {
+  if (!hasChart(world, s)) return { chests: [0, 0], hearts: [0, 0], sockets: [0, 0], doors: 0, passes: 0 }
+  const chests = chestsOf(world, s)
+  const hearts = heartsOf(world, s)
+  const sockets = socketsOf(world, s)
+  return {
+    chests: [chests.filter(c => c.opened).length, chests.length],
+    hearts: [hearts.filter(h => h.taken).length, hearts.length],
+    sockets: [sockets.filter(p => p.lit).length, sockets.length],
+    doors: doorsOf(world, s.map.id).length,
+    passes: landPasses(world, s.map.id).length,
   }
-  g.save()
-  g.imageSmoothingEnabled = false
-  g.drawImage(worldCanvas(world, s), x, y, Math.round(b.w * scale), Math.round(b.h * scale))
-  g.restore()
-  const here = b.rects.find(r => r.id === s.map.id)
-  if (here) {
-    g.strokeStyle = skin.prize
-    g.lineWidth = 1
-    g.strokeRect(x + Math.round((here.x - b.x0) * scale) + 0.5, y + Math.round((here.y - b.y0) * scale) + 0.5, Math.round(here.w * scale) - 1, Math.round(here.h * scale) - 1)
-  }
-  const o = world.atlas?.[s.map.id]
-  if (o) {
-    const hx = x + Math.round((o.x + s.hero.x - b.x0) * scale)
-    const hy = y + Math.round((o.y + s.hero.y - b.y0) * scale)
-    g.fillStyle = skin.outline
-    g.fillRect(hx - 2, hy - 2, 4, 4)
-    g.fillStyle = skin.hot
-    g.fillRect(hx - 1, hy - 1, 2, 2)
-  }
-}
-
-/** The world chart beside this map: on a map of the grid, once the blade is in hand (before it, the coast is all). */
-function showsWorld(world: World, s: GameState): boolean {
-  return s.inv.sword && !!world.atlas?.[s.map.id]
-}
-
-export interface MapPageOpts {
-  keys: HudKeys
-  /** The view's turn (0 classic, 1 isometric). */
-  e: number
-  view: string
-}
-
-/** The MAP page of the menu: tabs, the map of where the hero is, and the world's chart beside it. */
-export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: number, o: MapPageOpts, skin: HudSkin) {
-  g.fillStyle = skin.veil
-  g.fillRect(0, 0, vw, vh)
-  const F = hudFont(skin)
-  const def = mapDef(world, s.map.id)!
-  const info = mapInfo(world, s.map.id)
-  const w = Math.min(vw - 16, 320)
-  const x = Math.round((vw - w) / 2)
-  // A tall screen (a phone held upright) gets a squarer map; the touch deck holds the bottom.
-  const below = o.keys.touch ? 84 : 40
-  const ph = Math.max(96, Math.min(vh - 22 - below, vh > vw * 1.3 ? Math.round(w * 1.1) : 180))
-  const top = Math.max(8, Math.round((vh - below - ph - 14) / 2))
-  let y = drawMenuTabs(g, 'map', vw, top, o.keys, skin)
-  skin.panel(g, x, y, w, ph, 'cool')
-  const name = placeName(s, def)
-  F.draw(g, name, x + 8, y + 7, skin.prize)
-  // On the grid's maps (once the blade is in hand) the whole world's chart stands at the right.
-  const fr = showsWorld(world, s)
-  // (Beside the map on a wide screen, under it on an upright phone, where the width is what the map is short of.)
-  const tall = ph > w
-  const full = fr ? worldChart(world, 1) : null
-  const scale = full ? Math.min(tall ? (w - 16) / full.w : 130 / full.w, (ph - 40) * (tall ? 0.42 : 1) / full.h) : 0
-  const grid = full ? worldChart(world, scale) : null
-  const area = { x: x + 8, y: y + 20, w: w - 16 - (grid && !tall ? grid.w + 10 : 0), h: ph - 28 - (grid && tall ? grid.h + 18 : 0) }
-  if (grid) {
-    const gx = tall ? x + Math.round((w - grid.w) / 2) : x + w - 8 - grid.w
-    const gy = tall ? area.y + area.h + 4 : area.y
-    drawWorldChart(g, world, s, gx, gy, scale, skin)
-    F.draw(g, 'THE WORLD', tall ? Math.round(x + (w - F.width('THE WORLD')) / 2) : gx, gy + grid.h + 4, skin.dim)
-  }
-  if (!charted(def) || !seenAny(s, s.map.id)) {
-    const say = charted(def) ? 'NOTHING SEEN YET' : 'NO MAP INDOORS'
-    F.draw(g, say, area.x + Math.round((area.w - F.width(say)) / 2), area.y + Math.round(area.h / 2) - 4, skin.faint)
-  } else {
-    // What has been seen of the map, as large as fits (never closer than six px a tile), in the fog of the rest.
-    const b = seenBounds(s, info.w, info.h)
-    const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]] as const
-    const { ax, ay, bx, by } = axes(o.e, 1)
-    const px = corners.map(([cx, cy]) => cx * ax + cy * bx)
-    const py = corners.map(([cx, cy]) => cx * ay + cy * by)
-    const bw = Math.max(...px) - Math.min(...px)
-    const bh = Math.max(...py) - Math.min(...py)
-    const z = Math.min(6, area.w / bw, area.h / bh)
-    const midX = (Math.max(...px) + Math.min(...px)) / 2
-    const midY = (Math.max(...py) + Math.min(...py)) / 2
-    // The map's middle on the area's middle: (fx, fy) is the tile point under it.
-    const det = ax * by - bx * ay
-    const fx = (midX * by - midY * bx) / det
-    const fy = (midY * ax - midX * ay) / det
-    const cx = area.x + area.w / 2
-    const cy = area.y + area.h / 2
-    g.save()
-    g.beginPath()
-    g.rect(area.x, area.y, area.w, area.h)
-    g.clip()
-    drawChart(g, pageCanvas(world, s), o.e, z, fx, fy, cx, cy)
-    g.restore()
-    const at = (tx: number, ty: number) => ({ x: cx + ((tx - fx) * ax + (ty - fy) * bx) * z, y: cy + ((tx - fx) * ay + (ty - fy) * by) * z })
-    // The names of the areas seen, where they do not lie over one another: under the marks, so the hero and what is marked are never hidden by a name.
-    const placed: Array<{ x: number; y: number; w: number }> = []
-    for (const a of def.areas ?? []) {
-      const tx = a.x + a.w / 2
-      const ty = a.y + a.h / 2
-      if (!seenTile(s, s.map.id, info.w, Math.floor(tx), Math.floor(ty))) continue
-      const label = a.name.toUpperCase()
-      // (The area the hero is in is the title already.)
-      if (label === name) continue
-      const p = at(tx, ty)
-      const lw = F.width(label)
-      const lx = Math.round(Math.max(area.x, Math.min(area.x + area.w - lw, p.x - lw / 2)))
-      const ly = Math.round(p.y - 4)
-      if (placed.some(q => Math.abs(q.y - ly) < 10 && lx < q.x + q.w + 4 && q.x < lx + lw + 4)) continue
-      placed.push({ x: lx, y: ly, w: lw })
-      F.draw(g, label, lx, ly, skin.dim, skin.outline)
-    }
-    // The corner's marks, at this scale: the hero, doors, ways to other lands, chests, heart pieces, the sign's sockets.
-    const marks = chartMarks(world, s)
-    const inside = (bx0: number, by0: number, bw0: number, bh0: number) => bx0 >= area.x && by0 >= area.y && bx0 + bw0 <= area.x + area.w && by0 + bh0 <= area.y + area.h
-    const meetsBox = (a: Box, q: Box) => a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h
-    const view: ChartView = {
-      iso: o.e >= 0.5,
-      at: (tx, ty) => { const p = at(tx + 0.5, ty + 0.5); return [Math.floor(p.x), Math.floor(p.y)] },
-      fit(px0, py0, mw, mh, far, taken) {
-        for (let r = 0; r <= far; r++) {
-          for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
-            const bx0 = px0 - Math.floor((mw - 1) / 2) + dx
-            const by0 = py0 - Math.floor(mh / 2) + dy
-            if (!inside(bx0 - 1, by0 - 1, mw + 2, mh + 2)) continue
-            if (taken.some(q => meetsBox(q, { x: bx0 - 1, y: by0 - 1, w: mw + 2, h: mh + 2 }))) continue
-            return [bx0, by0]
-          }
-        }
-        return null
-      },
-      near: () => true,
-      rim: () => null,
-      pip(n) {
-        const m = marks.find(q => q.kind === 'pip' && q.n === n)
-        const p = m ? at(m.x + 0.5, m.y + 0.5) : { x: -99, y: -99 }
-        return [[Math.floor(p.x) - 1, Math.floor(p.y)], [Math.floor(p.x), Math.floor(p.y)]]
-      },
-    }
-    const tab = (to: string) => { const d = mapDef(world, to); return d ? chartInks(d).tab : skin.dim }
-    g.fillStyle = skin.outline
-    drawChartMarks((mx, my, c) => { if (mx >= area.x && my >= area.y && mx < area.x + area.w && my < area.y + area.h) { g.fillStyle = c; g.fillRect(mx, my, 1, 1) } }, marks, view,
-      { ink: skin.outline, edge: skin.cool, hot: skin.hot, prize: skin.prize, dim: skin.dim }, true, tab)
-  }
-  y += ph + 8
-  const k = o.keys.touch
-  const look = o.view ? `${k ? 'VIEW' : 'V VIEW'} ${o.view}` : ''
-  const line = k ? '' : 'ESC RESUME'
-  if (line) F.draw(g, line, Math.round((vw - F.width(line)) / 2), y, skin.dim)
-  if (look) F.draw(g, look, Math.round((vw - F.width(look)) / 2), y + (line ? 12 : 0), skin.prize)
 }

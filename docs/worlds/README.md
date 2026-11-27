@@ -26,8 +26,9 @@ the overworld's top-left at (0, 0), the Wildwood at (−84, −12). A land's pla
   and its two ends lie side by side on the grid. Both ends name the entry `gate-<id>`; ids never change.
 - **The ferry.** The pier's warp sails to Yule Fjord's harbour (entry `ferry`) and back (overworld `ferry`).
 - **Stairs** lead from Stillsand's gold pyramid to a system's teaching map, THE PUZZLE LAB (`world/demos.ts`).
-- **The MAP page** draws the whole world's chart beside the map of where the hero is (`render/worldMap.ts`): each
-  map of the grid where it lies, the coast and the Wildwood always, a land once walked into (flag `seen:<id>`).
+- **The MAP page** draws the whole world's chart under or beside the map of where the hero is (`render/mapPage.ts`):
+  every map of the grid where it lies, in fog until walked into (flag `seen:<id>`; the coast and the Wildwood are
+  known from the start). A new land needs its short name in `WORLD_SHORT` (`render/worldMap.ts`).
 
 ## A land
 

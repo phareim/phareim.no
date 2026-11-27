@@ -80,6 +80,24 @@
     />
   </div>
   <span class="zelda-turn-said" role="status" aria-live="polite">{{ turnSaid }}</span>
+  <!-- The Sun Prism on the menu's MAP page, which is painted on the canvas: a bare button over it, placed where the
+    page laid it (`placePagePrism`). A press turns the view, as the deck's VIEW button and V do. -->
+  <button
+    v-if="phase === 'play' && paused && menuPage === 'map' && !confirmReset && pagePrismAt"
+    ref="pagePrism"
+    type="button"
+    class="zelda-page-prism"
+    :style="pagePrismAt"
+    data-game-keys
+    :aria-label="turnLabel"
+    aria-keyshortcuts="V"
+    :title="touchUI ? undefined : 'View (V)'"
+    @pointerdown.prevent="pagePrismPress"
+    @mousedown.prevent
+    @click="$event.detail === 0 && cycleView()"
+    @keydown="turnKey"
+    @contextmenu.prevent
+  />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
@@ -119,7 +137,7 @@
       <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="resetRun" @contextmenu.prevent>YES, START OVER</button>
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cancelReset" @contextmenu.prevent>NO</button>
     </div>
-    <div v-else class="zelda-deck-paused">
+    <div v-else ref="pausedRow" class="zelda-deck-paused">
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause()" @contextmenu.prevent>RESUME</button>
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="openPage(nextPage)" @contextmenu.prevent>{{ nextPage.toUpperCase() }}</button>
       <template v-if="menuPage === 'moves'">
@@ -159,9 +177,9 @@
  *
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
  * throw; hold then release for a spin); K / X / Shift = B (item or art); Q swaps
- * item, Tab too when there is one (else Tab reaches the page's link index);
+ * item, Tab too in play when there is one (else, and in the menu, Tab moves the focus as on any page);
  * P or an Escape tap open the menu on its ITEMS page, N on its MOVES page, M on its MAP page
- * (`render/worldMap.ts`); there the key of the open page (or Escape) closes
+ * (`render/mapPage.ts`); there the key of the open page (or Escape) closes
  * it, another page's key turns to it. In the menu T goes to town, O turns the
  * sound on or off; V turns to the next view anywhere (`views.ts`: the
  * isometric one a visit starts in, the classic one, and the studio's own);
@@ -253,6 +271,8 @@ const RESET_GRACE_MS = 600
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const safeProbe = ref<HTMLDivElement | null>(null)
+/** The touch deck's row of buttons on the pause screen (`deckTop`). */
+const pausedRow = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
 /** The menu's page while paused: ITEMS (P, Escape, the pause chip) or MAP (M, the chart in the corner). */
 const menuPage = ref<MenuPage>('items')
@@ -612,6 +632,9 @@ const turnStage = ref<'night' | 'dawn' | 'up'>('night')
 const turnWaiting = ref(false)
 /** What a screen reader is told when the view changes, or a press of the Prism is refused. */
 const turnSaid = ref('')
+/** The Prism's button on the MAP page, and where the page last painted the Prism (null: nowhere). */
+const pagePrism = ref<HTMLButtonElement | null>(null)
+const pagePrismAt = shallowRef<BoxStyle | null>(null)
 /** Where the hero is there is a chart (a charted map, not a cabinet's demo): the chart is the menu's button, else the stub is (the chip). */
 const chartShown = ref(false)
 const mapLabel = ref('Map')
@@ -854,6 +877,26 @@ function turnKey(e: KeyboardEvent) {
   if (e.repeat && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space')) e.preventDefault()
 }
 
+/** A pointer on the MAP page's Prism: the view turns, or the corner's refusal is said (`cycleView`). (The click that follows a pointer is not a second press.) */
+function pagePrismPress(e: PointerEvent) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  cycleView()
+}
+
+/** After a paused frame: the button goes where the Prism was painted. */
+function placePagePrism() {
+  const b = renderer?.pagePrism() ?? null
+  const at = b ? boxStyle(b) : null
+  if (JSON.stringify(at) !== JSON.stringify(pagePrismAt.value)) pagePrismAt.value = at
+}
+
+/** The keyboard's focus is on the page's Prism: read from the page each frame, as the corner reads its own (`cornerFocus`). */
+function pagePrismFocused(): boolean {
+  const el = pagePrism.value
+  if (!el || document.activeElement !== el) return false
+  try { return el.matches(':focus-visible') } catch { return true }
+}
+
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
 function shellKey(e: KeyboardEvent): boolean {
   if (phase.value === 'won') {
@@ -876,8 +919,8 @@ function shellKey(e: KeyboardEvent): boolean {
   if (e.code === 'KeyM' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('map'); return true }
   // N: the MOVES page (the combos, their mastery, the arts). (While asking "start over?" N is no, above.)
   if (e.code === 'KeyN' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('moves'); return true }
-  // Nothing to swap: Tab keeps its job and reaches the page's link index.
-  if (e.code === 'Tab' && !hasItem.value) return true
+  // Nothing to swap, or the world standing still: Tab keeps its job (the MAP page's Prism, the page's link index).
+  if (e.code === 'Tab' && (paused.value || !hasItem.value)) return true
   return false
 }
 
@@ -1383,8 +1426,14 @@ function frame(nowMs: number) {
   // it once more in case the pause was what changed it, then leave the pixels
   // alone until something resumes.
   // (A first picture still coming up out of the dark is drawn until it is up.)
-  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0) } return }
+  // (The MAP page keeps above the deck, which is on the page only after the first paused frame: drawn again when its top is known or moves.)
+  if (paused.value) { const top = deckTop(); if (top !== ui.deckTop) { ui.deckTop = top; pausedDrawn = false } }
+  // (And when the keyboard's focus comes to its Prism or leaves it: the ring is part of the picture.)
+  if (paused.value) { const on = pagePrismFocused(); if (on !== !!ui.prismFocus) { ui.prismFocus = on; pausedDrawn = false } }
+  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism() } return }
   pausedDrawn = false
+  // (A page opened later starts without a place left over from this one.)
+  if (pagePrismAt.value) pagePrismAt.value = null
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
   if (panel.value) { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
@@ -1492,6 +1541,15 @@ function resize() {
   // (The corner keeps inside the same safe area as the HUD: `cornerLayout`.)
   const safe = safeInsets()
   cn.safe = { top: safe.top, right: safe.right }
+  // (A paused picture is painted once, and the canvas is new: paint it again, and its button moves with it.)
+  pausedDrawn = false
+}
+
+/** Where the paused deck's buttons begin, in CSS px from the canvas's top; null where there is no deck. */
+function deckTop(): number | null {
+  const row = pausedRow.value
+  if (!row || !canvas.value) return null
+  return Math.floor(row.getBoundingClientRect().top - canvas.value.getBoundingClientRect().top)
 }
 
 /** The screen's safe-area insets in CSS px (all 0 in an ordinary browser tab). */
@@ -1758,6 +1816,23 @@ onBeforeUnmount(() => {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* The Sun Prism on the MAP page: a bare box over the canvas, under the deck. Its focus ring is painted on the page. */
+.zelda-page-prism {
+  position: absolute;
+  z-index: 4;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.zelda-page-prism:focus { outline: none; }
 /* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepCorner`). */
 .zelda-canvas ~ .portal-hint {
   filter: opacity(var(--zelda-chrome-a, 1));

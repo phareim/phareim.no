@@ -1,8 +1,9 @@
 /**
- * Where the hero has been, for the map (`render/worldMap.ts`, M): each map but the interiors is cut into
- * squares of CHUNK × CHUNK tiles, and a square is seen once the hero has been within SIGHT tiles of it (in a
- * dungeon, also every square of a room the hero walks into). Kept per map id as a string of six-bit digits,
- * one bit a square, row by row: the same string in the game state and in the save (`SaveData.explored`).
+ * Where the hero has been, for the chart (`render/worldMap.ts`) and the MAP page (`render/mapPage.ts`, M): each
+ * map but the interiors is cut into squares of CHUNK × CHUNK tiles, and a square is seen once the hero has been
+ * within SIGHT tiles of it (in a dungeon, also every square of a room the hero walks into). Kept per map id as a
+ * string of six-bit digits, one bit a square, row by row: the same string in the game state and in the save
+ * (`SaveData.explored`).
  *
  * Pure; no canvas, no DOM.
  */

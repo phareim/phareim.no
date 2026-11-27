@@ -21,7 +21,7 @@ import { airTime, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDe
 import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, drawPause, drawSlow, drawViewStrip, hudScale, NEON_SKIN, type Callout, type HudSkin, type MenuPage } from './hud'
-import { drawMapPage } from './worldMap'
+import { drawMapPage, targetOnScreen } from './mapPage'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -97,10 +97,14 @@ export interface FrameUI {
   keys: HudKeys
   /** The current view's name, for the pause screen. */
   view?: string
-  /** The menu's page while paused: ITEMS (the default), MOVES (`hud.ts` drawMoves) or MAP (`worldMap.ts`). */
+  /** The menu's page while paused: ITEMS (the default), MOVES (`hud.ts` drawMoves) or MAP (`mapPage.ts`). */
   page?: MenuPage
   /** The view's turn for the map (0 classic, 1 isometric): `viewState().turn`. */
   turn?: number
+  /** The top of the touch deck's buttons while paused, in CSS px from the canvas's top (null: no deck): the MAP page keeps above it. */
+  deckTop?: number | null
+  /** The keyboard's focus is on the MAP page's Prism button: the page rings the Prism in gold. */
+  prismFocus?: boolean
   /** The view strip: every view in the round and which one is on, shown for a moment after a change. */
   strip?: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number } | null
 }
@@ -184,6 +188,8 @@ export interface Renderer {
    * HTML keeps the classic dress too.
    */
   fineUnit(): number
+  /** Where the MAP page last painted its Prism, as the box of a button over it in CSS px from the canvas's top left; null when that page was not painted, or has no Prism. */
+  pagePrism(): { x: number; y: number; w: number; h: number } | null
 }
 
 /**
@@ -368,6 +374,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let frameN = 0
   let frameHitStop = false
   let flashT = 0
+  /** The MAP page's Prism as last painted (`Renderer.pagePrism`). */
+  let prismAt: { x: number; y: number; w: number; h: number } | null = null
   let flashColor = '#ffffff'
   const glowCache = new Map<string, HTMLCanvasElement>()
   let scan: CanvasPattern | null = null
@@ -1564,6 +1572,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (dialogRow.of !== s.dialog) dialogRow = { of: s.dialog, y: heroY }
       heroY = dialogRow.y
     } else dialogRow = { of: null, y: 0 }
+    prismAt = null
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
@@ -1611,7 +1620,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const bottom = Math.ceil(insets.bottom * dpr / sp.scale)
       // SLIP's slow world: a cool tint and a frame round it.
       if (s.slow && !ui.paused) drawSlow(g, s.slow, sp.vw, sp.vh, skin)
-      if (hud) {
+      // The menu's MAP page is the whole screen's: no hearts, counters or item box under its veil (they are back with
+      // the next paint of another page, or of play), and nothing of what would stand frozen behind it, since it has no
+      // window of its own (a label, a banner, a line).
+      const mapUp = ui.paused && ui.page === 'map' && !ui.confirmReset
+      if (hud && !mapUp) {
         g.save()
         g.translate(left, top)
         drawHud(g, s, sp.vw - left - right, time, ui.touch, skin, world)
@@ -1623,17 +1636,18 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         if (callout.t > CALLOUT_TIME) callout = null
         else drawCallout(g, callout, sp.vw, sp.vh, skin, heroRow - 46)
       }
-      drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
+      if (!mapUp) drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
       // The view strip has the banner's place while it is up.
-      if (ui.banner && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
-      if (s.dialog) {
+      if (ui.banner && !mapUp && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
+      if (s.dialog && !mapUp) {
         g.save()
         g.translate(0, top)
         drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin)
         g.restore()
       }
       if (ui.paused && ui.page === 'moves' && !ui.confirmReset) drawMoves(g, s, sp.vw, sp.vh, ui.keys, skin)
-      else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, view: ui.view ?? '' }, skin)
+      // (The MAP page lies on this skin's grid: the deck's top comes to it from the shell's CSS px.)
+      else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)
       else if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }
@@ -2413,5 +2427,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       views.clear()
     },
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
+    pagePrism: () => prismAt,
   }
 }
