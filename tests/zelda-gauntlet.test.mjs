@@ -218,6 +218,31 @@ describe('the boss gauntlet', () => {
     assert.deepEqual([...Z.BIG].filter(k => !BOSSES[k] && !ELSEWHERE[k]), [])
   })
 
+  it('the King keeps his second phase, and calls his bats again, when the hero steps out of the room and back', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'shrine', entry: 'start' } })
+    // In the great lock's doorway, its two tiles open.
+    Z.enterMap(Z.WORLD, s, 'shrine', 'start', [], { x: 23.9, y: 12.6 })
+    Object.assign(s, { mode: 'play', dialog: null })
+    for (const x of [23, 24]) s.map.tiles[12 * s.map.w + x] = '.'
+    s.map.version++
+    const step = move => { s.hero.invuln = 1; Z.stepGame(Z.WORLD, s, 1 / FPS, inp({ move: { x: 0, y: move } })) }
+    const walk = (move, inThrone) => {
+      for (let f = 0; f < 5 * FPS && !((s.zoneIndex === 1) === inThrone && s.mode === 'play'); f++) step(move)
+      assert.equal(s.zoneIndex === 1, inThrone)
+    }
+    walk(-1, true)
+    const king = s.map.enemies.find(e => e.kind === 'king')
+    for (let f = 0; f < FPS; f++) step(0)
+    // Half his hit points gone, as the blade leaves him.
+    Object.assign(king, { hp: king.maxHp / 2 })
+    king.ai.phase = 2
+    walk(1, false)
+    walk(-1, true)
+    for (let f = 0; f < FPS; f++) step(0)
+    assert.deepEqual([king.hp, king.ai.phase], [king.maxHp / 2, 2])
+    assert.equal(s.map.enemies.filter(e => e.id.startsWith('king.bat')).length, 2)
+  })
+
   for (const [kind, { flag, states }] of Object.entries(BOSSES)) {
     it(`${kind}: hurts a hero who stands, falls to one who fights it as it asks, and is gold exactly while the blade bites`, () => {
       const seen = new Set()
