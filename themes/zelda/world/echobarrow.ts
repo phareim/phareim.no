@@ -49,7 +49,7 @@ const PARROT = [
   '#в..........&.в#',
   '#вI..........Iв#',
   '#вввв......вввв#',
-  '#######..#######',
+  '#######.?#######',
 ]
 
 const SHIELD = [
@@ -64,7 +64,7 @@ const SHIELD = [
   '#в.I........I.в#',
   '#вв...........в#',
   '#вв........7...#',
-  '#####yX######..#',
+  '#####yX######yX#',
 ]
 
 const MIXTRAL_ROOM = [
@@ -101,7 +101,7 @@ const HALL = [
 // The switch lies out of the blade's reach of anything past the first row. East of the wall, the short way back down.
 const CROSSING = [
   '#####..######6X#',
-  '#вв.......вв#..#',
+  '#вв...!...вв#..#',
   '#в.........в#..#',
   '#PPPPPPPPPPP#..#',
   '#....вв.....#вв#',
@@ -162,13 +162,14 @@ export const ECHOBARROW: MapDef = {
     '0,0': { name: 'THE ANSWERING ROOM' },
     '1,0': {
       name: 'THE PARROT',
+      stair: 'parrot',
       track: 'boss',
       events: [
         { when: { notFlag: 'parrot' }, lines: ['THE STOCHASTIC PARROT. IT HAS HEARD EVERYTHING. IT HAS UNDERSTOOD NONE OF IT.'], set: 'echobarrow.parrot.met' },
         { when: { flag: 'parrot' }, lines: ['(THE HALL IS QUIET. YOUR OWN HELLO COMES BACK, ONCE, AND STOPS.)'], set: 'echobarrow.parrot.quiet' },
       ],
     },
-    '2,0': { name: 'THE SHIELD HALL' },
+    '2,0': { name: 'THE SHIELD HALL', stair: 'crossing' },
     '0,1': {
       name: 'MIXTRAL\'S ROOM',
       events: [{ when: { notFlag: 'echobarrow.mixtral' }, lines: ['MIXTRAL. EIGHT OPINIONS AND ONE HEADACHE.'], set: 'echobarrow.mixtral.met' }],
@@ -185,6 +186,10 @@ export const ECHOBARROW: MapDef = {
   ]),
   marks: {
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
+    // The two stairs of the way: walking into the Shield Hall or the Parrot's room from the south makes these the
+    // continue point (`CellDef.stair`): just north of the Crossing, and in the great lock's doorway.
+    '!': { ent: { t: 'entry', id: 'crossing', dir: 'up' } },
+    '?': { ent: { t: 'entry', id: 'parrot', dir: 'up' } },
     V: { tile: 'D', ent: { t: 'warp', to: 'seterfell', entry: 'echobarrow' } },
     h: { ent: { t: 'sign', lines: ['(SOMEBODY SHOUTED HELLO IN HERE, LONG AGO. IT IS STILL GOING ROUND.)'] } },
     j: { ent: { t: 'sign', lines: ['SOME STONES ARE ONLY THERE FROM ONE SIDE. TURN AND LOOK.'] } },

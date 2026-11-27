@@ -238,10 +238,10 @@ function listener(seen) {
 describe('the Echo Barrow', () => {
   it('is played from the door in Seter Fell to the Weight in hand, with a reload of the tab halfway', () => {
     const game = { s: start('seterfell', 'mounds', 11, 20) }
-    const { run, go, push, swing, leave, read, press, into, turn } = hands(game)
+    const { run, go, push, swing, leave, read, press, into, turn, step } = hands(game)
     let s = game.s
     const elder = () => { P.walkTo(s, 12, 21); return press('left') }
-    assert.deepEqual(elder(), ['MOUND ELDER: THE HALL UNDER US ANSWERS BACK. IT USED TO WAIT TO BE ASKED.'])
+    assert.deepEqual(elder(), ['MOUND ELDER: THE HALL UNDER US ANSWERS BACK. IT USED TO WAIT TO BE ASKED.', 'MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.'])
 
     // The stairs south of the small mound, and their sign.
     P.walkTo(s, 20, 27)
@@ -299,8 +299,13 @@ describe('the Echo Barrow', () => {
     push(-1, 0, 20)
     assert.equal(s.inv.keyrings.echobarrow, 0)
     assert.deepEqual(into('mixtral', -1, 0), ['MIXTRAL. EIGHT OPINIONS AND ONE HEADACHE.'])
-    push(-1, 0, 20)
+    // Standing on the gate's own tile is no refuge: he is carried in off it, and the gate shuts behind him.
+    for (const y of [5, 6]) s.map.tiles[(ROOM.mixtral[1] + y) * s.map.w + ROOM.mixtral[0] + 15] = '.'
+    s.map.version++
+    Object.assign(s.hero, { x: ROOM.mixtral[0] + 15.4, y: ROOM.mixtral[1] + 5.5 })
+    run(60)
     assert.equal(tile(s, T('mixtral', 15, 5)), 'X', 'shut in')
+    assert.ok(s.hero.x < ROOM.mixtral[0] + 14.7, `carried in: ${s.hero.x}`)
     const mixtral = s.map.enemies.find(e => e.kind === 'mixtral')
     const m = fight(s, [mixtral], dancer, 90)
     log('Mixtral', m)
@@ -368,6 +373,20 @@ describe('the Echo Barrow', () => {
     into('shield', 0, -1)
     run(20)
     assert.equal(tile(s, T('shield', 5, 11)), 'X', 'shut in')
+    assert.deepEqual([tile(s, T('shield', 13, 11)), tile(s, T('shield', 14, 11))], ['X', 'X'], 'and the nook in the south-east shuts with it: no knight is fought from where it cannot reach')
+    // Dying here comes back north of the Crossing (the stair of the way), the crystals as they were left: cyan.
+    assert.equal(s.entry.entry, 'crossing')
+    s.hero.invuln = 0
+    Z.hurtHero(Z.ctx(Z.WORLD, s, []), 99, s.hero.x, s.hero.y + 1)
+    assert.equal(s.mode, 'dying')
+    for (let n = 0; n < 4 * FPS && s.mode !== 'play'; n++) step()
+    assert.equal(s.mode, 'play')
+    assert.equal(roomOf(s), 'crossing')
+    assert.ok(s.hero.y < ROOM.crossing[1] + 3, `north of the Crossing: ${s.hero.y}`)
+    assert.ok(s.flags['crystal:echobarrow'], 'the crystals as saved: cyan')
+    into('shield', 0, -1)
+    run(20)
+    assert.equal(tile(s, T('shield', 5, 11)), 'X', 'shut in again')
     const knights = s.map.enemies.filter(e => e.kind === 'knight')
     assert.equal(knights.length, 2)
     const tally = { cuts: 0 }
@@ -395,7 +414,20 @@ describe('the Echo Barrow', () => {
     const parrot = s.map.enemies.find(e => e.kind === 'parrot')
     s.hero.hp = s.hero.maxHp
     const seen = new Set()
-    const p = fight(s, [parrot], listener(seen), 90)
+    // A boss whose fight has begun keeps its wounds: out of its room and in again, it stands at home, idle, with the hit points it had.
+    assert.equal(s.entry.entry, 'parrot', 'the great lock is a stair of its own')
+    const policy = listener(seen)
+    const mem = {}
+    for (let f = 0; f < 60 * FPS && parrot.hp >= parrot.maxHp; f++) Z.stepGame(Z.WORLD, s, 1 / FPS, policy(s, parrot, f, mem))
+    assert.ok(parrot.hp < parrot.maxHp, 'the blade drew blood')
+    const had = parrot.hp
+    s.hero.hp = s.hero.maxHp
+    go('parrot', 7, 10)
+    into('hall', 0, 1)
+    for (let k = 0; k < 600 && !(roomOf(s) === 'parrot' && s.mode !== 'scroll'); k++) { s.hero.invuln = 1; step(inp({ move: { x: 0, y: -1 } })) }
+    assert.deepEqual([parrot.hp, parrot.ai.mode, parrot.x, parrot.y], [had, 'idle', parrot.home.x, parrot.home.y], 'its wounds kept, its place and state fresh')
+    s.hero.hp = s.hero.maxHp
+    const p = fight(s, [parrot], policy, 90)
     log('the Parrot', p)
     assert.ok(p.won, `the Parrot: ${p.left} left after ${p.seconds} s, ${p.hurts} blows`)
     assert.equal(p.hurts, 0, 'a hero who stays out of the paint and cuts it only while it thinks is not touched')
@@ -443,9 +475,16 @@ describe('the Echo Barrow', () => {
       if (process.env.ECHO_LOG) console.log(`standing still, seed ${seed}: fell after ${(f / FPS).toFixed(1)} s`)
       for (let n = 0; n < 3 * FPS; n++) step()
       assert.equal(s.mode, 'play')
-      assert.equal(roomOf(s), 'porch')
+      // Back at the great lock, in the Parrot's room (the stair of its own), and still standing in the doorway loses too.
+      assert.equal(roomOf(s), 'parrot')
+      assert.ok(gap(s.hero, { x: ROOM.parrot[0] + 8.5, y: ROOM.parrot[1] + 11.5 }) < 0.01, `at the door: ${s.hero.x},${s.hero.y}`)
       assert.equal(tile(s, T('hall', 7, 0)), '.', 'the great lock stays open')
       assert.ok(!Z.hasWeight(s, 'weightMeaning'))
+      // Standing in the doorway is no refuge either: it is recited at (from there most of it falls short, so it takes
+      // longer) until he falls or a blow throws him out of the room, hurt.
+      for (f = 0; f < 240 * FPS && s.mode !== 'dying' && roomOf(s) === 'parrot'; f++) step()
+      assert.ok(s.mode === 'dying' || (roomOf(s) !== 'parrot' && s.hero.hp < s.hero.maxHp), `seed ${seed}: stood in the doorway for ${f / FPS} s unhurt`)
+      if (process.env.ECHO_LOG) console.log(`standing in the doorway, seed ${seed}: ${s.mode === 'dying' ? 'fell' : 'thrown out'} after ${(f / FPS).toFixed(1)} s`)
     }
   })
 

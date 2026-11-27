@@ -6,7 +6,7 @@
  */
 import type { GameState, World } from '../types'
 import { TILE } from '../types'
-import { cellIndex, mapInfo } from '../engine/map'
+import { cellIndex, mapInfo, solidTile } from '../engine/map'
 import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
 import { laneOf, throwerLanes } from '../engine/gifts'
 import { drawLanes, drawStrip } from './lighthouse'
@@ -53,6 +53,13 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
       const z = s.zone
       g.beginPath()
       g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
+      // ...and the open tiles of its border (a doorway's mouth): a blow that lands there is painted there.
+      for (let k = 0; k < z.w * z.h; k++) {
+        const tx = z.x + (k % z.w)
+        const ty = z.y + Math.floor(k / z.w)
+        const edge = tx === z.x || ty === z.y || tx === z.x + z.w - 1 || ty === z.y + z.h - 1
+        if (edge && !solidTile(world, m, tx, ty, 'enemy')) g.rect(tx * T - cx, ty * T - cy, T, T)
+      }
       g.clip()
     }
     if (st.t === 'ray') ray(g, st, cx, cy, time, reduced)

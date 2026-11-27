@@ -81,7 +81,7 @@ export function mistral(c: Ctx, e: Enemy, dt: number) {
   const h = s.hero
   const p2 = ai.phase === 2
   const room = cellRect(c.info, e.cell)
-  if (ai.mode === 'idle') { ai.mode = 'float'; ai.t = 1.5; ai.tx = e.x; ai.ty = e.y; ai.phase = 1 }
+  if (ai.mode === 'idle') { ai.mode = 'float'; ai.t = 1.5; ai.tx = e.x; ai.ty = e.y; ai.phase = ai.phase === 2 ? 2 : 1 }
   ai.ang = ((ai.ang as number) ?? 0) + dt * (ai.mode === 'down' ? 1 : p2 ? 7 : 5)
   if (ai.mode === 'down') {
     if (ai.t <= 0) { ai.mode = 'rise'; ai.t = 0.6; ai.tell = 0.6 }
@@ -145,7 +145,7 @@ export function deepseek(c: Ctx, e: Enemy, dt: number) {
   const h = s.hero
   const p2 = ai.phase === 2
   const room = cellRect(c.info, e.cell)
-  if (ai.mode === 'idle') { ai.mode = 'under'; ai.t = 2; ai.phase = 1 }
+  if (ai.mode === 'idle') { ai.mode = 'under'; ai.t = 2; ai.phase = ai.phase === 2 ? 2 : 1 }
   if (ai.mode === 'under') {
     // Seek: straight at the hero under the floor, walls or not (inside its room).
     const d = heroDist(c, e) || 1

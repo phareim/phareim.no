@@ -437,8 +437,8 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   const len = Math.hypot(ddx, ddy) || 1
   const dx = ddx / len
   const dy = ddy / len
-  // (ORCA is never shoved: its stencils say where it will be.)
-  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca') {
+  // (ORCA and the Parrot are never shoved: its stencils say where it will be.)
+  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca' && e.kind !== 'parrot') {
     const k = (opt?.knock ?? 1) * (big ? 0.4 : 1)
     e.knock = { vx: dx * 9 * k, vy: dy * 9 * k, t: 0.14 }
   }

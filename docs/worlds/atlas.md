@@ -143,7 +143,7 @@ carries the path to Yule Fjord past STEINAR's cairns; THE MOUNDS in the west
 FELL is a cave behind a cracked boulder. South of the small mound by the stream
 a flight of stairs with a sign goes down to THE ECHO BARROW (below; tile
 (20, 26), back up at the entry `echobarrow`); while the Weight of MEANING is not
-held the mound elder speaks of the hall under them, and once it is, says: QUIET
+held the mound elder speaks of the hall under them and of the pantry the boulder covers, and once it is, says: QUIET
 DOWN THERE NOW. I ASKED IT THE TIME. IT SAID NOTHING. LOVELY. The heart piece sits on a ledge seen
 from the Big Seter and reached from Cairn Ridge.
 Fights: blobs, bats, hounds and a sentry about the paths, and a tough sentry
@@ -249,7 +249,7 @@ and the HERDSMAN live down there.
 The hidden folk's hall under the Mounds, where every call comes back: a dungeon
 (48×36, eight rooms of 16×12 on a 3×3 grid, the ninth rock), both views, on a
 keyring and a crystal group of its own. It needs the blade and nothing else. A
-tab reloaded inside it continues at the last stair or door used (`resume`).
+tab reloaded inside it continues at the last stair or door used (`resume`): the porch, north of the Crossing once the Shield Hall's door has been walked in from the south, or in the great lock's doorway once the Parrot's room has.
 Its look is `wild` (the chart's inks, the fireflies); the turf is laid as tiles
 (`в`) round the Shrine's stone and pillars, since no look repaints a dungeon.
 

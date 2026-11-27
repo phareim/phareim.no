@@ -754,6 +754,8 @@ export interface CellDef {
   round?: RoundDef
   /** Once this flag is set, the room's own `track` (a boss's) is over: the map's plays here again. */
   calm?: string
+  /** Walking into this room from the south makes this entry of the map the continue point (a stair of its own). */
+  stair?: string
 }
 
 /**

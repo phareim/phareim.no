@@ -111,7 +111,7 @@ export function stencilsOf(e: Enemy): Stencil[] {
     const d = Math.hypot(dx, dy) || 1
     return [{ t: 'strip', x0: e.x, y0: e.y, ux: dx / d, uy: dy / d, len: d + e.r + HERO_R - 0.05, w: DARK_HOUND.w, k: run(DARK_HOUND.tell) }]
   }
-  if (e.kind === 'mixtral' && e.ai.mode === 'tell') {
+  if (e.kind === 'mixtral' && (e.ai.mode === 'tell' || e.ai.mode === 'charge')) {
     // As wide as the charge's touch (`contact`).
     const reach = e.r + HERO_R - 0.05
     const whole = e.ai.phase === 2 ? MIXTRAL.tell2 : MIXTRAL.tell

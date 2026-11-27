@@ -8,7 +8,7 @@
  */
 import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
 import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, TILE, WARP_TIME, bItem, roomed } from '../types'
-import { acquire, ctx, type Ctx } from './combat'
+import { acquire, BIG, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, condMet, has, loadMap, mapDef, mapInfo, moveCircle, stepClear } from './map'
@@ -187,7 +187,14 @@ function enterCell(c: Ctx, index: number) {
     if (e.cell !== index) continue
     if (e.once && has(s, e.once)) continue
     if (!e.dead && e.hp === e.maxHp) { resetEnemy(e); continue }
+    // A boss whose fight has begun keeps its wounds: it stands at home in its first state with the hit points it had.
+    // (Not the Sycophant: its hit points are the cuts of a script that has to run from its start.)
+    const wounded = !e.dead && BIG.has(e.kind) && e.kind !== 'sycophant' && e.hp > 0 && e.hp < e.maxHp ? e.hp : 0
     resetEnemy(e)
+    if (wounded) {
+      e.hp = wounded
+      if (e.hp <= e.maxHp / 2 && ['king', 'mistral', 'deepseek', 'mixtral', 'parrot'].includes(e.kind)) e.ai.phase = 2
+    }
   }
   m.enemies = m.enemies.filter(e => !e.id.startsWith('king.bat'))
   m.projectiles.length = 0
@@ -450,6 +457,8 @@ function scroll(c: Ctx, dt: number) {
     s.mode = 'play'
     h.act = 'idle'
     enterCell(c, sc.index)
+    const stair = cellDef(c.info, sc.index)?.stair
+    if (stair && sc.dy < 0) s.entry = { map: s.map.id, entry: stair }
   }
 }
 
@@ -701,7 +710,9 @@ export function parseSave(raw: unknown): SaveData | null {
   // Whoever knew an art the game has dropped knows the HOP, as if the Keeper had taught it.
   const taught = !!arts.arts?.includes('hop') && !flags.includes('item:artHop')
   const clean: Inventory = { ...base, ...(cleanOld(inv) as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...arts }
-  if (!bItem(clean.selected)) clean.selected = null
+  // (An art in hand is judged by the arts rule above; any other B item must be one the save owns.)
+  const held = bItem(clean.selected)
+  if (!held || (!(ART_IDS as readonly unknown[]).includes(clean.selected) && !held.owned(clean))) clean.selected = null
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
     inv: clean, flags: taught ? [...flags, 'item:artHop'] : flags, rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),

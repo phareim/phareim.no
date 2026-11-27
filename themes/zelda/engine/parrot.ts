@@ -4,6 +4,7 @@
  *
  * - *listen*: it hops sideways round the hero at a distance and notes what the hero does (the moves: C a cut, S a
  *   spin, R a roll, H a hop or any air move, B a bomb laid, W a second with none of those), keeping the last three;
+ *   with fewer than two moves heard (a walk is none) it makes the phrase up to two from the ones that hurt;
  * - *recite*: it gives the three back in another order, one to a beat: the move's footprint is stencilled from where
  *   it stands toward where the hero stands, and then it does it. From half its hit points a still copy of it, left
  *   where it stood, recites the same a moment later;
@@ -191,7 +192,13 @@ function another(c: Ctx, heard: string): string {
 
 function recite(c: Ctx, e: Enemy) {
   const ai = e.ai
-  const heard = ((ai.heard as string) + 'WWW').slice(0, 3)
+  // Fewer than two moves heard (a walk is no move): it makes up the rest, from what hurts, drawn by the game's own rng.
+  let said = ai.heard as string
+  if (said.replace(/W/g, '').length < 2) {
+    said = said.replace(/W/g, '')
+    while (said.length < 2) said += pick(c.s, ['C', 'S', 'R', 'H', 'B'])
+  }
+  const heard = (said + 'WWW').slice(0, 3)
   Object.assign(ai, { mode: 'recite', t: 0, said: another(c, heard), z: 0, air: false, beat: 0, bt: 0, on: false, copy: false })
   // Half its hit points gone: it leaves a copy of itself where it listened from.
   if (ai.phase === 2) Object.assign(ai, { copy: true, cx: e.x, cy: e.y, cbeat: 0, cbt: -PARROT.lag, con: false })
