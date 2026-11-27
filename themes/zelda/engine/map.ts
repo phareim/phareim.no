@@ -376,6 +376,8 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       npcs.push({
         id: e.id, look: e.look, x: cx, y: cy, dir: e.dir ?? 'down', home: { x: cx, y: cy }, wander: !!e.wander, t: 0, vx: 0, vy: 0,
         ...(e.attend ? { att: { mode: e.attend.mode, ring: e.attend.ring ?? 2.5, made: false, linger: false, clock: 0, muted: false } } : {}),
+        // A thrower's beat (`gifts.ts`).
+        ...(e.attend?.mode === 'throw' && e.attend.stock ? { toss: { ...e.attend.stock, wait: 1, tell: 0, x: cx, y: cy, thrown: 0, refused: 0 } } : {}),
       })
     } else if (e.t === 'item') {
       if (flag(`took:${e.id}`)) continue

@@ -1764,11 +1764,14 @@ YOU CUT, IT CUTS.
   when it cuts (`echoCut`).
 
 **The Steamhouse** (`world/steamhouse.ts`; the Sporelight's dungeon with no
-keys; part one: the house, the attendants, THE NO). A door in the bathhouse's
+keys; in so far: the house, the attendants, THE NO, the gifts, the Gift Shop
+(`engine/gifts.ts`) and the Sycophant up to its third cut, where it falls at
+once, a stand-in for its ending). A door in the bathhouse's
 south face (the `6` tile at (39,24); the path tile before it, `8`, is where the
 way back lands) leads to `steamhouse` (48x24, six rooms: the lobby, the baths,
 the laundry, the boiler, the gift shop, rock) and, past the boiler's stair,
-`steamsuite` (the stair and the Best Room, empty until the Sycophant).
+`steamsuite` (the stair, and the Best Room, where the Sycophant floats,
+`engine/bossSycophant.ts`).
 Both maps allow both views, have no `keyring` (the HUD shows a key counter
 there all the same) and are marked `resume` (below).
 - *Attendants* (`engine/attendants.ts`; an `npc` with `attend: { mode: 'ask',
@@ -1785,9 +1788,9 @@ there all the same) and are marked `resume` (below).
   room or is bathed. A press of A on an attendant asks again, whenever.
 - *THE BATH.* The world holds, the fade runs to white (`warp.white`) and back
   into the lobby at the pool (entry `baths`, the new continue point), hearts
-  full, in the robe (`Hero.robe`: 0.8 walking speed and a towel on the head;
-  never saved, cleared by the rack (A, a `sign` with `robe`), by death, by any
-  door out of the house and by a reload). Nothing else is touched: flags, deck,
+  full, in the robe (`Hero.robe`: 0.8 walking speed, a robe and a towel painted
+  over the hero; never saved, cleared by the rack (A, a `sign` with `robe`), by
+  death, by any door out of the house and by a reload). Nothing else is touched: flags, deck,
   B item, purse and every solved gate stay; what a map load always loses is
   lost, so foes and baskets and a boss fight start over. The lobby attendant
   counts its offer as made, with no clock, so the hero is not asked again at

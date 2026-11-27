@@ -17,6 +17,7 @@ import { WILD_RAW } from './spritesWild'
 import { ITEMS_PAGE_ICONS } from './spritesItemsPage'
 import { APAD_RAW } from './spritesPad'
 import { LIGHTHOUSE_RAW } from './spritesLighthouse'
+import { GIFT_RAW, SYCOPHANT_RAW } from './spritesSycophant'
 import { BEACH_RAW } from './spritesBeach'
 import { intermediateBlades } from './bladeAngles'
 import { COMBAT_MARK_RAW } from './combatMarks'
@@ -1614,6 +1615,8 @@ const RAW: Record<string, Rows> = {
   ...ITEMS_PAGE_ICONS,
   ...APAD_RAW,
   ...LIGHTHOUSE_RAW,
+  ...SYCOPHANT_RAW,
+  ...GIFT_RAW,
 }
 
 

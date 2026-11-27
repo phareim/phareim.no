@@ -31,6 +31,7 @@ import { aimOf, airTime, has, heroZ, mapInfo, raised, swingAngle, swingDur } fro
 import { blockUp, isViewBlock } from '../../world/tiles'
 import { SIDE_PATCH } from '../viewBlocks'
 import { dirAngle } from '../../engine/util'
+import { sycophantFocus } from '../../engine/bossSycophant'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { TONES } from '../tones'
@@ -1013,7 +1014,8 @@ export default function isoView(kit: Kit): View {
     const cClassic = proj(cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      const focus = { x: s.hero.x, y: s.hero.y + 6 / T }
+      const at = sycophantFocus(s)
+      const focus = { x: at.x, y: at.y + 6 / T }
       let ci: Vec
       if (s.scroll) {
         const a = centreIn(P0, focus, s.scroll.from, vw, vh, RISE)
@@ -1547,8 +1549,10 @@ export default function isoView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
-      // (The hero too, in its own art (`hero.ts`, part 21), unless the modelled hero is drawn instead.)
-      if (folk > 0 && cellY + C.h <= FOLK_ROWS && !(it.hero && modelled)) router.begin(cellX, cellY, C.w, C.h, folk)
+      // (The hero too, in its own art (`hero.ts`, part 21), unless the modelled hero is drawn instead. In the
+      // Steamhouse's robe it is the classic figure: the robe is painted on that card, and art behind it would show
+      // through it as a figure seen through a wall does.)
+      if (folk > 0 && cellY + C.h <= FOLK_ROWS && !(it.hero && (modelled || s.hero.robe))) router.begin(cellX, cellY, C.w, C.h, folk)
       draw()
       const folkHit = router.end()
       if (folkHit) folkUsed = Math.max(folkUsed, (cellY + C.h) * DENSITY)

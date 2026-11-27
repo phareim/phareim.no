@@ -9,6 +9,7 @@ import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
+import { sycophant } from './bossSycophant'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -156,6 +157,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'deepseek': deepseek(c, e, dt); break
     case 'gemini': gemini(c, e, dt); break
     case 'mixtral': mixtral(c, e, dt); break
+    case 'sycophant': sycophant(c, e, dt); break
   }
   contact(c, e)
 }
