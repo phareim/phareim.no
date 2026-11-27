@@ -11,6 +11,7 @@ import { orca } from './bossOrca'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
+import { golem, golemHarmless } from './bossGolem'
 import { parrot, parrotHarmless } from './parrot'
 import { bard } from './bossBard'
 import { sycophant } from './bossSycophant'
@@ -46,8 +47,8 @@ export function stepEnemies(c: Ctx, dt: number) {
   const list = c.s.map.enemies
   for (let i = 0; i < list.length; i++) {
     const e = list[i]!
-    // The renderer's clock for a fallen foe's pop.
-    if (e.dead && e.deathT !== undefined && e.deathT < 1) e.deathT += dt
+    // The renderer's clock for a fallen foe's pop (and the Golem's longer fall).
+    if (e.dead && e.deathT !== undefined && e.deathT < 1.5) e.deathT += dt
     if (!enemyActive(c, e)) continue
     stepEnemy(c, e, dt)
   }
@@ -191,6 +192,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'orca': orca(c, e, dt); break
     case 'copilot': copilot(c, e, dt); break
     case 'bard': bard(c, e, dt); break
+    case 'golem': golem(c, e, dt); break
   }
   contact(c, e)
 }
@@ -199,6 +201,7 @@ function contact(c: Ctx, e: Enemy) {
   if (e.dead || e.stun > 0) return
   // The Heap's two hit with their lanes (`heapFoes.ts`).
   if (e.kind === 'grok' || e.kind === 'phi') { heapTouch(c, e); return }
+  if (e.kind === 'golem' && golemHarmless(e)) return
   const st = STATS[e.kind]
   const h = c.s.hero
   const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||

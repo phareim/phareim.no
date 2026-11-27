@@ -379,6 +379,8 @@ export interface CornerState {
   away?: 0 | 1 | 2 | 3 | 4
   /** The live round of views (`viewList()`): with one view there is no gem; the gem is pinned where this map allows one of them only. None given: the two built-in views. */
   round?: readonly RoundView[]
+  /** A room played flat on its chart covers the picture (`chartRoom.ts`): the shell hands in `e` 0, and nothing is pinned or named. */
+  flat?: boolean
   /**
    * The view rule on its own: on a map with view blocks where the isometric picture cannot be had, the Prism turns
    * the rule alone and a badge beside the corner says which is on (`RULE_TAGS`). Null: no badge.
@@ -400,7 +402,7 @@ export function cornerShape(world: World, s: GameState, st: CornerState): Corner
   const chart = hasChart(world, s)
   const round = st.round ?? BUILT_IN
   // (With a rule to turn there is a gem to turn it by, whatever the round holds.)
-  return { chart, e: st.e, gem: hasGem(round) || !!st.rule, pinned: pinName(mapDef(world, s.map.id), round), tag: st.tag ?? (st.nudge ? NUDGE_TAG[st.nudge] : null) }
+  return { chart, e: st.e, gem: hasGem(round) || !!st.rule, pinned: st.flat ? null : pinName(mapDef(world, s.map.id), round), tag: st.tag ?? (st.nudge ? NUDGE_TAG[st.nudge] : null) }
 }
 
 /**

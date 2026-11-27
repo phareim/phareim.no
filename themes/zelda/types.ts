@@ -541,6 +541,7 @@ export type EnemyKind =
   | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
   | 'copilot' // miniboss: the Road's wagon, run on the screen's own coordinates (`engine/bossCopilot.ts`)
   | 'bard' // miniboss, side maps: hides as a piece of the set, steps out as it; open after its blow (`engine/bossBard.ts`)
+  | 'golem' // boss: pulls the loose things in and eats them; open only while a cart it swallowed chokes it
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -1037,8 +1038,8 @@ export interface Drop {
   fall?: number
 }
 
-/** `by`: a bomb of the Stochastic Parrot's or of its copy's (none: the hero's own). */
-export interface Bomb { id: number; x: number; y: number; t: number; by?: 'parrot' | 'copy' }
+/** `by`: a bomb of the Stochastic Parrot's, of its copy's, or one the Scrape Golem spat back (none: the hero's own). */
+export interface Bomb { id: number; x: number; y: number; t: number; by?: 'parrot' | 'copy' | 'golem' }
 export interface Blast { id: number; x: number; y: number; t: number }
 
 export interface Disc {
@@ -1399,6 +1400,8 @@ export interface IronFlight {
   from: number
   to: number
   home: number
+  /** The Scrape Golem's to move, not the Magnet's (`engine/bossGolem.ts`): drawn in, or a cart rolling back out. */
+  golem?: 'pull' | 'back'
 }
 
 /** The iron of the map on screen, over what its tiles say: never saved. */
@@ -1408,8 +1411,9 @@ export interface IronState {
   away: Record<number, number>
   /** Smashed pieces on their way home: the tile, and the seconds still to wait. */
   smashed: Array<{ home: number; t: number }>
-  /** Seconds before the Magnet answers B again. */
+  /** Seconds before the Magnet answers B again, and the whole of the rest that is running. */
   rest: number
+  of?: number
 }
 
 /** Luna, following the hero. */

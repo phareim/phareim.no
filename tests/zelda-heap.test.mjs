@@ -1,6 +1,7 @@
 // Neon Shrine, THE HEAP (docs/games/neon-shrine-heap.md), under the Underglow's rails: the whole way through it by one
-// scripted player, what the Magnet leaves in a save, and the two maps' own bargain with the world. Nobody plays it by
-// hand before it ships, so the play-through is the proof that every room can be left the way it says.
+// scripted player, from the hollow wall to the Weight; that the Scrape Golem punishes standing still and gives way to
+// nothing but a cart; what the Magnet leaves in a save; and the two maps' own bargain with the world. Nobody plays it
+// by hand before it ships, so the play-through is the proof that every room can be left the way it says.
 //
 // `HEAP_LOG=1` prints the play-through's checkpoints.
 import { describe, it, before } from 'node:test'
@@ -20,7 +21,7 @@ const ROOMS = {
 const tileAt = (s, x, y) => s.map.tiles[y * s.map.w + x]
 
 describe('the Heap', () => {
-  it('is played from the hollow wall to the Heap\'s door, with the blade and what the Heap gives', () => {
+  it('is played from the hollow wall to the Weight, with the blade and what the Heap gives', () => {
     const log = []
     let s
     let room = 'rails'
@@ -336,7 +337,124 @@ describe('the Heap', () => {
       assert.equal(s.area, 'THE FOOT OF THE HEAP')
       assert.equal(s.zoneIndex, 1)
     })
+
+    // --- the Scrape Golem: real input, no god mode ------------------------------------------------------------------
+    const [golem] = foes('golem')
+    check('the Golem has its say', () => {
+      // (The walk in may have read its card already.)
+      for (let k = 0; k < 10; k++) P.step(s)
+      P.settle(s)
+      assert.ok(s.flags['heap2.golem.met'], 'its card was read')
+      assert.deepEqual([golem.hp, golem.x - at(0, 0)[0], golem.y - at(0, 0)[1]], [18, 8, 6])
+    })
+    check('chokes on the carts, eats when a pull is let by, grows, and falls to the fourth choke', () => {
+      s.hero.invuln = 0
+      s.hero.hp = s.hero.maxHp
+      /** The two pads, and where each one's cart waits. */
+      const sends = [{ pad: at(5, 1), cart: [2, 4] }, { pad: at(10, 1), cart: [13, 4] }]
+      const mid = ([x, y]) => ({ x: x + 0.5, y: y + 0.5 })
+      const centre = ([x, y]) => mid(at(x, y))
+      /** The stick toward p, round the carts and scraps (which a shot's line passes over). */
+      const round = (p) => {
+        const h = s.hero
+        const straight = Array.from({ length: 20 }, (_, i) => (i + 1) / 20).every(k => !Z.circleBlocked(Z.WORLD, s.map, h.x + (p.x - h.x) * k, h.y + (p.y - h.y) * k, 0.34))
+        const way = straight ? null : P.path(s, Math.floor(p.x), Math.floor(p.y))
+        const to = way?.length > 1 ? { x: way[1][0] + 0.5, y: way[1][1] + 0.5 } : p
+        return stick(to.x - h.x, to.y - h.y)
+      }
+      const seen = { chokes: 0, modes: new Set(), scraps: [], healed: 0 }
+      let was = ''
+      let hp = golem.hp
+      for (let k = 0; k < 60 * 90 && !golem.dead && s.mode === 'play'; k++) {
+        const mode = golem.ai.mode
+        if (mode !== was && mode === 'choke') seen.chokes++
+        was = mode
+        seen.modes.add(`${mode}${golem.ai.phase === 2 ? ' grown' : ''}`)
+        if (golem.hp > hp) seen.healed += golem.hp - hp
+        hp = golem.hp
+        const h = s.hero
+        // Out of the spat piece's lane (the pull's own ring is the pads' business: they stand outside it).
+        const lane = Z.stencilsOf(golem).find(st => st.t === 'lane' && Z.inStencil({ ...st, w: st.w + 0.5, cap: st.cap + 0.2 }, h.x, h.y))
+        const parked = s.map.tiles.some((t, i) => t === '▥' && far({ x: (i % s.map.w) + 0.5, y: Math.floor(i / s.map.w) + 0.5 }, golem) <= Z.GOLEM.ring[golem.ai.phase === 2 ? 1 : 0])
+        // Once it has been cut, one pull is let by on purpose: it eats the two scraps inside its ring.
+        const letBy = seen.chokes === 1 && seen.healed === 0
+        const ready = sends.filter(v => tile(...v.cart) === '▥').sort((a, b) => far(h, mid(a.pad)) - far(h, mid(b.pad)))[0]
+        const goal = mid(ready?.pad ?? sends[0].pad)
+        if (lane) {
+          const n = { x: -Math.sin(lane.a), y: Math.cos(lane.a) }
+          const side = (h.x - lane.x0) * n.x + (h.y - lane.y0) * n.y >= 0 ? 1 : -1
+          const way = [side, -side].find(v => !Z.circleBlocked(Z.WORLD, s.map, h.x + n.x * v * 0.8, h.y + n.y * v * 0.8, 0.34)) ?? side
+          P.step(s, P.inp({ move: { x: n.x * way, y: n.y * way } }))
+        } else if (Z.bossOpen(golem)) {
+          if (far(h, golem) > golem.r + 0.8) P.step(s, P.inp({ move: round(golem) }))
+          else cut(golem)
+        } else if (far(h, goal) > 0.35) P.step(s, P.inp({ move: round(goal) }))
+        else if (ready && !parked && !letBy && !flying() && !h.swing) tap(centre(ready.cart))
+        else P.step(s)
+      }
+      assert.ok(golem.dead, `the Golem stands: ${golem.hp} hp after ${seen.chokes} chokes, the hero ${s.hero.hp}`)
+      assert.equal(seen.healed, 2, 'the two scraps inside the small ring')
+      assert.equal(seen.chokes, 4)
+      for (const m of ['tell', 'pull', 'spit', 'choke', 'grow', 'tell grown', 'choke grown']) assert.ok(seen.modes.has(m), m)
+      assert.ok(s.flags['heap.golem'])
+      assert.equal(s.map.tiles.filter(t => t === '▤').length, 2, 'what it ate is gone')
+    })
+    check('the Weight lies where it fell, the room says its line, and CREDIT is in hand', () => {
+      const said = []
+      for (let k = 0; k < 60 * 8 && !(s.flags['heap2.named'] && Z.hasWeight(s, 'weightCredit') && s.mode === 'play'); k++) {
+        if (s.mode === 'dialog' || s.mode === 'get') {
+          if (s.dialog) said.push(...s.dialog.lines)
+          P.settle(s)
+          continue
+        }
+        const w = s.map.pickups.find(p => p.item === 'weightCredit' && !p.hidden)
+        // (Onto it once the room has spoken, which waits for the heap to fade.)
+        P.step(s, P.inp({ move: w && s.flags['heap2.named'] ? toward(w) : { x: 0, y: 0 } }))
+      }
+      assert.ok(said.some(l => l.includes('THE NAMES WERE ALWAYS THERE')), said.join(' | '))
+      assert.ok(Z.hasWeight(s, 'weightCredit'))
+      assert.ok(s.flags['took:heap2.weight'])
+      const again = Z.createGame(Z.WORLD, { seed: 7, save: Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))) })
+      assert.ok(Z.hasWeight(again, 'weightCredit'))
+      Z.enterMap(Z.WORLD, again, 'heap2', 'down', [], { x: 17.5, y: 5.5 })
+      assert.deepEqual(again.map.enemies.filter(e => !e.dead), [], 'it stays down')
+    })
     if (process.env.HEAP_LOG) console.log(log.join('\n'))
+  })
+
+  it('beats a hero who stands still before the Golem, and gives no way past it without a cart', () => {
+    /** The Heap's room as a hero comes into it, the card read. */
+    const arrive = () => {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'heap2', entry: 'down' } })
+      Object.assign(s.inv, { sword: true, magnet: true, selected: 'magnet' })
+      Z.enterMap(Z.WORLD, s, 'heap2', 'down', [], { x: 17.5, y: 5.5 })
+      s.mode = 'play'
+      P.frames(s, 5)
+      P.settle(s)
+      return s
+    }
+    // Just inside the door, outside both rings: what it spits still finds them.
+    const still = arrive()
+    for (let k = 0; k < 60 * 60 && still.mode === 'play'; k++) P.step(still)
+    assert.equal(still.mode, 'dying', `still standing with ${still.hero.hp}`)
+
+    // The blade alone, for two minutes, by a hero nothing can hurt.
+    const s = arrive()
+    const g = s.map.enemies.find(e => e.kind === 'golem')
+    let clanks = 0
+    for (let k = 0; k < 60 * 120; k++) {
+      s.hero.invuln = 1
+      const dx = g.x - s.hero.x
+      const dy = g.y - s.hero.y
+      const d = Math.hypot(dx, dy)
+      const near = d <= g.r + 0.8
+      const swing = near && !s.hero.swing && k % 20 === 0
+      const ev = P.step(s, P.inp({ move: near ? { x: (dx / d) * 0.2, y: (dy / d) * 0.2 } : { x: dx / d, y: dy / d }, a: swing, aPress: swing }))
+      clanks += ev.filter(e => e.type === 'clank').length
+      if (s.mode !== 'play') P.settle(s)
+    }
+    assert.ok(clanks > 10, 'the blade reached it')
+    assert.deepEqual([g.hp, g.dead, !!s.flags['heap.golem']], [18, false, false])
   })
 
   it('keeps the Magnet in a save as an item and a flag and nothing else', () => {

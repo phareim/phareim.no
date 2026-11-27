@@ -37,6 +37,8 @@ import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
 import { drawEyes, stripLights } from './lighthouse'
 import { drawExamCard, queueExam } from './examination'
+import { drawGolem, drawGolemFall, golemSprite, golemStand } from './golemPaint'
+import { GOLEM } from '../engine/bossGolem'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -604,7 +606,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           fx.push(fxSprite('poof', 0.36, e.x, e.y, -0.1))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
           pulse(e.x, e.y, 3, '#ff2fa0', 0.2)
-          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral' || e.kind === 'parrot' || e.kind === 'grok') {
+          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral' || e.kind === 'parrot' || e.kind === 'grok' || e.kind === 'golem') {
             for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
@@ -637,7 +639,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'discHit': spark(e.x, e.y, 6, '#2ff3ff', 4); pulse(e.x, e.y, 2, '#2ff3ff', 0.12); break
         case 'charged': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.3, color: '#2ff3ff', size: 0.6, name: 'hero' }); break
         case 'spin': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: SPIN_TIME, color: '#2ff3ff', size: 1.6, name: 'hero' }); break
-        case 'bossPhase': flashT = 0.3; flashColor = '#ff2fa0'; break
+        // (Phase 3 is the Golem swelling: a white flash, for nothing in it hurts.)
+        case 'bossPhase': flashT = 0.3; flashColor = e.phase === 3 ? '#ffffff' : '#ff2fa0'; break
         // The Parrot's move comes: stars along its blade, a ring where it spins or lands, a burst where it rushes off.
         case 'recited':
           if (e.move === 'C') for (let i = -2; i <= 2; i++) { const a = e.a + (i / 5) * PARROT.cut.arc; fx.push({ kind: 'star', x: e.x + Math.cos(a) * 1.7, y: e.y + Math.sin(a) * 1.7, vx: 0, vy: 0, t: 0, life: 0.14, color: '#ff8ae0', size: 5, lift: 5 }) }
@@ -1116,6 +1119,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'sycophant': return { name: sycophantSprite(e, time), flip: false }
       // Drawn from the front: singing while it tells and strikes, dazed while it is open.
       case 'bard': return { name: e.ai.mode === 'open' ? 'bard_dazed' : 'bard_sing', flip: e.dir === 'left' }
+      case 'golem': return { name: golemSprite(e), flip: false }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
       case 'grok': {
         const pose = ({ tell: 'ram', roll: 'roll', drill: 'drill', dazed: 'dazed' } as Record<string, string>)[e.ai.mode]
@@ -1173,6 +1177,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         lights.push({ x: (e.x + other.x) / 2, y: (e.y + other.y) / 2 - 0.6, r: 3, color: '#ff2fa0', a: 0.6 })
       }
     }
+    if (e.kind === 'golem') { drawGolem(g, e, golemStand(e, span), cx, cy, time, frameReduced, flashing(e), lights); return }
     const { name, flip } = enemySprite(e, mapInfo(world, s.map.id).def.realm)
     const flying = e.kind === 'bat' || e.kind === 'king' || e.kind === 'drone' || (e.kind === 'mistral' && e.ai.mode !== 'down') || (e.kind === 'gemini' && e.ai.mode !== 'down')
     if (e.kind === 'mistral') lights.push({ x: e.x, y: e.y - 1, r: 4, color: '#9ff6ff', a: e.ai.mode === 'down' ? 1 : 0.6 })
@@ -1358,8 +1363,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
-      const foot = e.y + e.r + 1 / T
-      const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
+      // (The Golem's picture stands where `golemStand` puts it.)
+      const stood = e.kind === 'golem' ? golemStand(e, span) : null
+      const fx = stood?.x ?? e.x
+      const foot = (stood?.y ?? e.y + e.r) + 1 / T
+      const at = place(fx, foot, view.lift?.(fx, foot - 0.01) ?? 0)
       const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : e.kind === 'copilot' ? 3 : e.kind === 'bard' ? BARD_SCALE : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
@@ -1583,10 +1591,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG.has(e.kind) && (!roomed(kind) || e.cell === s.zoneIndex)) {
           items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, draw: () => drawDeathPop(g, s, e, cx, cy) })
         }
+        // The Golem's own fall, longer than a pop.
+        if (e.kind === 'golem' && (e.deathT ?? GOLEM.fall) < GOLEM.fall && e.cell === s.zoneIndex) {
+          const at = golemStand(e, span)
+          items.push({ x: at.x, ay: at.y, foot: 1 / T, y: e.y, big: true, draw: () => drawGolemFall(g, e, at, cx, cy, lights) })
+        }
         continue
       }
       if (roomed(kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
-      items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
+      // (The Golem is as wide as it is deep: a turned view stands its picture over its ring, not a radius south of it.)
+      const at = e.kind === 'golem' ? golemStand(e, span) : null
+      items.push({ x: at?.x ?? e.x, foot: at ? 1 / T : e.r + 1 / T, ay: at?.y ?? e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
       if (e.kind === 'parrot' && e.ai.copy) {
         const x = e.ai.cx as number
         const y = e.ai.cy as number

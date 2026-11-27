@@ -19,6 +19,7 @@ ELSEWHERE.grok = 'zelda-heap.test.mjs'
 ELSEWHERE.orca = 'zelda-lighthouse.test.mjs'
 ELSEWHERE.copilot = 'zelda-lateshow.test.mjs'
 ELSEWHERE.bard = 'zelda-act-three.test.mjs'
+ELSEWHERE.golem = 'zelda-heap.test.mjs'
 
 /**
  * Each boss: its map, the flag its fall sets, the B item the fight takes, and the states the two fights must have

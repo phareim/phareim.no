@@ -1060,7 +1060,8 @@ classic picture. `/?view=<id>` asks for one.
     - *Day and night.* It stands where it is at every hour: no rank, no twin
       (`settleFoes`).
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
-    DeepSeek, the twins, Mixtral, the Stochastic Parrot, COPILOT, the Sycophant). The tough foes' bar over each of their heads, in
+    DeepSeek, the twins, Mixtral, the Stochastic Parrot, COPILOT, the Sycophant, GROK,
+    the Scrape Golem). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
     36 for the king): what is left is pink, gold while the boss is open
     (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
@@ -1072,7 +1073,8 @@ classic picture. `/?view=<id>` asks for one.
     Parrot thinking, while that thought still has blows to give; COPILOT stalled,
     while that stall still has blows to give (off its screen it wears no bar); the
     Sycophant while its smile is slipped (its bar counts cuts; *The
-    Steamhouse* below); the llama never, its wool turns the blade. A stunned or dazed
+    Steamhouse* below); GROK dazed and the Scrape Golem choking, while that
+    still has blows to give; the llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
     `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs` (or names the test
     file that holds it), which plays
@@ -2064,7 +2066,8 @@ heart container's jingle and a picture of its own
 (`item_weight_meaning` … `item_weight_sources`: the brass weight, each with
 its band; `item_weight` is the plain one), and the ITEMS page hangs each on
 its beam with the same picture. The Echo Barrow gives MEANING when the Parrot
-falls, and the Steamhouse gives NO when the Sycophant does
+falls, the Steamhouse gives NO when the Sycophant does, and the Heap CREDIT when
+the Scrape Golem does
 (`docs/worlds/sacred-weights.md` is the plan). A reward that is to lie where a foe fell is an `item` mark with
 `appear: { flag }` (the foe's `once`) and `atFall`.
 
@@ -2234,6 +2237,11 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
 treasure): B sets it down shining the way the hero faces; its beam feeds
 receivers and burns foes. All of it in `docs/games/neon-shrine-lighthouse.md`.
 
+**The Magnet** (`engine/magnet.ts`; item `magnet`, a B item; the Heap's
+treasure): B latches the nearest metal ahead; loose metal comes to the hero, the
+hero goes to bolted metal. It, the Heap and its three foes (GROK, PHI and the
+Scrape Golem) are in `docs/games/neon-shrine-heap.md`.
+
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
 ship. Nothing is written before the hero has the blade, so a visitor who
@@ -2246,8 +2254,8 @@ secret, door, gate, boss, respawn, exit, TO TOWN and when the tab is
 hidden. The server takes up to 32 KB of JSON (`SAVE_GAMES`; a bigger write is
 refused and the client says nothing): a save with everything in the world done
 is about 9 KB. What B holds is one of `B_ITEMS` (`types.ts`: the hook, the
-disc, bombs, the echo, the lamp, the arts); a save naming anything else loads with nothing in
-hand. On load the shell starts on the local copy and pulls the slot in
+disc, bombs, the echo, the lamp, the Magnet, the arts); a save naming anything else loads with
+nothing in hand. On load the shell starts on the local copy and pulls the slot in
 the background; `reconcile` in `progress.ts` keeps the newer write, and a
 newer profile save replaces the run at the next calm frame only if this
 session has not saved yet. A new game (a cleared slot, remembered locally

@@ -258,7 +258,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
+import { artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
 import { jumpIcon } from './render/side'
 import { A_PAD, createAPad } from './aPad'
 import { fetchSession } from './account'
@@ -785,7 +785,7 @@ function cycleView() {
   for (let i = 0; i < viewList().length && !allows(next); i++) next = nextView(next)
   // A map that allows one view only: the Prism is pinned, and says so.
   if (next === viewId.value) {
-    const words = state ? oneViewWords(mapInfo(WORLD, state.map.id).def, viewList()) : null
+    const words = state && !renderer?.charted() ? oneViewWords(mapInfo(WORLD, state.map.id).def, viewList()) : null
     if (words) turnRefuse(words.tag, words.said)
     else audio?.sfx('error')
     return
@@ -881,7 +881,11 @@ const sayView = (id: ViewId) => {
   const v = viewDef(id) ?? viewDef('classic')!
   return `${v.name.charAt(0)}${v.name.slice(1).toLowerCase()}${v.tag ? ` ${v.tag.toLowerCase()}` : ''}`
 }
-const turnLabel = computed(() => (void viewRound.value, pinnedWords.value
+/** A room's chart covers the world (`Renderer.charted`): flat in every view. */
+const onChart = ref(false)
+const turnLabel = computed(() => (void viewRound.value, onChart.value
+  ? 'View: the room on its chart, flat.'
+  : pinnedWords.value
   ? `View: ${sayView(viewId.value)}. ${pinnedWords.value.said}.`
   : ruleBadge.value
     ? `View: ${sayView(viewId.value)}. ${sayRule(ruleBadge.value)} rule. Press for the ${sayRule(ruleBadge.value === 'iso' ? 'flat' : 'iso').toLowerCase()} rule.`
@@ -1010,7 +1014,10 @@ function stepCorner(nowMs: number) {
   // Pinned exactly when the round holds a view to turn to, and only one this map allows (`pinName`); the painter
   // takes the same round, so its plate and these words never disagree.
   const round = viewList()
-  const words = oneViewWords(def, round)
+  // A room on its chart lies flat over whatever view drew the world: the frame is square, and no view is named.
+  const flat = renderer.charted()
+  if (flat !== onChart.value) onChart.value = flat
+  const words = flat ? null : oneViewWords(def, round)
   if (words?.tag !== pinnedWords.value?.tag) pinnedWords.value = words
   const rule = hasViewBlocks(s.map) && rulesAlone() ? s.view : null
   if (rule !== ruleBadge.value) ruleBadge.value = rule
@@ -1071,7 +1078,8 @@ function stepCorner(nowMs: number) {
   if (cv !== cn.el) { cn.el = cv; cn.sig = ''; cn.layKey = '' }
   const tagOn = nowMs - cn.tagAt < TAG_TIME * 1000
   const st: CornerState = {
-    e: turnAmount(vs.turn),
+    e: flat ? 0 : turnAmount(vs.turn),
+    flat,
     time: nowMs / 1000,
     reduced,
     pressed: nowMs - cn.pressAt < PRESS_TIME * 1000 ? cn.press : null,
@@ -1384,7 +1392,7 @@ function syncDeck() {
   const pad = itemIconName(state)
   if (pad !== padItem.value) padItem.value = pad
   const sel = state.inv.selected
-  const rest = isArt(sel) && !state.map.side ? Math.floor(artRest(state, sel) * 20) / 20 : 1
+  const rest = state.map.side ? 1 : Math.floor((isArt(sel) ? artRest(state, sel) : sel === 'magnet' ? magnetRest(state) : 1) * 20) / 20
   if (rest !== padRest.value) padRest.value = rest
   const item = useItems(state).length > 0
   if (item !== hasItem.value) hasItem.value = item

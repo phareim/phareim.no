@@ -33,12 +33,16 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   copilot: { hp: 8, r: 1.2, dmg: 0, flying: true },
   // Its touch never hurts (`dmg: 0`): only its stencilled blows do (`bossBard.ts`). 'flying': it places itself.
   bard: { hp: 10, r: 1.0, dmg: 0, flying: true },
+  // Grown, its body is wider (`bossGolem.ts` `GOLEM.r`).
+  golem: { hp: 18, r: 1.2, dmg: 2 },
 }
 
 export function spawnEnemy(
   id: string, kind: EnemyKind, x: number, y: number, dir: Dir, cell: number, once?: string, carries?: ItemId,
 ): Enemy {
   const st = STATS[kind]
+  // The Scrape Golem's middle is its tile's top left corner (the middle of its room, between tiles).
+  if (kind === 'golem') { x = Math.floor(x); y = Math.floor(y) }
   return {
     id, kind, x, y, r: st.r, hp: st.hp, maxHp: st.hp, dir, cell,
     invuln: 0, stun: 0, knock: null,
@@ -51,6 +55,8 @@ export function resetEnemy(e: Enemy) {
   const st = STATS[e.kind]
   e.x = e.home.x
   e.y = e.home.y
+  // (The Golem grows: its own size again.)
+  e.r = st.r
   // A tough one has hit points of its own, and no reeling left over from before.
   e.hp = e.tough ? e.maxHp : st.hp
   if (e.tough) e.stagger = 0
