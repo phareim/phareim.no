@@ -422,7 +422,7 @@ describe('the Heap', () => {
     if (process.env.HEAP_LOG) console.log(log.join('\n'))
   })
 
-  it('beats a hero who stands still before the Golem, and gives no way past it without a cart', () => {
+  it('beats a hero who stands still before the Golem, gives no way past it without a cart, and holds the review\'s rules: a tap passes a crate that cannot fly, a wounded Golem comes back grown, gold means open, no lee is safe, a tell hurts what is painted', () => {
     /** The Heap's room as a hero comes into it, the card read. */
     const arrive = () => {
       const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'heap2', entry: 'down' } })
@@ -455,6 +455,146 @@ describe('the Heap', () => {
     }
     assert.ok(clanks > 10, 'the blade reached it')
     assert.deepEqual([g.hp, g.dead, !!s.flags['heap.golem']], [18, false, false])
+
+    // A crate before the Sorting Floor's rim bolt (2,2 -> 3,2 by a tap from the strip) hid the bolt from a hero
+    // shut in the strip: the tap fizzled for ever. It passes to the nearest metal that can move.
+    {
+      const W = Z.WORLD
+      const s = Z.createGame(W, { seed: 1, at: { map: 'heap1', entry: 'door' } })
+      Object.assign(s.inv, { sword: true, magnet: true, selected: 'magnet' })
+      Z.enterMap(W, s, 'heap1', 'door', [], { x: 17.5, y: 5.5 })
+      s.mode = 'play'
+      P.frames(s, 3)
+      const ox = 16
+      const tile = (x, y) => tileAt(s, ox + x, y)
+      const tapAt = (hx, hy, a) => {
+        s.hero.x = ox + hx
+        s.hero.y = hy
+        const move = { x: Math.cos(a) * 0.3, y: Math.sin(a) * 0.3 }
+        s.hero.dir = Math.abs(move.x) > Math.abs(move.y) ? (move.x > 0 ? 'right' : 'left') : (move.y > 0 ? 'down' : 'up')
+        P.frames(s, 30)
+        const ev = P.step(s, P.inp({ bPress: true, move }))
+        for (let k = 0; k < 240 && (s.hook || s.map.iron?.flights.length); k++) { s.hero.invuln = 1; P.step(s) }
+        P.frames(s, 30)
+        return ev.map(e => e.type)
+      }
+      assert.deepEqual(tapAt(3, 2, (68 * Math.PI) / 180), ['latch'])
+      assert.equal(tile(3, 3), '▣')
+      assert.deepEqual(tapAt(1.5, 1.5, 0), ['latch'])
+      assert.equal(tile(2, 2), '▣')
+      P.walkTo(s, ox + 3, 2)
+      s.hero.dir = 'right'
+      P.frames(s, 30)
+      P.step(s, P.inp({ bPress: true }))
+      P.frames(s, 90)
+      assert.equal(tile(7, 5), 'X', 'the shutter is still shut: the crate is not on the plate')
+      assert.ok(s.hero.x > ox + 6, 'in the strip')
+      assert.deepEqual(tapAt(s.hero.x - ox, s.hero.y, Math.PI), ['latch'], 'the crate comes')
+      assert.equal(tile(3, 2), '▣')
+      // The crate on (3,2) cannot fly on (only pit lies between), so it no longer hides the bolt in the rim.
+      P.walkTo(s, ox + 6, 4)
+      P.frames(s, 30)
+      assert.deepEqual(tapAt(s.hero.x - ox, s.hero.y, Math.PI), ['latch'])
+      assert.ok(s.hero.x < ox + 2.5, `the hero is home on the west bank: ${s.hero.x - ox}`)
+    }
+
+    // The Golem, wounded to the half or less, left and met again: grown, as it was (not small with a fresh shake).
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'heap2', entry: 'down' } })
+      Object.assign(s.inv, { sword: true, magnet: true, selected: 'magnet' })
+      Z.enterMap(Z.WORLD, s, 'heap2', 'down', [], { x: 17.5, y: 5.5 })
+      s.mode = 'play'
+      P.frames(s, 5)
+      P.settle(s)
+      const g = s.map.enemies.find(e => e.kind === 'golem')
+      g.hp = 9
+      // (The Big Key's door at the Foot stands open for this walk.)
+      for (const y of [5, 6]) s.map.tiles[y * s.map.w + 15] = '.'
+      P.walkTo(s, 13, 5)
+      P.settle(s)
+      P.walkTo(s, 18, 5)
+      P.settle(s)
+      assert.equal(s.zoneIndex, 1)
+      for (let k = 0; k < 5; k++) { s.hero.invuln = 1; P.step(s) }
+      assert.deepEqual([g.hp, g.ai.phase, g.r], [9, 2, Z.GOLEM.r[1]])
+      let ring = 0
+      for (let k = 0; k < 60 * 4 && !ring; k++) { s.hero.invuln = 1; P.step(s); ring = Z.stencilsOf(g).find(st => st.t === 'ring')?.r ?? 0 }
+      assert.equal(ring, Z.GOLEM.ring[1], 'it pulls with the grown ring')
+    }
+
+    // Gold means open: the Storm Lamp's beam and a bomb do nothing to a PHI that is not open, and take one that is.
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'heap1', entry: 'door' } })
+      Object.assign(s.inv, { sword: true, magnet: true, lamp: true, bombBag: true, bombs: 4, selected: 'lamp' })
+      s.flags['heap.grok'] = true
+      Z.enterMap(Z.WORLD, s, 'heap1', 'door', [], { x: 49.5, y: 17.5 })
+      s.mode = 'play'
+      s.hero.maxHp = s.hero.hp = 60
+      P.frames(s, 5)
+      P.settle(s)
+      const [a, b] = s.map.enemies.filter(e => e.kind === 'phi')
+      s.hero.dir = 'right'
+      P.step(s, P.inp({ bPress: true }))
+      assert.ok(s.lamp, 'the lamp is down')
+      const stand = (e, x, y) => { Object.assign(e, { x, y }); e.ai.mode = 'wander'; e.ai.cool = 5; e.stun = 0 }
+      stand(a, s.hero.x + 2.5, s.hero.y)
+      for (let k = 0; k < 90; k++) { s.hero.invuln = 1; stand(a, s.hero.x + 2.5, s.hero.y); P.step(s) }
+      assert.deepEqual([a.hp, a.dead, a.stun > 0], [2, false, false], 'the beam does not burn a shut PHI')
+      stand(b, s.hero.x + 3, s.hero.y + 3)
+      s.map.bombs.push({ id: 'b1', x: b.x, y: b.y, t: 1.69 })
+      for (let k = 0; k < 20; k++) { s.hero.invuln = 1; P.step(s) }
+      assert.deepEqual([b.hp, b.dead], [2, false], 'a bomb does not hurt a shut PHI')
+      b.ai.mode = 'rest'
+      b.ai.t = 1.4
+      s.map.bombs.push({ id: 'b2', x: b.x, y: b.y, t: 1.69 })
+      for (let k = 0; k < 20; k++) { s.hero.invuln = 1; P.step(s) }
+      assert.ok(b.dead, 'an open one takes it')
+    }
+
+    // No safe lee: a hero standing still just west of a pillar was never darted (the PHI sat in their row).
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'heap1', entry: 'door' } })
+      Object.assign(s.inv, { sword: true })
+      s.flags['heap.grok'] = true
+      Z.enterMap(Z.WORLD, s, 'heap1', 'door', [], { x: 51.5, y: 20.5 })
+      s.mode = 'play'
+      s.hero.maxHp = s.hero.hp = 400
+      P.frames(s, 3)
+      P.settle(s)
+      const phis = s.map.enemies.filter(e => e.kind === 'phi')
+      const was = phis.map(() => '')
+      let darts = 0
+      for (let k = 0; k < 60 * 40; k++) {
+        P.step(s)
+        phis.forEach((e, i) => { if (e.ai.mode === 'dart' && was[i] !== 'dart') darts++; was[i] = e.ai.mode })
+      }
+      assert.ok(darts > 5, `darted ${darts} times`)
+    }
+
+    // GROK's tell hurts what is painted: beside its lane the hero is not hurt; in it, is.
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'heap1', entry: 'door' } })
+      Object.assign(s.inv, { sword: true })
+      Z.enterMap(Z.WORLD, s, 'heap1', 'door', [], { x: 33.5, y: 17.5 })
+      s.mode = 'play'
+      s.hero.maxHp = s.hero.hp = 12
+      P.frames(s, 3)
+      P.settle(s)
+      const g = s.map.enemies.find(e => e.kind === 'grok')
+      const tell = (across) => {
+        Object.assign(g, { dir: 'right', x: 40.5, y: 17.5 })
+        g.ai.mode = 'tell'
+        g.ai.t = g.ai.tell = 0.7
+        s.hero.x = 40.5
+        s.hero.y = 17.5 + across
+        s.hero.hp = 12
+        s.hero.invuln = 0
+        for (let k = 0; k < 10; k++) { s.hero.x = 40.5; s.hero.y = 17.5 + across; P.step(s) }
+        return s.hero.hp
+      }
+      assert.equal(tell(0.65), 12, 'beside the painted lane (0.5 either side): not hurt')
+      assert.equal(tell(0.3), 10, 'in it: hurt')
+    }
   })
 
   it('keeps the Magnet in a save as an item and a flag and nothing else', () => {

@@ -23,7 +23,7 @@ const FALLEN_AT = [[1, 1], [2, 5]] as const
 /** The frame it shows. */
 export function golemSprite(e: Enemy): string {
   const size = golemSize(e) ? 'l' : 'm'
-  const pose = e.dead ? 'hurt' : e.ai.mode === 'pull' ? 'pull' : e.ai.mode === 'choke' ? 'choke' : '0'
+  const pose = e.dead ? 'hurt' : e.ai.mode === 'pull' ? 'pull' : e.ai.mode === 'choke' || e.ai.mode === 'ease' ? 'choke' : '0'
   return `golem_${size}_${pose}`
 }
 
@@ -50,7 +50,7 @@ export function drawGolem(g: G, e: Enemy, at: At, cx: number, cy: number, time: 
   let dy = 0
   let white = flash
   if (!reduced) {
-    if (mode === 'tell' || mode === 'spit') dx = Math.floor(time * 24) % 2 ? 1 : -1
+    if (mode === 'tell' || mode === 'spit' || mode === 'ease') dx = Math.floor(time * 24) % 2 ? 1 : -1
     else if (mode === 'grow') { dx = Math.floor(time * 30) % 2 ? 2 : -2; dy = Math.floor(time * 22) % 2 }
     else if (mode === 'rest' || mode === 'idle') dy = Math.floor(time * 1.6) % 2
   }
@@ -65,6 +65,8 @@ export function drawGolem(g: G, e: Enemy, at: At, cx: number, cy: number, time: 
   const open = golemOpen(e)
   lights.push({ x: e.x, y: e.y - 0.3, r: size ? 3.6 : 2.9, color: '#c4fbff', a: 0.5 })
   if (open) lights.push({ x: e.x, y: e.y + (size ? 0.2 : 0.1), r: size ? 1.7 : 1.3, color: GOLD, a: 0.85 })
+  // (The first 0.3 s of a choke, while the blade still clanks: a white flash on the core, not the gold.)
+  else if (mode === 'choke') lights.push({ x: e.x, y: e.y + (size ? 0.2 : 0.1), r: size ? 1.7 : 1.3, color: '#ffffff', a: 0.7 })
   else if (mode === 'tell' || mode === 'pull') lights.push({ x: e.x, y: e.y + 0.2, r: size ? 3 : 2.4, color: '#ff2fa0', a: 0.35 })
 }
 

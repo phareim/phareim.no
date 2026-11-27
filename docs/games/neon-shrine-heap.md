@@ -20,7 +20,7 @@ A line of rooms: one main line east, a siding to the key, a drawbridge for the w
 |---|---|
 | The Hollow | the way in, the stair back up, no foe |
 | The Sorting Floor | the Magnet, and the whole lesson with no foe: a crate comes over the pit onto a plate (the shutter opens), a bolt takes the hero over, a bolt in the rim brings the hero home |
-| The Strongroom | a cart on a rail, sent to the plate in two taps from two pads; the small key behind bars |
+| The Strongroom | a cart on a rail, sent to the plate in two taps from two pads; the small key behind bars (the Echo may hold the plate instead of the cart: accepted) |
 | The Line | two bats, a pit crossed by a pillar's bolt, a lever that lets the drawbridge down, a piece of heart on an islet reached and left by two bolts, the locked door |
 | The Pump House | GROK behind three trap gates, three loose crates, water, the stair down |
 | The Dark Shift | five PHI behind a trap gate, played on the room's chart; then the Big Key's chest, in the light |
@@ -36,7 +36,7 @@ crossings. The bridge's lever stands behind a stub of wall, out of the hook's li
 
 ## The Magnet
 
-A B item, a tap (`engine/magnet.ts`): **B latches the nearest metal ahead; loose metal comes to the hero, the hero
+A B item, a tap (`engine/magnet.ts`): **B latches the nearest metal ahead that can be moved (a crate with no landing is passed over for the next); loose metal comes to the hero, the hero
 goes to bolted metal.**
 
 - Aim: the stick's while it is held, else the way the hero faces. 50 degrees either side, 1.6 to 7.5 tiles centre to
@@ -45,6 +45,7 @@ goes to bolted metal.**
   nothing to take fizzles. B rests 0.4 s after a latch, 0.2 s after a fizzle, and 5 s after it has pulled a PHI
   (`MAGNET.phiRest`): the bracket is gone meanwhile, and the B box (or the deck's B pad) shows the rest running out,
   as an art's does (`magnetRest`).
+- A cart rides its rail to the rail tile level with the hero; it does not come to them.
 - Gold is metal: a PHI is the one foe it moves. It moves no other foe, no pots, drops, keys or bombs, a blast breaks no
   iron, and none of it is saved.
 
@@ -82,7 +83,8 @@ WAY THROUGH. IT KNOWS NOTHING ELSE. The room's three trap gates shut with it and
 
 - It walks at 2 tiles a second. Seeing the hero in its row or column inside 8 tiles, it tells for 0.7 s (a pink lane
   one tile wide to the first wall or iron in the line), then rolls down it at 8 tiles a second without steering.
-  Nothing hurts it while it rolls; the roll costs 2 half hearts.
+  Nothing hurts it while it rolls; the roll costs 2 half hearts. While it tells only the painted lane hurts; on its
+  feet its body hurts by touch.
 - A wall dazes it 1.6 s, open: the blade hurts it only then, 5 at most a daze. Iron in the lane is smashed (home after
   5 s), takes 2 at once and dazes it 3.6 s. The hero behind their own crate is safe.
 - With half its hit points gone the tell is 0.6 s and it drills: it bores through the first iron of a lane (3 tiles a
@@ -105,6 +107,11 @@ appears.
   it tells for 0.6 s (a pink lane), darts down it at 7 tiles a second (2 half hearts) and rests 1.4 s, open. Never more
   than two tell or dart at once.
 - The blade takes one only while it rests or is stunned; a swing begun within 1.4 tiles of any other sends it off.
+  Gold means open for every treasure: the Storm Lamp's beam, a bomb and a thrown pot clank on a PHI that is not open
+  (a stunned or resting one takes them as any small foe does).
+- Restless for 3 s without an aim, it moves along the axis that has a clear line to the hero once lined up on it, or
+  the one with the larger gap when neither has, so no pillar's lee is safe; refused by a wall or a pillar's corner it
+  slides on its spiral alone for 0.7 s.
 - The Magnet pulls one to a tile before the hero, stunned 1.6 s.
 
 **A chart room** (`CellDef.chart`; `render/chartRoom.ts`): while the hero is in it and any foe of it lives, both views
@@ -135,20 +142,23 @@ WAS SOMEBODY'S. It never leaves the middle of its room, the room-local point (8,
   the spot the hero stands on and on to the wall, and spits a piece down it at 8 tiles a second (2 half hearts). It
   does so whether it ate or not, so that nobody standing outside the ring is safe for ever. A bomb it swallowed lands
   on the hero's tile with 1.2 s of fuse and its blast ringed.
-- **The choke.** A striped cart whose tile's middle is inside the ring when a pull opens is swallowed, and nothing is
-  eaten: 4.5 s, harmless to touch, the gold core showing, open. The blade (or the echo's) takes 6 hit points at most a
-  choke and clanks for the first 0.3 s. After 1 s the cart rolls out to its rail's outer end, under anyone on the way.
-  Nothing else ever hurts it.
+- **The choke.** A striped cart whose tile's middle is within half a tile of the ring (a cart is a tile long) when a
+  pull opens is swallowed, and nothing is eaten: 4.5 s, harmless to touch. For the first 0.3 s the core flashes and
+  the blade clanks; then the core and the bar go gold, and the blade (or the echo's) takes 6 hit points at most a
+  choke. After 1 s the cart rolls out to its rail's outer end, under anyone on the way. When the 4.5 s run out it
+  eases for 0.4 s (shuddering, the gold out, still harmless) before the touch can hurt again. Nothing else ever hurts it.
 - **Sending a cart.** From a pad, a tap with the Magnet facing the cart rolls it to the rail's inner end, inside both
   rings. The pads stand 5.15 from its middle, outside both.
 - **Growing.** At the end of the choke that takes it to 9 or less it shakes 1.4 s, untouchable, flashes white and swaps
-  to the larger heap.
+  to the larger heap. Left and met again wounded to 9 or less it stands grown from the first (its radius, its ring, two
+  pulls a round, the shorter rest), without the shake.
 - Three chokes beat it with a cart parked before every pull, four when a pull eats (the two inner scraps in the small
   ring, all four in the large one: 22 hit points in all at most).
 - **The fall.** It fades over 1.2 s and leaves the Weight CREDIT where it stood (`heap.golem`; the item mark
   `heap2.weight`, `atFall`). Then the room says, once: (EVERY PIECE HAS A NAME STENCILLED ON IT. THE NAMES WERE ALWAYS
   THERE. NOBODY READ THEM.) (`heap.golem.down`, set when the fade is over). It stays down. Leaving the room before then
-  finds it whole again, with its four scraps and both carts at home.
+  finds it with the hit points it had (game-wide, a boss keeps its wounds, `enterCell`) and its four scraps and both
+  carts at home.
 
 **Pictures** (`render/spritesGolem.ts`, `render/golemPaint.ts`): `golem_m_*` 48 x 48 and `golem_l_*` 64 x 64, four a
 size (rest, pull, choke, fallen), the same pictures in both views. A tell shudders the rest frame, growing shakes it and

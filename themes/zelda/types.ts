@@ -411,7 +411,7 @@ export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> &
   hop: { name: 'THE HOP', does: 'A SHORT JUMP. NOTHING LANDS ON YOU IN THE AIR.' },
   echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
   lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. FEEDS WHAT WANTS LIGHT.' },
-  magnet: { name: 'THE MAGNET', does: 'LATCHES METAL. LOOSE COMES TO YOU. YOU GO TO BOLTED.' },
+  magnet: { name: 'THE MAGNET', does: 'LATCHES METAL. LOOSE COMES TO YOU. YOU GO TO BOLTED. A CART RIDES ITS RAIL.' },
   duck: { name: 'THE DUCK', does: 'FOES LOOK AT IT. IT WEIGHS ONE. IT FLOATS.' },
 }
 

@@ -6,7 +6,8 @@
  * inside the ring when a pull opens is swallowed instead, and the heap CHOKES: open to the blade, `take` hit points at
  * most. The Magnet sends the carts in along their rails. Half beaten, it grows: a wider ring, two pulls a round.
  *
- * The rounds, in `e.ai.mode`: `rest`, `tell`, `pull` (twice, grown: `ai.second`), `spit`; or `choke`, and `grow` once.
+ * The rounds, in `e.ai.mode`: `rest`, `tell`, `pull` (twice, grown: `ai.second`), `spit`; or `choke`, then `ease` (a harmless
+ * shudder) and `grow` once.
  * Its blows on the hero are the body's touch (`enemies.ts` `contact`, but not while it chokes or grows), the spat
  * piece and its blast. It spits after every pull that did not choke it, eaten or not: else a hero standing outside the
  * ring would be safe for ever once the four scraps were gone.
@@ -46,6 +47,8 @@ export const GOLEM = {
   fuse: 1.2,
   /** A choke: how long, how long the blade still clanks, the most it takes, and when the cart rolls back out. */
   choke: 4.5,
+  /** A harmless shudder after the choke, the gold out, before the touch can hurt again. */
+  ease: 0.4,
   clank: 0.3,
   take: 6,
   cartBack: 1,
@@ -60,10 +63,10 @@ export const GOLEM = {
 const num = (e: Enemy, k: string) => (e.ai[k] as number | undefined) ?? 0
 /** 0 as it comes, 1 grown. */
 export const golemSize = (e: Enemy): 0 | 1 => (e.ai.phase === 2 ? 1 : 0)
-/** Choking and growing, its touch does no harm. */
-export const golemHarmless = (e: Enemy) => e.ai.mode === 'choke' || e.ai.mode === 'grow'
-/** Open to the blade: choking, with this choke's blows not yet all given. */
-export const golemOpen = (e: Enemy) => !e.dead && e.ai.mode === 'choke' && num(e, 'took') < GOLEM.take
+/** Choking, easing off after it and growing, its touch does no harm. */
+export const golemHarmless = (e: Enemy) => e.ai.mode === 'choke' || e.ai.mode === 'ease' || e.ai.mode === 'grow'
+/** Open to the blade (and gold): choking, past the first clanking 0.3 s, with this choke's blows not yet all given. */
+export const golemOpen = (e: Enemy) => !e.dead && e.ai.mode === 'choke' && e.ai.t <= GOLEM.choke - GOLEM.clank && num(e, 'took') < GOLEM.take
 
 /** `bossRules`: the most a blow of `src` may take now; 0: it clanks. Only the blade, only in a choke that has caught. */
 export function golemCap(e: Enemy, src: HitSource): number {
@@ -75,7 +78,7 @@ export function golemCap(e: Enemy, src: HitSource): number {
 const tileMid = (c: Ctx, i: number): Vec => ({ x: (i % c.s.map.w) + 0.5, y: Math.floor(i / c.s.map.w) + 0.5 })
 const flights = (c: Ctx) => (c.s.map.iron ??= { flights: [], away: {}, smashed: [], rest: 0 }).flights
 
-/** The tiles of its room that hold iron of a kind, their middles inside the ring. */
+/** The tiles of its room that hold iron of a kind, their middles inside the ring (a cart's, half a tile of slack: it is as long as a tile). */
 function inRing(c: Ctx, e: Enemy, want: (t: TileChar) => boolean): number[] {
   const m = c.s.map
   const z = cellRect(c.info, e.cell)
@@ -83,7 +86,7 @@ function inRing(c: Ctx, e: Enemy, want: (t: TileChar) => boolean): number[] {
   for (let y = z.y; y < z.y + z.h; y++) {
     for (let x = z.x; x < z.x + z.w; x++) {
       const i = y * m.w + x
-      if (want(m.tiles[i]!) && Math.hypot(x + 0.5 - e.x, y + 0.5 - e.y) <= GOLEM.ring[golemSize(e)]) out.push(i)
+      if (want(m.tiles[i]!) && Math.hypot(x + 0.5 - e.x, y + 0.5 - e.y) <= GOLEM.ring[golemSize(e)] + (m.tiles[i] === '▥' ? 0.5 : 0)) out.push(i)
     }
   }
   return out
@@ -276,9 +279,11 @@ export function golem(c: Ctx, e: Enemy, dt: number) {
   e.y = e.home.y
   e.knock = null
   if (ai.mode === 'idle') {
-    ai.phase = 1
-    e.r = GOLEM.r[0]
-    mode(e, 'rest', GOLEM.rest[0])
+    // (Back in the room wounded to the half or less, it is as it was: grown, `game.ts` `enterCell`.)
+    const grown = golemSize(e)
+    ai.phase = grown ? 2 : 1
+    e.r = GOLEM.r[grown]
+    mode(e, 'rest', GOLEM.rest[grown])
   }
   ai.lean = Math.min(1, num(e, 'lean') + dt)
   stepSpat(c, e, dt)
@@ -299,6 +304,9 @@ export function golem(c: Ctx, e: Enemy, dt: number) {
     mode(e, 'rest', GOLEM.rest[size])
   } else if (ai.mode === 'choke') {
     if (ai.t <= GOLEM.choke - GOLEM.cartBack) cartsBack(c, e)
+    if (ai.t > 0) return
+    mode(e, 'ease', GOLEM.ease)
+  } else if (ai.mode === 'ease') {
     if (ai.t > 0) return
     // Half beaten, it grows: at the end of the choke that took it there, never in a pull.
     if (!size && e.hp <= e.maxHp / 2) { ai.swelled = false; mode(e, 'grow', GOLEM.grow) }
