@@ -541,6 +541,7 @@ export type EnemyKind =
   | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
   | 'copilot' // miniboss: the Road's wagon, run on the screen's own coordinates (`engine/bossCopilot.ts`)
   | 'bard' // miniboss, side maps: hides as a piece of the set, steps out as it; open after its blow (`engine/bossBard.ts`)
+  | 'hallucinator' // boss, side maps: three bodies, one real; open at the bow's gold rail (`engine/bossHallucinator.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -1569,7 +1570,8 @@ export type GameEvent =
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }
-  | { type: 'clank'; x: number; y: number }
+  /** `white`: a spark of no colour (the Hallucinator's false bodies: nothing false is ever gold). */
+  | { type: 'clank'; x: number; y: number; white?: true }
   | { type: 'hurt'; x: number; y: number }
   | { type: 'shock'; x: number; y: number }
   | { type: 'died' }

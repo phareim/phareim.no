@@ -8,16 +8,21 @@
  * shown stays faint for the visit.
  *
  * And the stage's own hazards: the pieces BARD hides in and BARD itself, its stencils, the sandbags, the
- * understudy's lane and the gondola's plate. Pink is a blow to come, and nothing false is ever pink or gold.
+ * understudy's lane and the gondola's plate. THE HALLUCINATOR is here whole (`engine/bossHallucinator.ts`): its three
+ * bodies, its lying white bar and the glass's cyan one, the claim's arrow, its stencils and crates (real and painted
+ * by one piece of code, so that only the stencil and the glass tell them apart), the gold rail, the plate's cone and
+ * ring, and the white puffs. Pink is a blow to come, and nothing false is ever pink or gold.
  *
  * STAND-INS, drawn here in code: the backdrops (joists and fog; painted flats; ropes and rigging; night and the
- * cable); BARD's three pieces (a door, a chest, a rope end); the sandbag and its rope; the plate.
+ * cable); BARD's three pieces (a door, a chest, a rope end); the sandbag and its rope; the plate, its cone and ring;
+ * the gold rail; the white and cyan bars and the claim's arrow.
  */
 import type { Enemy, GameState, MapDef, MapState, Rect } from '../types'
 import { HERO_R, TILE, TOUGH } from '../types'
 import { LENS, glassThings, isFalse, lieGone, type GlassThing } from '../engine/lens'
 import { BARD, BARD_SET, bardBags, bardBoxes, bardOpen, bardOut, bardPiece, bardUnseen, type BardPiece } from '../engine/bossBard'
 import { BAG, bagAt, bagsOf, column, type Box } from '../engine/sandbag'
+import { HALLU, halluAims, halluBodies, halluBoxes, halluLain, halluOpen, halluPaint, halluPopped, halluShown } from '../engine/bossHallucinator'
 import { PLATFORM } from '../world/tiles'
 import { has, mapInfo, type MapInfo } from '../engine/map'
 import { hash2 } from './tiles'
@@ -248,18 +253,20 @@ export function glassThingsPaint(k: SideKit, s: GameState, ink: Ink) {
   // A false chest opened: it was paint and air.
   for (const gone of s.map.lensGone ?? []) {
     if (gone.t >= LENS.puff) continue
-    const f = gone.t / LENS.puff
-    const x = (gone.i % s.map.w) * T - cx + 8
-    const y = Math.floor(gone.i / s.map.w) * T - cy + 9
-    faded(g, 1 - f * f, () => {
-      for (let n = 0; n < 9; n++) {
-        const way = (n / 9) * Math.PI * 2
-        const d = 2 + f * (8 + hash2(n, gone.i, 91) * 5)
-        const big = Math.max(1, Math.round(5 * (1 - f) + hash2(n, gone.i, 92) * 2))
-        r(g, n % 3 ? '#ffffff' : '#d8e4ec', Math.round(x + Math.cos(way) * d - big / 2), Math.round(y + Math.sin(way) * d * 0.7 - f * 5 - big / 2), big, big)
-      }
-    })
+    puff(g, (gone.i % s.map.w) * T - cx + 8, Math.floor(gone.i / s.map.w) * T - cy + 9, gone.t / LENS.puff, gone.i, 1)
   }
+}
+
+/** A white puff round (x, y), `f` (0..1) through it: what was paint, or never there. Never pink. */
+function puff(g: G, x: number, y: number, f: number, seed: number, size: number) {
+  faded(g, 1 - f * f, () => {
+    for (let n = 0; n < 9 * size; n++) {
+      const way = (n / (9 * size)) * Math.PI * 2
+      const d = (2 + f * (8 + hash2(n, seed, 91) * 5)) * size
+      const big = Math.max(1, Math.round((5 * (1 - f) + hash2(n, seed, 92) * 2) * (size > 1 ? 1.5 : 1)))
+      r(g, n % 3 ? '#ffffff' : '#d8e4ec', Math.round(x + Math.cos(way) * d - big / 2), Math.round(y + Math.sin(way) * d * 0.7 - f * 5 - big / 2), big, big)
+    }
+  })
 }
 
 /**
@@ -544,8 +551,207 @@ function plate(k: SideKit) {
 export function actStage(k: SideKit, s: GameState) {
   const info = mapInfo(k.world, s.map.id)
   if (!ofAct(info.def)) return
-  if (s.map.id === 'actgondola') plate(k)
+  if (s.map.id === 'actgondola') { plate(k); hallucinatorStage(k, s) }
   if (s.map.id === 'actbard') { bardSet(k, s); bardBlow(k, s) }
   bags(k, s, info)
   lanes(k, s)
 }
+
+// ---------------------------------------------------------------------------
+// The Hallucinator
+// ---------------------------------------------------------------------------
+
+const GOLD = '#ffd23f'
+/** From a body's middle (`HALLU.y`) down to the floor its picture stands on, tiles. */
+const BODY_FEET = HALLU.floor - HALLU.y
+/** A body's picture is this tall, px. */
+const BODY_TALL = 48
+
+/** How far the glass shows in the boss's room, 0..1: the hero's own look, or the plate's. */
+function bossGlass(s: GameState, lead: Enemy): number {
+  return Math.max((lead.ai.glass as number | undefined) ?? 0, s.zoneIndex === lead.cell ? s.lens?.k ?? 0 : 0)
+}
+
+/**
+ * The frame a body shows. One rule for all three, off one clock, so that a lie looks like the truth; only the real
+ * one, really hurt, shows it.
+ */
+function bodyFrame(bodies: Enemy[], e: Enemy, time: number): string {
+  const lead = bodies[0]!
+  if (e === lead && ((e.ai.hurt as number | undefined) ?? 0) > 0) return 'hallu_hurt'
+  if (lead.ai.mode === 'bow' || lead.ai.mode === 'open') return 'hallu_bow'
+  if (lead.ai.mode === 'claim' && bodies.indexOf(e) !== lead.ai.claimed) return 'hallu_point'
+  return `hallu_${Math.floor(time / 0.4) % 2}`
+}
+
+/**
+ * The three bodies (`renderer.ts` `drawEnemy`, which asks for each: all are drawn on the first's turn), west to east
+ * by where they stand: drawn in the list's order, the real one would always be the one underneath as they cross.
+ * `dx`, `dy`: px from a place on the map to the screen's; `shake`: the first one's shiver in a hitstop.
+ */
+export function drawHallucinator(k: BodyKit, s: GameState, e: Enemy, dx: number, dy: number, shake: number) {
+  const bodies = halluBodies(s.map, e.cell)
+  if (e !== bodies[0]) return
+  for (const b of bodies.filter(b => !halluPopped(b)).sort((a, c) => a.x - c.x)) body(k, s, bodies, b, Math.round(b.x * T) + dx + (b === e ? shake : 0), dy)
+}
+type BodyKit = { g: G; lights: SideKit['lights']; time: number; reduced: boolean }
+
+/** One of them at `x`. A false one fades under the glass to the outline of the very frame it is in. */
+function body(k: BodyKit, s: GameState, bodies: Enemy[], e: Enemy, x: number, dy: number) {
+  const lead = bodies[0]!
+  const { g, time, reduced } = k
+  const c = sprite(bodyFrame(bodies, e, time), e.dir === 'left')
+  // (It floats and bobs; bowing, it stands.)
+  const bowing = lead.ai.mode === 'bow' || lead.ai.mode === 'open'
+  const bob = reduced || bowing ? 0 : Math.round(1 + Math.sin(time * 3))
+  const px = Math.round(x - c.width / 2)
+  const py = Math.round((e.y + BODY_FEET) * T) + dy - c.height - bob
+  const lie = e !== lead
+  const q = lie ? bossGlass(s, lead) : 0
+  const hurt = !lie && ((e.ai.hurt as number | undefined) ?? 0) > 0
+  if (hurt) {
+    const gold = silhouetteOf(c, GOLD)
+    for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]] as const) g.drawImage(gold, px + ox, py + oy)
+  }
+  faded(g, 1 - q, () => g.drawImage(c, px, py))
+  // (It blinks gold as the hurt starts, where other foes blink white: gold says it was the real one.)
+  if (hurt && e.flash > 0.08) faded(g, 0.8, () => g.drawImage(silhouetteOf(c, GOLD), px, py))
+  faded(g, q, () => g.drawImage(outlineOf(c), px, py))
+  k.lights.push(hurt ? { x: e.x, y: e.y, r: 3, color: GOLD, a: 0.85 } : { x: e.x, y: e.y - 0.3, r: 2.2, color: q > 0.5 ? '#2ff3ff' : '#c4fbff', a: 0.55 })
+}
+
+/** The claim's arrow: a white `v`, 1.2 tiles wide, its point at (x, y). */
+function arrow(g: G, x: number, y: number) {
+  const half = Math.round(T * 0.6)
+  const shape = (c: string, grow: number) => {
+    for (let row = 0; row <= half; row++) {
+      const out = half - row
+      const thick = Math.min(5, out + 1)
+      r(g, c, x - out - grow, y - half + row - grow, thick + grow * 2, 1 + grow * 2)
+      r(g, c, x + out - thick + 1 - grow, y - half + row - grow, thick + grow * 2, 1 + grow * 2)
+    }
+  }
+  shape(DARK, 1)
+  shape('#ffffff', 0)
+}
+
+/** Over the bodies, unlit (`renderer.ts` `foeBars`): the white bar that lies, the glass's true one, the claim. */
+export function hallucinatorMarks(g: G, s: GameState, place: (x: number, y: number) => { x: number; y: number }, time: number, reduced: boolean) {
+  const bodies = halluBodies(s.map, s.zoneIndex)
+  const lead = bodies[0]
+  if (!lead || lead.dead) return
+  const q = bossGlass(s, lead)
+  for (const e of bodies) {
+    if (halluPopped(e)) continue
+    const at = place(e.x, e.y + BODY_FEET)
+    const x = Math.round(at.x) - 17
+    const y = Math.round(at.y) - BODY_TALL - 7
+    r(g, DARK, x, y, 34, 5)
+    r(g, '#3a3450', x + 1, y + 1, 32, 3)
+    r(g, '#ffffff', x + 1, y + 1, Math.max(1, Math.round(32 * halluShown(lead))), 3)
+    if (e === lead) faded(g, q, () => {
+      r(g, DARK, x, y + 5, 34, 4)
+      r(g, '#1a4a58', x + 1, y + 6, 32, 2)
+      r(g, '#2ff3ff', x + 1, y + 6, Math.max(1, Math.round((32 * Math.max(0, lead.hp)) / lead.maxHp)), 2)
+    })
+    if (lead.ai.mode === 'claim' && bodies.indexOf(e) === lead.ai.claimed) {
+      arrow(g, Math.round(at.x), y - 4 - Math.round(reduced ? 3 : (0.5 + 0.5 * Math.sin(time * 7)) * T * 0.4))
+    }
+  }
+}
+
+/** A crate with its bottom middle at (x, y), solid as `a` and an outline as `q`. */
+function crate(g: G, x: number, y: number, a: number, q: number) {
+  const c = sprite('hallu_chest')
+  const px = Math.round(x - c.width / 2)
+  const py = Math.round(y - c.height)
+  faded(g, a * (1 - q), () => g.drawImage(c, px, py))
+  faded(g, a * q, () => g.drawImage(outlineOf(c), px, py))
+}
+
+/** A faint cyan light on a painted crate's outline, as on the glass's other outlines (`glint`). */
+const crateGlint = (k: SideKit, x: number, y: number, a: number) => { if (a > 0.004) k.lights.push({ x, y, r: 1.2, color: '#2ff3ff', a: 0.55 * a }) }
+
+/** When a body was first seen fallen, by the painter's clock. */
+const fallen = new WeakMap<Enemy, number>()
+
+/** Under the bodies: the plate's ring and cone, the stencils and crates, the rail, and the bodies that go. */
+function hallucinatorStage(k: SideKit, s: GameState) {
+  const { g, cx, cy, time, reduced, lights } = k
+  const bodies = halluBodies(s.map, s.zoneIndex)
+  const lead = bodies[0]
+  if (!lead) return
+  const floor = HALLU.floor * T - cy
+  const mid = ((HALLU.plate[0] + HALLU.plate[1]) / 2) * T - cx
+  // Those that are gone: the pale ghost of each, and its puff.
+  for (const e of bodies) {
+    let age = -1
+    let at = e.x
+    if (e.dead) {
+      if (!fallen.has(e)) fallen.set(e, time)
+      if (!halluPopped(e)) age = time - fallen.get(e)!
+    } else if (halluPopped(e)) { age = e.ai.pop as number; at = e.ai.gx as number }
+    if (age < 0 || age >= HALLU.pop) continue
+    const f = age / HALLU.pop
+    const ghost = sprite('hallu_ghost')
+    faded(g, 1 - f, () => g.drawImage(ghost, Math.round(at * T - ghost.width / 2) - cx, floor - ghost.height - Math.round(f * 4)))
+    puff(g, Math.round(at * T) - cx, floor - 22, f, Math.round(at * 7), 2)
+  }
+  if (lead.dead) return
+  const q = bossGlass(s, lead)
+  // The spotlight: a ring on the plate while it is ready, a cone from the ceiling while it holds the glass up.
+  if (!lead.ai.plate) {
+    const wide = 20 + (reduced ? 0 : Math.round(Math.sin(time * 4) * 2))
+    for (let i = 0; i < 28; i++) {
+      const way = (i / 28) * Math.PI * 2
+      r(g, '#b4f6ff', Math.round(mid + Math.cos(way) * wide - 1), Math.round(floor - 2 + Math.sin(way) * 5), 2, 1)
+    }
+    lights.push({ x: (HALLU.plate[0] + HALLU.plate[1]) / 2, y: HALLU.floor - 0.3, r: 1.6, color: '#2ff3ff', a: 0.5 })
+  }
+  const spot = (lead.ai.glass as number | undefined) ?? 0
+  if (spot > 0) {
+    const top = T
+    for (let y = top; y < floor - 2; y += 2) {
+      const half = Math.round(5 + ((y - top) / (floor - top)) * (T - 5))
+      faded(g, 0.13 * spot, () => r(g, '#2ff3ff', mid - half, y, half * 2, 2))
+      faded(g, 0.5 * spot, () => { r(g, '#b4f6ff', mid - half, y, 1, 2); r(g, '#b4f6ff', mid + half - 1, y, 1, 2) })
+    }
+    for (let y = 3; y < HALLU.floor; y += 3) lights.push({ x: (HALLU.plate[0] + HALLU.plate[1]) / 2, y, r: 1.8, color: '#2ff3ff', a: 0.4 * spot })
+  }
+  // The stencils, then what comes down on and beside them.
+  const wt = (lead.ai.wt as number | undefined) ?? 0
+  const boxes = lead.ai.mode === 'blows' ? halluBoxes(lead) : []
+  danger(k, boxes, wt / HALLU.tell)
+  // (A body stands taller and wider than a stencil: along the floor's edge, under everybody's feet, none is ever hidden.)
+  for (const b of boxes) {
+    const x = Math.round(b.x0 * T) - cx
+    const w = Math.round(b.x1 * T) - cx - x
+    r(g, DARK, x - 1, floor + 1, w + 2, 6)
+    r(g, PINK, x, floor + 2, w, 4)
+  }
+  const lain = halluLain(lead)
+  if (lain) {
+    const a = lain.t <= HALLU.lie ? 1 : 1 - (lain.t - HALLU.lie) / HALLU.fade
+    for (const x of lain.real) crate(g, x * T - cx, floor, a, 0)
+    for (const x of lain.painted) { crate(g, x * T - cx, floor, a, q); crateGlint(k, x, HALLU.floor - 0.7, a * q) }
+  }
+  if (lead.ai.mode === 'blows' && wt >= HALLU.tell && wt < HALLU.tell + HALLU.fall) {
+    const p = (wt - HALLU.tell) / HALLU.fall
+    const y = 2 * T + 8 - cy + (floor - (2 * T + 8 - cy)) * p * p
+    for (const x of halluAims(lead)) crate(g, x * T - cx, y, 1, 0)
+    for (const x of halluPaint(lead)) { crate(g, x * T - cx, y, 1, q); crateGlint(k, x, (y + cy) / T - 0.7, q) }
+  }
+  // The gold rail: along the whole ceiling, over nobody in particular. It says when.
+  if (halluOpen(lead)) {
+    const x = HALLU.walls[0] * T - cx
+    const w = (HALLU.walls[1] - HALLU.walls[0]) * T
+    const y = T - cy
+    const tall = Math.round(T * 0.4)
+    r(g, DARK, x, y - 1, w, tall + 2)
+    r(g, GOLD, x, y, w, tall)
+    r(g, '#fff4ff', x, y + 1, w, 1)
+    faded(g, 0.35, () => r(g, GOLD, x, y + tall + 1, w, 3))
+    for (let i = HALLU.walls[0] + 1; i < HALLU.walls[1]; i += 2) lights.push({ x: i, y: 1.3, r: 2.2, color: GOLD, a: 0.75 })
+  }
+}
+

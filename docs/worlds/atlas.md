@@ -244,7 +244,8 @@ Nine side maps under and above Fogstage's stage, on one keyring (`actthree`),
 from the stair in `understage` to the RAINCHECK's gondola: the Underside (THE
 LENS), the Three Doors, the Boards (BARD), the Flats, the Wings, the Fly Loft
 (sandbags), the Dressing Room (the Understudy, the Big Key), the Cable and the
-Gondola, whose way out to the mast's gangway is shut. Room by room:
+Gondola, where THE HALLUCINATOR sits on the Weight SOURCES and whose stair out,
+open once it falls, comes down at the mast's gangway beside VEGA. Room by room:
 [act-three.md](act-three.md).
 
 ### THE UNDERGLOW (`underglow1`…`underglow3`)

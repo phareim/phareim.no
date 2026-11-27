@@ -78,7 +78,7 @@ export function glassThings(info: MapInfo): readonly GlassThing[] {
 export const lensUp = (s: Pick<GameState, 'lens'>) => !!s.lens?.up
 
 /** The foes that declare the glass: their room rings even with nothing marked in it. */
-const GLASS_FOES: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['bard'])
+const GLASS_FOES: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['bard', 'hallucinator'])
 export const bossLens = (e: Enemy) => !e.dead && GLASS_FOES.has(e.kind)
 
 /** The screen the hero is on: the room, or the 12 rows of a tall one that hold his feet. */

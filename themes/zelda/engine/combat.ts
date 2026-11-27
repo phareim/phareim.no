@@ -8,6 +8,7 @@ import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
 import { bardOpen, bardRule, bardStruck } from './bossBard'
+import { halluFall, halluMercy, halluOpen, halluRule, halluStruck } from './bossHallucinator'
 import { heapRule, phiOpen } from './heapFoes'
 import { COPILOT, copilotStill } from './bossCopilot'
 import { chance, clamp, nextId, rnd } from './util'
@@ -120,6 +121,9 @@ BOSSES.add('orca')
 export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 // Act Three's BARD (`bossBard.ts`): heavy, but no boss: the gate it holds shut is its reward.
 BIG.add('bard')
+// Act Three's boss (`bossHallucinator.ts`): three bodies of one kind.
+BIG.add('hallucinator')
+BOSSES.add('hallucinator')
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -171,6 +175,7 @@ export function bossOpen(e: Enemy): boolean {
     // Stalled in the road, while this stall still has blows to give.
     case 'copilot': return mode === 'stall' && ((e.ai.took as number | undefined) ?? 0) < COPILOT.take
     case 'bard': return bardOpen(e)
+    case 'hallucinator': return halluOpen(e)
     default: return false
   }
 }
@@ -393,6 +398,14 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       bardStruck(e, opt)
       return hit
     }
+    // THE HALLUCINATOR: the blade, on the real body, in the opening; its own file says the rest.
+    case 'hallucinator': {
+      const cap = halluRule(c, e, blade(src))
+      if (cap === null) { halluMercy(e, src === 'echo', opt); return false }
+      const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
+      halluStruck(c, e, src === 'echo', opt)
+      return hit
+    }
     case 'deepseek':
       if (ai.mode === 'under' || ai.mode === 'rise') {
         if (src !== 'hook') return false
@@ -498,6 +511,8 @@ export function killEnemy(c: Ctx, e: Enemy) {
   if (e.once) setFlag(c.s, e.once)
   // A reward that waits on this fall and is to lie where it happened.
   for (const p of c.s.map.pickups) if (p.atFall && p.appear && 'flag' in p.appear && p.appear.flag === e.once) Object.assign(p, footing(c, e))
+  // The Hallucinator's other two bodies go with it (heavy ones, which the sweep below leaves).
+  if (e.kind === 'hallucinator') halluFall(c, e)
   // The Parrot's own bombs go with it.
   if (e.kind === 'parrot') c.s.map.bombs = c.s.map.bombs.filter(b => !b.by)
   if (BOSSES.has(e.kind)) {

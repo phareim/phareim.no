@@ -13,6 +13,7 @@ import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
 import { parrot, parrotHarmless } from './parrot'
 import { bard } from './bossBard'
+import { hallucinator } from './bossHallucinator'
 import { sycophant } from './bossSycophant'
 import { copilot } from './bossCopilot'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
@@ -191,6 +192,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'orca': orca(c, e, dt); break
     case 'copilot': copilot(c, e, dt); break
     case 'bard': bard(c, e, dt); break
+    case 'hallucinator': hallucinator(c, e, dt); break
   }
   contact(c, e)
 }

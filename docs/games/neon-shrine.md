@@ -307,7 +307,7 @@ classic picture. `/?view=<id>` asks for one.
   glass has shown them: their tile is air, nothing stands on it and A offers
   nothing. Once shown they are solid and drawn at 45 % for the rest of the
   visit (`MapState.lensSeen`), an opened chest like any other. Nothing of it is
-  saved. A boss may declare the glass (`bossLens`: BARD), and its room
+  saved. A boss may declare the glass (`bossLens`: BARD and THE HALLUCINATOR), and its room
   then rings everywhere. The validator checks the marks (`lensProblems`); the
   painter is `render/actthreePaint.ts`.
 - **Sandbags** (`engine/sandbag.ts`, `{ t: 'sandbag', period?, phase? }`, side
@@ -1060,7 +1060,8 @@ classic picture. `/?view=<id>` asks for one.
     - *Day and night.* It stands where it is at every hour: no rank, no twin
       (`settleFoes`).
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
-    DeepSeek, the twins, Mixtral, the Stochastic Parrot, COPILOT, the Sycophant). The tough foes' bar over each of their heads, in
+    DeepSeek, the twins, Mixtral, the Stochastic Parrot, COPILOT, the Sycophant, BARD, THE HALLUCINATOR, which
+    alone wears a bar of its own, see below). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
     36 for the king): what is left is pink, gold while the boss is open
     (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
@@ -1099,6 +1100,42 @@ classic picture. `/?view=<id>` asks for one.
     so there is no fanfare. Its fight is played in
     `tests/zelda-act-three.test.mjs`. Act Three's other miniboss, the
     Understudy, is a plain tough sentry.
+  - *THE HALLUCINATOR* (`hallucinator`, Act Three's boss; hp 10;
+    `engine/bossHallucinator.ts`, every number in `HALLU`; a side map's, the
+    arena's floor, walls and three slots being fixed numbers). Its card, the
+    first time in its room: THE HALLUCINATOR. IT IS QUITE SURE. ASK IT
+    ANYTHING. Three bodies stand as three foes of the kind, one real: the first
+    in the room's list, which holds the hit points and the fight's state. A
+    round: the *shuffle* (1.4 s: they glide to new slots through one another in
+    the middle, so that none can be followed, and the real one ends in another
+    slot than it began in); the *claim* (1.6 s: two point at the third under a
+    white arrow, and the claimed one is always false); the *blows* (3 waves of
+    2.2 s: two boxes 2 tiles wide stencilled for 1.1 s, one on the hero and one
+    4 tiles aside, then crates that hurt 2 half hearts to a hero standing in a
+    box, and lie harmless); the *bow* (0.8 s dark, then the *open*, 2 s, while a
+    gold rail runs along the whole ceiling and names nobody). Only in the open
+    does the blade (the echo's with it) hurt the real body, 4 hit points at
+    most an opening, and a cut pops a false one until the next shuffle. Every
+    other blow is the same white clank on all three. Its touch never hurts.
+    - *The bar lies.* A white bar over each body, the same on all: the truth
+      rounded up to a quarter at each shuffle, less a twelfth for every blow
+      that did nothing, never below a twelfth. A real hurt does not move it: it
+      shows as the hurt pose and a gold flash on the real body.
+    - *The glass* draws the two false bodies as the outline of the frame they
+      are in, and puts a thin cyan bar with the true hit points under the real
+      one's. The *plate* on the floor does the same for whoever steps on it,
+      with or without the Lens, until that round's blows are over; it is ready
+      again at the next shuffle (a cyan ring; a cone of light while it works).
+    - *Half* (6 hit points or fewer): the shuffle swaps twice in 2 s, a round
+      has 4 waves, each with two painted crates that fall with the real ones,
+      unstencilled and harmless (outlines under the glass), and the open is 1.8 s.
+    - *Falling.* All three go in a white puff; the exit gate opens and the
+      Weight SOURCES lies on the floor. A death or a way out of the room starts
+      the fight over: the arena is a map of its own, so the rule that a boss
+      keeps its wounds when the hero steps out never reaches it.
+    - Its pictures (`render/spritesHallucinator.ts`) are drawn from the side,
+      their pink, gold and cyan worn as lilac and teal. Its fight is played in
+      `tests/zelda-act-three.test.mjs`.
   - *Mixtral* (`mixtral`, the Echo Barrow's miniboss; hp 10, radius 0.8;
     `engine/bosses.ts`, every number in `MIXTRAL`). Its card, the first time
     in its room: MIXTRAL. EIGHT OPINIONS AND ONE HEADACHE. It walks at 1.8
@@ -1730,8 +1767,8 @@ squares. Two of it:
     It keeps the room of the longest, so the page does not move with the cursor.
   - **ALWAYS**: what needs no slot, each shown once owned (`ALWAYS`): the blade or
     the Arc Blade, the big bomb bag, the Sun Prism, THE NO (the Steamhouse's),
-    THE STOMP (the Late Show's) and THE LENS, which nothing grants yet (their
-    flags: `item:no`, `item:stomp`, `item:lens`).
+    THE STOMP (the Late Show's) and THE LENS (Act Three's; their flags:
+    `item:no`, `item:stomp`, `item:lens`).
   - **The Weights**: a beam with seven hooks; a Weight held hangs in its pan with
     its own icon, an empty pan is a dim ring, `n/7` beside it. Not drawn until
     the first is held.
@@ -2064,7 +2101,8 @@ heart container's jingle and a picture of its own
 (`item_weight_meaning` … `item_weight_sources`: the brass weight, each with
 its band; `item_weight` is the plain one), and the ITEMS page hangs each on
 its beam with the same picture. The Echo Barrow gives MEANING when the Parrot
-falls, and the Steamhouse gives NO when the Sycophant does
+falls, the Steamhouse gives NO when the Sycophant does, and Act Three gives
+SOURCES when the Hallucinator does
 (`docs/worlds/sacred-weights.md` is the plan). A reward that is to lie where a foe fell is an `item` mark with
 `appear: { flag }` (the foe's `once`) and `atFall`.
 

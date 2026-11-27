@@ -26,6 +26,7 @@ import { FOE_HURT_RAW } from './foeHurtSprites'
 import { WILDLIFE_RAW } from './wildlifeSprites'
 import { EXAM_RAW } from './spritesExamination'
 import { FRONTIER_RAW } from './frontierSprites'
+import { HALLUCINATOR_SPRITES } from './spritesHallucinator'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
 
@@ -1623,6 +1624,7 @@ const RAW: Record<string, Rows> = {
   ...EXAM_RAW,
   ...HOUSE_RAW,
   ...BANNER_RAW,
+  ...HALLUCINATOR_SPRITES,
 }
 
 

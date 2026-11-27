@@ -57,7 +57,7 @@ import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { paintSide, sideScale, type SideKit } from './side'
-import { BARD_SCALE, drawBard } from './actthreePaint'
+import { BARD_SCALE, drawBard, drawHallucinator, hallucinatorMarks } from './actthreePaint'
 import { bardOut } from '../engine/bossBard'
 import { eraFoes, eraLight, toneSprite } from './eras'
 import { drawCard } from './card'
@@ -610,11 +610,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
             flashColor = '#ffffff'
           }
           break
-        case 'clank':
-          spark(e.x, e.y, 5, '#ffd23f', 5, 0.25)
-          fx.push({ kind: 'star', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.08, color: '#ffd23f', size: 7, lift: 5 })
-          pulse(e.x, e.y, 1.8, '#ffd23f', 0.12)
+        case 'clank': {
+          const color = e.white ? '#ffffff' : '#ffd23f'
+          spark(e.x, e.y, 5, color, 5, 0.25)
+          fx.push({ kind: 'star', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.08, color, size: 7, lift: 5 })
+          pulse(e.x, e.y, 1.8, color, 0.12)
           break
+        }
         case 'cut':
           for (let i = 0; i < 6; i++) fx.push({ kind: 'leaf', x: e.x, y: e.y, vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 4, t: 0, life: 0.5 + Math.random() * 0.3, color: e.tile === '*' ? '#46b595' : '#56c9b8', size: 1 })
           break
@@ -1114,6 +1116,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Neon while it drives, its horn's face for the tell, rust while it stands (and as it spins out).
       case 'copilot': return { name: e.dead || e.ai.mode === 'stall' || e.ai.mode === 'rev' ? 'copilot_rust' : e.ai.mode === 'honk' ? 'copilot_honk' : 'copilot_neon', flip: false }
       case 'sycophant': return { name: sycophantSprite(e, time), flip: false }
+      // (Its own painter picks the frame by the whole fight's state: `actthreePaint.ts`.)
+      case 'hallucinator': return { name: 'hallu_0', flip: e.dir === 'left' }
       // Drawn from the front: singing while it tells and strikes, dazed while it is open.
       case 'bard': return { name: e.ai.mode === 'open' ? 'bard_dazed' : 'bard_sing', flip: e.dir === 'left' }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
@@ -1250,6 +1254,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       drawBard({ g, lights }, e, x + shiver(e), feet - 1, name, flip, flashing(e))
       return
     }
+    if (e.kind === 'hallucinator') {
+      // (Its own painter: one fight's state shows on three bodies, and the glass thins the false ones.)
+      drawHallucinator({ g, lights, time, reduced: frameReduced }, s, e, -cx, -cy, shiver(e))
+      return
+    }
     if (e.kind === 'parrot') {
       // Off the ground in its hops, over its own shadow.
       feet -= Math.round(((e.ai.z as number | undefined) ?? 0) * T)
@@ -1355,6 +1364,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (roomed(def.kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       // BARD behind the set, or still one of its pieces: no bar until it is out (it would say where).
       if (e.kind === 'bard' && !bardOut(e)) continue
+      // The Hallucinator's bars lie, and are its own (`hallucinatorMarks`, below).
+      if (e.kind === 'hallucinator') continue
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
@@ -1376,6 +1387,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       g.fillStyle = color
       g.fillRect(x + 1, y + 1, Math.max(1, Math.round(((w - 2) * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
     }
+    hallucinatorMarks(g, s, place, time, frameReduced)
   }
 
   /**
