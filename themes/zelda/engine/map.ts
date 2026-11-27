@@ -144,7 +144,7 @@ function buildInfo(def: MapDef): MapInfo {
     else if (e.t === 'rail') info.rails.push({ tiles: Array.from({ length: e.len }, (_, k) => idx + k * (e.dir === 'right' ? 1 : w)), dir: e.dir, cell })
     else if (e.t === 'ironpad') info.ironPads.push({ idx, dir: e.dir, cell })
     else if (e.t === 'pad') info.pads.push({ id: e.id ?? `${def.id}.${m.x},${m.y}`, x: m.x, y: m.y, size: e.size ?? 1, worth: e.handin ? 0 : e.worth ?? (e.pic === 'cactus' ? 2 : -2), hold: e.hold ?? EXAM.hold, when: e.when, pic: e.pic, handin: !!e.handin, cell })
-    else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open, ...(e.latch ? { latch: e.latch } : {}) }) })
+    else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: ownRun(info, floodRun(base, w, h, idx, 'X'), cell), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open, ...(e.latch ? { latch: e.latch } : {}) }) })
   }
   // A trap gate is its own room's: one in the doorway beyond the rim, touching it, is another gate.
   for (const g of info.gates) if (g.trap) g.tiles = g.tiles.filter(i => cellIndex(info, (i % w) + 0.5, Math.floor(i / w) + 0.5) === g.cell)
@@ -173,6 +173,16 @@ function buildInfo(def: MapDef): MapInfo {
   })
   info.scenery = sceneryOf(info)
   return info
+}
+
+/**
+ * A gate's tiles out of the run it stands in: where the run goes on into a room that has a gate mark of its own (a
+ * room's trap gate back to back with the next room's shutter, across one doorway), that room's tiles are its gate's.
+ */
+function ownRun(info: MapInfo, run: number[], cell: number): number[] {
+  const roomOf = (i: number) => cellIndex(info, (i % info.w) + 0.5, Math.floor(i / info.w) + 0.5)
+  const theirs = new Set(info.marks.filter(m => m.ent.t === 'gate' && run.includes(m.y * info.w + m.x)).map(m => roomOf(m.y * info.w + m.x)).filter(c => c !== cell))
+  return theirs.size ? run.filter(i => !theirs.has(roomOf(i))) : run
 }
 
 /** Ground a road runs on: a tile with two road tiles beside it is on the run of one (a path's dead end is not). */

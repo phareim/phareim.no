@@ -6,20 +6,22 @@
  *
  * The side step calls in twice: `stompPress` before an air cut is started (swing or stomp), `stompDive` in place of
  * gravity while a dive is under way (it resolves the impact). Neither reads B: height is B's, and a thumb that has
- * let B go to reach A loses nothing (a press on the way up over a pad or a crack waits for the top of the jump).
+ * let B go to reach A loses nothing (a press on the way up that the rise will bring over something, a foe, a pad or
+ * a crack, waits for the top of the jump).
  */
 import type { Enemy, EnemyKind, Input } from '../types'
-import { HERO_R } from '../types'
+import { HERO_R, HERO_SPEED } from '../types'
 import { PLATFORM, SPRING } from '../world/tiles'
 import { BIG, hitEnemy, toughOpen, type Ctx } from './combat'
 import { enemyActive } from './enemies'
 import { moveCircle, setFlag, solidTile, tileAt } from './map'
-import { FOOT, footing, SIDE, sideOf, type SideHero } from './side'
+import { corner, FOOT, footing, SIDE, sideOf, type SideHero } from './side'
+import { copilotStill } from './bossCopilot'
 
 /**
  * Tiles, tiles/s and seconds. Reach: a foe `across` from the hero's middle and at least `below` the feet; a pad or a
- * crack `wide` across; either at most `deep` down. `rise`: faster than this upward is still rising (no foe is taken,
- * and a press over a pad or a crack waits, up to `queue`). `buffer`: a press this long before something comes into
+ * crack `wide` across; either at most `deep` down. `rise`: faster than this upward is still rising (nothing is dived
+ * at yet, and a press with something ahead of the rise waits, up to `queue`). `buffer`: a press this long before something comes into
  * reach still counts. `dive`, `aim`: the dive's speed down and its steering. `bounce`: off a foe and off a pad, in
  * held jumps.
  */
@@ -36,30 +38,32 @@ const NO_STOMP: ReadonlySet<EnemyKind> = new Set<EnemyKind>(['zapper', 'eye', 's
 const TILES: Array<{ ch: string; on: 'spring' | 'crack' }> = [{ ch: SPRING, on: 'spring' }, { ch: '%', on: 'crack' }]
 const ORDER = { foe: 0, spring: 1, crack: 2, ground: 3 } as const
 
-/** Is the way down from the hero to (x, y) free of floors? */
-function clearTo(c: Ctx, x: number, y: number): boolean {
-  const h = c.s.hero
-  const n = Math.ceil(Math.hypot(x - h.x, y - h.y) * 4)
+/** Is this a foe the stomp comes down on? (COPILOT only while it stands still: a wagon on the move is a plain jump.) */
+const takes = (e: Enemy) => !NO_STOMP.has(e.kind) && (e.kind !== 'copilot' || copilotStill(e))
+
+/** Is the way from (x0, y0) down to (x, y) free of floors? */
+function clearTo(c: Ctx, x0: number, y0: number, x: number, y: number): boolean {
+  const n = Math.ceil(Math.hypot(x - x0, y - y0) * 4)
   for (let k = 1; k < n; k++) {
-    const tx = Math.floor(h.x + ((x - h.x) * k) / n)
-    const ty = Math.floor(h.y + ((y - h.y) * k) / n)
+    const tx = Math.floor(x0 + ((x - x0) * k) / n)
+    const ty = Math.floor(y0 + ((y - y0) * k) / n)
     if (tileAt(c.s.map, tx, ty) === PLATFORM || solidTile(c.w, c.s.map, tx, ty, 'hero')) return false
   }
   return true
 }
 
 /**
- * The thing to come down on from here: the nearest across, a foe before a pad before a crack at the same distance.
- * `foes`: only once the hero is falling or at the top of the jump.
+ * The thing to come down on with the feet at (x, feet): the nearest across, a foe before a pad before a crack at the
+ * same distance.
  */
-export function stompAim(c: Ctx, x: number, feet: number, foes: boolean): StompAim | null {
+export function stompAim(c: Ctx, x: number, feet: number): StompAim | null {
   const s = c.s
   const found: Array<{ d: number; aim: StompAim }> = []
-  if (foes) for (const e of s.map.enemies) {
-    if (!enemyActive(c, e) || NO_STOMP.has(e.kind)) continue
+  for (const e of s.map.enemies) {
+    if (!enemyActive(c, e) || !takes(e)) continue
     const d = Math.abs(e.x - x)
     const down = e.y - feet
-    if (d <= STOMP.across && down >= STOMP.below && down <= STOMP.deep && clearTo(c, e.x, e.y)) found.push({ d, aim: { on: 'foe', id: e.id } })
+    if (d <= STOMP.across && down >= STOMP.below && down <= STOMP.deep && clearTo(c, x, feet - HERO_R, e.x, e.y)) found.push({ d, aim: { on: 'foe', id: e.id } })
   }
   for (let tx = Math.floor(x - STOMP.wide - 0.5); tx <= Math.floor(x + STOMP.wide + 0.5); tx++) {
     const d = Math.abs(tx + 0.5 - x)
@@ -77,10 +81,25 @@ export function stompAim(c: Ctx, x: number, feet: number, foes: boolean): StompA
   return found[0]?.aim ?? null
 }
 
-/** Where the hero will be at the top of this rise, to see whether a pad or a crack will lie under it. */
-function atApex(c: Ctx, sd: SideHero): { x: number; feet: number } {
-  const t = Math.max(0, -sd.vy / SIDE.riseGravity)
-  return { x: c.s.hero.x + sd.vx * t, feet: c.s.hero.y + HERO_R + (sd.vy * t) / 2 }
+/**
+ * Will this rise bring something under the hero? The path from here as the stick bends it, as high as a held jump
+ * goes, and on level from its top for as long as a press may wait. A foe counts as a pad or a crack does.
+ */
+function ahead(c: Ctx, sd: SideHero, stick: number): boolean {
+  const want = Math.abs(stick) > SIDE.dead ? Math.sign(stick) * HERO_SPEED : 0
+  const dt = 1 / 30
+  let { x } = c.s.hero
+  let feet = c.s.hero.y + HERO_R
+  let { vx, vy } = sd
+  for (let t = 0; t <= STOMP.queue; t += dt) {
+    if (stompAim(c, x, feet)) return true
+    vx += Math.max(-SIDE.airAccel * dt, Math.min(SIDE.airAccel * dt, want - vx))
+    x += vx * dt
+    const up = Math.min(0, vy + SIDE.riseGravity * dt)
+    feet += ((vy + up) / 2) * dt
+    vy = up
+  }
+  return false
 }
 
 function dive(c: Ctx, sd: SideHero, aim: StompAim) {
@@ -120,17 +139,16 @@ export function stompPress(c: Ctx, inp: Input, dt: number): Input {
   if (inp.aPress) {
     // On keys, down and A always dives.
     if (!inp.autoFace && inp.move.y > 0.7 && inp.move.y > Math.abs(inp.move.x)) {
-      dive(c, sd, stompAim(c, h.x, feet, true) ?? { on: 'ground' })
+      dive(c, sd, stompAim(c, h.x, feet) ?? { on: 'ground' })
       return taken()
     }
-    const top = rising ? atApex(c, sd) : null
-    if (top && (stompAim(c, h.x, feet, false) ?? stompAim(c, top.x, top.feet, false))) {
+    if (rising && ahead(c, sd, inp.move.x)) {
       sd.wait = STOMP.queue
       waits = true
     } else sd.press = STOMP.buffer
   }
   if (!rising && ((sd.press ?? 0) > 0 || (sd.wait ?? 0) > 0)) {
-    const aim = stompAim(c, h.x, feet, true)
+    const aim = stompAim(c, h.x, feet)
     // (A cut that has already landed is the press's answer.)
     if (aim && !(h.swing?.hit.length && !inp.aPress)) {
       dive(c, sd, aim)
@@ -196,10 +214,12 @@ export function stompDive(c: Ctx, sd: SideHero, dt: number) {
   h.x = moveCircle(c.w, m, h.x, h.y, HERO_R, sd.vx * dt, 0).x
   sd.vy = STOMP.dive
   sd.ground = false
+  const lip = corner(c, STOMP.dive * dt)
+  if (lip !== null) h.y = lip - HERO_R - 1e-4
   const f0 = h.y + HERO_R
   const f1 = f0 + STOMP.dive * dt
   for (const e of m.enemies) {
-    if (!enemyActive(c, e) || NO_STOMP.has(e.kind)) continue
+    if (!enemyActive(c, e) || !takes(e)) continue
     if (Math.abs(e.x - h.x) < e.r + HERO_R && f1 >= e.y - e.r - 0.15 && h.y < e.y) { onFoe(c, sd, e); return }
   }
   for (let ty = Math.ceil(f0 - 0.02); ty <= Math.floor(f1 + 0.001); ty++) {

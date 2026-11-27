@@ -22,7 +22,7 @@ before(async () => {
   font = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 })
 
-const MAPS = ['showbooth', 'reel1958', 'reel1986']
+const MAPS = ['showbooth', 'reel1958', 'reel1986', 'chase1986', 'reel2086', 'weaver']
 const json = x => JSON.parse(JSON.stringify(x))
 /** The tab reloaded: the save as it is stored, and the game begun where a page load begins it (`loadSpot`). */
 function reload(s) {
@@ -31,7 +31,7 @@ function reload(s) {
 }
 
 describe('the Late Show', () => {
-  it('is played from the door in the screen to the lens of 1986, with a reload on the way', () => {
+  it('is played from the door in the screen to the stair under the great door, with a reload on the way', () => {
     let s = Z.createGame(Z.WORLD, { seed: 11, at: { map: 'rerun', entry: 'screen' } })
     Z.grant(s, 'sword')
     let P = reelPlayer(Z, s)
@@ -63,24 +63,83 @@ describe('the Late Show', () => {
     assert.equal(s.map.id, 'showbooth', P.where())
     assert.equal(s.entry.entry, 'lens1')
 
-    // Halfway: the tab reloads, and the booth is where it comes back, with everything done as it was.
-    s = reload(s)
-    P = reelPlayer(Z, s)
-    P.idle(30)
-    assert.deepEqual([s.map.id, s.entry.entry], ['showbooth', 'lens1'])
-    assert.ok(s.inv.stomp && Z.keyCount(s) === 1)
-
-    // The locked lens opens to the hero's own bump, and 1986 lies behind it.
+    // The locked lens opens to the hero's own bump, and 1986 lies behind it. The Snack Bar is shut.
+    assert.equal(Z.tileAt(s.map, 31, 5), 'X', 'the Snack Bar waits for the next feature')
     P.walkTo(27, 3)
     P.until(() => Z.tileAt(s.map, 27, 2) === '.', { x: 0, y: -1 })
     assert.equal(Z.keyCount(s), 0)
     P.warpBy({ x: 0, y: -1 }, 'reel1986')
-    assert.equal(s.entry.entry, 'lens')
-    // Reel two is its floor and its way out so far.
+    assert.equal(s.card?.title, '1986.')
+    P.card()
+
+    // The Video Store: both pads, the heart piece, and the door on the balcony to the Road.
+    P.videoStore()
+    assert.equal(s.inv.pieces, 1, 'the heart piece')
+    assert.equal(s.card?.title, 'MEANWHILE...')
+    P.card()
+    // The screen holds still while COPILOT is named, and starts a moment after.
+    P.idle(2)
+    assert.deepEqual([s.mode, s.dialog?.lines[0]], ['dialog', 'COPILOT. ONE OF THEM IS DRIVING.'])
+    P.idle(120)
+    assert.equal(s.map.chase.left, 0, 'nothing moves under the words')
+    P.settle()
+    // COPILOT, by the blade alone; and all along, its bar is gold exactly while the blade bites.
+    const seen = new Set()
+    P.theRoad({
+      watch(car, i) {
+        if (car.dead || car.ai.mode === 'idle' || (seen.has(car.ai.mode) && i % 5)) return
+        seen.add(car.ai.mode)
+        const copy = structuredClone(s)
+        const e = copy.map.enemies.find(o => o.id === car.id)
+        e.invuln = 0
+        const hp = e.hp
+        Z.hitEnemy(Z.ctx(Z.WORLD, copy, []), e, 1, e.x - 2, e.y, 'sword')
+        assert.equal(e.hp < hp || e.dead, Z.bossOpen(car), `COPILOT ${car.ai.mode}: the bar and the blade differ`)
+      },
+    })
+    assert.deepEqual([...seen].sort(), ['behind', 'honk', 'leave', 'pass', 'rev', 'stall'])
+    assert.deepEqual([s.map.id, s.entry.entry, Z.keyCount(s)], ['showbooth', 'lens2', 1])
+
+    // Halfway: the tab reloads, and the booth is where it comes back, with everything done as it was.
+    s = reload(s)
+    P = reelPlayer(Z, s)
     P.idle(30)
-    P.warpBy({ x: -1, y: 0 }, 'showbooth')
-    assert.equal(s.entry.entry, 'lens2')
-    assert.equal(s.hero.hp > 0, true)
+    assert.deepEqual([s.map.id, s.entry.entry], ['showbooth', 'lens2'])
+    assert.ok(s.inv.stomp && Z.keyCount(s) === 1 && Z.has(s, 'lateshow.copilot'))
+
+    // COPILOT's fall has opened the gate. The Snack Bar's own shuts behind him until the Usher is down.
+    assert.equal(Z.tileAt(s.map, 31, 5), '.', 'the gate is open')
+    P.walkTo(35, 5)
+    P.idle(10)
+    P.settle()
+    assert.ok(P.heard.some(l => /SEATS ARE ASSIGNED/.test(l)))
+    P.idle(2)
+    assert.equal(Z.tileAt(s.map, 32, 5), 'X', 'shut behind him')
+    P.usher()
+    assert.equal(Z.tileAt(s.map, 32, 5), '.', 'and open again')
+    P.walkTo(40, 3)
+    P.until(() => Z.tileAt(s.map, 40, 2) === '.', { x: 0, y: -1 })
+    assert.equal(Z.keyCount(s), 0)
+    P.warpBy({ x: 0, y: -1 }, 'reel2086')
+    assert.equal(s.card?.title, '2086.')
+    P.card()
+
+    P.overgrownLot()
+    assert.equal(Z.keyCount(s), 1, `the third key: ${P.where()}`)
+    P.lastReel()
+    assert.ok(Z.hasBigKey(s, 'lateshow'), 'the Big Key')
+    assert.ok(P.heard.some(l => /THE LAST REEL!/.test(l)))
+    assert.deepEqual([s.entry.entry, Z.keyCount(s)], ['lens3', 0])
+
+    // The great door in the booth's south wall, and the stair under it.
+    P.walkTo(23, 9)
+    P.until(() => Z.tileAt(s.map, 23, 10) === '.', { x: 0, y: 1 })
+    P.warpBy({ x: 0, y: 1 }, 'weaver')
+    P.idle(10)
+    P.settle()
+    assert.ok(P.heard.some(l => /NEVER SEEN ONE/.test(l)))
+    assert.deepEqual([s.map.id, s.entry.entry, s.mode], ['weaver', 'stair', 'play'])
+    assert.ok(s.hero.hp > 0)
   })
 
   it('loads a save made in a reel at its lens, with the cards and the screen never in it', () => {
@@ -111,21 +170,47 @@ describe('the Late Show', () => {
     old.flags = old.flags.filter(f => f !== 'item:stomp')
     const back = Z.createGame(Z.WORLD, { save: Z.parseSave(old) })
     assert.deepEqual([back.map.id, back.inv.stomp], ['reel1958', false])
+
+    // A save made on the Road, the screen well under way, loads at the Road's start: the screen at rest there,
+    // COPILOT whole, the cards neither saved nor spent.
+    const road = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'chase1986', entry: 'start' } })
+    Z.grant(road, 'sword')
+    const R = reelPlayer(Z, road)
+    R.card()
+    R.idle(2)
+    R.settle()
+    for (let i = 0; i < 200; i++) R.step({ move: { x: i < 160 ? 1 : 0, y: 0 } })
+    assert.ok(road.map.chase.left > 1, 'the screen is moving')
+    const mid = Z.toSave(road)
+    assert.deepEqual([mid.map, mid.entry], ['chase1986', 'start'])
+    assert.ok(!/"card"|"cardsSeen"|"chase"/.test(JSON.stringify(mid)), 'neither a card nor the screen is saved')
+    const re = reload(road)
+    assert.deepEqual([re.map.id, re.entry.entry, re.map.chase.left, re.card?.title], ['chase1986', 'start', 0, 'MEANWHILE...'])
+    assert.deepEqual(re.map.enemies.map(e => [e.kind, e.hp]), [['copilot', 8]])
+    assert.ok(Math.abs(re.hero.x - 3.5) < 0.01 && Z.tileAt(re.map, 1, 20) === 'D', 'at the start, the way back still there')
+    // Left to the screen, he is carried, caught at the first wagon and put on a mark ahead, half a heart poorer.
+    const W2 = reelPlayer(Z, re)
+    W2.card()
+    W2.idle(2)
+    const hp = re.hero.hp
+    for (let i = 0; i < 900 && re.hero.hp === hp; i++) W2.step()
+    assert.equal(re.hero.hp, hp - 1)
+    assert.ok(re.hero.x >= re.map.chase.left + Z.CHASE.ahead - 0.05, `put ahead of the screen: ${W2.where()}, screen at ${re.map.chase.left}`)
   })
 
   it('holds together: the validator, its keys and doors, the door in the screen, its words', () => {
-    assert.deepEqual(Z.validateWorld(Z.WORLD).filter(p => /rerun|showbooth|reel/.test(p)), [])
+    assert.deepEqual(Z.validateWorld(Z.WORLD).filter(p => /rerun|showbooth|reel|chase|weaver/.test(p)), [])
     const defs = MAPS.map(id => Z.WORLD.maps[id])
     assert.ok(defs.every(d => d.keyring === 'lateshow' && d.resume && !d.away && d.realm === 'rerun'))
 
-    // The ring: as many small keys as locked doors (a run of lock tiles is one door), no great lock yet.
+    // The ring: as many small keys as locked doors (a run of lock tiles is one door), and one great lock and its key.
     const count = { smallKey: 0, bigKey: 0, L: 0, K: 0 }
     for (const id of MAPS) {
       const info = Z.mapInfo(Z.WORLD, id)
       for (const c of info.chestList) if (c.item in count) count[c.item]++
       info.base.forEach((t, i) => { if ((t === 'L' || t === 'K') && info.base[i - 1] !== t && info.base[i - info.w] !== t) count[t]++ })
     }
-    assert.deepEqual(count, { smallKey: 1, bigKey: 0, L: 1, K: 0 })
+    assert.deepEqual(count, { smallKey: 3, bigKey: 1, L: 3, K: 1 })
 
     // The door in the middle of the screen: the land as big as it was, the tile open, and a way to it on foot.
     const land = Z.WORLD.maps.rerun
@@ -154,6 +239,8 @@ describe('the Late Show', () => {
         assert.ok(font.wrapText(l, 180).length <= 3, `more than three rows: ${l}`)
       }
     }
-    for (const item of ['stomp']) for (const l of Z.itemText(s, item)) assert.ok(font.wrapText(font.subst(l, font.TOUCH_KEYS), 180).length <= 3, l)
+    const booth = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'showbooth', entry: 'door' } })
+    assert.match(Z.itemText(booth, 'bigKey')[0], /LAST REEL/)
+    for (const item of ['stomp', 'bigKey']) for (const l of Z.itemText(booth, item)) assert.ok(font.wrapText(font.subst(l, font.TOUCH_KEYS), 180).length <= 3, l)
   })
 })

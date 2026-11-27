@@ -539,6 +539,7 @@ export type EnemyKind =
   | 'grok' // miniboss: rolls down a stencilled lane; open only while a wall or iron has it dazed
   | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
   | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
+  | 'copilot' // miniboss: the Road's wagon, run on the screen's own coordinates (`engine/bossCopilot.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -843,6 +844,8 @@ export interface MapDef {
   physics?: boolean
   /** The year a film's set is dressed in (`render/eras.ts`): the world's palette only, never the hero or the HUD. */
   era?: Era
+  /** A screen that scrolls by itself (`engine/chase.ts`): tiles a second, its left edge from and to (tiles), and the still moment first (s). */
+  autoscroll?: { vx: number; from: number; to: number; wait: number }
 }
 
 export type Era = '1958' | '1986' | '2086' | 'screen'
@@ -1164,6 +1167,8 @@ export interface MapState {
   /** THE LENS (`engine/lens.ts`), for this visit: the hidden things shown, and the false chests opened (tile, age). */
   lensSeen?: number[]
   lensGone?: Array<{ i: number; t: number }>
+  /** A screen scrolling by itself (`MapDef.autoscroll`, `engine/chase.ts`): its left edge (tiles) and the still moment left (s). */
+  chase?: { left: number; wait: number }
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1544,6 +1549,8 @@ export type GameEvent =
   | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' }
   | { type: 'lens' } // the glass has risen over something (`engine/lens.ts`)
   | { type: 'puff'; x: number; y: number } // a false chest, opened: nothing in it
+  /** COPILOT's horn from past the screen's left edge: a pass is coming. */
+  | { type: 'honk' }
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }

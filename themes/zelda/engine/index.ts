@@ -22,6 +22,8 @@ export { STOMP, stompAim, type StompAim } from './stomp'
 export { CARD } from './cards'
 // The glass of Act Three (`lens.ts`): its seconds, what it knows, whether it is up.
 export { LENS, lensUp, lensScreen, glassThings, bossLens, type Lens } from './lens'
+export { COPILOT, copilotStill } from './bossCopilot'
+export { CHASE } from './chase'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'

@@ -25,6 +25,7 @@ import { homeIron } from './magnet'
 import { raiseCard, stepCard } from './cards'
 import { stepLens } from './lens'
 import { examEnterCell, examEnterMap, stepExam } from './exam'
+import { startChase, stepChase } from './chase'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -144,6 +145,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
   settleFoes(world, s)
+  startChase(world, s)
   raiseCard(world, s)
   examEnterMap(world, s)
   const area = areaAt(world, s)
@@ -287,6 +289,8 @@ function play(c: Ctx, dt: number, inp: Input) {
   stepSlow(s, dt)
   // (The examination's rounds and its stands run on the hero's clock.)
   stepExam(c, dt)
+  // A screen that scrolls by itself moves first, so that what rides it moves with it.
+  stepChase(c, wdt)
   stepEnemies(c, wdt)
   stepObjects(c, wdt)
   if (s.mode !== 'play' || s.demo) return

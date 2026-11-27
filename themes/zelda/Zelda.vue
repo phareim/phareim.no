@@ -1638,6 +1638,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   stomp: 'stomp',
   toss: 'throw', adore: 'heart',
   lens: 'lens', puff: 'cut',
+  honk: 'honk',
 }
 
 function handleEvents(events: GameEvent[]) {

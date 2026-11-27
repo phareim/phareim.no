@@ -13,6 +13,7 @@ import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
 import { parrot, parrotHarmless } from './parrot'
 import { sycophant } from './bossSycophant'
+import { copilot } from './bossCopilot'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -187,6 +188,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'grok': grok(c, e, dt); break
     case 'phi': phi(c, e, dt); break
     case 'orca': orca(c, e, dt); break
+    case 'copilot': copilot(c, e, dt); break
   }
   contact(c, e)
 }

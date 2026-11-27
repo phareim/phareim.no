@@ -8,6 +8,7 @@ import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
 import { heapRule, phiOpen } from './heapFoes'
+import { COPILOT, copilotStill } from './bossCopilot'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
 import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
@@ -104,6 +105,7 @@ export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'h
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
+  .add('copilot')
 /** The ones whose fall clears the room of its small fry and plays the boss fanfare. */
 const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
 BIG.add('sycophant')
@@ -163,6 +165,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'phi': return phiOpen(e)
     // The oar planted, off balance after a sweep, or stunned by the lamp, while this opening still has blows to give.
     case 'orca': return (mode === 'planted' || mode === 'off' || e.stun > 0) && ((e.ai.took as number | undefined) ?? 0) < ORCA.take
+    // Stalled in the road, while this stall still has blows to give.
+    case 'copilot': return mode === 'stall' && ((e.ai.took as number | undefined) ?? 0) < COPILOT.take
     default: return false
   }
 }
@@ -393,6 +397,20 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (!damage(c, e, dmg, fromX, fromY, opt)) return false
       if ((ai.hits as number) >= 3 && !e.dead) { ai.hits = 0; ai.mode = 'under'; ai.t = 2.2; ai.tell = 0; e.invuln = 1.4 }
       return true
+    // COPILOT: the stomp bites while it stands still, the blade only while it is stalled, `COPILOT.take` a stall.
+    case 'copilot': {
+      const left = COPILOT.take - ((ai.took as number | undefined) ?? 0)
+      const stomped = src === 'stomp' && copilotStill(e)
+      if (!stomped && !(blade(src) && ai.mode === 'stall' && left > 0)) {
+        c.ev.push({ type: 'clank', x: e.x, y: e.y })
+        turned(e, src, 0.2)
+        return false
+      }
+      const hit = damage(c, e, stomped ? COPILOT.stomp : dmg, fromX, fromY, stomped ? opt : { ...opt, cap: left })
+      // (It stands where its cycle puts it: nothing shoves it.)
+      e.knock = null
+      return hit
+    }
     case 'gemini':
       if (ai.mode === 'down') return false
       if (src === 'hook' || src === 'disc') { e.stun = 0.8; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
@@ -539,6 +557,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     // (The Shrine's ring is the one with the King behind its great door.)
     case 'bigKey':
       if (s.map.ring === 'underglow') return ['THE BIG KEY! IT OPENS THE DOOR AT THE FOOT OF THE HEAP.']
+      if (s.map.ring === 'lateshow') return ['THE LAST REEL! THE BOOTH HAS A SLOT FOR IT.']
       return [s.map.ring === 'shrine' ? 'THE BIG KEY! IT OPENS THE GREAT DOOR TO THE KING.' : 'THE BIG KEY! IT OPENS THE GREAT DOOR HERE.']
     case 'heartPiece': return s.inv.pieces === 0
       ? ['A PIECE OF HEART!', 'THAT MAKES FOUR. YOUR LIFE GREW BY ONE HEART!']

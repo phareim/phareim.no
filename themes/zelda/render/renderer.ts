@@ -57,9 +57,11 @@ import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { paintSide, sideScale, type SideKit } from './side'
-import { eraGreys, eraLight, greySprite } from './eras'
+import { eraFoes, eraLight, toneSprite } from './eras'
 import { drawCard } from './card'
 import { queueScreenDoor } from './lateshowPaint'
+import { copilotRoad } from '../engine/bossCopilot'
+import { CHASE } from '../engine/chase'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
@@ -719,10 +721,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * A sprite with its bottom centre at (x, y). `sx`, `sy`: squashed or stretched about that point, to whole px (the
    * isometric view's art follows a drawing at another size). `color`: its silhouette in that colour instead.
    */
-  /** While a foe of a film's year is drawn: its own colours in that year's greys (`eras.ts`). */
-  let greyFoe = false
+  /** While a foe of a film's year is drawn: the tones that year dresses it in (`eras.ts`), or null. */
+  let foeTones: readonly string[] | null = null
   function put(g: G, name: string, x: number, y: number, flip = false, flash = false, sx = 1, sy = 1, color?: string) {
-    const c = color ? silhouette(name, color, flip) : flash ? silhouette(name, '#ffffff', flip) : greyFoe ? greySprite(sprite(name, flip)) : sprite(name, flip)
+    const c = color ? silhouette(name, color, flip) : flash ? silhouette(name, '#ffffff', flip) : foeTones ? toneSprite(sprite(name, flip), foeTones) : sprite(name, flip)
     if (sx === 1 && sy === 1) { g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height)); return }
     const w = Math.max(1, Math.round(c.width * sx))
     const h = Math.max(1, Math.round(c.height * sy))
@@ -1110,6 +1112,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           : e.ai.mode === 'recite' && e.ai.on && !e.ai.act ? 'parrot_tell' : `parrot_${f('parrot')}`
         return { name, flip: e.dir === 'right' }
       }
+      // Neon while it drives, its horn's face for the tell, rust while it stands (and as it spins out).
+      case 'copilot': return { name: e.dead || e.ai.mode === 'stall' || e.ai.mode === 'rev' ? 'copilot_rust' : e.ai.mode === 'honk' ? 'copilot_honk' : 'copilot_neon', flip: false }
       case 'sycophant': return { name: sycophantSprite(e, time), flip: false }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
       case 'grok': {
@@ -1228,6 +1232,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: e.x, y: e.y - 0.5, r: e.ai.tell > 0 ? 1.8 : 2.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.55 : 0.5 })
       return
     }
+    if (e.kind === 'copilot') {
+      // Its pictures are small ones, drawn at three times their size, standing on the road it drives on. (Rounded
+      // by its place on the screen, so that it does not shiver while the screen scrolls under it.)
+      const px = Math.round(((e.ai.r as number | undefined) ?? 0) * T) + Math.round((e.x - ((e.ai.r as number | undefined) ?? 0)) * T) - cx
+      put(g, name, px + shiver(e), copilotRoad(e) * T - cy + (flat ? 0 : 1), flip, flashing(e), 3, 3)
+      lights.push({ x: e.x, y: e.y - 0.2, r: 3, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.7 : 0.45 })
+      return
+    }
     if (e.kind === 'parrot') {
       // Off the ground in its hops, over its own shadow.
       feet -= Math.round(((e.ai.z as number | undefined) ?? 0) * T)
@@ -1328,13 +1340,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const big = BIG.has(e.kind)
       // (The same foes the queue draws.)
       if ((!e.tough && !big) || e.dead || e.away) continue
+      // (A wagon past the screen's edge wears no bar.)
+      if (e.kind === 'copilot' && !(((e.ai.r as number | undefined) ?? -1) >= 0 && (e.ai.r as number) <= CHASE.screen - 1)) continue
       if (roomed(def.kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : 1)) - standsAbove(e)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : e.kind === 'copilot' ? 3 : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
@@ -1359,6 +1373,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function standsAbove(e: Enemy): number {
     if (e.kind === 'king') return (e.ai.mode === 'down' ? 0 : 8) - 8
     if (e.kind === 'sycophant') return SYCO_HOVER
+    // (The wagon's wheels are on its road, over its foot point.)
+    if (e.kind === 'copilot') return Math.round((e.y + e.r - copilotRoad(e)) * T)
     if ((e.kind === 'mistral' || e.kind === 'gemini') && e.ai.mode !== 'down') return 7
     return 0
   }
@@ -1384,6 +1400,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /** A foe's last moment: its white shape bursting wide and flat along the blow, fading, before the poof. */
   function drawDeathPop(g: G, s: GameState, e: Enemy, cx: number, cy: number) {
+    // (COPILOT spins out instead: `lateshowPaint.ts`.)
+    if (e.kind === 'copilot') return
     const p = Math.min(1, (e.deathT ?? 0) / DEATH_POP)
     const step = span ? span(e.x, e.y, e.x + (e.hitDx ?? 0), e.y + (e.hitDy ?? 0)) : { x: (e.hitDx ?? 0) * T, y: (e.hitDy ?? 0) * T }
     const x = e.x * T - cx + (step.x * 6 * p) / T
@@ -2057,10 +2075,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       spin: (x, y) => drawSpinBlade(g, s, x, y, lights),
       // (A px lower than from above: its feet on the floor's lit edge.)
       foe(e) {
-        greyFoe = eraGreys(mapInfo(world, s.map.id).def)
+        // (A wagon is no ordinary foe: it keeps its own colours.)
+        foeTones = e.kind === 'copilot' ? null : eraFoes(mapInfo(world, s.map.id).def)
         if (!e.dead) drawEnemy(g, s, e, cx, cy + 1, lights, true)
         else if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away) drawDeathPop(g, s, e, cx, cy + 1)
-        greyFoe = false
+        foeTones = null
       },
     }
     paintSide(kit, s)

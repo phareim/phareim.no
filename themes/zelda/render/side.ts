@@ -20,8 +20,9 @@ import { chestStar, hash2, type Light } from './tiles'
 import { CLASSIC, realmLook } from './looks'
 import { itemSpriteName } from './itemIcon'
 import { eraBackdrop, eraInk } from './eras'
-import { diveStreak } from './lateshowPaint'
+import { diveStreak, lateshowOver, lateshowUnder } from './lateshowPaint'
 import { actBackdrop, actInk, glassHides, glassRing, glassThingsPaint, veiledTiles } from './actthreePaint'
+import { CHASE } from '../engine/chase'
 import { frameCount, hasSprite, makeCanvas, paintRows, sprite } from './sheet'
 
 type G = CanvasRenderingContext2D
@@ -29,10 +30,11 @@ const T = TILE
 
 /**
  * The whole-number scale for a side map on a screen of W × H device px: the largest at which a room's width fits, and
- * on a wide screen 12 rows of its height too. (An upright phone shows 16 tiles across and many up.)
+ * on a wide screen 12 rows of its height too. (An upright phone shows 16 tiles across and many up.) A screen that
+ * scrolls by itself is as wide as itself, whatever its room's width.
  */
-export function sideScale(W: number, H: number, def: Pick<MapDef, 'cell' | 'rows'>): number {
-  const across = (def.cell?.w ?? def.rows[0]!.length) * T
+export function sideScale(W: number, H: number, def: Pick<MapDef, 'cell' | 'rows' | 'autoscroll'>): number {
+  const across = (def.autoscroll ? CHASE.screen : def.cell?.w ?? def.rows[0]!.length) * T
   const up = (def.cell?.h ?? def.rows.length) * T
   return Math.max(1, Math.min(Math.floor(W / across), Math.floor(H / up)))
 }
@@ -132,19 +134,25 @@ export function chest(k: SideKit, px: number, py: number, tx: number, ty: number
 }
 chest.picture = (big: boolean, open: boolean) => sprite(big ? (open ? 'bigchest_open' : 'bigchest') : open ? 'chest_open' : 'chest')
 
-/** A spring pad flush with the floor: a plate to stand on and its coil in a dark well; `down` px pressed flat. */
+/**
+ * A spring pad flush with the floor: a wide plate to stand on, a coil under it seen from the side (each turn a bar
+ * that slants down to the next), a foot, all in a dark well; `down` px pressed flat.
+ */
 function spring(g: G, ink: Ink, px: number, py: number, down: number) {
   const coil = ink.coil ?? ink.woodL
-  r(g, '#05030c', px + 1, py, T - 2, 13)
-  r(g, '#05030c', px + 1, py + 13, T - 2, 1)
-  for (let y = 5 + down, k = 0; y < 13; y += down ? 2 : 3, k++) {
-    r(g, coil, px + 3, py + y, 10, 1)
-    r(g, ink.wood, px + (k % 2 ? 3 : 11), py + y + 1, 2, down ? 1 : 2)
+  r(g, '#05030c', px + 1, py, T - 2, 15)
+  // The foot, and the turns between it and the plate.
+  r(g, coil, px + 3, py + 13, 10, 2)
+  const top = 3 + down
+  const turns = 3
+  const gap = (13 - top) / turns
+  for (let k = 0; k < turns; k++) {
+    const y = top + Math.round(k * gap)
+    const h = Math.max(1, Math.round(gap))
+    for (let i = 0; i < 10; i++) r(g, coil, px + 3 + i, py + y + Math.floor((i * h) / 10), 1, down ? 1 : 2)
   }
-  r(g, ink.lip, px + 1, py + down, T - 2, 2)
-  r(g, coil, px + 2, py + down + 2, T - 4, 2)
-  r(g, '#05030c', px + 3, py + down + 2, 1, 2)
-  r(g, '#05030c', px + 12, py + down + 2, 1, 2)
+  r(g, ink.lip, px, py + down, T, 2)
+  r(g, coil, px + 1, py + down + 2, T - 2, 1)
 }
 
 // ---------------------------------------------------------------------------
@@ -290,8 +298,17 @@ export function paintSide(k: SideKit, s: GameState) {
   const ink = inkOf(info.def)
   const sky = actBackdrop(info.def) ?? eraBackdrop(info.def)
   r(g, '#05030c', 0, 0, vw, vh)
-  for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) { if (sky) sky(k, z); else backdrop(k, ink, z) }
+  // A screen that scrolls by itself shows its own width and nothing past it, however wide the window.
+  if (m.chase) {
+    g.save()
+    g.beginPath()
+    g.rect(Math.round(m.chase.left * T) - cx, -cy, CHASE.screen * T, m.h * T)
+    g.clip()
+  }
+  for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) { if (sky) sky(k, z, m.id); else backdrop(k, ink, z) }
   g.drawImage(layerOf(world, m), -cx, -cy)
+  // What lies on the stage and under everything that moves (`lateshowPaint.ts`).
+  lateshowUnder(k, s)
   // A pad just struck, pressed flat for a moment (the still layer has it at rest).
   const flat = s.hero.side?.squash
   if (flat) spring(g, ink, (flat.i % m.w) * T - cx, Math.floor(flat.i / m.w) * T - cy, 5)
@@ -342,6 +359,12 @@ export function paintSide(k: SideKit, s: GameState) {
     k.foe(e)
   }
   if (s.hero.x > -10) { glassRing(k, s); hero(k, s) }
+  lateshowOver(k, s)
+  if (m.chase) {
+    g.restore()
+    // And no light from past its edges.
+    for (let i = lights.length - 1; i >= 0; i--) if (lights[i]!.x < m.chase.left - 0.5 || lights[i]!.x > m.chase.left + CHASE.screen + 0.5) lights.splice(i, 1)
+  }
 }
 
 function hero(k: SideKit, s: GameState) {

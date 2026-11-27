@@ -71,7 +71,7 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
 
   // -- from the side ---------------------------------------------------------
 
-  const aimNow = () => Z.stompAim(Z.ctx(W, s, []), h().x, feet(), true)
+  const aimNow = () => Z.stompAim(Z.ctx(W, s, []), h().x, feet())
   const live = (kind, from = 0, to = 99) => s.map.enemies.find(e => e.kind === kind && !e.dead && e.home.x >= from && e.home.x < to)
 
   /** Along the ground to x. */
@@ -200,16 +200,16 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
     for (let i = 0; i < 120 && !standing(); i++) step()
     idle(40)
   }
-  /** A tapped jump over the cracks and A on the way up: through, and into the nook. */
-  function stompTheFloorFrom(x) {
+  /** A tapped jump over the cracks and A on the way up: through, and into the nook, whose floor is the row `under`. */
+  function stompTheFloorFrom(x, under = 23) {
     walk(x)
     const from = events.length
     step({ bPress: true, jumpPress: true, jumpHeld: true })
     idle(2)
     step({ aPress: true, a: true })
-    for (let i = 0; i < 120 && !(standing() && feet() > 22); i++) step()
+    for (let i = 0; i < 120 && !(standing() && feet() > under - 1); i++) step()
     assert.ok(events.slice(from).some(e => e.type === 'stomp' && e.on === 'crack'), `the floor gives way: ${where()}`)
-    assert.ok(standing() && Math.abs(feet() - 23) < 0.01, `on the nook's floor: ${where()}`)
+    assert.ok(standing() && Math.abs(feet() - under) < 0.01, `on the nook's floor: ${where()}`)
     idle(30)
   }
   function stompTheFloor() {
@@ -246,8 +246,197 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
     warpBy({ x: -1, y: 0 }, 'showbooth')
   }
 
+  // -- reel two ---------------------------------------------------------------
+
+  /**
+   * The thumb's stomp on a pad: B tapped and let go, A a moment later, no thought for the aim. Then the bounce,
+   * steered toward `x` once the feet are over the row it should come down on. (A bat under him may take the dive
+   * instead of the pad: then back to the spot, and again.)
+   */
+  function bounce(x, row, what) {
+    const spot = h().x
+    let thrown = false
+    for (let go = 0; go < 3 && !thrown; go++) {
+      if (go) walk(spot)
+      swat()
+      idle(2)
+      assert.ok(standing(), `not standing before ${what}: ${where()}`)
+      const from = events.length
+      const struck = () => events.slice(from).some(e => e.type === 'stomp' && e.on === 'spring')
+      step({ bPress: true, jumpPress: true, jumpHeld: true })
+      step()
+      step({ aPress: true, a: true })
+      for (let i = 0; i < 90 && !struck(); i++) step()
+      thrown = struck()
+      for (let i = 0; i < 90 && !thrown && !standing(); i++) step()
+    }
+    assert.ok(thrown, `the pad throws: ${what}, ${where()}`)
+    for (let i = 0; i < 200 && !standing(); i++) {
+      const d = x - h().x
+      step({ move: { x: feet() < row - 0.05 && Math.abs(d) > 0.25 ? Math.sign(d) : 0, y: 0 } })
+    }
+    idle(6)
+    assert.ok(standing() && Math.abs(feet() - row) < 0.01, `${what}: came down ${where()}, wanted ${x} on ${row}`)
+  }
+  /** The Video Store: over the sign, the first pad onto the shelves, the heart piece under them, the second pad, the way up. */
+  function videoStore() {
+    walk(1.55)
+    jump(3.45, 21, 'over the sign')
+    walk(3.6)
+    bounce(7.5, 17, 'the first pad onto the shelves')
+    // Through the cracked top of the shelves, to the chest in the nook, and out again.
+    stompTheFloorFrom(6.5, 19)
+    walk(6.5)
+    open('lateshow.piece')
+    walk(6.5)
+    jump(7.7, 17, 'out of the nook')
+    walk(8.5)
+    bounce(12.2, 13, 'the second pad onto the balcony')
+    warpBy({ x: 1, y: 0 }, 'chase1986')
+  }
+
+  /** COPILOT, and whether it may be cut. */
+  const car = () => s.map.enemies.find(e => e.kind === 'copilot')
+
+  /**
+   * The Road: keep ahead of the screen's edge, jump what is in the way, jump the wagon as it passes, and cut it while
+   * it stands (or, with `stomp`, come down on it); then the chest, and the door.
+   */
+  function theRoad({ stomp = false, log = null, watch = null } = {}) {
+    const e = car()
+    const m = s.map
+    const top = (tx, ty) => Z.solidTile(W, m, tx, ty, 'hero')
+    let t = 0
+    let air = false
+    let wonAt = 0
+    for (let i = 0; i < 4000 && !(e.dead && s.mode === 'play' && standing() && Math.abs(h().x - 57.4) < 0.25 && Z.tileAt(m, 58, 20) === '$'); i++, t += 1 / 60) {
+      if (e.dead) wonAt ||= t
+      if (s.mode !== 'play') { settle(); continue }
+      if (h().act === 'fall' || h().knock) { step(); continue }
+      const left = m.chase.left
+      const mode = e.dead ? 'gone' : e.ai.mode
+      const dx = e.x - h().x
+      // Where to be on the screen: a third in, so that there is road to see; in front of the wagon while it stands.
+      let want = left + 6
+      if (e.dead) want = 57.4
+      else if (mode === 'stall') want = e.x - (stomp ? 1.2 : 1.1)
+      let mx = Math.abs(want - h().x) < 0.25 ? 0 : Math.sign(want - h().x)
+      let b = false
+      let a = false
+      let hold = air
+      if (standing()) {
+        air = false
+        hold = false
+        const f = Math.round(feet())
+        // A pit or a wagon (or the key's chest) just ahead.
+        const ahead = d => { const tx = Math.floor(h().x + d); return (f === 21 && !top(tx, 21)) || top(tx, f - 1) }
+        const blocked = mx > 0 && (ahead(0.75) || ahead(0.45))
+        // The wagon coming through: jump as it is about to meet him.
+        const meets = mode === 'pass' && dx < 0 && (h().x - e.x - 0.95) / (11 + 3.4 - Math.max(0, h().vx)) < 0.13 && feet() > 20.05
+        if (blocked || meets) { b = true; air = true; hold = true }
+        if (stomp && mode === 'stall' && Math.abs(dx) < 1.7 && e.ai.t > 0.5 && !blocked) { b = true; air = true; hold = false }
+      } else if (stomp && mode === 'stall' && h().side.vy > -8 && Math.abs(dx) < 2) { a = !h().side.dive && i % 6 === 0; mx = Math.sign(dx) }
+      // The blade, on foot or in the air, while it takes it.
+      if (!stomp && mode === 'stall' && Z.bossOpen(e) && Math.abs(dx) < 2.1 && e.invuln <= 0.08 && (!h().swing || h().swing.t > 0.12) && i % 3 === 0) a = true
+      // (A cut goes where the stick points.)
+      if (a && !stomp) mx = Math.sign(dx) || 1
+      const before = e.hp
+      const hp = h().hp
+      step({ move: { x: mx, y: 0 }, ...(b ? { bPress: true, jumpPress: true } : {}), ...(hold ? { jumpHeld: true } : {}), ...(a ? { aPress: true, a: true } : {}) })
+      watch?.(e, i)
+      if (log && (e.hp !== before || h().hp !== hp || (e.ai.mode !== mode && !e.dead))) log({ t, mode: e.dead ? 'gone' : e.ai.mode, car: e.hp, hero: h().hp, r: h().x - m.chase.left, left: m.chase.left })
+    }
+    assert.ok(e.dead, `COPILOT stands (hp ${e.hp}, ${e.ai.mode}): ${where()}`)
+    // The chest that came up down the road, then over it, and out.
+    walk(57.4)
+    open('lateshow.key2')
+    walk(57.4)
+    jump(60, 21, 'over the key\'s chest')
+    warpBy({ x: 1, y: 0 }, 'showbooth')
+    return wonAt
+  }
+
+  // -- the Snack Bar ------------------------------------------------------------
+
+  /** The Usher, by the blade alone: stand off, step out of its lane as it comes, cut it while it is spent. */
+  function usher() {
+    const e = s.map.enemies.find(k => k.kind === 'sentry' && k.tough)
+    let side = 1
+    for (let i = 0; i < 3600 && !e.dead; i++) {
+      if (s.mode !== 'play') { settle(); continue }
+      const dx = e.x - h().x
+      const dy = e.y - h().y
+      const d = Math.hypot(dx, dy)
+      const to = { x: dx / (d || 1), y: dy / (d || 1) }
+      let move = { x: 0, y: 0 }
+      let a = false
+      if (Z.toughOpen(e)) {
+        move = d > 1.25 ? to : { x: to.x * 0.2, y: to.y * 0.2 }
+        a = d < 1.6 && e.invuln <= 0.05 && i % 5 === 0
+        if (a) move = to
+      } else if (e.ai.mode === 'charge') {
+        // Across the line it runs, to the side with the room.
+        const v = Math.hypot(e.ai.vx, e.ai.vy) || 1
+        move = { x: (-e.ai.vy / v) * side, y: (e.ai.vx / v) * side }
+      } else {
+        side = (-to.y * (40 - h().x) + to.x * (6 - h().y)) >= 0 ? 1 : -1
+        if (d < 2.6) move = { x: -to.x, y: -to.y }
+        else if (d > 3.6) move = to
+        // Along the wall rather than into it.
+        if ((h().x < 34 && move.x < 0) || (h().x > 45.5 && move.x > 0) || (h().y < 4 && move.y < 0) || (h().y > 7.5 && move.y > 0)) move = { x: (40 - h().x) / 6, y: (6 - h().y) / 3 }
+      }
+      step({ move, ...(a ? { aPress: true, a: true } : {}) })
+    }
+    assert.ok(e.dead, `the Usher stands (hp ${e.hp}, ${e.ai.mode}): ${where()}`)
+    idle(30)
+  }
+
+  // -- reel three ---------------------------------------------------------------
+
+  /** The Overgrown Lot: the two pads again, the key on the high slab, and on east over its chest. */
+  function overgrownLot() {
+    idle(10)
+    walk(3.6)
+    bounce(6.6, 17, 'the Lot\'s first pad')
+    walk(7.5)
+    bounce(11, 13, 'the Lot\'s second pad onto the slab')
+    walk(11.4)
+    open('lateshow.key3')
+    walk(11.4)
+    jump(13.8, 13, 'over the third key\'s chest')
+    until(() => s.mode === 'scroll', { x: 1, y: 0 })
+    idle(60)
+  }
+  /** The Last Reel: down off the high slab, a pad over the block, the lock, the Big Key, and back over to the door. */
+  function lastReel() {
+    assert.equal(s.zoneIndex, 1, where())
+    // Off the ledge's end.
+    until(() => !h().side.ground, { x: 1, y: 0 })
+    for (let i = 0; i < 120 && !standing(); i++) step({ move: { x: h().x < 21.5 ? 1 : 0, y: 0 } })
+    swat()
+    walk(21.4)
+    bounce(24.2, 17, 'the pad onto the block')
+    // The blob below: stomped from the block's edge, or cut once down.
+    const blob = live('blob', 16)
+    walk(24.5)
+    until(() => !h().side.ground, { x: 1, y: 0 })
+    for (let i = 0; i < 120 && !standing(); i++) step({ move: { x: Math.sign(blob.x - h().x), y: 0 }, ...(i % 6 === 0 && aimNow()?.on === 'foe' ? { aPress: true, a: true } : {}) })
+    idle(20)
+    if (!blob.dead) fell(blob, blob.x - 1.2)
+    // The inner door, and the Big Key behind it.
+    until(() => Z.tileAt(s.map, 28, 20) === '.', { x: 1, y: 0 })
+    walk(29.4)
+    open('lateshow.bigkey')
+    // Back: through the door, the far pad over the block, and out.
+    walk(26.4)
+    bounce(23.8, 17, 'the far pad, back up onto the block')
+    until(() => standing() && feet() > 20.9, { x: -1, y: 0 })
+    warpBy({ x: -1, y: 0 }, 'showbooth')
+  }
+
   return {
     s, heard, events, step, idle, settle, card, until, warpBy, walkTo, walk, jump, climb, fell, where, standing, feet,
     mainStreetEast, backlotToStomp, stompTheBlob, stompTheFloor, stompTheFloorFrom, backlotWest, mainStreetWest,
+    bounce, videoStore, theRoad, usher, overgrownLot, lastReel,
   }
 }

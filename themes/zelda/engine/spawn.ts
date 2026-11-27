@@ -29,6 +29,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   phi: { hp: 2, r: 0.4, dmg: 2 },
   // (ORCA hurts with its dash and its oar, by its own file; its touch does no harm.)
   orca: { hp: 10, r: 0.9, dmg: 0 },
+  // (It harms by its pass alone, never by touch: `engine/bossCopilot.ts`.)
+  copilot: { hp: 8, r: 1.2, dmg: 0, flying: true },
 }
 
 export function spawnEnemy(
