@@ -16,7 +16,7 @@
  */
 import type { GameState, MapDef, World, ViewSide } from '../types'
 import type { HudKeys } from '../keys'
-import { mapDef, mapInfo } from '../engine/map'
+import { cellDef, mapDef, mapInfo } from '../engine/map'
 import { charted, seenTile } from '../engine/explore'
 import { glyphRows } from '../../base/pixel/font'
 import { viewList } from '../views'
@@ -113,11 +113,14 @@ export function mapPageContent(world: World, s: GameState): PageContent {
   // The world's chart: on and under the maps of the grid, once the blade is in hand (before it, the coast is all).
   const onGrid = (map: string) => s.inv.sword && !!world.atlas?.[map]
   if (!hasChart(world, s)) {
-    const out = outsideOf(world, s.map.id)
+    // A side map: the room's own name, and no land outside to draw.
+    const side = def.kind === 'side'
+    const room = side ? cellDef(mapInfo(world, s.map.id), s.zoneIndex)?.name : undefined
+    const out = side ? null : outsideOf(world, s.map.id)
     const there = out ? mapDef(world, out.map) : null
     return {
       title,
-      sub: there ? `OUTSIDE: ${there.name.toUpperCase().replace(/^THE\s+/, '')}` : null,
+      sub: room ? room.toUpperCase() : there ? `OUTSIDE: ${there.name.toUpperCase().replace(/^THE\s+/, '')}` : null,
       land: null,
       hero: null,
       places: [],

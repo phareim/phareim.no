@@ -7,7 +7,8 @@ import type { GameState, World } from '../types'
 import { subst, type HudKeys } from '../keys'
 import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
-import { hasBigKey, keyCount } from '../engine/map'
+import { hasBigKey, keyCount, mapDef } from '../engine/map'
+import { jumpIcon } from './side'
 import { asksChoice } from '../engine/game'
 import { itemIconName } from './itemIcon'
 import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
@@ -211,13 +212,16 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
 
   // B-item box right of the hearts (touch shows it on the B button instead;
   // its pause chip owns the top-right corner). An art resting shows dim, its rest filling a bar under it.
-  if (!touch && inv.selected) {
+  // (On a side map B is the jump, whatever is owned.)
+  const jumps = !!world && mapDef(world, s.map.id)?.kind === 'side'
+  if (!touch && (jumps || inv.selected)) {
     const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
     const item = itemIconName(s)
-    const rest = isArt(inv.selected) ? artRest(s, inv.selected) : 1
+    const rest = !jumps && isArt(inv.selected) ? artRest(s, inv.selected) : 1
     if (rest < 1) g.globalAlpha = 0.35
-    icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)
+    if (jumps) g.drawImage(jumpIcon(), bx + 3, 6)
+    else icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)
     g.globalAlpha = 1
     if (rest < 1) {
       g.fillStyle = skin.off

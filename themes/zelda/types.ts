@@ -10,6 +10,7 @@
  */
 
 import type { FrontierNpcLook } from './render/frontierSprites'
+import type { SideHero } from './engine/side'
 
 // ---------------------------------------------------------------------------
 // Basics
@@ -302,6 +303,9 @@ export type TileChar =
   | '║' | '═' | '╔' | '╗' | '╚' | '╝' | '╠' | '╣' | '╦' | '╩' | '╬'
   | 'Θ' // a lumen tap (solid): the gas comes out of it into any tube that opens onto it
   | 'Λ' // a socket (solid): the line up the hill to one letter; gas reaching it with no end left open lights it
+  // The side view (`engine/side.ts`; maps of kind 'side', whose rows run down the room)
+  | 'Ħ' // a ladder
+  | '¯' // a platform: landed on from above, passed from below, dropped through by pushing down
 
 // ---------------------------------------------------------------------------
 // Items
@@ -413,7 +417,13 @@ export const MIXTRAL = { stalk: 1.8, line: 0.8, tell: 0.7, tell2: 0.5, charge: 9
 // Authored world
 // ---------------------------------------------------------------------------
 
-export type MapKind = 'overworld' | 'dungeon' | 'interior'
+/** 'side': a dungeon seen from the side (`engine/side.ts`): gravity, a jump, ladders; the classic view only. */
+export type MapKind = 'overworld' | 'dungeon' | 'interior' | 'side'
+/** Cut into camera rooms that are entered one at a time (scrolling, room activation, foes kept in, checkpoints). */
+export const roomed = (kind: MapKind) => kind === 'dungeon' || kind === 'side'
+/** The drawing engines a map may be shown in (undefined: any): a side map's is the classic one, whatever it says. */
+export const viewsOf = (def: { kind?: MapKind; views?: Array<'classic' | 'iso'> }) => (def.kind === 'side' ? SIDE_VIEWS : def.views)
+const SIDE_VIEWS: Array<'classic' | 'iso'> = ['classic']
 export type TrackId = 'title' | 'overworld' | 'village' | 'beach' | 'dungeon' | 'boss' | 'indoor' | 'ending' | 'forest' | 'lab' | 'static'
 
 export type EnemyKind =
@@ -495,6 +505,7 @@ export type EntDef =
   | { t: 'shop'; id: string; item: ItemId; price: number; once?: boolean }
   | { t: 'plate'; id: string }
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
+  | { t: 'ledge' } // side maps: a safe ledge; a fall off the room's bottom puts the hero on the last one stood by
   | { t: 'warp'; to: string; entry: string } // stepping on this tile warps
   /**
    * On one tile of an X run (tile 'X'). A shut gate opens for good once `open` holds. With a `latch` it is a held
@@ -600,6 +611,8 @@ export interface Warp {
 
 export interface CellDef {
   name?: string
+  /** This room is this many cells high, from here down (a side map's climb). */
+  tall?: number
   dark?: boolean
   /** A dark room is lit once this flag is set (the lab's power). */
   lit?: string
@@ -804,6 +817,8 @@ export interface Enemy {
   away?: boolean
   /** Walking in to its home from past the screen's edge, or out past it. */
   trek?: { x: number; y: number; out: boolean; stuck: number }
+  /** Side maps: the speed a foe on foot is falling at (absent: it stands). */
+  fall?: number
   /** Seconds left reeling from a blow: it does nothing and harms no one (small foes only). */
   stagger?: number
   /** Seconds the foe's mercy against the echo's blows still runs (the echo's blade has its own, `hitEnemy`). */
@@ -847,6 +862,8 @@ export interface Drop {
   vz: number
   /** Disappears at this age unless permanent (keys). */
   life: number
+  /** Side maps: the speed it is falling at. */
+  fall?: number
 }
 
 export interface Bomb { id: number; x: number; y: number; t: number }
@@ -966,6 +983,8 @@ export interface MapState {
   phys?: PhysState
   /** Tiles the map's landmarks stand on (`MapInfo.scenery`): solid to walkers, whatever the tile is. */
   scenery?: ReadonlySet<number>
+  /** A map of kind 'side'. */
+  side?: true
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1108,6 +1127,8 @@ export interface Hero {
   slipped?: boolean
   /** The next blow is critical (a SLIP's gift), until it lands or the slow ends. */
   edge?: boolean
+  /** On a side map: vertical speed, footing, ladder, the way back from a fall (`engine/side.ts`). */
+  side?: SideHero
 }
 
 export interface Inventory {
@@ -1270,6 +1291,9 @@ export interface Input {
   cycle: boolean
   /** The dodge roll (L, C, the roll pad): pressed this frame. */
   rollPress?: boolean
+  /** The jump of a side map (B or up on keys, the B pad on touch): pressed this frame, and held. */
+  jumpPress?: boolean
+  jumpHeld?: boolean
   /** Touch: a swing at rest turns to the nearest enemy first. */
   autoFace: boolean
   /** A tap this frame on the left (-1) or right (1) half of the screen; picks YES or NO. */
@@ -1283,6 +1307,7 @@ export type GameEvent =
   | { type: 'swing'; n: 0 | 1 | 2; spring?: { x: number; y: number; a: number; d: number } }
   | { type: 'spin' }
   | { type: 'roll' }
+  | { type: 'jump' } // side maps: off the ground
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }

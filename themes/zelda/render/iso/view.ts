@@ -26,7 +26,7 @@
  * (`legacy.ts`).
  */
 import type { GameState, MapDef, MapKind, TileChar } from '../../types'
-import { ARC_REACH, ROLL_TIME, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TEMPEST, TILE } from '../../types'
+import { ARC_REACH, ROLL_TIME, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TEMPEST, TILE, roomed } from '../../types'
 import { aimOf, airTime, has, heroZ, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
 import { blockUp, isViewBlock } from '../../world/tiles'
 import { SIDE_PATCH } from '../viewBlocks'
@@ -1043,7 +1043,7 @@ export default function isoView(kit: Kit): View {
     // The tiles in play: the hero's room in a dungeon, everything in sight elsewhere.
     const R: Rect = groundRect(P, c, vw, vh, RISE, 2, m.w, m.h, M)
     fitDepth(cam, R)
-    const rooms: Rect[] = kind !== 'dungeon' ? [] : s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]
+    const rooms: Rect[] = !roomed(kind) ? [] : s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]
     const within = (z: Rect, x: number, y: number, pad: number) => x >= z.x - pad && x < z.x + z.w + pad && y >= z.y - pad && y < z.y + z.h + pad
     const inRoom = (x: number, y: number, pad = 0) => !rooms.length || rooms.some(z => within(z, x, y, pad))
     const bx = R.x * T

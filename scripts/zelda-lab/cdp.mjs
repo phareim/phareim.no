@@ -33,14 +33,15 @@ const KEYS = {
   KeyV: { key: 'v', code: 'KeyV', keyCode: 86 },
 }
 
-export async function launch({ width = 1440, height = 900, dpr = 1, mobile = false } = {}) {
+// `args`: more flags for the browser (`side-shot.mjs` takes the frame limit off to time frames).
+export async function launch({ width = 1440, height = 900, dpr = 1, mobile = false, args = [] } = {}) {
   const port = 9300 + Math.floor(Math.random() * 500)
   mkdirSync(join(homedir(), 'zshots'), { recursive: true })
   const profile = mkdtempSync(join(homedir(), 'zshots', 'prof-'))
   // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU).
   const proc = spawn(process.env.CHROME_BIN || 'chromium-browser', [
     '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--allow-file-access-from-files',
-    `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, 'about:blank',
+    `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, ...args, 'about:blank',
   ], { stdio: 'ignore' })
   let targets
   for (let i = 0; i < 160; i++) {

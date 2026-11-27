@@ -25,7 +25,7 @@
  * HUD. All of it comes in with k.
  */
 import type { GameState, MapKind, TileChar } from '../../types'
-import { SCROLL_TIME, TILE } from '../../types'
+import { SCROLL_TIME, TILE, roomed } from '../../types'
 import { mapInfo, raised } from '../../engine/index'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -385,7 +385,7 @@ export default function isoView(kit: Kit): View {
     // The tiles in play: the hero's room in a dungeon, everything in sight elsewhere.
     const R: Rect = groundRect(P, c, vw, vh, RISE, 2, m.w, m.h)
     // In a dungeon that is the hero's room, and during a scroll the two rooms it runs between: the rest stays dark.
-    const rooms: Rect[] = kind !== 'dungeon' ? [] : s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]
+    const rooms: Rect[] = !roomed(kind) ? [] : s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]
     const within = (z: Rect, x: number, y: number, pad: number) => x >= z.x - pad && x < z.x + z.w + pad && y >= z.y - pad && y < z.y + z.h + pad
     const inRoom = (x: number, y: number, pad = 0) => !rooms.length || rooms.some(z => within(z, x, y, pad))
     const bx = R.x * T

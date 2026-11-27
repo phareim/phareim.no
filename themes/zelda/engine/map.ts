@@ -50,6 +50,8 @@ export interface MapInfo {
   ch: number
   cols: number
   rows: number
+  /** Grid cells that belong to a taller room above them (`CellDef.tall`): cell index → the room's. */
+  heads: ReadonlyMap<number, number>
 }
 
 const cache = new WeakMap<MapDef, MapInfo>()
@@ -107,7 +109,11 @@ function buildInfo(def: MapDef): MapInfo {
     warps: (def.warps ?? []).map(wp => ({ w: 1, h: 1, ...wp })),
     chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(), stands: [],
     glyphs: new Map(), levers: new Map(), blocks: new Map(), scenery: new Set(),
-    cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh),
+    cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh), heads: new Map(),
+  }
+  for (const [key, cd] of Object.entries(def.cells ?? {})) {
+    const [cx, cy] = key.split(',').map(Number) as [number, number]
+    for (let k = 1; k < (cd.tall ?? 1); k++) (info.heads as Map<number, number>).set((cy + k) * info.cols + cx, cy * info.cols + cx)
   }
   for (const m of marks) {
     const idx = m.y * w + m.x
@@ -280,13 +286,14 @@ export function floodRun(tiles: readonly TileChar[], w: number, h: number, idx: 
 export function cellIndex(info: MapInfo, x: number, y: number): number {
   const cx = Math.max(0, Math.min(info.cols - 1, Math.floor(x / info.cw)))
   const cy = Math.max(0, Math.min(info.rows - 1, Math.floor(y / info.ch)))
-  return cy * info.cols + cx
+  const i = cy * info.cols + cx
+  return info.heads.get(i) ?? i
 }
 
 export function cellRect(info: MapInfo, i: number): Rect {
   const cx = i % info.cols
   const cy = Math.floor(i / info.cols)
-  return { x: cx * info.cw, y: cy * info.ch, w: info.cw, h: info.ch }
+  return { x: cx * info.cw, y: cy * info.ch, w: info.cw, h: info.ch * (cellDef(info, i)?.tall ?? 1) }
 }
 
 export function cellDef(info: MapInfo, i: number) {
@@ -387,6 +394,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     crystalAll: info.def.crystal ? (flag(`crystal:${info.def.crystal}`) ? 'cyan' : 'pink') : undefined,
     spell: '', spellTiles: [], onGlyph: -1, ring: info.def.keyring ?? 'shrine',
     ...(info.scenery.size ? { scenery: info.scenery } : {}),
+    ...(info.def.kind === 'side' ? { side: true as const } : {}),
   }
 }
 

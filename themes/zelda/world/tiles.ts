@@ -102,9 +102,16 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '║': OPEN, '═': OPEN, '╔': OPEN, '╗': OPEN, '╚': OPEN, '╝': OPEN, '╠': OPEN, '╣': OPEN, '╦': OPEN, '╩': OPEN, '╬': OPEN,
   'Θ': LOW,
   'Λ': LOW,
+  // The side view's (`engine/side.ts`): a ladder, and a platform solid from above only. Walked through otherwise.
+  'Ħ': OPEN,
+  '¯': OPEN,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]
+
+/** The side view's two tiles (`engine/side.ts`). */
+export const LADDER = 'Ħ' as const
+export const PLATFORM = '¯' as const
 
 /** The square block and the diamond block: the tiles the view makes solid or floor. */
 export const SQUARE_BLOCK = '□' as const

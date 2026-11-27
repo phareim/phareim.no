@@ -20,7 +20,7 @@
 import type { AirKind, ArtId, Enemy, GameState, Input, ItemId, MoveId, UseItem } from '../types'
 import {
   AIR, ART_FEED, ARC_REACH, ARTS, BUFFER_A, COMET_DMG, COMET_WINDOW, FLIP_CHOP, HERO_R, HOP, MOVES, SLIP_COOL,
-  SLIP_TIME, SWORD_REACH, TEMPEST, TEMPEST_FROM, TEMPEST_WINDOW,
+  SLIP_TIME, SWORD_REACH, TEMPEST, TEMPEST_FROM, TEMPEST_WINDOW, roomed,
 } from '../types'
 import { hitEnemy, type Ctx, type HitOpts } from './combat'
 import { enemyActive } from './enemies'
@@ -120,7 +120,8 @@ function hazard(c: Ctx, x: number, y: number) {
 export function startAir(c: Ctx, kind: AirKind, dx: number, dy: number, a: number, from?: AirKind): boolean {
   const s = c.s
   const h = s.hero
-  if (iceUnder(c)) return false
+  // The air's moves are the ground seen from above: none from the side (`side.ts` has its own jump).
+  if (iceUnder(c) || c.info.def.kind === 'side') return false
   const d = AIR[kind]
   let sp = d.speed
   if ((kind === 'back' && mastered(s, 'backflip')) || (kind === 'spring' && mastered(s, 'spring'))) sp *= 1.25
@@ -311,7 +312,7 @@ export function stepAir(c: Ctx, inp: Input, dt: number) {
     if ((t.hitX && hazard(c, t.x, t.y + Math.sign(my) * er)) || (t.hitY && hazard(c, t.x + Math.sign(mx) * er, t.y))) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
   }
   // In a dungeon the air stays in the hero's room.
-  if (c.info.def.kind === 'dungeon' && cellIndex(c.info, h.x + mx * 4, h.y + my * 4) !== cellIndex(c.info, h.x, h.y)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
+  if (roomed(c.info.def.kind) && cellIndex(c.info, h.x + mx * 4, h.y + my * 4) !== cellIndex(c.info, h.x, h.y)) { mx = 0; my = 0; a.vx = 0; a.vy = 0 }
   const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, mx, my)
   h.x = r.x
   h.y = r.y

@@ -133,14 +133,15 @@
     :class="{ 'zelda-deck--paused': paused, px16: dress16 }"
   >
     <template v-if="!paused">
-      <button v-if="hasItem" class="zelda-pad zelda-pad-swap" aria-label="Swap item" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
+      <button v-if="hasItem && !sideRoom" class="zelda-pad zelda-pad-swap" aria-label="Swap item" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
         <img v-if="swapIcon" :src="swapIcon" alt="" class="zelda-pad-icon">
       </button>
-      <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem, 'zelda-deck-btns--roll': hasSword }">
+      <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem && !sideRoom, 'zelda-deck-btns--roll': hasSword }">
         <button v-if="hasSword" class="zelda-pad zelda-pad-roll" aria-label="Roll" @pointerdown.prevent.stop="pressRoll" @contextmenu.prevent>
           <img v-if="rollIcon" :src="rollIcon" alt="" class="zelda-pad-icon">
         </button>
-        <button v-if="hasItem" class="zelda-pad zelda-pad-b" :class="{ 'zelda-pad--rest': padRest < 1 }" :style="padRest < 1 ? { '--rest': padRest } : undefined" aria-label="Use item or hop" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
+        <!-- (In a side room B is the jump, whatever is owned: held is higher, so it listens for the finger leaving.) -->
+        <button v-if="hasItem || sideRoom" class="zelda-pad zelda-pad-b" :class="{ 'zelda-pad--rest': padRest < 1 }" :style="padRest < 1 ? { '--rest': padRest } : undefined" :aria-label="sideRoom ? 'Jump' : 'Use item or hop'" @pointerdown.prevent.stop="pressB" @pointerup.prevent.stop="releaseB" @pointercancel="releaseB" @pointerleave="releaseB" @contextmenu.prevent>
           <img v-if="itemIcon" :src="itemIcon" alt="" class="zelda-pad-icon">
         </button>
         <button
@@ -247,6 +248,7 @@ import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
 import { artRest, awayMap, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems } from './engine/index'
+import { jumpIcon } from './render/side'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -275,6 +277,7 @@ import { HERO_COLORS_KEY, type HeroColors } from '../miniworld/types'
 import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
 import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, ViewSide, World } from './types'
+import { viewsOf } from './types'
 
 /** The newsstand's reader stays out of the entry (what `/` costs): nobody pays for it before using the stand. */
 const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
@@ -332,6 +335,8 @@ const padRest = ref(1)
 const hasItem = ref(false)
 /** The hero has the blade: the deck's roll pad is there (before it the town stays quiet). */
 const hasSword = ref(false)
+/** The hero is on a side map (`MapDef.kind` 'side'): B jumps, the items rest, one view. */
+const sideRoom = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
 const talking = ref(false)
 const { navigationLocked, launch } = useTheme()
@@ -458,7 +463,7 @@ function iconUrl(name: string) {
   if (!url) { url = (fine ? HIRES_WINDOW_SKIN.icon!(name) : sprite(name)).toDataURL(); iconCache.set(key, url) }
   return url
 }
-const itemIcon = computed(() => (padItem.value ? iconUrl(padItem.value) : ''))
+const itemIcon = computed(() => (sideRoom.value ? (import.meta.client ? jumpIcon().toDataURL() : '') : padItem.value ? iconUrl(padItem.value) : ''))
 const swordIcon = ref('')
 const swapIcon = ref('')
 /** The roll pad's picture: the hero curled mid-roll (a classic frame; the skins have no icon for it). */
@@ -681,10 +686,13 @@ function syncSound() {
 /** The map the view was last fitted to, and the visitor's own view while a map holds the world in another (MapDef.views). */
 let fitMap = ''
 let heldView: ViewId | null = null
+/** That map was a side map; and the turn being made goes into one or out of it. */
+let fitSide = false
+let sideCut = false
 
 /** May this map be shown in that view? (MapDef.views; Lumenby's terrain is isometric only.) */
 function allows(id: ViewId): boolean {
-  const only = state ? mapInfo(WORLD, state.map.id).def.views : undefined
+  const only = state ? viewsOf(mapInfo(WORLD, state.map.id).def) : undefined
   const def = viewDef(id)
   return !only || !def || only.includes(def.engine)
 }
@@ -696,6 +704,9 @@ function allows(id: ViewId): boolean {
 function fitView() {
   if (!state) return
   fitMap = state.map.id
+  // Into a side map and out of it the picture cuts over behind the door's fade: no turn is played.
+  sideCut = !!state.map.side || fitSide
+  fitSide = !!state.map.side
   if (!allows(viewId.value)) {
     heldView ??= viewId.value
     const round = viewList()
@@ -714,6 +725,7 @@ function fitView() {
  * hero can take a step off the entry (floor in both views, `validate.ts`), so a view that is here is never refused.
  */
 function forceView(id: ViewId) {
+  if (sideCut) { void showView(id, true, false); return }
   void showView(id, hasViewBlocks(state.map), false)
 }
 
@@ -1129,6 +1141,8 @@ function shellKey(e: KeyboardEvent): boolean {
   // N: the MOVES page (the combos, their mastery, the arts). (While asking "start over?" N is no, above.)
   if (e.code === 'KeyN' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('moves'); return true }
   // Nothing to swap, or the world standing still: Tab keeps its job (the MAP page's Prism, the page's link index).
+  // (Nor on a side map, where B is the jump.)
+  if (e.code === 'Tab' && sideRoom.value) return true
   if (e.code === 'Tab' && (paused.value || !hasItem.value)) return true
   return false
 }
@@ -1142,6 +1156,7 @@ function backsOut() {
 function pressA() { input.pressA() }
 function releaseA() { input.releaseA() }
 function pressB() { input.pressB() }
+function releaseB() { input.releaseB() }
 function pressRoll() { input.pressRoll() }
 function cycle() { input.cycle() }
 
@@ -1268,10 +1283,11 @@ function syncDeck() {
   const pad = itemIconName(state)
   if (pad !== padItem.value) padItem.value = pad
   const sel = state.inv.selected
-  const rest = isArt(sel) ? Math.floor(artRest(state, sel) * 20) / 20 : 1
+  const rest = isArt(sel) && !state.map.side ? Math.floor(artRest(state, sel) * 20) / 20 : 1
   if (rest !== padRest.value) padRest.value = rest
   const item = useItems(state).length > 0
   if (item !== hasItem.value) hasItem.value = item
+  if (!!state.map.side !== sideRoom.value) { sideRoom.value = !!state.map.side; releaseB() }
   if (state.inv.sword !== hasSword.value) {
     hasSword.value = state.inv.sword
     if (hasSword.value && !rollIcon.value) rollIcon.value = rollIconUrl()
@@ -1279,8 +1295,8 @@ function syncDeck() {
   if (leaving.value !== (state.mode === 'exit')) leaving.value = state.mode === 'exit'
   if (talking.value !== (state.mode === 'dialog')) {
     talking.value = state.mode === 'dialog'
-    // The floating A unmounts under the finger; its pointerup never comes.
-    if (talking.value) releaseA()
+    // The floating A (and B) unmount under the finger; their pointerup never comes.
+    if (talking.value) { releaseA(); releaseB() }
   }
 }
 
@@ -1507,6 +1523,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',
   hook: 'hook', hookHit: 'hookHit', pull: 'pull', psi: 'psi', glyph: 'glyph', lever: 'lever', land: 'land',
   gust: 'gust', bark: 'bark', tube: 'tube',
+  jump: 'hop',
   slip: 'slip',
   echo: 'echo', echoCut: 'echoCut', restock: 'plate',
 }

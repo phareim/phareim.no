@@ -15,6 +15,7 @@
  * Pure but for the context `paintCorner` is handed: `renderCorner` returns the picture as colours.
  */
 import type { GameState, MapDef, ViewSide, World } from '../types'
+import { viewsOf } from '../types'
 import { mapDef, mapInfo } from '../engine/map'
 import { DAY, DAY_LENGTH } from '../engine/day'
 import { glyphAbove, glyphRows, textWidth } from '../../base/pixel/font'
@@ -105,8 +106,9 @@ export interface RoundView { engine: string }
 const BUILT_IN: readonly RoundView[] = [{ engine: 'classic' }, { engine: 'iso' }]
 
 /** The views of the round this map may be shown in (`MapDef.views`, by engine). */
-function allowedIn(def: Pick<MapDef, 'views'> | undefined, round: readonly RoundView[]): RoundView[] {
-  return round.filter(v => !def?.views || (def.views as readonly string[]).includes(v.engine))
+function allowedIn(def: Pick<MapDef, 'views'> & { kind?: MapDef['kind'] } | undefined, round: readonly RoundView[]): RoundView[] {
+  const only = def && viewsOf(def)
+  return round.filter(v => !only || (only as readonly string[]).includes(v.engine))
 }
 
 /** There is a gem at all: the round holds a view to turn to (the studio may take all but one out of it). */
@@ -119,8 +121,10 @@ export function hasGem(round: readonly RoundView[] = BUILT_IN): boolean {
  * turn to but only one of its views is one this map allows (`round`: the live round, `viewList()`; by default the
  * two built-in views).
  */
-export function pinName(def: Pick<MapDef, 'views'> | undefined, round: readonly RoundView[] = BUILT_IN): PinName | null {
+export function pinName(def: Pick<MapDef, 'views'> & { kind?: MapDef['kind'] } | undefined, round: readonly RoundView[] = BUILT_IN): PinName | null {
   if (!hasGem(round)) return null
+  // A side map is the 8-bit engine's, however many views of it the round holds.
+  if (def?.kind === 'side') return '8-BIT'
   const allowed = allowedIn(def, round)
   if (allowed.length !== 1) return null
   return allowed[0]!.engine === 'iso' ? 'ISO' : '8-BIT'
@@ -135,7 +139,7 @@ export const NUDGE_TAG = { gem: 'TAP GEM: TURN', chart: 'TAP MAP: MENU' } as con
  * What a tap on a pinned gem says: on the tag, and in the live region for a screen reader. Null where the map allows
  * both views.
  */
-export function oneViewWords(def: Pick<MapDef, 'views'> | undefined, round: readonly RoundView[] = BUILT_IN): { tag: string; said: string } | null {
+export function oneViewWords(def: Pick<MapDef, 'views'> & { kind?: MapDef['kind'] } | undefined, round: readonly RoundView[] = BUILT_IN): { tag: string; said: string } | null {
   const pin = pinName(def, round)
   if (!pin) return null
   return { tag: refusalTag(pin), said: `${pin === 'ISO' ? 'Isometric' : 'Classic'} only here` }
