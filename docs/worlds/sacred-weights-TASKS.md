@@ -4,7 +4,7 @@ The design is [`sacred-weights.md`](sacred-weights.md). A box is ticked when the
 been looked at there. Briefs, reports and pictures of the work are under `tmp/dungeons/` (git-ignored).
 
 ## Before the dungeons
-- [ ] The MAP page of the menu is live (the corner's chart at full size).
+- [x] The MAP page of the menu is live (the corner's chart at full size; commit 0191c26, checked live 2026-11-27).
 - [x] Readers' notes on the engine, the story, saves, views, art and the lands (`tmp/dungeons/findings/`, 2026-11-27).
 - [x] Research on bosses and dungeons in other games (`tmp/dungeons/findings/research-*.md`, 2026-11-27).
 - [x] Second opinions from Codex and Antigravity on the design (`tmp/dungeons/opinions/`, 2026-11-27).
