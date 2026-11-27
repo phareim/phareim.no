@@ -268,7 +268,12 @@ export function hallucinator(c: Ctx, e: Enemy, dt: number) {
   if (ai.mode !== 'idle') plate(c, e, dt)
   switch (ai.mode) {
     // The first step in the room (after its card's line, if that has just been said): round one.
-    case 'idle': shuffle(c, all); return
+    // (A hero who stepped out and back finds it as wounded as he left it: the three bodies share the hit points, and the second half follows from them.)
+    case 'idle':
+      for (const b of all) b.hp = e.hp
+      if (half(e)) e.ai.phase = 2
+      shuffle(c, all)
+      return
     case 'shuffle': {
       glide(c.s.hero, all)
       if (ai.t > 0) return

@@ -85,7 +85,7 @@ const UNDERSIDE = scene('actunder', 'THE UNDERSIDE', 'SCENE ONE', room(24, 22, {
   '5': chest('actunder.bits', 'bits20'),
   '6': foe('bat'),
   '7': foe('blob'),
-}, { card: ['UNDER THE STAGE.', 'NO APPLAUSE.'] })
+}, { card: ['THE UNDERSIDE.', 'NO APPLAUSE.'] })
 
 // Three pads two tiles up, a door on each: the third is the stair. The key lies in plain sight below.
 const THREE_DOORS = scene('actdoors', 'THE THREE DOORS', 'SCENE ONE', room(12, 10, {
@@ -101,7 +101,8 @@ const THREE_DOORS = scene('actdoors', 'THE THREE DOORS', 'SCENE ONE', room(12, 1
 })
 
 // SCENE TWO. The stage floor: a ledge by a ladder or a jump, and the shaft up behind its doorway, shut until BARD
-// falls. (The ledge's east tile, under the shaft's ladder, is solid: nobody jumps past the gate from the floor.) BARD's three hiding places are its own painter's, not tiles (`engine/bossBard.ts`).
+// falls. (The ledge's east tile, under the shaft's ladder, is solid: nobody jumps past the gate from the floor. A hero
+// who comes down from the Flats arrives hanging on the ladder just under the stair: any press with down in it climbs.) BARD's three hiding places are its own painter's, not tiles (`engine/bossBard.ts`).
 const BOARDS = scene('actbard', 'THE BOARDS', 'SCENE TWO', room(16, 12, {
   1: '#.............2#',
   2: '#............¯Ħ#',
@@ -114,14 +115,14 @@ const BOARDS = scene('actbard', 'THE BOARDS', 'SCENE TWO', room(16, 12, {
   9: '#............XĦ#',
   10: '#........Ħ¯¯¯¯##',
   11: '#1.......Ħ.4...#',
-}), { trapdoor: [2.5, 11.5], shaft: [13.5, 1.5, 'left'] }, {
+}), { trapdoor: [2.5, 11.5], shaft: [14.5, 2.5, 'left'] }, {
   '1': stair('actdoors', 'doors'),
   '2': stair('actflats', 'foot'),
   '3': shut('actthree.bard'),
   '4': { ent: { t: 'enemy', kind: 'bard', once: 'actthree.bard' } },
 }, {
   track: 'boss',
-  card: ['THE STAGE.', 'EVERYTHING IS PAINTED.'],
+  card: ['THE BOARDS.', 'EVERYTHING IS PAINTED.'],
   events: [{ when: { notFlag: 'actthree.bard' }, set: 'actthree.bardcard', lines: ['BARD.\nIT KNOWS EVERY PART\nBUT ITS OWN.'] }],
 })
 
@@ -254,12 +255,12 @@ const GONDOLA = scene('actgondola', 'THE GONDOLA', 'SCENE FOUR', room(16, 12, {
   ...Object.fromEntries(Array.from({ length: 9 }, (_, k) => [k + 1, '#............###'])),
   9: '#..........h.###',
   10: '#.........hh.3.#',
-  11: '#1...4.......X2#',
+  11: '#1.........4.X2#',
 }), { stair: [2.5, 11.5] }, {
   '1': stair('actcable', 'top'),
   '2': stair('fogstage', 'mast'),
   '3': shut('hallucinator'),
-  // The Weight it sat on, on the floor once it has fallen.
+  // The Weight it sat on, on the floor once it has fallen: on the way to the stair out.
   '4': { ent: { t: 'item', id: 'actgondola.weight', item: 'weightSources', appear: { flag: 'hallucinator' } } },
   // Three bodies of one boss: the first of them in the room (the upper one) is the real one (`engine/bossHallucinator.ts`).
   h: { ent: { t: 'enemy', kind: 'hallucinator', once: 'hallucinator' } },
@@ -267,7 +268,7 @@ const GONDOLA = scene('actgondola', 'THE GONDOLA', 'SCENE FOUR', room(16, 12, {
   track: 'boss',
   events: [
     { when: { notFlag: 'hallucinator' }, set: 'actthree.hallucinatorcard', lines: ['THE HALLUCINATOR.\nIT IS QUITE SURE.\nASK IT ANYTHING.'] },
-    { when: { flag: 'hallucinator' }, set: 'actthree.cratesflat', lines: ['(THE CRATES GO FLAT. SOMEBODY ACTUALLY WROTE THE REST.)'] },
+    { when: { flag: 'hallucinator' }, set: 'actthree.cratesflat', lines: ['(THE CRATES GO FLAT. SOMETHING BRASS IS LEFT ON THE FLOOR.)'] },
   ],
 })
 

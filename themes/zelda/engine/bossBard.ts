@@ -21,11 +21,11 @@ export const BARD = {
   /** The charge, tiles/s, and the height of its band over the floor. */
   speed: 9, band: 0.9,
   /** The arena: the floor's and the ledge's top rows, and the open floor between the walls (x). */
-  floor: 12, ledge: 10, walls: [1, 14],
+  floor: 12, ledge: 10, walls: [1, 15],
   /** The leap's box, tiles wide, and where it may come down. */
-  box: 3, leapMin: 2.5, leapMax: 12.5, arc: 3,
+  box: 3, leapMin: 2.5, leapMax: 13.5, arc: 3,
   /** The bags: columns `bagW` wide, their middles `bagStep` apart, the hero's within `bagMin`..`bagMax`. */
-  bagW: 2, bagStep: 4, bagMin: 3, bagMax: 12, bagFrom: 2, bagTo: 13,
+  bagW: 2, bagStep: 4, bagMin: 3, bagMax: 12, bagFrom: 2, bagTo: 14,
 } as const
 
 export type BardPiece = 'door' | 'chest' | 'rope'

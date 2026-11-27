@@ -25,14 +25,16 @@ so. The way back down lands on the cellar's entry `upstairs`.
 Key, back along the Leg, the great door, the cable, the Hallucinator, the Weight, the stair down to the gangway. The
 ring holds 2 small keys and 2 locked doors, the Big Key and the great door.
 
+**The Boards' shaft** is entered from the Flats on the ladder itself, just under the stair: any press with down in it climbs, and none walks him back up. BARD's arena runs to the room's east wall (x 15), and the three pieces' blows between them reach every spot of the floor.
+
 **The gondola** is one room: the stair in at the west (`stair`), the plate at x 6.5 to 8.5, the way out in an alcove at
 the east behind a plain gate that opens on the flag `hallucinator`. The three bodies share one mark and one `once`
 flag; the upper of the three marks is the real one. Their slots' middles are x 2.8, 7.2 and 11.6, and their middles
 stand 1.2 tiles over the floor, so that a standing cut bites from anywhere within about 2.2 tiles of one (nearer
-the west wall the stair is in the way, and stepping on it leaves the fight, which then starts over). Each stencil is
+the west wall the stair is in the way, and stepping on it leaves the fight, which the boss then keeps its wounds from). Each stencil is
 also marked along the floor's edge, below every pair of feet, since a body is taller and wider than it. A fall gives
-the retry at the stair. The fall of the boss says (THE CRATES GO FLAT. SOMEBODY ACTUALLY WROTE THE REST.), and no
-card plays: nothing here is an ending.
+the retry at the stair. The fall of the boss says (THE CRATES GO FLAT. SOMETHING BRASS IS LEFT ON THE FLOOR.), and no
+card plays: nothing here is an ending. The Weight lies at x 11.5, on the way to the stair out.
 
 **The cable** is the one room where a fall is a fall: off the bottom costs half a heart and puts the hero on the last
 safe ledge (the foot, then the rows 18, 14, 12, 8 and 4). No real clamp and no part of the foot lies within 3 tiles,

@@ -333,6 +333,8 @@ describe('the lands', () => {
     for (const d of Object.values(Z.WORLD.maps)) for (const m of Object.values(d.marks)) {
       if (m.ent.t === 'npc' && m.ent.id.startsWith('q.') && !d.away) { lines.push(...talkOf(m.ent)); people.push(m.ent) }
     }
+    // Every room's card and events say their lines on a page too, in every map.
+    for (const d of Object.values(Z.WORLD.maps)) for (const c of Object.values(d.cells ?? {})) lines.push(...(c.card ? [c.card.title, ...c.card.lines] : []), ...(c.events ?? []).flatMap(e => e.lines ?? []))
     for (const l of new Set(lines)) {
       const shown = X.subst(l, X.TOUCH_KEYS)
       assert.match(shown, /^[A-Z0-9ÆØÅ .,!?'":;\-()/#%&+=*·↑↓←→\n]*$/, `not in the font: ${l}`)

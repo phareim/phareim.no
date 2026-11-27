@@ -153,6 +153,10 @@ describe('The Balance', () => {
     assert.ok(Z.lensUp(l) && l.map.lensSeen.includes(15 * 16 + 2), 'the glass shows the chest')
     P.pressA(l)
     assert.deepEqual([Z.has(l, 'chest:supply.key'), Z.keyCount(l)], [true, 1])
+    // Out and in again with the glass down: the opened chest is still a chest, solid.
+    const chestBack = reload(l)
+    run(chestBack, 0.1)
+    assert.notEqual(tile(chestBack, 2, 15), '.', 'an opened hidden chest stays solid after a reload')
     P.walkTo(l, 3, 13)
     P.face(l, 'up')
     P.pressA(l)

@@ -1236,6 +1236,8 @@ export interface MapState {
   lensGone?: Array<{ i: number; t: number }>
   /** A screen scrolling by itself (`MapDef.autoscroll`, `engine/chase.ts`): its left edge (tiles) and the still moment left (s). */
   chase?: { left: number; wait: number }
+  /** A side map: a blow has shoved the hero, and no stair takes him until he is clear of them (`stepGame`). */
+  shoved?: true
   /** The sandbags' clock, s since the map was loaded (`engine/sandbag.ts`). */
   bagT?: number
   /** THE BALANCE (`engine/balance.ts`): the seconds towards the next pan, or the level. */
@@ -1546,8 +1548,8 @@ export interface GameState {
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }
   /**
-   * The wounds a boss that lives alone in its map keeps while the hero steps out and back (the Weaver's face,
-   * `engine/bossWeaver.ts`): hit points by enemy kind. A death clears it (`respawn`); never saved.
+   * The wounds a hurt boss keeps while the hero steps out of its map and back (`enterMap`; the Weaver's face reads its
+   * own, `engine/bossWeaver.ts`): hit points by enemy id. A death clears it (`respawn`); never saved.
    */
   wounds?: Record<string, number>
   /**

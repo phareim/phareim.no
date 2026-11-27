@@ -18,7 +18,7 @@
  * it that a step, a jump or the blade clears. (It scribbles through a hand's rest too: a hero who only stands still
  * loses in some twelve seconds.)
  *
- * A hero who steps out and comes back finds the face as wounded as he left it (`GameState.wounds`, the rule that a
+ * A hero who steps out and comes back finds the face as wounded as he left it (`GameState.wounds`, the game's rule that a
  * boss keeps its wounds). A death or a reload starts at the part reached: the flags say how many hands are right, and
  * the face's wounds are lost.
  */
@@ -256,7 +256,7 @@ export function weaver(c: Ctx, e: Enemy, dt: number) {
     const n = c.info.def.stamps!.findIndex(st => !has(c.s, st.flag))
     ai.n = n < 0 ? 3 : n
     // (The hands are flags; the face's wounds are what the hero left it with, if he stepped out.)
-    e.hp = Math.min(e.maxHp - WEAVER.stomp * handsRight(e), c.s.wounds?.weaver ?? e.maxHp)
+    e.hp = Math.min(e.maxHp - WEAVER.stomp * handsRight(e), c.s.wounds?.[e.id] ?? e.maxHp)
     ai.clk = 0
     to(e, 'gap', WEAVER.gap)
   }
@@ -307,7 +307,6 @@ export function weaver(c: Ctx, e: Enemy, dt: number) {
   ripple(c, e, dt)
   scribble(c, e, dt)
   handClank(c, e)
-  ;(c.s.wounds ??= {}).weaver = e.hp
 }
 
 /** The face at rest again: two scribbles come in the watch, the second gone before the yawn. */
