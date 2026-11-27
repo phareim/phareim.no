@@ -410,7 +410,7 @@ export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> &
   bombs: { name: 'BOMBS', does: 'OPEN CRACKED WALLS. MIND YOUR FEET.' },
   hop: { name: 'THE HOP', does: 'A SHORT JUMP. NOTHING LANDS ON YOU IN THE AIR.' },
   echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
-  lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. FEEDS WHAT WANTS LIGHT.' },
+  lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. B SETS IT DOWN, MOVES IT FROM AFAR, TAKES IT UP FROM BESIDE IT.' },
   magnet: { name: 'THE MAGNET', does: 'LATCHES METAL. LOOSE COMES TO YOU. YOU GO TO BOLTED. A CART RIDES ITS RAIL.' },
   duck: { name: 'THE DUCK', does: 'FOES LOOK AT IT. IT WEIGHS ONE. IT FLOATS.' },
 }
@@ -443,13 +443,14 @@ export const MIXTRAL = { stalk: 1.8, line: 0.8, tell: 0.7, tell2: 0.5, charge: 9
  * Further off than `near` it DRAGS: a lane `dragW` wide and up to `dragLen` long from its middle (`dragTell` s), down
  * which it dashes at `dragSpeed` tiles/s till its bow reaches the lane's end; the oar planted, it is open `planted` s.
  * Nearer, it SWEEPS: a box `sweepW` wide from `sweepFrom` to `sweepTo` tiles ahead of its middle (two tiles beyond its
- * bow, `sweepTell` s), the oar swinging `swing` s; then it is off balance, open `offBalance` s. A blow of either takes
+ * bow, `sweepTell` s), the oar swinging `swing` s; a hero still within `again` tiles then is swept at once more (told as the
+ * first); then it is off balance, open `offBalance` s. A blow of either takes
  * `dmg` half hearts, once. Open (planted, off balance, or stunned by the lamp) the blade takes `take` hit points at most.
  */
 export const ORCA = {
   row: 1.2, keep: 3.5, idle: 0.9, near: 2.6, patience: 1.2, dragLeast: 1.8, look: 0.4,
   dragTell: 0.8, dragLen: 5, dragW: 2, dragSpeed: 10, planted: 2.2,
-  sweepTell: 0.7, sweepW: 3, sweepFrom: -0.2, sweepTo: 2.9, swing: 0.25, offBalance: 1.6,
+  sweepTell: 0.7, sweepW: 3, sweepFrom: -0.2, sweepTo: 2.9, swing: 0.25, offBalance: 1.6, again: 3.3,
   dmg: 2, take: 5,
 } as const
 /**
@@ -780,7 +781,7 @@ export interface CellDef {
   name?: string
   /** This room is this many cells high, from here down (a side map's climb). */
   tall?: number
-  /** Its push blocks go home whenever the hero comes back in, solved or not (a gate that opened stays open). */
+  /** Its push blocks and mirrors go home whenever the hero comes back in, solved or not (a gate that opened stays open). */
   homeBlocks?: true
   dark?: boolean
   /** A dark room is lit once this flag is set (the lab's power). */
@@ -880,6 +881,11 @@ export interface MapDef {
    * land's other marks (`away`): a dungeon far from town.
    */
   resume?: true
+  /**
+   * The storm lamp's beam lights this map's receivers (the Lighthouse's, the Balance's store rooms). Elsewhere the lamp
+   * still lights the dark, burns and stuns, and a receiver it reaches stays dark (`traceBeams`: the buzz, once).
+   */
+  lamplit?: true
   /**
    * The drawing engines this map may be shown in (`viewParams.ts`); absent,
    * every view. Elsewhere the shell shows the first allowed one for as long
@@ -1308,6 +1314,8 @@ export interface LampDown {
   idx: number
   dir: Dir
   under: TileChar
+  /** Its beam has met a receiver it may not light: the buzz was given (once for each time it is set down). */
+  buzzed?: true
 }
 export type EchoBlow = 'swing' | 'spin' | 'chop' | 'comet' | 'tempest'
 

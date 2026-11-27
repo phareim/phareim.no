@@ -2,7 +2,9 @@
 // tests, all scripted players: the map and its keys (and the door in the land); the lamp never saved; the walk from the
 // door in Yule Fjord to the Weight in hand, with the blade and the lamp (every room, both small keys, the Big Key, the
 // lamp in all four puzzle rooms, ORCA, the dark hound and the Black Box through its three rounds, and a save made
-// halfway and loaded as a reloaded tab would be); and a hero who stands still before the Black Box, who loses.
+// halfway and loaded as a reloaded tab would be; no pushed mirror coming to rest on an arrival tile, and coming home; the
+// lamp heard again when set down afresh, refused by the receivers of a map not marked for it, taken home by the water; a
+// wounded Box back at its round); and a hero who stands still before the Black Box, who loses.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -120,6 +122,33 @@ describe('the Lighthouse', () => {
     P.step(s, inp())
     Z.enterMap(Z.WORLD, s, 'lighthouse2', 'arrive', [])
     assert.equal(s.lamp, null)
+
+    // The lamp lights receivers where the map says so (the tower, below) and nowhere else: in the Puzzle Lab's last room
+    // its beam ends in the receiver with a buzz, and the room stays unsolved.
+    const lab = at('puzzlelab', 'start', { inv: { lamp: true, selected: 'lamp' } })
+    Object.assign(lab.hero, { x: 4.5, y: 8.5, dir: 'right' })
+    for (let k = 0; k < 150; k++) P.step(lab, inp())
+    lab.dialog = null
+    lab.mode = 'play'
+    Object.assign(lab.hero, { x: 4.5, y: 8.5, dir: 'right' })
+    P.step(lab, inp({ bPress: true }))
+    for (let k = 0; k < 40; k++) P.step(lab, inp())
+    assert.ok(lab.lamp && lab.map.phys.beams.some(b => b.src === 'lamp'), 'the lamp shines along row 8 of the last room')
+    assert.ok(!lab.flags['lab.f.lit'], 'and lights nothing there')
+    assert.ok(lab.lamp.buzzed, 'its beam met a receiver it may not light')
+    // The water takes a lamp home: set on the drained floor of the Sluice Hall, it is in the hand when the basin floods.
+    const hall = at('puzzlelab', 'start', { inv: { lamp: true, selected: 'lamp' } })
+    Object.assign(hall.hero, { x: 17.5, y: 5.5, dir: 'right' })
+    for (let k = 0; k < 120; k++) P.step(hall, inp())
+    hall.dialog = null
+    hall.mode = 'play'
+    Object.assign(hall.hero, { x: 18.5, y: 5.5, dir: 'right' })
+    P.step(hall, inp({ bPress: true }))
+    assert.equal(hall.map.tiles[5 * hall.map.w + 19], 'Φ', 'a lamp on the drained floor')
+    hall.flags['lab.e.tide'] = true
+    for (let k = 0; k < 30; k++) P.step(hall, inp())
+    assert.equal(hall.lamp, null, 'the water comes and the lamp is back in the hand')
+    assert.equal(hall.map.tiles[5 * hall.map.w + 19], 'ω', 'with no dry tile left in the basin')
   })
 
   // ---- (1) from the door to the Weight ---------------------------------------------------------------------------
@@ -208,6 +237,22 @@ describe('the Lighthouse', () => {
     assert.equal(tile(s, 18, 6), '.')
     open(s, 30, 5, 'down')
     assert.equal(s.inv.keyrings.lighthouse, 1, 'small key A')
+
+    // Nothing pushed comes to rest on the tile the hero arrives on: the rim mirror pushed west and south stops above it (the
+    // stair stays reachable), and slid along row 10 over the ice it stops a tile short.
+    {
+      const t = at('lighthouse0', 'stair')
+      const to = (u, x, y) => Object.assign(u.hero, { x: x + 0.5, y: y + 0.5 })
+      to(t, 4, 8); hold(t, 'left')
+      to(t, 1, 7); hold(t, 'down')
+      to(t, 1, 8); hold(t, 'down')
+      assert.equal(tile(t, 1, 9), 'ν', 'the mirror stops above the arrival tile')
+      assert.ok(tile(t, 1, 10) !== 'ν' && P.path(t, 1, 11), 'the stair is reached')
+      const u = at('lighthouse0', 'stair')
+      to(u, 3, 7); hold(u, 'down')
+      to(u, 4, 10); hold(u, 'left')
+      assert.ok(tile(u, 1, 10) !== 'ν' && P.path(u, 1, 11), 'a mirror slid along row 10 stops short of it')
+    }
 
     // The way down: the Ice Store. The lamp, tested on salt ice, two mirrors, six things done.
     P.walkTo(s, 2, 5)
@@ -389,6 +434,14 @@ describe('the Lighthouse', () => {
     assert.ok(s.flags['lighthouse.gallery'], 'the beam goes up, west, down and west to the receiver')
     wait(s, 1)
     assert.equal(tile(s, 14, 5), '.', 'the gate before the Big-Key door is open')
+    // The Gallery is solved, and a mirror sent along row 2 and down column 2 stops above the arrival tile: the stairs stay
+    // open. Leaving puts it home all the same (the gate stays open).
+    walk(s, 14, 2)
+    hold(s, 'left')
+    walk(s, 2, 1)
+    hold(s, 'down')
+    assert.equal(tile(s, 2, 9), 'ν', 'the mirror stops above the arrival tile')
+    assert.ok(tile(s, 2, 10) !== 'ν' && P.path(s, 1, 11) && P.path(s, 2, 11), 'both stair tiles are reached')
     P.walkTo(s, 14, 5)
     s.hero.dir = 'right'
     press(s, 'right', 30)
@@ -445,6 +498,15 @@ describe('the Lighthouse', () => {
         until(s, () => box.ai.mode !== 'answer', 3)
         assert.ok(s.flags[`lighthouse.box.${out.toLowerCase()}`], `round ${round + 1}: the ${out} receiver is lit`)
         assert.equal(box.ai.mode, k === 2 ? 'open' : 'idle')
+        // A lamp taken up and set down again at once is heard afresh, though the face was just answered through.
+        if (round === 0 && k === 0) {
+          assert.ok(Z.stencilsOf(box).some(m => m.t === 'face' && m.dim && m.n === NUMBER[into]), 'the face its lamp stands at is dim')
+          step(s, inp({ bPress: true }))
+          assert.equal(s.lamp, null)
+          lamp(s, dir, 0)
+          until(s, () => box.ai.mode === 'think', 2)
+          until(s, () => box.ai.mode === 'idle', 6)
+        }
         // The lamp back in the hand: its beam does nothing to the Box.
         if (k === 2) assert.ok(Z.bossOpen(box))
       }
@@ -461,12 +523,21 @@ describe('the Lighthouse', () => {
         if (s.lamp) {
           run(s, 60)
           assert.equal(box.ai.mode, 'idle', 'a lamp left shining does not loop it')
+          assert.ok(Z.stencilsOf(box).some(m => m.t === 'face' && m.dim), 'and the face it stands at says so')
           assert.ok(!['n', 'e', 'w'].some(f => s.flags[`lighthouse.box.${f}`]))
           const [lx, ly] = [s.lamp.idx % s.map.w, Math.floor(s.lamp.idx / s.map.w)]
           walk(s, lx + (lx < 24 ? -1 : 1), ly)
           step(s, inp({ bPress: true }))
           assert.equal(s.lamp, null)
           wait(s, 0.5)
+        }
+        // Out through the great door and back, wounded: the Box is at the round its hit points say, and keeps them.
+        if (round === 0) {
+          walk(s, 17, 5)
+          through(s, () => s.zoneIndex === 0, 'left')
+          through(s, () => s.zoneIndex === 1, 'right')
+          run(s, 20)
+          assert.deepEqual([box.hp, box.ai.round], [8, 1], 'a wounded Box comes back at round two, not at round one')
         }
       }
     }
@@ -484,6 +555,10 @@ describe('the Lighthouse', () => {
     P.walkTo(s, 24, 8)
     P.settle(s)
     assert.ok(Z.hasWeight(s, 'weightReasons'), 'REASONS in hand')
+    // Back in the Gallery the mirrors are home, solved or not, and the gate has stayed open.
+    walk(s, 17, 5)
+    through(s, () => s.zoneIndex === 0, 'left')
+    assert.deepEqual([tile(s, 2, 9), tile(s, 13, 2), tile(s, 14, 5)], ['.', 'μ', '.'], 'the pushed mirror is home, the gate open')
   })
 
   // ---- (2) standing still loses ------------------------------------------------------------------------------------

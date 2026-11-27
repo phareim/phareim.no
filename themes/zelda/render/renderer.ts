@@ -35,7 +35,7 @@ import { drawFloorMarks } from './floorMarks'
 import { drawClock, drawGifts, drawPaper, drawRings, drawRobe, queueHouse, steamLights, SYCO_HOVER, sycophantAlpha, sycophantBar, sycophantGold, sycophantLift, sycophantLight, sycophantShown, sycophantSprite } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
-import { BOX_AHEAD, boxFoot, drawBox, drawEyes, drawNumbers, lampItem, stripLights } from './lighthouse'
+import { BOX_AHEAD, boxFoot, drawBox, drawEyes, drawNumbers, eyesShut, lampItem, stripLights } from './lighthouse'
 import { drawExamCard, drawStillWash, queueExam, timeStands } from './examination'
 import { drawGolem, drawGolemFall, golemSprite, golemStand } from './golemPaint'
 import { GOLEM } from '../engine/bossGolem'
@@ -1253,8 +1253,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     // A dark hound unseen: two eyes, and its bar (`foeBars`). No body, no shadow, no outline.
     if (e.dark && unseen(s, mapInfo(world, s.map.id), e)) {
-      drawEyes(g, x, feet, e.dir === 'left' ? -1 : e.dir === 'right' ? 1 : 0)
-      lights.push({ x: e.x, y: e.y - 0.3, r: 0.7, color: '#ff2fa0', a: 1 })
+      const shut = eyesShut(e, time, frameReduced)
+      drawEyes(g, x, feet, e.dir === 'left' ? -1 : e.dir === 'right' ? 1 : 0, shut)
+      if (!shut) lights.push({ x: e.x, y: e.y - 0.3, r: 0.7, color: '#ff2fa0', a: 1 })
       return
     }
     // (Behind its banner, there is nothing of the Sycophant to draw, shadow and all.)

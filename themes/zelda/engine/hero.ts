@@ -22,7 +22,7 @@ import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, stepClear, tileAt, cellIndex, cellRect } from './map'
 import { fireHook } from './hook'
 import { useMagnet } from './magnet'
-import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
+import { badRest, hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { isTube } from '../world/tubes'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
@@ -992,7 +992,7 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
   if (echoOnTile(c, nx, ny)) return
   // Stay inside the block's camera room.
   if (cellIndex(c.info, nx + 0.5, ny + 0.5) !== cellIndex(c.info, tx + 0.5, ty + 0.5)) return
-  if (inDoorway(c, nx, ny)) return
+  if (inDoorway(c, nx, ny) || badRest(c, ty * m.w + tx, nx, ny)) return
   m.tiles[ty * m.w + tx] = '.'
   m.tiles[ny * m.w + nx] = 'b'
   m.version++
