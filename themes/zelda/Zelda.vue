@@ -98,6 +98,27 @@
     @keydown="turnKey"
     @contextmenu.prevent
   />
+  <!-- The nine cells of the menu's ITEMS page, which is painted on the canvas: a bare button over each, placed where
+    the page laid it (`placeItemCells`). A press puts the thing on B; reached by Tab, the page's cursor goes with it. -->
+  <template v-if="phase === 'play' && paused && menuPage === 'items' && !confirmReset && itemCells">
+    <button
+      v-for="(cell, i) in itemCells"
+      :key="i"
+      type="button"
+      class="zelda-page-cell"
+      :style="cell.style"
+      data-game-keys
+      :disabled="!cell.owned"
+      :aria-label="cell.name"
+      :aria-pressed="cell.held"
+      @pointerdown.prevent="itemPress(i, $event)"
+      @mousedown.prevent
+      @click="$event.detail === 0 && takeItem(i)"
+      @focus="moveItemCursor(i)"
+      @keydown="turnKey"
+      @contextmenu.prevent
+    />
+  </template>
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
@@ -180,7 +201,9 @@
  * item, Tab too in play when there is one (else, and in the menu, Tab moves the focus as on any page);
  * P or an Escape tap open the menu on its ITEMS page, N on its MOVES page, M on its MAP page
  * (`render/mapPage.ts`); there the key of the open page (or Escape) closes
- * it, another page's key turns to it. In the menu T goes to town, O turns the
+ * it, another page's key turns to it. On ITEMS (`render/itemsPage.ts`) the arrows
+ * and WASD move a cursor over the grid and Enter, Space, J or Z put what is under it
+ * on B; a tap on a cell does too. In the menu T goes to town, O turns the
  * sound on or off; V turns to the next view anywhere (`views.ts`: the
  * isometric one a visit starts in, the classic one, and the studio's own);
  * holding Escape saves and goes back to town.
@@ -232,6 +255,7 @@ import { viewSide } from './render/turn'
 import { ruleLoose, ruleMove } from './viewRule'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
 import { HIRES_WINDOW_SKIN, type MenuPage } from './render/hud'
+import { cursorStart, moveCursor, pickCell, sockets } from './render/itemsPage'
 import { CORNER_H, CORNER_W, PRESS_TIME, RULE_TAGS, STAND_CLEAR, TAG_TIME, VIEW_NOT_LOADED, awayStep, backStep, chartNight, chromeAlpha, cornerLayout, cornerShape, cornerTargets, hasChart, oneViewWords, paintCorner, sunPhase, turnAmount, type CornerState } from './render/corner'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
@@ -1030,12 +1054,64 @@ function pagePrismFocused(): boolean {
   try { return el.matches(':focus-visible') } catch { return true }
 }
 
+// ---- the menu's ITEMS page ---------------------------------------------------------
+
+/** The cell the page's cursor stands on; it starts on the thing in hand each time the page comes up. */
+let itemCursor = 0
+/** The buttons over the page's cells, placed where it was last painted. */
+const itemCells = shallowRef<Array<{ style: BoxStyle; name: string; owned: boolean; held: boolean }> | null>(null)
+const CURSOR_KEYS: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1],
+}
+const TAKE_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'KeyJ', 'KeyZ'])
+
+/** The page's own keys: the arrows and WASD walk the grid, A's keys put what is under the cursor on B. */
+function itemsKey(e: KeyboardEvent): boolean {
+  const step = CURSOR_KEYS[e.code]
+  if (!step && !TAKE_KEYS.has(e.code)) return false
+  e.preventDefault()
+  if (e.repeat) return true
+  if (step) moveItemCursor(moveCursor(itemCursor, step[0], step[1]))
+  else takeItem(itemCursor)
+  return true
+}
+
+function moveItemCursor(at: number) {
+  if (at === itemCursor) return
+  itemCursor = at
+  pausedDrawn = false
+}
+
+/** Puts the thing in cell `at` on B and the cursor on it; an empty socket does nothing. */
+function takeItem(at: number) {
+  if (!pickCell(state.inv, at)) return
+  itemCursor = at
+  pausedDrawn = false
+  syncDeck()
+  audio?.sfx('select')
+}
+
+/** A pointer on a cell's button. (The click that follows a pointer is not a second press.) */
+function itemPress(at: number, e: PointerEvent) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  takeItem(at)
+}
+
+/** After a paused frame: the buttons go where the cells were painted. */
+function placeItemCells() {
+  const at = renderer?.itemCells() ?? null
+  const cells = sockets(state.inv)
+  const next = at && at.map((b, i) => ({ style: boxStyle(b), name: cells[i]!.name || 'Empty socket', owned: !!cells[i]!.id, held: cells[i]!.held }))
+  if (JSON.stringify(next) !== JSON.stringify(itemCells.value)) itemCells.value = next
+}
+
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
 function shellKey(e: KeyboardEvent): boolean {
   if (phase.value === 'won') {
     if (CONTINUE_KEYS.has(e.code) && !e.repeat) { e.preventDefault(); keepExploring() }
     return true
   }
+  if (paused.value && menuPage.value === 'items' && !confirmReset.value && itemsKey(e)) return true
   if (paused.value && !e.repeat) {
     if (confirmReset.value) {
       // Y only: Enter and Space are A, and an A mashed through the machine's lines must not answer.
@@ -1328,6 +1404,7 @@ function openPage(page: MenuPage) {
   if (!paused.value) { togglePause(page); return }
   if (menuPage.value === page) { togglePause(); return }
   menuPage.value = page
+  if (page === 'items') itemCursor = cursorStart(state.inv)
   pausedDrawn = false
   audio?.sfx('select')
 }
@@ -1337,7 +1414,7 @@ function togglePause(page: MenuPage = 'items') {
   if (phase.value !== 'play') return
   // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
-  if (!paused.value) menuPage.value = page
+  if (!paused.value) { menuPage.value = page; itemCursor = cursorStart(state.inv) }
   paused.value = !paused.value
   pausedDrawn = false
   slowT = 0
@@ -1551,6 +1628,7 @@ function frame(nowMs: number) {
 
   ui.paused = paused.value
   ui.page = menuPage.value
+  ui.itemCursor = itemCursor
   ui.turn = turnAmount(renderer.viewState().turn)
   ui.confirmReset = confirmReset.value
   ui.muted = sound.muted.value
@@ -1572,10 +1650,11 @@ function frame(nowMs: number) {
   if (paused.value) { const top = deckTop(); if (top !== ui.deckTop) { ui.deckTop = top; pausedDrawn = false } }
   // (And when the keyboard's focus comes to its Prism or leaves it: the ring is part of the picture.)
   if (paused.value) { const on = pagePrismFocused(); if (on !== !!ui.prismFocus) { ui.prismFocus = on; pausedDrawn = false } }
-  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism() } return }
+  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism(); placeItemCells() } return }
   pausedDrawn = false
   // (A page opened later starts without a place left over from this one.)
   if (pagePrismAt.value) pagePrismAt.value = null
+  if (itemCells.value) itemCells.value = null
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
   if (panel.value) { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
@@ -1984,6 +2063,24 @@ onBeforeUnmount(() => {
   -webkit-tap-highlight-color: transparent;
 }
 .zelda-page-prism:focus { outline: none; }
+/* The ITEMS page's cells: bare boxes over the canvas, under the deck. The page's cursor goes where the focus does. */
+.zelda-page-cell {
+  position: absolute;
+  z-index: 4;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.zelda-page-cell:disabled { cursor: default; }
+.zelda-page-cell:focus { outline: none; }
 /* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepCorner`). */
 .zelda-canvas ~ .portal-hint {
   filter: opacity(var(--zelda-chrome-a, 1));

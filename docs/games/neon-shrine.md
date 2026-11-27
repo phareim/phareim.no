@@ -1059,8 +1059,9 @@ classic picture. `/?view=<id>` asks for one.
     MASTER in gold once it is (a full gold bar where the word would run into the
     buttons; B, the hop, in gold); under them the hop in its slot (dim while resting,
     underlined in hand) with what it does, or `?` and where to find it (where to go,
-    never how). It fits a phone on its side, and upright indoors (lab: `moves-hut`,
-    `moves-new`).
+    never how). No window: it lies on `PAGE_VEIL` with the tabs at the top, like
+    the menu's other pages. It fits a phone on its side, and upright indoors (lab:
+    `moves-hut`, `moves-new`).
   - *What it looks like* (`render/renderer.ts`, all views alike). In the air the
     roll's ball turns a quarter at a time (lossless turns, `putRot`) the way the hero
     flies, tucked going up and crouched coming down; the FLIP CUT raises the blade
@@ -1443,15 +1444,55 @@ squares. Two of it:
   focus and key caps, the lessons, away, the tag, Lumenby's sockets, chests,
   pass tabs), the object over real pictures of the game, and the charts
   whole.
+- **The ITEMS page** of the menu (P, Escape; `render/itemsPage.ts`) is in the
+  MAP page's manner: no window, no HUD behind it, the corner's colours on the
+  page's own veil (`PAGE_VEIL`), the menu's tabs at the top. Top to bottom on an
+  upright phone:
+  - **ON B**: a grid of 3 × 3 cells, one for each thing of `B_ITEMS` in its order,
+    44 × 44 CSS px or more. An owned one shows its icon (bombs with their count);
+    one not owned, and every cell after the last, is an empty socket with a dim
+    outline and no hint. The one in hand has a gold frame. The cursor, cyan
+    corners, stands on one cell; the page opens with it on the thing in hand.
+  - **The line**: the name of what is under the cursor and one line of what it
+    does (`B_WORDS`, beside `B_ITEMS` in `types.ts`); nothing on an empty socket.
+    It keeps the room of the longest, so the page does not move with the cursor.
+  - **ALWAYS**: what needs no slot, each shown once owned (`ALWAYS`): the blade or
+    the Arc Blade, the big bomb bag, the Sun Prism, and THE NO, THE STOMP and
+    THE LENS, which nothing grants yet (their flags: `item:no`, `item:stomp`,
+    `item:lens`).
+  - **The Weights**: a beam with seven hooks; a Weight held hangs in its pan with
+    its own icon, an empty pan is a dim ring, `n/7` beside it. Not drawn until
+    the first is held.
+  - **HEART PIECES** (the four-part heart), in a place with a keyring (and in the
+    Shrine) its small keys and its Big Key, and what is carried for someone.
+  - **QUEST**: the pause screen's hint (`objective`).
+  - Beside a keyboard, the last lines: `ESC RESUME`, `ARROWS PICK`, `ENTER TAKE`,
+    then `T TOWN`, `O SOUND ON`, `V VIEW …`.
+
+  Wider than tall, the grid and its line stand at the left and the rest in a
+  column at the right. Where room is short the parts stand closer and the cells
+  shrink (never under 44 CSS px), then they give way in this order
+  (`ITEMS_GIVE_WAY`): the ALWAYS row, the quest's lines after the first (a cut
+  one ends in `...`), the hearts' row. The grid, its line and the Weights stay.
+  `itemsPageLayout` says where everything goes; it is pure, as are the pictures.
+  - **Picking.** While the menu is open on ITEMS the arrows and WASD move the
+    cursor (it stops at the edges) and Enter, Space, J or Z put what is under it
+    on B (an empty socket does nothing); Q and Tab keep their meaning in play,
+    and in the menu Tab moves the focus. On touch and with a mouse a tap on an
+    owned cell does the same: the shell lays a bare `<button>` over each cell
+    (`.zelda-page-cell`, under the deck, none under the start-over question;
+    `aria-label` the name, `aria-pressed` for the one in hand, disabled on an
+    empty socket), and the cursor follows the keyboard's focus. The pick sets
+    `inv.selected` and nothing else; it is saved with the next save.
 - **The MAP page** of the menu (M; `render/mapPage.ts`) is the corner's
   chart unfolded, in the corner's five colours in both dresses, with no window:
   it lies on the stopped world under a veil of its own, the same in both dresses
   (the corner's ink at 0.86, `PAGE_VEIL`). It has the whole screen from the
   menu's tabs (`P ITEMS`, `N MOVES`, `M MAP`), at the top with a small margin,
-  to the touch deck, or the line `ESC RESUME` beside a keyboard: on this page
-  alone the HUD's hearts, counters and item box are not drawn (they are back as
-  soon as the menu closes or turns to another page), and no banner, exit label
-  or talk box stands behind it. What is under the tabs takes the middle of the
+  to the touch deck, or the line `ESC RESUME` beside a keyboard: on every page
+  of the menu the HUD's hearts, counters and item box are not drawn (they are
+  back as soon as the menu closes, and stand behind the start-over question),
+  and no banner, exit label or talk box stands behind it. What is under the tabs takes the middle of the
   rows that are left. A paused game is painted once, so nothing on it moves. Top
   to bottom on an upright phone:
   - **The title**: the map's name in gold, and under it in lilac the area the
@@ -1537,7 +1578,8 @@ hold after a swing, release to spin; in a roll, a flip; see "Combos and the hop"
 K/X/Shift = B (the item or art in hand); L or C rolls
 (once the hero has the blade); Q, or Tab when there is an item, swaps (in the
 menu Tab moves the focus); P or an
-Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
+Escape tap pauses on the menu's ITEMS page (what B holds, to pick from with
+the arrows or WASD and Enter, Space, J or Z; the Weights, heart pieces, the
 current quest), N on its MOVES page (the combos, their mastery, the hop), M on
 its MAP page (see "The map"); the key of the open page or Escape closes it, another
 page's key turns to it. In the menu O turns the
@@ -1553,7 +1595,7 @@ lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
 SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
 the chain and the roll); on a phone lying on its side
 they sit lower and more side by side, the roll a size smaller over B, so
-the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP); on ITEMS SOUND ON/OFF and TO TOWN; on MOVES ITEMS; on MAP VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP); on ITEMS SOUND ON/OFF and TO TOWN, and a tap on a cell of the grid puts it on B; on MOVES ITEMS; on MAP VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
@@ -1587,8 +1629,9 @@ opens the great door to the King in the Shrine's ring and the great door
 seven **Sacred Weights** (`WEIGHTS` in `types.ts`, one a land:
 MEANING, REASONS, NO, SURPRISE, FINGERS, CREDIT, SOURCES) are items whose
 grant sets only the flag `item:<id>` (`hasWeight`, `weightCount`), with the
-heart container's jingle and one shared stand-in picture (`item_weight`). No
-map gives one yet, and the ITEMS page does not show them
+heart container's jingle and one shared stand-in picture in the world
+(`item_weight`); the ITEMS page hangs each on its beam with its own icon
+(`item_weight_<word>`, `render/spritesItemsPage.ts`). No map gives one yet
 (`docs/worlds/sacred-weights.md` is the plan).
 
 **Saves (on the profile since 2026-09-23).** The save belongs to the

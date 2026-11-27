@@ -1,18 +1,18 @@
 /**
  * The heads-up display, drawn in logical pixels on the UI layer: hearts,
- * the B-item box, bits/bombs/keys, the area banner, the dialog box and the
- * pause screen with the quest hint.
+ * the B-item box, bits/bombs/keys, the area banner, the dialog box, the
+ * menu's tabs and MOVES page, and the start-over question.
  */
 import type { GameState, World } from '../types'
-import { objective } from '../progress'
 import { subst, type HudKeys } from '../keys'
 import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
 import { itemIconName } from './itemIcon'
-import { ARTS, bItem, MOVES, type ArtId, type MoveId, type ToolId } from '../types'
+import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
 import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
+import { PAGE_VEIL } from './mapPage'
 
 type G = CanvasRenderingContext2D
 
@@ -166,7 +166,7 @@ export function hudScale(scale: number, W: number, H: number, density = 1): numb
   if (Math.ceil(W / up) >= HUD_MIN_W && Math.ceil(H / up) >= HUD_MIN_H) return up
   return Math.max(2, scale - 1)
 }
-/** The smallest logical area the layout is drawn for: the pause screen's five slots across, and from its title to its last line (the classic view never shows less than 176 rows either). */
+/** The smallest logical area the layout is drawn for: the menu's pages across, and from its tabs to their last line (the classic view never shows less than 176 rows either). */
 const HUD_MIN_W = 176
 const HUD_MIN_H = 176
 
@@ -376,6 +376,12 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys, skin: Hud
 /** The menu's pages. */
 export type MenuPage = 'items' | 'moves' | 'map'
 
+/**
+ * The row the menu's tabs stand on, ITEMS and MOVES alike: a small margin under the safe area, smaller on a short
+ * screen. (The MAP page picks the same two by what it has to fit, `mapPage.ts`.)
+ */
+export const menuTabsY = (vh: number, safeTop = 0) => safeTop + (vh < 340 ? 2 : 4)
+
 /** The menu's three pages, side by side over it, the one open lit: ITEMS (P, Escape), MOVES (N) and MAP (M). Returns the y under them. */
 export function drawMenuTabs(g: G, page: MenuPage, vw: number, y: number, keys: HudKeys, skin: HudSkin): number {
   const F = hudFont(skin)
@@ -392,80 +398,11 @@ export function drawMenuTabs(g: G, page: MenuPage, vw: number, y: number, keys: 
   return y + 14
 }
 
-export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false, muted = false, view = '', skin: HudSkin = NEON_SKIN) {
+/** The NEW GAME machine's question over the stopped world. (The menu's pages: `itemsPage.ts`, `drawMoves`, `mapPage.ts`.) */
+export function drawPause(g: G, vw: number, vh: number, keys: HudKeys, skin: HudSkin = NEON_SKIN) {
   g.fillStyle = skin.veil
   g.fillRect(0, 0, vw, vh)
-  if (confirmReset) { drawConfirmReset(g, vw, vh, keys, skin); return }
-  const F = hudFont(skin)
-  const w = Math.min(vw - 16, 240)
-  const x = Math.round((vw - w) / 2)
-  let y = drawMenuTabs(g, 'items', vw, Math.max(8, Math.round(vh / 2 - 70)), keys, skin)
-  skin.panel(g, x, y, w, 118, 'cool')
-  // Items
-  /** A thing B holds, from its row of `B_ITEMS`. */
-  const tool = (id: ToolId): [string, boolean, string] => { const b = bItem(id)!; return [b.icon, b.owned(s.inv), b.name] }
-  const items: Array<[string, boolean, string]> = [
-    [s.inv.arc ? 'item_arc' : 'item_sword', s.inv.sword, s.inv.arc ? 'ARC' : 'BLADE'],
-    tool('bombs'),
-    tool('hook'),
-    tool('disc'),
-    ['item_bigkey', hasBigKey(s), 'BIG KEY'],
-  ]
-  const slot = Math.floor((w - 16) / 5)
-  items.forEach(([name, owned, label], i) => {
-    const ix = x + 8 + i * slot
-    const iy = y + 8
-    g.fillStyle = skin.slot
-    g.fillRect(ix, iy, slot - 4, 30)
-    if (owned) {
-      icon(g, skin, name, Math.round(ix + (slot - 4) / 2 - sprite(name).width / 2), iy + 2)
-      const selected = name === itemIconName(s)
-      if (selected) { g.fillStyle = skin.prize; g.fillRect(ix, iy + 29, slot - 4, 1) }
-    }
-    F.draw(g, owned ? label : '---', Math.round(ix + (slot - 4) / 2 - F.width(owned ? label : '---') / 2), iy + 21, owned ? skin.dim : skin.faint)
-  })
-  // Heart pieces
-  const py = y + 46
-  F.draw(g, 'HEART PIECES', x + 8, py, skin.dim)
-  const hx = x + 8 + Math.ceil(F.width('HEART PIECES')) + 6
-  if (skin.pieces) skin.pieces(g, hx, py - 1, s.inv.pieces)
-  for (let i = 0; i < 4 && !skin.pieces; i++) {
-    g.fillStyle = i < s.inv.pieces ? skin.hot : skin.off
-    g.fillRect(hx + (i % 2) * 5, py - 1 + Math.floor(i / 2) * 5, 4, 4)
-  }
-  // Things carried for someone: small icons at the right of that row.
-  const errands: string[] = []
-  const f = (k: string) => s.flags[k] === true
-  if (f('item:waffle') && !f('luna')) errands.push('item_waffle')
-  if (s.inv.shrooms > 0 && !f('got:mossa:heartPiece')) errands.push('item_shroom')
-  if (f('item:tube') && !f('got:dusty:heartPiece')) errands.push('item_tube')
-  if (f('item:walkie') && !f('got:toby:bits50')) errands.push('item_walkie')
-  if (f('item:hat') && !f('got:troll:bigBag')) errands.push('item_hat')
-  // A skin with finer pixels shows each at its full sixteen, as it shows the items; the classic box shrinks them to twelve.
-  const fine = (skin.density ?? 1) > 1
-  errands.forEach((name, i) => {
-    const ex = x + w - 8 - (errands.length - i) * (fine ? 17 : 14)
-    if (fine) icon(g, skin, name, ex, py - 5)
-    else g.drawImage(sprite(name), ex, py - 5, 12, 12)
-  })
-  // Objective
-  const lines = F.wrap(objective(s), w - 16)
-  F.draw(g, 'QUEST', x + 8, y + 62, skin.prize)
-  lines.slice(0, 4).forEach((l, i) => F.draw(g, l, x + 8, y + 74 + i * 10, skin.text))
-  y += 126
-  if (!keys.touch) {
-    const hint = 'ESC RESUME   T TOWN'
-    F.draw(g, hint, Math.round((vw - F.width(hint)) / 2), y, skin.dim)
-    y += 12
-  }
-  const sound = `${keys.touch ? 'SOUND' : 'O SOUND'} ${muted ? 'OFF' : 'ON'}`
-  // Sound and the view share the line: both are things to switch from here.
-  // (On touch the views are on the MAP page's buttons.)
-  const look = view && !keys.touch ? `V VIEW ${view}` : ''
-  const gap = look ? 12 : 0
-  const sx = Math.round((vw - F.width(sound) - gap - F.width(look)) / 2)
-  F.draw(g, sound, sx, y, muted ? skin.hot : skin.cool)
-  if (look) F.draw(g, look, sx + F.width(sound) + gap, y, skin.prize)
+  drawConfirmReset(g, vw, vh, keys, skin)
 }
 
 /** How long the view strip stays up after a change (seconds). */
@@ -527,10 +464,11 @@ function drawKeys(g: G, F: HudFont, keys: string, x: number, y: number, skin: Hu
 
 /**
  * The MOVES page (`N`): every combo with its buttons and how far it is from mastered (a gold MASTER once it is),
- * and the art on B, learned (what it does) or where to look for it. Laid out to fit a phone on its side.
+ * and the art on B, learned (what it does) or where to look for it. Laid out to fit a phone on its side. As the
+ * menu's other pages it lies on the world under `PAGE_VEIL`, its tabs at the top (`top`: the safe area, logical px).
  */
-export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, skin: HudSkin = NEON_SKIN) {
-  g.fillStyle = skin.veil
+export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, skin: HudSkin = NEON_SKIN, top = 0) {
+  g.fillStyle = PAGE_VEIL
   g.fillRect(0, 0, vw, vh)
   const F = hudFont(skin)
   const w = Math.min(vw - 12, 248)
@@ -542,8 +480,9 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const tip = F.wrap(known ? ART_HINT[art.id].does : ART_HINT[art.id].find, w - textX - 7).slice(0, 3)
   const artH = Math.max(20, tip.length * 10)
   const panelH = 16 + MOVES.length * row + 6 + 12 + artH + 6
-  let y = drawMenuTabs(g, 'moves', vw, Math.max(4, Math.round((vh - panelH - 14) / 2)), keys, skin)
-  skin.panel(g, x, y, w, panelH, 'cool')
+  // The tabs where the other pages have them; what is under them in the middle of the screen.
+  const under = drawMenuTabs(g, 'moves', vw, menuTabsY(vh, top), keys, skin)
+  let y = Math.max(under, Math.round((vh - panelH - 14) / 2) + 14)
   // The combos.
   F.draw(g, 'COMBOS', x + 7, y + 6, skin.prize)
   const legend = keys.touch ? 'A SWORD  R ROLL' : `A ${keys.a}  R ${keys.roll ?? 'L'}`
