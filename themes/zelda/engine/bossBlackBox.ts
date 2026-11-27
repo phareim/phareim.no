@@ -191,10 +191,18 @@ function listen(e: Enemy, quietFor: number | null) {
   if (quietFor !== null) e.ai.limit = quietFor
 }
 
-/** The first step of a visit: round one, shut, the three receivers dark. */
+/** The round a Box with `e.hp` hit points left is in: one for each `take` it has lost. (A wounded Box comes back to it.) */
+export const boxRound = (e: Enemy): number => Math.min(BOX_WIRINGS.length - 1, Math.max(0, Math.floor((e.maxHp - e.hp) / BOX.take)))
+
+/** A lamp taken up or moved is heard afresh: whatever face the Box was ignoring is listened to again. */
+export function boxHears(s: GameState) {
+  for (const e of s.map.enemies) if (e.kind === 'blackbox' && !e.dead && e.ai.on) { e.ai.ignore = -1; e.ai.off = 0 }
+}
+
+/** The first step of a visit: the round its hit points say (the first when it is whole), shut, the three receivers dark. */
 function begin(c: Ctx, e: Enemy) {
   e.ai.on = true
-  e.ai.round = 0
+  e.ai.round = num(e, 'round')
   e.ai.mask = 0
   e.ai.ignore = -1
   e.ai.off = 0
@@ -279,7 +287,8 @@ export function blackbox(c: Ctx, e: Enemy, dt: number) {
       }
       ai.in = -1
       ai.feed = 0
-      ai.quiet = num(e, 'quiet') + dt
+      // (A lamp left standing at a face it is not heard through is no quiet: the Box does not strike for it, and the face's number is dim.)
+      ai.quiet = fed >= 0 ? 0 : num(e, 'quiet') + dt
       if (num(e, 'quiet') < num(e, 'limit')) return
       // The blurt: the lane the hero stands in; from between the lanes, any but the last.
       let lane = laneAt(e, c.s.hero.x, c.s.hero.y)
@@ -404,7 +413,7 @@ export function boxStencils(e: Enemy): Stencil[] {
   for (let f = 0; f < 4; f++) {
     const v = WAY[f]!
     const glow = ((mode === 'blurt' || mode === 'beam') && f === lane) || ((thinking || answering) && f === pink) ? 'pink' : (thinking || answering) && f === exit ? 'cyan' : undefined
-    out.push({ t: 'face', x: e.home.x + v.x * 2, y: e.home.y + v.y * 2, vert: !!v.x, n: f + 1, glow, ...(mode === 'rewire' ? { spin: run(BOX.rewire) } : {}), k: thinking ? run(BOX.think) : 1 })
+    out.push({ t: 'face', x: e.home.x + v.x * 2, y: e.home.y + v.y * 2, vert: !!v.x, n: f + 1, glow, ...(num(e, 'ignore', -1) === f ? { dim: true } : {}), ...(mode === 'rewire' ? { spin: run(BOX.rewire) } : {}), k: thinking ? run(BOX.think) : 1 })
   }
   if (thinking || answering) {
     const way = (f: number, x: number, y: number, hue: 'cyan' | 'pink'): Stencil => ({ t: 'dash', x0: e.home.x + WAY[f]!.x * 1.5, y0: e.home.y + WAY[f]!.y * 1.5, x1: x, y1: y, hue, k: thinking ? run(BOX.think) : 1 })

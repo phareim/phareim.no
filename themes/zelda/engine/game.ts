@@ -16,7 +16,7 @@ import { stepObjects } from './objects'
 import { bathArrive, keepRobe, startBath } from './attendants'
 import { stepBeat, sycophantFocus, sycophantFrame, sycophantGone } from './bossSycophant'
 import { golemFocus } from './bossGolem'
-import { boxFocus } from './bossBlackBox'
+import { boxFocus, boxRound } from './bossBlackBox'
 import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
@@ -199,6 +199,7 @@ function enterCell(c: Ctx, index: number) {
     resetEnemy(e)
     if (wounded) {
       e.hp = wounded
+      if (e.kind === 'blackbox') e.ai.round = boxRound(e)
       if (e.hp <= e.maxHp / 2 && ['king', 'mistral', 'deepseek', 'mixtral', 'parrot', 'golem'].includes(e.kind)) e.ai.phase = 2
     }
   }

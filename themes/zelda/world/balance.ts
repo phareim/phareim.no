@@ -54,6 +54,7 @@ const SUPPLY: MapDef = {
   track: 'dungeon',
   keyring: 'supply',
   resume: true,
+  lamplit: true,
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE LOADING BAY' },

@@ -18,6 +18,7 @@
 import type { Enemy, GameState, TileChar } from '../types'
 import { DARK_HOUND, HERO_R, TOUGH } from '../types'
 import { TILE_INFO } from '../world/tiles'
+import { boxHears } from './bossBlackBox'
 import { orcaStunned } from './bossOrca'
 import { BIG, burnFoe, LAMP_BURNS, type Ctx } from './combat'
 import { phiOpen } from './heapFoes'
@@ -64,6 +65,7 @@ export function useLamp(c: Ctx) {
     const ly = Math.floor(l.idx / s.map.w) + 0.5
     const near = Math.hypot(h.x - lx, h.y - ly) <= LAMP_GRAB
     lampHome(s)
+    boxHears(s)
     c.ev.push({ type: 'lamp', x: lx, y: ly, up: true })
     h.act = 'use'
     h.actT = 0

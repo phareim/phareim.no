@@ -50,7 +50,7 @@ Quarters' arrival for the Oil Store, the Gallery's arrival for the Lamp Room.
 ### The Storm Lamp
 
 `ItemId` `lamp`, a B item (`B_TOOLS`, `TOOL_USE`, icon `item_lamp`). Its words: YOU GOT THE STORM LAMP! / {B} SETS
-IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.
+IT DOWN WHERE YOU FACE, MOVES IT FROM AFAR, TAKES IT UP FROM BESIDE. (The ITEMS row says the same in three rows.)
 
 - *Setting down.* B sets it on the tile the hero faces, shining the way the hero faces; a hero whose shoulder is over
   that tile's line steps back off it. It has a body: the tile `Φ`
@@ -66,8 +66,15 @@ IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.
   is refused it stays in the hand). One lamp at a time.
 - *The beam* is one more emitter (`traceBeams` reads `lampEmitters`; the entries of `PhysState.beams` carry `src:
   'lamp'`): straight from the lamp, stopped by solids, crossing pits and water, turned by mirrors, split by prisms,
-  ending in a receiver (which stays lit for good), and in the lamp's own room. It never hurts the hero. On a map
+  ending in a receiver (which stays lit for good) on a map marked `MapDef.lamplit` and nowhere else, and in the lamp's own room. It never hurts the hero. On a map
   with no puzzle tile, a lamp set down runs the beam alone (`stepPhysics`).
+- *Where it lights receivers.* Only on a map with `lamplit: true`: the Lighthouse's four and the Balance's store rooms
+  (`supply`, the Dark Store's receiver is the Lamp's way). Everywhere else the beam still lights the dark, burns and
+  stuns, and a receiver it reaches stays dark, with one buzz each time the lamp is set down, so that the Puzzle Lab's,
+  Stillsand's and Yule Fjord's beam puzzles stay puzzles (`docs/games/neon-shrine-puzzles.md`). The Black Box's three
+  take its own beam only, on a lamplit map as well.
+- *Water.* A lamp standing on sluice floor goes back to the hand when the water comes (`stepSluices`), so no dry tile
+  is left in a flooded basin.
 - *The burn* (`stepLamp`): a foe the beam crosses takes 1 hit point on touching and 1 a second after, on a clock of
   its own (`HitSource` `'beam'`, `burnFoe`: no mercy window, no shove, no poise). The first touch stuns it for
   `TOUGH.stunHook` s (a tough foe is open then, gold bar), then it shrugs the next stun off for `TOUGH.shrug` s; the
@@ -100,7 +107,11 @@ way at no cost); the search is not committed. The fewest actions (setting down, 
 | Quarters, the heart | 4 | a lamp set in the nook shines east into the wall, and no beam but one turned south in the nook reaches the receiver |
 | Gallery | 2 | the lamp in the west walkway facing down and the third mirror turned; the way round the ring takes four (three turns and the lamp) |
 
-Leaving a room puts its mirrors home (`enterCell`), so no push is a dead end.
+Leaving a room puts its mirrors home (`enterCell`), so no push is a dead end; the Ice Store and the Gallery put them
+home solved or not (`CellDef.homeBlocks`: the gate that opened stays open, its receiver's flag is saved). And nothing the
+hero pushes or a slide carries comes to rest on an entry's tile, a stair or a tile that would shut an entry off from a
+stair, an exit or another entry (`badRest`, `engine/puzzles/index.ts`, used by the push of a block too): a push there is
+refused, and a mirror sliding over ice stops one tile short.
 
 ### Tells on the floor
 
@@ -122,7 +133,9 @@ points, radius 0.9; its touch does no harm. Card on the way in: ORCA. NOT A WHAL
   0.8 s, then a dash at 10 tiles a second until its bow reaches the lane's end (a wall or a lamp ends it sooner); one
   heart, once. The oar planted: **open 2.2 s**. It holds the drag up to 1.2 s to get him near the lane's line.
 - *Sweep*, nearer: the box (3 wide, from its middle to two tiles beyond its bow) for 0.7 s, the oar through it for
-  0.25 s, one heart; **off balance, open 1.6 s**.
+  0.25 s, one heart. A hero still within 3.3 tiles of it afterwards (a blow throws him back a little) is swept at once
+  more, told as the first (0.7 s on the floor); then **off balance, open 1.6 s**. A hero who walks at it and mashes the
+  blade takes three blows in a fight; one who reads the floor takes none.
 - *Open* the blade takes 5 hit points an opening at most (the echo is the blade); otherwise it clanks. Bombs and
   thrown pots hurt it at any time. The disc and the hook clank. Nothing shoves it.
 - *The lamp*: a hit point a second, and the first touch stuns it 1.0 s (open), which ends a drag or a sweep announced
@@ -138,7 +151,8 @@ The tough hound with the mark's `dark: true` (allowed on a tough hound only, `va
 two lunges and 1 s spent are the tough hound's (`TOUGH`). Different (`DARK_HOUND`): each lunge is aimed as its tell
 **begins**, both tells are 0.7 s, and the lane (2 wide, to where the lunge and its bite end) lies on the floor all the
 while, in every light. Its body is drawn only in the lamp's beam, in a lit room or within 0.9 tiles of the lamp's tile
-(`unseen`, `engine/lamp.ts`); else two pink eyes at head height and its bar. The beam stuns it as any tough foe.
+(`unseen`, `engine/lamp.ts`); else two pink eyes at head height and its bar. The eyes shut for 0.16 s every 3.4 s (a little out of step from hound to
+hound, never while a blow is told, never under reduced motion). The beam stuns it as any tough foe.
 
 ### THE BLACK BOX
 
@@ -160,9 +174,9 @@ over the lit picture (`drawNumbers`), so they can be counted in the dim and past
 |---|---|
 | `idle` listening | shut, bobbing. A beam must be in a face 0.6 s unbroken |
 | `think` 1.2 s | the face it will answer from glows cyan and a dashed line shows the way, to the first solid thing (a lamp too). The beam taken away: nothing happens |
-| `answer` 2.2 s at most | its beam leaves that face, harmless; a receiver it reaches takes a panel off. The beam taken away ends it. After an answer the face asked is not heard until its beam has been off 0.4 s |
+| `answer` 2.2 s at most | its beam leaves that face, harmless; a receiver it reaches takes a panel off. The beam taken away ends it. After an answer the face asked is not heard until its beam has been off 0.4 s, or the lamp is taken up or moved (`boxHears`) |
 | `open` 6 s at most | with all three lit: gold bar. The blade (the echo is the blade), a bomb or a pot (3) take **6 an opening at most**, whatever strikes; its share taken, it shuts early. The disc, the hook, the stomp and the lamp do nothing |
-| `rewire` 1.8 s | the strips spin, the panels close, the receivers go dark, the next wiring. A lamp left standing on the face last asked is still not heard: its beam must go off first |
+| `rewire` 1.8 s | the strips spin, the panels close, the receivers go dark, the next wiring. A lamp left standing on the face last asked is still not heard (its number on the floor is dimmed, and the Box does not blurt for it): it is heard again as soon as it is taken up or moved |
 
 **The wirings** (the face a beam enters → the face the answer leaves):
 
@@ -183,7 +197,7 @@ floor between the lanes is in none. A pink beam never shoves, so nobody is throw
 
 **The fall:** `lighthouse.box`, the room lights for good, the Weight REASONS (`weightReasons`) lies on the south pad,
 the lamp comes home, and a line: (THE BEAM GOES OUT TO SEA. THIS TIME IT COMES BACK THE SAME.) A hero who dies comes
-back at the Gallery's stair; the Box begins again at round one.
+back at the Gallery's stair; the Box begins again at round one. A hero who only leaves the room finds it at the round its hit points say (`boxRound`: one for each 6 lost), with the wounds kept.
 
 14 hit points against 6 an opening: round three is always reached. Three openings kill it if one of them gives 6 and
 the others 4 (one chain); three of 4 leave 2, for a fourth opening on the third wiring.

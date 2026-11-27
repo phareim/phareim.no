@@ -17,6 +17,7 @@
 // locks (open: the hero has his keys, and what holds him in a room only holds him once), people standing in a way,
 // diagonal hook aims, a block jammed behind him, a room he cannot clear, the side maps (`kind: 'side'`) and the
 // moving things. A pocket the model cannot see (one a puzzle or a lock makes) is not guarded.
+// Things the hero pushes (a block, a mirror) are not modelled either: every one is taken as floor, so a push that shuts a stair in is not seen here.
 // Everything comes through the loader's exports: `WORLD`, `mapInfo`, `cellIndex`, `TILE_INFO` and `HOOK_RANGE`.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'

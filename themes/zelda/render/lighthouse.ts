@@ -118,6 +118,8 @@ export function drawFace(g: G, st: Face, cx: number, cy: number, time: number, r
   g.fillRect(x, y, rim, h)
   g.fillRect(x + w - rim, y, rim, h)
   const side = Math.round(SQUARE * T)
+  // (A face its lamp is ignored at has its number dimmed.)
+  if (st.dim) g.globalAlpha = 0.35
   for (const q of squares(st, time, reduced)) {
     const qx = Math.round(q.x * T - cx - side / 2)
     const qy = Math.round(q.y * T - cy - side / 2)
@@ -126,6 +128,7 @@ export function drawFace(g: G, st: Face, cx: number, cy: number, time: number, r
     g.fillStyle = WHITE
     g.fillRect(qx, qy, side, side)
   }
+  g.globalAlpha = 1
 }
 
 /** The dashed way a beam is about to take: thin, on a dark edge, its dashes marching away from the Box. */
@@ -189,9 +192,12 @@ export function stripLights(world: World, s: GameState, lights: Light[], dark: b
 
 /**
  * An unseen dark hound (`engine/lamp.ts` `unseen`): two pink eyes at head height, 3×2 px each with a px of glow, a
- * light of their own so the dark does not dull them. (x, y): its feet, in the scene's px.
+ * light of their own so the dark does not dull them. (x, y): its feet, in the scene's px. `blink`: they are shut.
+ * `eyesShut` says when: for 0.16 s every 3.4 s, a little out of step from one hound to the next, and never while a blow is told.
  */
-export function drawEyes(g: G, x: number, y: number, side: number) {
+export function drawEyes(g: G, x: number, y: number, side: number, blink = false) {
+  // (Shut for a moment: only the glow of a lid is left.)
+  if (blink) return
   const ex = Math.round(x) + side * 3
   const ey = Math.round(y) - 10
   for (const dx of [-4, 1]) {
@@ -203,6 +209,12 @@ export function drawEyes(g: G, x: number, y: number, side: number) {
     g.fillStyle = PINK_LIGHT
     g.fillRect(ex + dx + 1, ey, 1, 1)
   }
+}
+
+export function eyesShut(e: Enemy, time: number, reduced: boolean): boolean {
+  if (reduced || e.ai.mode === 'tell' || e.ai.mode === 'lunge') return false
+  const phase = (time + (e.x * 7.3 + e.y * 3.1)) % 3.4
+  return phase < 0.16
 }
 
 /** Where the Box's picture stands, px under its middle: on the 8-bit pedestal, and on the isometric one. */
@@ -264,6 +276,7 @@ export function drawNumbers(g: G, s: GameState, e: Enemy, place: (x: number, y: 
         const py = v + 0.5 - at.y
         const off = Math.max(Math.abs((px * ey.y - py * ey.x) / det), Math.abs((py * ex.x - px * ex.y) / det))
         if (off > half + edge || stands.some(p => Math.abs(u - p.x) <= p.w && v >= p.y - p.h && v <= p.y + 6)) continue
+        g.globalAlpha = st.dim ? 0.35 : 1
         g.fillStyle = off > half ? INK : st.glow ? WHITE : '#d9ccff'
         g.fillRect(u, v, 1, 1)
       }

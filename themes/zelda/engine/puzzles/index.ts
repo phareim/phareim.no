@@ -20,10 +20,10 @@ import { TILE_INFO, isIron } from '../../world/tiles'
 import { WEIGHT_PLATES, isMirror } from '../../world/puzzles'
 import { STATS } from '../spawn'
 import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
-import { cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
+import { cellDef, cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
 import { dirVec, nextId, toDir } from '../util'
 import { echoOnTile } from '../echo'
-import { lampDown, lampEmitters, stepLamp } from '../lamp'
+import { lampDown, lampEmitters, lampHome, stepLamp } from '../lamp'
 import { boxEmitters, boxFace, boxReceiver } from '../bossBlackBox'
 import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
 import { stepTubes } from './tubes'
@@ -153,6 +153,48 @@ function canEnter(c: Ctx, from: number, x: number, y: number, onto = PUSH_ONTO):
   return !circleOnTile(h.x, h.y, HERO_R, x, y)
 }
 
+/**
+ * Where nothing the hero pushes (or a slide carries) comes to rest: an entry's tile, a stair or warp tile, or a tile
+ * whose filling would shut an entry of its room off from a stair, an exit or another entry it reached over open floor.
+ * `from`: the tile the thing leaves, open for the count.
+ */
+export function badRest(c: Ctx, from: number, x: number, y: number): boolean {
+  const info = c.info
+  const m = c.s.map
+  const inWarp = (i: number) => info.warps.some(w => (i % m.w) >= w.x && (i % m.w) < w.x + w.w && Math.floor(i / m.w) >= w.y && Math.floor(i / m.w) < w.y + w.h)
+  const here = y * m.w + x
+  const entries = Object.values(info.entries).map(e => Math.floor(e.y) * m.w + Math.floor(e.x))
+  if (inWarp(here) || entries.includes(here)) return true
+  if (!roomed(info.def.kind)) return false
+  const cell = cellIndex(info, x + 0.5, y + 0.5)
+  const way = (i: number) => info.exits.has(i) || inWarp(i) || entries.includes(i)
+  /** The ways out an entry reaches over open floor of the room, with tile `shut` filled. */
+  const reach = (start: number, shut: number) => {
+    const out = new Set<number>()
+    const seen = new Set([start])
+    const stack = [start]
+    while (stack.length) {
+      const i = stack.pop()!
+      if (i !== start && way(i)) out.add(i)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = (i % m.w) + dx
+        const ny = Math.floor(i / m.w) + dy
+        const j = ny * m.w + nx
+        if (!inMap(m, nx, ny) || seen.has(j) || j === shut || cellIndex(info, nx + 0.5, ny + 0.5) !== cell) continue
+        if (j !== from && !way(j) && TILE_INFO[tileAt(m, nx, ny)].solid) continue
+        seen.add(j)
+        stack.push(j)
+      }
+    }
+    return out
+  }
+  return entries.some(e => {
+    if (cellIndex(info, (e % m.w) + 0.5, Math.floor(e / m.w) + 0.5) !== cell) return false
+    const after = reach(e, here)
+    return [...reach(e, -1)].some(w => !after.has(w))
+  })
+}
+
 /** Things the hero can push on a puzzle map. */
 export const pushable = (t: TileChar) => t === 'b' || isMirror(t)
 
@@ -189,6 +231,8 @@ function shove(c: Ctx, tx: number, ty: number, dx: number, dy: number): boolean 
     // It goes on only while it moves onto ice.
     if (tileAt(m, x, y) !== 'α') break
   }
+  // It never rests where `badRest` says: a slide stops one tile short, a push is refused.
+  if (fills < 0) while ((x !== tx || y !== ty) && badRest(c, from, x, y)) { x -= dx; y -= dy }
   if (x === tx && y === ty) return false
   const dist = Math.abs(x - tx) + Math.abs(y - ty)
   m.tiles[from] = puzzleFloor(c, from)
@@ -426,8 +470,10 @@ function traceBeams(c: Ctx, ph: PhysState) {
           stack.push([nx, ny, dy, dx], [nx, ny, -dy, -dx])
         } else if (t === 'ρ') {
           end = [nx + 0.5, ny + 0.5]
-          // (The Black Box's three take its own beam only: a lamp's ends there and lights nothing.)
-          if (!(em.src === 'lamp' && boxReceiver(p.receivers.get(ny * m.w + nx)))) ph.lit.push(ny * m.w + nx)
+          // (The Black Box's three take its own beam only, and a map not `lamplit` takes none of the lamp's: its beam ends
+          // there and lights nothing, with one buzz for each time the lamp is set down.)
+          if (em.src !== 'lamp' || (c.info.def.lamplit && !boxReceiver(p.receivers.get(ny * m.w + nx)))) ph.lit.push(ny * m.w + nx)
+          else if (!c.info.def.lamplit && s.lamp && !s.lamp.buzzed) { s.lamp.buzzed = true; c.ev.push({ type: 'error' }) }
         } else if (t === 'Ξ') {
           // The Box's pedestal: the beam ends at its face, and tells the Box.
           end = [x + 0.5 + dx * 0.5, y + 0.5 + dy * 0.5]
@@ -617,6 +663,8 @@ function stepSluices(c: Ctx, ph: PhysState) {
     ph.full[g.key] = full
     changed = true
     for (const i of g.tiles) {
+      // A lamp on the floor the water comes to goes back to the hand, leaving no dry tile in the basin.
+      if (full && s.lamp?.idx === i) lampHome(s)
       const t = m.tiles[i]
       if (t !== 'ω' && t !== 'ψ') continue
       const tx = i % m.w
@@ -669,7 +717,7 @@ export function resetPuzzleRoom(c: Ctx, index: number) {
   const m = s.map
   const cx = index % c.info.cols
   const cy = Math.floor(index / c.info.cols)
-  const solved = c.info.gates.some(g => !g.trap && g.cell === index && has(s, `gate:${g.id}`))
+  const solved = !cellDef(c.info, index)?.homeBlocks && c.info.gates.some(g => !g.trap && g.cell === index && has(s, `gate:${g.id}`))
   const homes = p.mirrors.get(index)
   const inRoom = (i: number) => Math.floor((i % m.w) / c.info.cw) === cx && Math.floor(i / m.w / c.info.ch) === cy
   // Unless solved, the room's stones that came to rest go home too (a thrown lever lets them roll again).

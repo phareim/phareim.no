@@ -6,6 +6,7 @@
 // door by door, big keys, and gates by their own conditions (`condMet`).
 // Not played: how a puzzle is solved. A push block, a crystal block, a lever, a beam, a pressure plate or a word on
 // the floor gives way to whoever stands in its room; the walks of the other tests solve them.
+// Things the hero pushes (a block, a mirror, what a slide carries) are not modelled: where one comes to rest is not asked here.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'

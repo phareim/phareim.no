@@ -108,7 +108,18 @@ export function orca(c: Ctx, e: Enemy, dt: number) {
       return
     case 'swing':
       if (!ai.struck && inBox(c, e.x, e.y, e.dir, ORCA.sweepFrom, ORCA.sweepTo, ORCA.sweepW)) strike(c, e)
-      if (ai.t <= 0) open(e, 'off', ORCA.offBalance)
+      if (ai.t <= 0) {
+        // A hero still within its reach is swept at again, told as the first was; once. Then it is off balance.
+        if (!ai.again && heroDist(c, e) <= ORCA.again && seesHero(c, e, 20)) {
+          ai.again = true
+          e.dir = axisTo(dx, dy)
+          ai.mode = 'sweepTell'
+          ai.t = ai.tell = ORCA.sweepTell
+          c.ev.push({ type: 'lever', x: e.x, y: e.y })
+          return
+        }
+        open(e, 'off', ORCA.offBalance)
+      }
       return
     case 'planted':
     case 'off':
@@ -129,6 +140,7 @@ export function orca(c: Ctx, e: Enemy, dt: number) {
   // Waited long enough, it drags out of line; far too long, into whatever the hero stands behind.
   if (ai.t <= 0 && (near ? sees : (clear && (across < ORCA.dragW / 2 || ai.t < -ORCA.patience)) || ai.t < -ORCA.patience * 3)) {
     e.dir = way
+    ai.again = false
     ai.mode = near ? 'sweepTell' : 'dragTell'
     ai.t = ai.tell = near ? ORCA.sweepTell : ORCA.dragTell
     ai.lx = end.x

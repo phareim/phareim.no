@@ -685,7 +685,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
     case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
     case 'no': return ['YOU GOT THE NO!', 'A CUT AT THE RIGHT MOMENT REFUSES A BLOW OR AN OFFER.']
-    case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
+    case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE, MOVES IT FROM AFAR, TAKES IT UP FROM BESIDE.']
     case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU. A CART RIDES ITS RAIL.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'stomp': return ['YOU GOT THE STOMP!', 'SEEN FROM THE SIDE, {A} IN THE AIR COMES DOWN HARD.']
     case 'duck': return ['YOU GOT THE DUCK!', '{B} SETS IT DOWN. FOES LOOK AT IT. IT FLOATS.']

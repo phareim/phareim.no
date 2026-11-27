@@ -80,6 +80,7 @@ export const LIGHTHOUSE1: MapDef = {
   views: ['iso'],
   keyring: 'lighthouse',
   resume: true,
+  lamplit: true,
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE FOOT' },
@@ -154,9 +155,10 @@ export const LIGHTHOUSE0: MapDef = {
   views: ['iso'],
   keyring: 'lighthouse',
   resume: true,
+  lamplit: true,
   cell: { w: 16, h: 12 },
   cells: {
-    '0,0': { name: 'THE ICE STORE' },
+    '0,0': { name: 'THE ICE STORE', homeBlocks: true },
     '1,0': {
       name: 'THE FLOODED CELLAR',
       events: [
@@ -231,6 +233,7 @@ export const LIGHTHOUSE2: MapDef = {
   views: ['iso'],
   keyring: 'lighthouse',
   resume: true,
+  lamplit: true,
   below: 'lighthouse1',
   cell: { w: 16, h: 12 },
   cells: {
@@ -319,9 +322,10 @@ export const LIGHTHOUSE3: MapDef = {
   views: ['iso'],
   keyring: 'lighthouse',
   resume: true,
+  lamplit: true,
   cell: { w: 16, h: 12 },
   cells: {
-    '0,0': { name: 'THE GALLERY', dark: true, lit: 'lighthouse.gallery' },
+    '0,0': { name: 'THE GALLERY', dark: true, lit: 'lighthouse.gallery', homeBlocks: true },
     '1,0': {
       name: 'THE LAMP ROOM',
       dark: true,
