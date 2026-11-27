@@ -40,7 +40,7 @@ export const SHOP: MapDef = {
   track: 'indoor',
   rows: [
     '##############',
-    '#M..t....t..M#',
+    '#M..M....M..M#',
     '#......v.....#',
     '#nn1nn2nn3nnn#',
     '#............#',
