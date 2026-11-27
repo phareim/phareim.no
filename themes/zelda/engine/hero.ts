@@ -10,6 +10,7 @@ import {
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP, roomed,
 } from '../types'
 import { aPlan, type AThing } from './action'
+import { puffLie } from './lens'
 import { echoBlade, echoOnTile, setEcho } from './echo'
 import { hangRobe, ROBE_SPEED } from './attendants'
 import { faceGift } from './gifts'
@@ -417,6 +418,7 @@ function useThing(c: Ctx, a: AThing) {
       c.ev.push({ type: 'chest', x: a.tx + 0.5, y: a.ty + 0.5 })
       acquire(c, a.item)
       return
+    case 'lie': puffLie(c, a.i); return
     case 'ware': buy(c, a.id); return
     case 'lift':
       setTile(s.map, a.tx, a.ty, '.')

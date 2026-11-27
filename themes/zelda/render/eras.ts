@@ -50,8 +50,10 @@ export const eraLight = (def: Pick<MapDef, 'era'>) => year(def.era) ?? null
 export const eraBackdrop = (def: Pick<MapDef, 'era'>) => year(def.era)?.backdrop ?? null
 export const eraGreys = (def: Pick<MapDef, 'era'>) => !!year(def.era)?.greys
 
-/** A card's plate and letters, by its year; the booth's own for a year not dressed here, and for a stage's. */
-export const eraCard = (era: Era | 'stage') => year(era)?.card ?? { plate: '#0b0616', rule: '#9690c4', title: '#fff4ff', text: '#cfc6ff' }
+/** A stage's card (Act Three): the fog's own dusk, with no pink and no gold. */
+const STAGE_CARD = { plate: '#101c26', rule: '#7fa0a8', title: '#f4f0fa', text: '#c4d4dc' }
+/** A card's plate and letters, by its year or the stage's; the booth's own for a year not dressed here. */
+export const eraCard = (era: Era | 'stage') => era === 'stage' ? STAGE_CARD : year(era)?.card ?? { plate: '#0b0616', rule: '#9690c4', title: '#fff4ff', text: '#cfc6ff' }
 
 // ---------------------------------------------------------------------------
 // A foe in greys

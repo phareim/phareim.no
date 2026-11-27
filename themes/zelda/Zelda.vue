@@ -1531,6 +1531,8 @@ function togglePause(page: MenuPage = 'items') {
   if (confirmReset.value) { cancelReset(); return }
   if (!paused.value) { menuPage.value = page; itemCursor = cursorStart(state.inv); logPage.open(); keysPage.open(); menuSeen = true }
   paused.value = !paused.value
+  // (A pause is no stillness: THE LENS's clock starts again.)
+  delete state.lens
   pausedDrawn = false
   slowT = 0
   input.clear()
@@ -1629,6 +1631,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   latch: 'echoCut', fizzle: 'clank', iron: 'clank',
   stomp: 'stomp',
   toss: 'throw', adore: 'heart',
+  lens: 'lens', puff: 'cut',
 }
 
 function handleEvents(events: GameEvent[]) {

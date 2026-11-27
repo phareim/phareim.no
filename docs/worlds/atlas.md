@@ -206,7 +206,8 @@ A lowland drowned in pink stage fog, hill towns standing out of it like
 islands. From the deep woods gate: THE TICKET HILL; THE FLATS (painted
 scenery); BIRGER's bucket; THE RAINCHECK's MAST, where the blimp is moored
 (VEGA, FINGERS); the GHOST LIGHTS; UNDER THE STAGE, the trap where act three
-was stolen; the western shore.
+was stolen, with a stair in its north wall up into Act Three
+([act-three.md](act-three.md)); the western shore.
 Fights, by the water (`physics`): two blobs on the cut-grass bank of the Flats
 pond and two skulls on the western shore, which drown when knocked in; two
 bats by the ghost lights' nook, where the water is no help; a tough sentry on

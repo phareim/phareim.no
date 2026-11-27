@@ -11,6 +11,7 @@
 
 import type { FrontierNpcLook } from './render/frontierSprites'
 import type { SideHero } from './engine/side'
+import type { Lens } from './engine/lens'
 
 // ---------------------------------------------------------------------------
 // Basics
@@ -353,6 +354,7 @@ export type ItemId =
   // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
   | WeightId
   | 'stomp' // THE STOMP, the Late Show's treasure: A in the air of a side map comes down hard (`engine/stomp.ts`)
+  | 'lens' // THE LENS, Act Three's treasure: standing still shows what is false (`engine/lens.ts`); no slot, held by its flag
 
 export type WeightId =
   | 'weightMeaning' | 'weightReasons' | 'weightNo' | 'weightSurprise'
@@ -518,7 +520,15 @@ export type EntDef =
     /** A tough foe (`TOUGH`): a sentry or a hound only, never a calm one (`validate.ts`). */
     tough?: boolean
   }
-  | { t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond }
+  | {
+    t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond
+    /** Drawn only through the glass (THE LENS); solid and openable as any chest, glass up or down. */
+    hidden?: true
+  }
+  /** A painted thing (side maps): it only looks like one. Its own tile (air, or a wall's) says what it is. */
+  | { t: 'lie'; as: 'ledge' | 'door' | 'chest' }
+  /** On a real platform's tile (side maps): a ledge drawn only through the glass. */
+  | { t: 'veil' }
   /** Lies on the floor, one-time. `atFall`: it appears where the foe whose `once` flag it waits on fell. */
   | { t: 'item'; id: string; item: ItemId; appear?: Cond; atFall?: boolean }
   | {
@@ -1064,6 +1074,9 @@ export interface MapState {
   side?: true
   /** Iron in flight and off its home (`engine/magnet.ts`); absent until the Magnet or a smash needs it. */
   iron?: IronState
+  /** THE LENS (`engine/lens.ts`), for this visit: the hidden things shown, and the false chests opened (tile, age). */
+  lensSeen?: number[]
+  lensGone?: Array<{ i: number; t: number }>
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1403,6 +1416,8 @@ export interface GameState {
   card?: Card
   /** The cards this session has shown, by id: a retry after a death does not play one again. Never saved. */
   cardsSeen: string[]
+  /** THE LENS's clock, once it is owned (`engine/lens.ts`). Never saved. */
+  lens?: Lens
 }
 
 // ---------------------------------------------------------------------------
@@ -1440,6 +1455,8 @@ export type GameEvent =
   | { type: 'jump' } // side maps: off the ground
   /** The stomp's impact (`engine/stomp.ts`): on what it came down. */
   | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' }
+  | { type: 'lens' } // the glass has risen over something (`engine/lens.ts`)
+  | { type: 'puff'; x: number; y: number } // a false chest, opened: nothing in it
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }

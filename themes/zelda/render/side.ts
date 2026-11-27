@@ -21,6 +21,7 @@ import { CLASSIC, realmLook } from './looks'
 import { itemSpriteName } from './itemIcon'
 import { eraBackdrop, eraInk } from './eras'
 import { diveStreak } from './lateshowPaint'
+import { actBackdrop, actInk, glassHides, glassRing, glassThingsPaint, veiledTiles } from './actthreePaint'
 import { frameCount, hasSprite, makeCanvas, paintRows, sprite } from './sheet'
 
 type G = CanvasRenderingContext2D
@@ -60,6 +61,8 @@ export interface SideKit {
 export interface Ink { sky: string; sky2: string; far: string; face: string; shade: string; mortar: string; top: string; lip: string; wood: string; woodL: string; coil?: string }
 const SHRINE: Ink = { sky: '#0d0920', sky2: '#150f30', far: '#1f1746', face: '#3a2f70', shade: '#271f50', mortar: '#2f2660', top: '#6a58b4', lip: '#3ff0ff', wood: '#8a4a8e', woodL: '#ff8ae0' }
 const LAB: Ink = { ...SHRINE, sky: '#071018', sky2: '#0c1a26', far: '#132a38', face: '#33465e', shade: '#212e42', mortar: '#2a3a50', top: '#6c8aa6', lip: '#b6ff4a', wood: '#4a6a7a', woodL: '#9fd8e8' }
+/** The colours a side map wears: Act Three's stage, a film's year, else its look's. */
+const inkOf = (def: MapDef): Ink => actInk(def) ?? eraInk(def) ?? inks(def.look)
 function inks(look: string | undefined): Ink {
   const realm = realmLook(look)
   if (!realm) return look === 'lab' ? LAB : SHRINE
@@ -102,6 +105,33 @@ function cracks(g: G, ink: Ink, px: number, py: number, mirror: boolean) {
   r(g, ink.shade, px + (mirror ? 5 : 9), py + 1, 2, 3)
 }
 
+/** A platform's tile (landed on from above); `first` / `last`: an end of its run, with a bracket under it. */
+export function platform(g: G, ink: Ink, px: number, py: number, first: boolean, last: boolean) {
+  r(g, ink.lip, px, py, T, 1)
+  r(g, ink.woodL, px, py + 1, T, 1)
+  r(g, ink.wood, px, py + 2, T, 3)
+  r(g, '#0b0616', px, py + 5, T, 1)
+  r(g, '#0b0616', px + (((px / T) & 1) ? 5 : 11), py + 2, 1, 3)
+  if (first) { r(g, ink.wood, px + 1, py + 6, 2, 3); r(g, ink.wood, px + 3, py + 6, 2, 1) }
+  if (last) { r(g, ink.wood, px + 13, py + 6, 2, 3); r(g, ink.wood, px + 11, py + 6, 2, 1) }
+}
+
+/** A door or a stair in a side wall: a frame standing 2 px over its tile, and the dark within. */
+export function doorway(g: G, ink: Ink, px: number, py: number) {
+  r(g, ink.top, px + 1, py - 2, 14, T + 2)
+  r(g, '#05030c', px + 3, py, 10, T)
+}
+
+/** A chest standing on its tile's floor, with its glint and its light (`a`: how much of the light, the glass's fade). */
+export function chest(k: SideKit, px: number, py: number, tx: number, ty: number, big: boolean, open: boolean, a = 1) {
+  const c = chest.picture(big, open)
+  k.g.drawImage(c, Math.round(px + 8 - c.width / 2), py + T - c.height)
+  if (open) return
+  k.lights.push({ x: tx + 0.5, y: ty + 0.5, r: 1.8, color: '#ffd23f', a: 0.5 * a })
+  if (!k.reduced) chestStar(k.g, px + 8, py + T - c.height + 2, k.time, tx * 31 + ty)
+}
+chest.picture = (big: boolean, open: boolean) => sprite(big ? (open ? 'bigchest_open' : 'bigchest') : open ? 'chest_open' : 'chest')
+
 /** A spring pad flush with the floor: a plate to stand on and its coil in a dark well; `down` px pressed flat. */
 function spring(g: G, ink: Ink, px: number, py: number, down: number) {
   const coil = ink.coil ?? ink.woodL
@@ -121,8 +151,9 @@ function spring(g: G, ink: Ink, px: number, py: number, down: number) {
 // The still layer
 // ---------------------------------------------------------------------------
 
-function paintTile(g: G, ink: Ink, m: MapState, tx: number, ty: number) {
-  const at = (x: number, y: number): TileChar => (x < 0 || y < 0 || x >= m.w || y >= m.h ? '#' : m.tiles[y * m.w + x]!)
+function paintTile(g: G, ink: Ink, m: MapState, tx: number, ty: number, veiled: ReadonlySet<number>) {
+  // (A hidden ledge is air to this layer: only the glass draws it.)
+  const at = (x: number, y: number): TileChar => (x < 0 || y < 0 || x >= m.w || y >= m.h ? '#' : veiled.has(y * m.w + x) ? '.' : m.tiles[y * m.w + x]!)
   const t = at(tx, ty)
   const px = tx * T
   const py = ty * T
@@ -148,17 +179,7 @@ function paintTile(g: G, ink: Ink, m: MapState, tx: number, ty: number) {
     if (t === SPRING) spring(g, ink, px, py, 0)
     return
   }
-  if (t === PLATFORM) {
-    r(g, ink.lip, px, py, T, 1)
-    r(g, ink.woodL, px, py + 1, T, 1)
-    r(g, ink.wood, px, py + 2, T, 3)
-    r(g, '#0b0616', px, py + 5, T, 1)
-    r(g, '#0b0616', px + ((tx % 2) ? 5 : 11), py + 2, 1, 3)
-    // A bracket under each end of a run.
-    if (at(tx - 1, ty) !== PLATFORM) { r(g, ink.wood, px + 1, py + 6, 2, 3); r(g, ink.wood, px + 3, py + 6, 2, 1) }
-    if (at(tx + 1, ty) !== PLATFORM) { r(g, ink.wood, px + 13, py + 6, 2, 3); r(g, ink.wood, px + 11, py + 6, 2, 1) }
-    return
-  }
+  if (t === PLATFORM) { platform(g, ink, px, py, at(tx - 1, ty) !== PLATFORM, at(tx + 1, ty) !== PLATFORM); return }
   if (t === LADDER) {
     for (const x of [3, 11]) { r(g, '#0b0616', px + x - 1, py, 4, T); r(g, ink.wood, px + x, py, 2, T) }
     for (let y = 2; y < T; y += 5) { r(g, ink.woodL, px + 5, py + y, 6, 2); r(g, '#0b0616', px + 5, py + y + 2, 6, 1) }
@@ -189,11 +210,7 @@ function paintTile(g: G, ink: Ink, m: MapState, tx: number, ty: number) {
     for (let k = 0; k < 4; k++) { r(g, '#9690c4', px + k * 4 + 1, py + 11, 2, 5); r(g, '#ffffff', px + k * 4 + 1, py + 10, 1, 1) }
     return
   }
-  if (t === 'D' || t === '>') {
-    r(g, ink.top, px + 1, py - 2, 14, T + 2)
-    r(g, '#05030c', px + 3, py, 10, T)
-    return
-  }
+  if (t === 'D' || t === '>') { doorway(g, ink, px, py); return }
   if (t === 'S') {
     r(g, ink.wood, px + 7, py + 8, 2, 8)
     r(g, '#0b0616', px + 2, py + 2, 12, 8)
@@ -215,10 +232,11 @@ function layerOf(world: World, m: MapState): HTMLCanvasElement {
   const canvas = l?.canvas ?? makeCanvas(m.w * T, m.h * T)
   const g = canvas.getContext('2d')!
   g.clearRect(0, 0, canvas.width, canvas.height)
-  const def = mapInfo(world, m.id).def
-  const ink = eraInk(def) ?? inks(def.look)
+  const info = mapInfo(world, m.id)
+  const ink = inkOf(info.def)
+  const veiled = veiledTiles(info)
   // Bottom rows first, so a ladder's rails over its top lie on what is above.
-  for (let ty = m.h - 1; ty >= 0; ty--) for (let tx = 0; tx < m.w; tx++) paintTile(g, ink, m, tx, ty)
+  for (let ty = m.h - 1; ty >= 0; ty--) for (let tx = 0; tx < m.w; tx++) paintTile(g, ink, m, tx, ty, veiled)
   layers.set(m, { version: m.version, canvas })
   return canvas
 }
@@ -269,14 +287,16 @@ export function paintSide(k: SideKit, s: GameState) {
   const { g, world, cx, cy, vw, vh, time, reduced, lights } = k
   const m = s.map
   const info = mapInfo(world, m.id)
-  const ink = eraInk(info.def) ?? inks(info.def.look)
-  const sky = eraBackdrop(info.def)
+  const ink = inkOf(info.def)
+  const sky = actBackdrop(info.def) ?? eraBackdrop(info.def)
   r(g, '#05030c', 0, 0, vw, vh)
   for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) { if (sky) sky(k, z); else backdrop(k, ink, z) }
   g.drawImage(layerOf(world, m), -cx, -cy)
   // A pad just struck, pressed flat for a moment (the still layer has it at rest).
   const flat = s.hero.side?.squash
   if (flat) spring(g, ink, (flat.i % m.w) * T - cx, Math.floor(flat.i / m.w) * T - cy, 5)
+  // THE LENS: what is painted and what is hidden (`actthreePaint.ts`).
+  glassThingsPaint(k, s, ink)
 
   const x0 = Math.max(0, Math.floor(cx / T))
   const x1 = Math.min(m.w - 1, Math.floor((cx + vw) / T))
@@ -294,14 +314,9 @@ export function paintSide(k: SideKit, s: GameState) {
         r(g, '#ffd23f', px + 7, py + 5 - tall, 2, 2 + tall)
         lights.push({ x: tx + 0.5, y: ty + 0.4, r: 4, color: '#ff8a3d', a: 0.85 * flick, fire: true })
       } else if (t === '$') {
+        if (glassHides(s, info, ty * m.w + tx)) continue
         const ch = info.chests.get(ty * m.w + tx)
-        const open = ch ? has(s, `chest:${ch.id}`) : true
-        const c = sprite(ch?.big ? (open ? 'bigchest_open' : 'bigchest') : open ? 'chest_open' : 'chest')
-        g.drawImage(c, Math.round(px + 8 - c.width / 2), py + T - c.height)
-        if (!open) {
-          lights.push({ x: tx + 0.5, y: ty + 0.5, r: 1.8, color: '#ffd23f', a: 0.5 })
-          if (!reduced) chestStar(g, px + 8, py + T - c.height + 2, time, tx * 31 + ty)
-        }
+        chest(k, px, py, tx, ty, !!ch?.big, ch ? has(s, `chest:${ch.id}`) : true)
       } else if ((t === 'L' || t === 'K') && m.tiles[(ty + 1) * m.w + tx] !== t) lights.push({ x: tx + 0.5, y: ty + 0.5, r: 1.4, color: '#ffd23f', a: 0.5 })
     }
   }
@@ -326,7 +341,7 @@ export function paintSide(k: SideKit, s: GameState) {
     if (e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
     k.foe(e)
   }
-  if (s.hero.x > -10) hero(k, s)
+  if (s.hero.x > -10) { glassRing(k, s); hero(k, s) }
 }
 
 function hero(k: SideKit, s: GameState) {

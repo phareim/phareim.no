@@ -207,7 +207,7 @@ export const FOGSTAGE: MapDef = {
     '2': { ent: { t: 'chest', id: 'fogstage.reeds', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'fogstage.nook', item: 'bits50' } },
     '4': { ent: { t: 'warp', to: 'understage', entry: 'door' }, tile: '>' },
-    'a': npc('q.act.prompter', 'sleeper', [{ when: { flag: 'q.act.trap' }, lines: ["BIRGER: THE TV MAN IN RERUN TAPES EVERYTHING. I'M STILL COMFORTABLE."] }, { lines: ['BIRGER: PSST. I SAW IT FROM MY BUCKET. ACT THREE WENT DOWN THE TRAP.', "BIRGER: A TV MAN IN RERUN, FAR EAST, TAPES EVERYTHING. I'D ASK, BUT I'M COMFORTABLE."], set: 'q.act.trap' }]),
+    'a': npc('q.act.prompter', 'sleeper', [{ when: { flag: 'q.act.trap' }, lines: ["BIRGER: THE TV MAN IN RERUN TAPES EVERYTHING. I'M STILL COMFORTABLE.", 'BIRGER: THE TRAP ROOM HAS STAIRS NOW. THEY GO UP.'] }, { lines: ['BIRGER: PSST. I SAW IT FROM MY BUCKET. ACT THREE WENT DOWN THE TRAP.', "BIRGER: A TV MAN IN RERUN, FAR EAST, TAPES EVERYTHING. I'D ASK, BUT I'M COMFORTABLE."], set: 'q.act.trap' }]),
     'b': npc('q.act.director', 'stagemanager', [{ when: { flag: 'q.act.done' }, lines: ['VEGA: WE END EVERY NIGHT NOW. THE AUDIENCE CRIES. GOOD.'] }, { when: { flag: 'q.act.tape' }, lines: ['VEGA: YOU BROUGHT THE ENDING. NOBODY HERE HAS SEEN IT. SIT, SIT, ALL OF YOU.'], give: 'heartPiece', set: 'q.act.done' }, { lines: ['VEGA: THE RAINCHECK. YES, THE BLIMP. BEST SEATS IN THE FOG.', 'VEGA: ACT THREE IS GONE. I SAY "AND SCENE" AFTER ACT TWO AND WE ALL LOOK AT BIRGER.', 'VEGA: HE SAW IT HAPPEN. HE NEVER LEAVES HIS BUCKET, SO YOU WILL HAVE TO GO TO HIM.'] }]),
     'c': npc('q.act.cast', 'smoker', [{ lines: ['FINGERS: LOVELY SHOW. CHECK YOUR POCKETS.'] }]),
     'd': npc('q.map.programs', 'kid', [{ when: { flag: 'q.map.p2' }, lines: ['PIA: PROGRAMS. STILL NO ACT THREE. STILL HALF PRICE.'] }, { lines: ['PIA: PROGRAMS! ACT THREE IS TORN OUT, SO I GLUED IN A MAP PAGE INSTEAD.', 'PIA: NOBODY READS THEM ANYWAY. HAVE THE PAGE.'], set: 'q.map.p2' }]),
@@ -229,7 +229,7 @@ export const UNDERSTAGE: MapDef = {
   cells: { '0,0': { dark: true } },
   rows: [
     '################',
-    '#[[..oo....[[[.#',
+    '#[[..oo.h..[[[.#',
     '#..............#',
     '#.t...n..n...t.#',
     '#..............#',
@@ -244,7 +244,10 @@ export const UNDERSTAGE: MapDef = {
     D: { tile: '>', ent: { t: 'warp', to: 'fogstage', entry: 'trap' } },
     '1': { ent: { t: 'chest', id: 'understage.props', item: 'bombs5' } },
     s: { tile: 'S', ent: { t: 'sign', lines: ['(CHALK ON A BEAM: ACT THREE, UP THE CABLE AND OUT ON THE AIR. NO RETURNS.)'] } },
+    // The way up behind the paint: the climb of Act Three (`actthree.ts`).
+    h: { tile: '>', ent: { t: 'warp', to: 'actunder', entry: 'foot' } },
   },
+  entries: { upstairs: { x: 8.5, y: 2.5, dir: 'down' } },
 }
 
 /** This land's maps by id (`lands.ts` collects them into the world). */

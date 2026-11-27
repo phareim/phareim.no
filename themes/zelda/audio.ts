@@ -52,6 +52,8 @@ export type SfxName =
   | 'lamp'
   // The Late Show: the stomp coming down
   | 'stomp'
+  // Act Three: the glass rising (THE LENS)
+  | 'lens'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2777,6 +2779,11 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
       tone({ f: 170, to: 42, dur: 0.18, type: 'sine', vol: 0.5 })
       nz({ dur: 0.1, vol: 0.3, type: 'lowpass', f: 520 })
       tone({ f: 320, to: 960, dur: 0.13, vol: 0.09, at: 0.04 })
+    },
+    // The glass rises: one soft note and its fifth, high and thin.
+    lens() {
+      tone({ f: 1760, to: 1865, dur: 0.22, type: 'sine', vol: 0.09, verb: true })
+      tone({ f: 2637, dur: 0.18, type: 'sine', vol: 0.04, at: 0.07, verb: true })
     },
     // An echo left: a call, and the call coming back softer.
     echo() {
