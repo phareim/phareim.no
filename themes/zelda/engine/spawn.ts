@@ -23,6 +23,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   gemini: { hp: 8, r: 0.62, dmg: 2, flying: true },
   mixtral: { hp: 10, r: 0.8, dmg: 2 },
   parrot: { hp: 16, r: 0.9, dmg: 2 },
+  // It never hurts (`dmg: 0`), and its hit points are cuts (`bossSycophant.ts`).
+  sycophant: { hp: 4, r: 1.0, dmg: 0, flying: true },
 }
 
 export function spawnEnemy(

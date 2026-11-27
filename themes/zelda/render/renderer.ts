@@ -32,7 +32,7 @@ import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { copySprite, doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
 import { drawFloorMarks } from './floorMarks'
-import { drawClock, drawRings, drawTurban } from './steamPaint'
+import { drawClock, drawGifts, drawRings, drawRobe, queueRack, steamLights, SYCO_HOVER, sycophantGold, sycophantLift, sycophantLight, sycophantSprite } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
@@ -596,6 +596,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
             flashT = 0.5
             flashColor = '#ffffff'
           }
+          if (e.kind === 'sycophant') {
+            for (let i = 0; i < 5; i++) fx.push(fxSprite('poof', 0.6, e.x + (Math.random() - 0.5) * 2, e.y - 0.4 + (Math.random() - 0.5) * 2, -i * 0.15))
+            flashT = 0.4
+            flashColor = '#fff4ff'
+          }
           break
         case 'clank':
           spark(e.x, e.y, 5, '#ffd23f', 5, 0.25)
@@ -643,6 +648,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           pulse(e.x, e.y, 2.4, '#ffd23f', 0.2)
           break
         case 'echoCut': pulse(e.x, e.y, 2, '#2ff3ff', 0.14, 0.8); break
+        // The Steamhouse's gifts: a puff as one leaves a sleeve; paper scraps as one bursts, a handful when refused.
+        case 'toss': pulse(e.x, e.y, 1.4, '#ff8ae0', 0.15); break
+        case 'scraps':
+          for (let i = 0; i < (e.refused ? 14 : 6); i++) fx.push({ kind: 'leaf', x: e.x, y: e.y - 0.4, vx: (Math.random() - 0.5) * 7, vy: -Math.random() * 5, t: 0, life: 0.4 + Math.random() * 0.35, color: ['#fff4ff', '#ff8ae0', '#ffd23f'][i % 3]!, size: 2 })
+          break
         case 'restock': spark(e.x, e.y, 8, '#ffd23f', 3, 0.4); pulse(e.x, e.y, 1.6, '#ffd23f', 0.25); break
         case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
         // The stomp coming down: the hero's cyan, a ring where it lands, dust off a floor, the camera pushed down.
@@ -888,11 +898,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const away = facingDir(h.dir, facing) === 'up'
     if (blade && away) drawBlade(g, s, x, feet - 7, lights)
     if (!heroBare) put(g, name, x, feet, mirror, false, sx, sy)
-    // The Steamhouse's robe: a white wash over the figure the view draws, and a towel on the head.
-    if (h.robe) {
-      if (!heroBare) { g.globalAlpha = 0.5; put(g, name, x, feet, mirror, false, sx, sy, '#ffffff'); g.globalAlpha = 1 }
-      drawTurban(g, x, feet)
-    }
+    // The Steamhouse's robe, over the figure the view draws.
+    if (h.robe) drawRobe(g, x, feet)
     if (blade && !away) drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
@@ -1095,6 +1102,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           : e.ai.mode === 'recite' && e.ai.on && !e.ai.act ? 'parrot_tell' : `parrot_${f('parrot')}`
         return { name, flip: e.dir === 'right' }
       }
+      case 'sycophant': return { name: sycophantSprite(e, time), flip: false }
     }
   }
 
@@ -1172,6 +1180,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
     if (e.kind === 'blob' && e.ai.mode === 'hop') feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.38) * Math.PI) * 3)
     const [sx, sy] = foeSquash(e)
+    if (e.kind === 'sycophant') {
+      // Steam: it floats and bobs, and wears gold round it while its smile is slipped.
+      const y = feet - sycophantLift(time, frameReduced)
+      sycophantGold(e, time, frameReduced, (dx, dy, color) => put(g, name, x + dx, y + dy, false, false, 1, 1, color))
+      put(g, name, x + shiver(e), y, false, flashing(e))
+      lights.push(sycophantLight(e))
+      return
+    }
     if (e.kind === 'mixtral') {
       // Its pictures are small ones, drawn at twice their size (`doubledSprite`); the isometric view has its own.
       const shake = e.ai.mode === 'tell' && !frameReduced ? (Math.floor(time * 24) % 2 ? 1 : -1) : 0
@@ -1287,6 +1303,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    */
   function standsAbove(e: Enemy): number {
     if (e.kind === 'king') return (e.ai.mode === 'down' ? 0 : 8) - 8
+    if (e.kind === 'sycophant') return SYCO_HOVER
     if ((e.kind === 'mistral' || e.kind === 'gemini') && e.ai.mode !== 'down') return 7
     return 0
   }
@@ -1468,6 +1485,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (n.look === 'keeper') lights.push({ x: n.x + 0.3, y: n.y - 0.9, r: 1.6, color: '#2ff3ff', a: 0.7 })
       if (n.look === 'ghost') lights.push({ x: n.x, y: n.y, r: 2, color: '#cfc6ff', a: 0.4 })
     }
+    queueRack(g, world, s, cx, cy, items)
+    if (!ui.attract) steamLights(lights, world, s, time, ui.reducedMotion)
     emit.length = 0
     const beforeExits = items.length
     queueExits(g, m.exits ?? [], cx, cy, qw, qh, ui.reducedMotion ? 0 : time, ui.reducedMotion, items, lights, emit)
@@ -1573,7 +1592,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     // The storm lamp set down lights its own ground.
     if (s.lamp) lights.push({ x: (s.lamp.idx % m.w) + 0.5, y: Math.floor(s.lamp.idx / m.w) + 0.5, r: 3.2, color: '#2ff3ff', a: 1 })
     for (const p of m.projectiles) {
-      if (p.kind === 'gust') continue
+      if (p.kind === 'gust' || p.kind === 'gift') continue
       lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' ? 1.8 : 1.4, color: p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })
     }
     for (const b of m.blasts) lights.push({ x: b.x, y: b.y, r: 5 * (1 - b.t), color: '#ff8a3d', a: 1 })
@@ -1598,6 +1617,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     drawGas(g, s, place, time, frameReduced)
     drawBeams(g, s, place, time, frameReduced)
     for (const p of m.projectiles) {
+      // (A gift is the house's: `drawGifts`, with what is held up and not yet thrown.)
+      if (p.kind === 'gift') continue
       const at = place(p.x, p.y)
       const px = at.x
       const py = at.y
@@ -1637,6 +1658,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const at = place(s.disc.x, s.disc.y)
       put(g, `disc_${f}`, at.x, at.y + 6)
     }
+    drawGifts(g, world, s, place, time, frameReduced)
   }
 
   /** The screen flash and the warp, death and exit fades over the scene; returns the fade (0..1). */

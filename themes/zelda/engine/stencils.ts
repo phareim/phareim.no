@@ -7,6 +7,7 @@ import type { Enemy } from '../types'
 import { HERO_R, MIXTRAL } from '../types'
 import { PARROT, type ParrotMove, type Reciter } from './parrot'
 import { angleDiff } from './util'
+import { sycophantLanes } from './bossSycophant'
 
 export type StencilShape =
   /** A lane from (x0, y0) to (x1, y1) along `a`, `w` tiles wide, and `cap` tiles on past each end. */
@@ -16,6 +17,8 @@ export type StencilShape =
   | { t: 'arc'; x: number; y: number; r: number; a: number; arc: number }
   /** Footsteps from (x0, y0) to (x1, y1): where it will walk. Nothing there is hit. */
   | { t: 'steps'; x0: number; y0: number; x1: number; y1: number }
+  /** A straight way at any angle, `w` tiles wide, from (x0, y0) to (x1, y1): a gift's (`gifts.ts`). */
+  | { t: 'ray'; x0: number; y0: number; x1: number; y1: number; w: number }
 /** `k`: 0 to 1 as its tell runs out; `dim`: a copy's, painted fainter. */
 export type Stencil = StencilShape & { k: number; dim?: boolean }
 
@@ -35,6 +38,13 @@ export function inStencil(s: StencilShape, x: number, y: number): boolean {
       return d <= s.r && (d < 1e-6 || angleDiff(Math.atan2(y - s.y, x - s.x), s.a) <= s.arc / 2)
     }
     case 'steps': return false
+    case 'ray': {
+      const dx = s.x1 - s.x0
+      const dy = s.y1 - s.y0
+      const len = Math.hypot(dx, dy) || 1
+      const u = ((x - s.x0) * dx + (y - s.y0) * dy) / len
+      return u >= 0 && u <= len && Math.abs((y - s.y0) * dx - (x - s.x0) * dy) / len <= s.w / 2
+    }
   }
 }
 
@@ -60,6 +70,7 @@ const unit = (k: number) => Math.max(0, Math.min(1, k))
 /** The stencils a foe shows now. */
 export function stencilsOf(e: Enemy): Stencil[] {
   if (e.dead) return []
+  if (e.kind === 'sycophant') return sycophantLanes(e)
   const out: Stencil[] = []
   if (e.kind === 'mixtral' && e.ai.mode === 'tell') {
     // As wide as the charge's touch (`contact`).

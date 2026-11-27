@@ -17,6 +17,7 @@ import { STATS } from './spawn'
 import { nextId, rndRange } from './util'
 import { isTube } from '../world/tubes'
 import { stepAttendants } from './attendants'
+import { stepGifts } from './gifts'
 import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, puzzleInfo, stepPhysics } from './puzzles/index'
 
 export function stepObjects(c: Ctx, dt: number) {
@@ -34,6 +35,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepStands(c, dt)
   stepNpcs(c, dt)
   stepAttendants(c, dt)
+  stepGifts(c, dt)
 }
 
 // ---------------------------------------------------------------------------
@@ -222,6 +224,8 @@ function stepProjectiles(c: Ctx, dt: number) {
   const h = s.hero
   for (let i = m.projectiles.length - 1; i >= 0; i--) {
     const p = m.projectiles[i]!
+    // The Steamhouse's gifts fly by their own rules (`gifts.ts`).
+    if (p.kind === 'gift') continue
     p.t += dt
     p.x += p.vx * dt
     p.y += p.vy * dt

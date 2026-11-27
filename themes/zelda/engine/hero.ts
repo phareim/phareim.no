@@ -12,6 +12,7 @@ import {
 import { aPlan, type AThing } from './action'
 import { echoBlade, echoOnTile, setEcho } from './echo'
 import { hangRobe, ROBE_SPEED } from './attendants'
+import { faceGift } from './gifts'
 import { useLamp } from './lamp'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
@@ -544,6 +545,7 @@ function startSwing(c: Ctx, inp: Input) {
       const d = Math.hypot(e.x - h.x, e.y - h.y)
       if (d < SWORD_REACH + e.r + 0.6 && (!best || d < best.d)) best = { d, dir: toDir(e.x - h.x, e.y - h.y, h.dir), a: Math.atan2(e.y - h.y, e.x - h.x) }
     }
+    best = faceGift(c, best)
     if (best) { h.dir = best.dir; h.aim = best.a }
   }
   // Out of a hop, the HOP CUT: the hit springs back in at the foe before it cuts (`moves.ts`).

@@ -1612,6 +1612,7 @@ function keepExploring() {
 // ---- events → sound, save, banner ----------------------------------------------
 
 const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
+BIG_FOES.add('sycophant')
 
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   spin: 'spin', roll: 'roll', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
@@ -1628,6 +1629,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   refuse: 'refuse',
   latch: 'echoCut', fizzle: 'clank', iron: 'clank',
   stomp: 'stomp',
+  toss: 'throw', adore: 'heart',
 }
 
 function handleEvents(events: GameEvent[]) {
@@ -1644,7 +1646,7 @@ function handleEvents(events: GameEvent[]) {
       case 'air': a?.sfx(e.kind === 'comet' ? 'comet' : e.kind === 'tempest' ? 'spin' : e.kind === 'hop' ? 'hop' : 'flip'); break
       case 'touchdown': if (e.heavy) a?.sfx('swordHeavy'); else a?.sfx('land'); break
       case 'move': if (e.mastered) { a?.jingle('secret'); save = true } else if (e.first) save = true; break
-      case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : e.crit ? 'bossHit' : e.heavy ? 'hitHeavy' : 'hit'); break
+      case 'hit': if (e.kind === 'sycophant' && !e.killed) a?.sfx('bossRoar'); a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : e.crit ? 'bossHit' : e.heavy ? 'hitHeavy' : 'hit'); break
       case 'join': a?.jingle('friend'); save = true; break
       case 'wait': save = true; break
       case 'lever': save = true; break

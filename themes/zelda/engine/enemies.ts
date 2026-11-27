@@ -10,6 +10,7 @@ import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
 import { parrot, parrotHarmless } from './parrot'
+import { sycophant } from './bossSycophant'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -158,6 +159,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'gemini': gemini(c, e, dt); break
     case 'mixtral': mixtral(c, e, dt); break
     case 'parrot': parrot(c, e, dt); break
+    case 'sycophant': sycophant(c, e, dt); break
   }
   contact(c, e)
 }

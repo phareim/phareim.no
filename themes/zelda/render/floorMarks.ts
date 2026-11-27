@@ -8,6 +8,7 @@ import type { GameState, World } from '../types'
 import { TILE } from '../types'
 import { cellIndex, mapInfo } from '../engine/map'
 import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
+import { laneOf, throwerLanes } from '../engine/gifts'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -27,20 +28,26 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
     if (dungeon && cellIndex(info, x + 0.5, y + 0.5) !== s.zoneIndex && !s.scroll) continue
     stand(g, x * T - cx, y * T - cy, m.tiles[i] !== 'o', time, reduced)
   }
+  const marks: Stencil[] = []
   for (const e of m.enemies) {
     if (e.dead || (dungeon && e.cell !== s.zoneIndex)) continue
-    for (const st of stencilsOf(e)) {
-      g.save()
-      // Never up the walls: the room's floor only.
-      if (dungeon) {
-        const z = s.zone
-        g.beginPath()
-        g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
-        g.clip()
-      }
-      paint(g, st, cx, cy, time, reduced)
-      g.restore()
+    marks.push(...stencilsOf(e))
+  }
+  // The Steamhouse's gifts: the throws being told, and the way still ahead of each one in the air.
+  marks.push(...throwerLanes(s))
+  for (const p of m.projectiles) if (p.kind === 'gift' && p.to) marks.push(laneOf(p.x, p.y, p.to, 0))
+  for (const st of marks) {
+    g.save()
+    // Never up the walls: the room's floor only.
+    if (dungeon) {
+      const z = s.zone
+      g.beginPath()
+      g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
+      g.clip()
     }
+    if (st.t === 'ray') ray(g, st, cx, cy, time, reduced)
+    else paint(g, st, cx, cy, time, reduced)
+    g.restore()
   }
   if (s.echo) echoRing(g, s.echo.x * T - cx, s.echo.y * T - cy + 4, time, reduced)
 }
@@ -50,7 +57,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
  * deepens as the tell runs out, a hard edge, and down a lane the chevrons of the way it will be run. A copy's is
  * fainter, and dotted at the edge. Footsteps are only prints: nothing is hit there.
  */
-function paint(g: G, st: Stencil, cx: number, cy: number, time: number, reduced: boolean) {
+function paint(g: G, st: Exclude<Stencil, { t: 'ray' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const faint = st.dim ? 0.55 : 1
   if (st.t === 'steps') { steps(g, st, cx, cy, faint); return }
   const box = bounds(st)
@@ -94,7 +101,7 @@ function paint(g: G, st: Stencil, cx: number, cy: number, time: number, reduced:
 }
 
 /** The tiles a stencil lies within. */
-function bounds(st: Exclude<Stencil, { t: 'steps' }>): { x0: number; y0: number; x1: number; y1: number } {
+function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' }>): { x0: number; y0: number; x1: number; y1: number } {
   if (st.t !== 'lane') return { x0: st.x - st.r, y0: st.y - st.r, x1: st.x + st.r, y1: st.y + st.r }
   const pad = Math.hypot(st.cap, st.w / 2)
   return { x0: Math.min(st.x0, st.x1) - pad, y0: Math.min(st.y0, st.y1) - pad, x1: Math.max(st.x0, st.x1) + pad, y1: Math.max(st.y0, st.y1) + pad }
@@ -122,6 +129,65 @@ function steps(g: G, st: Extract<Stencil, { t: 'steps' }>, cx: number, cy: numbe
       const ax = ux * Math.cos(turn) - uy * Math.sin(turn)
       const ay = uy * Math.cos(turn) + ux * Math.sin(turn)
       for (let r = 3; r <= 6; r++) g.fillRect(Math.round(x + ax * r) - 1, Math.round(y + ay * r) - 1, 2, 2)
+    }
+  }
+  g.globalAlpha = 1
+}
+
+/**
+ * A way at any angle (a gift's lane), laid in whole px row by row: the same wash, hard edge and running chevrons as a
+ * charge's lane.
+ */
+function ray(g: G, st: Extract<Stencil, { t: 'ray' }>, cx: number, cy: number, time: number, reduced: boolean) {
+  const x0 = st.x0 * T - cx
+  const y0 = st.y0 * T - cy
+  const len = Math.hypot(st.x1 - st.x0, st.y1 - st.y0) * T
+  if (len < 2) return
+  const ux = ((st.x1 - st.x0) * T) / len
+  const uy = ((st.y1 - st.y0) * T) / len
+  const half = (st.w * T) / 2
+  /** The run of px in row `y` that lies `a` to `b` along the way and within `h` of its middle; null when none does. */
+  const span = (y: number, a: number, b: number, h: number): [number, number] | null => {
+    let lo = -1e4
+    let hi = 1e4
+    const dy = y + 0.5 - y0
+    for (const [k, c, from, to] of [[ux, dy * uy, a, b], [-uy, dy * ux, -h, h]] as const) {
+      // from <= dx * k + c <= to
+      if (Math.abs(k) < 1e-6) { if (c < from || c > to) return null; continue }
+      const p = (from - c) / k
+      const q = (to - c) / k
+      lo = Math.max(lo, Math.min(p, q))
+      hi = Math.min(hi, Math.max(p, q))
+    }
+    const l = Math.round(x0 + lo)
+    const r = Math.round(x0 + hi)
+    return r > l ? [l, r] : null
+  }
+  const reach = Math.abs(uy) * len + half + 2
+  const top = Math.floor(Math.min(y0, y0 + uy * len) - half)
+  const blink = !reduced && st.k > 0.65 && Math.floor(time * 14) % 2 === 0
+  for (let y = top; y <= top + reach + half; y++) {
+    const out = span(y, 0, len, half)
+    if (!out) continue
+    const core = span(y, 2, len - 2, half - 2)
+    g.fillStyle = PINK
+    g.globalAlpha = 0.2 + 0.25 * st.k
+    g.fillRect(out[0], y, out[1] - out[0], 1)
+    g.globalAlpha = 1
+    g.fillStyle = blink ? PINK_LIGHT : PINK
+    if (!core) { g.fillRect(out[0], y, out[1] - out[0], 1); continue }
+    if (core[0] > out[0]) g.fillRect(out[0], y, core[0] - out[0], 1)
+    if (out[1] > core[1]) g.fillRect(core[1], y, out[1] - core[1], 1)
+  }
+  // Chevrons, a tile apart, pointing the way the gift will go.
+  const run = reduced ? 0 : ((time * 2.5) % 1) * T
+  const wing = Math.round(half * 0.5)
+  g.globalAlpha = 0.85
+  g.fillStyle = blink ? PINK_LIGHT : PINK
+  for (let d = 0.6 * T + run; d < len - 3; d += T) {
+    for (let k = -wing; k <= wing; k++) {
+      const back = Math.abs(k) * 0.7
+      g.fillRect(Math.round(x0 + ux * (d - back) - uy * k) - 1, Math.round(y0 + uy * (d - back) + ux * k) - 1, 2, 2)
     }
   }
   g.globalAlpha = 1

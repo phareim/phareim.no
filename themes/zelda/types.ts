@@ -464,6 +464,7 @@ export type EnemyKind =
   | 'gemini' // boss: one of the twins; both must fall close together
   | 'mixtral' // miniboss: stencils a lane and charges down it; open only while dazed against the wall
   | 'parrot' // boss: recites the hero's moves back, stencilled; open while it thinks, and to the echo at its back
+  | 'sycophant' // boss: never attacks; refused, its smile slips and the blade bites (`engine/bossSycophant.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -891,6 +892,7 @@ export interface Enemy {
 export interface Projectile {
   id: number
   kind: 'pellet' | 'laser' | 'spark' | 'shard' | 'wave' | 'spit' | 'gust'
+    | 'gift'
   x: number
   y: number
   vx: number
@@ -902,7 +904,13 @@ export interface Projectile {
   reflect?: boolean
   /** Reflected shots hurt enemies instead. */
   friendly?: boolean
+  /** A `gift`'s picture (the Steamhouse's, `engine/gifts.ts`): it hurts nothing; it lands, or it is refused. */
+  gift?: GiftKind
+  /** A gift's lane runs to here (the spot the hero stood on when the tell began); it flies on past. */
+  to?: Vec
 }
+
+export type GiftKind = 'towel' | 'tea' | 'heart' | 'star' | 'flower' | 'bell'
 
 export type DropKind = 'heart' | 'bit' | 'bit5' | 'bomb' | 'key'
 
@@ -970,6 +978,11 @@ export interface Npc {
   vy: number
   /** An attendant's state (`engine/attendants.ts`); `ring` and `mode` come from the mark. Never saved. */
   att?: { mode: 'ask' | 'throw'; ring: number; made: boolean; linger: boolean; clock: number; muted: boolean }
+  /**
+   * A thrower's beat (`attend.mode: 'throw'`, `engine/gifts.ts`): `wait` s to the next tell, `tell` s of it left (0:
+   * none) at the spot (x, y), the gifts thrown so far and the refusals of this visit. Never saved.
+   */
+  toss?: { n: number; set: string; wait: number; tell: number; x: number; y: number; thrown: number; refused: number }
 }
 
 /** An exit as the renderer sees it (tile centre). */
@@ -1510,6 +1523,11 @@ export type GameEvent =
   | { type: 'refuse'; x: number; y: number }
   /** The Steamhouse: a bath begins (the fade to white), the hero comes up in the lobby, the robe comes off. */
   | { type: 'bath'; phase: 'begin' | 'arrive' | 'robeOff' }
+  /** The Steamhouse's gifts: one launched; one gone in paper scraps (refused, or against a wall). */
+  | { type: 'toss'; x: number; y: number }
+  | { type: 'scraps'; x: number; y: number; refused: boolean }
+  /** The Sycophant's half heart to a hurt hero. */
+  | { type: 'adore'; x: number; y: number }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

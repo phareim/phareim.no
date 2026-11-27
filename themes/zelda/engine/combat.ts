@@ -6,6 +6,7 @@ import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, WeightId
 import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
 import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
+import { sycophantHit } from './bossSycophant'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
 import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
@@ -104,6 +105,8 @@ export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'h
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
 /** The ones whose fall clears the room of its small fry and plays the boss fanfare. */
 const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
+BIG.add('sycophant')
+BOSSES.add('sycophant')
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -145,6 +148,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'mixtral': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
     // Thinking, while this thought still has blows to give.
     case 'parrot': return mode === 'think' && ((e.ai.took as number | undefined) ?? 0) < PARROT.take
+    // Its smile slipped: a gift was refused.
+    case 'sycophant': return mode === 'slip'
     default: return false
   }
 }
@@ -340,6 +345,7 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       turned(e, src, 0.2)
       return false
     }
+    case 'sycophant': return sycophantHit(c, e, fromX, fromY, src)
     case 'deepseek':
       if (ai.mode === 'under' || ai.mode === 'rise') {
         if (src !== 'hook') return false

@@ -13,11 +13,14 @@
  * The route: lobby, the baths (the north doorway is hidden behind diamond screens in the isometric view: turn to the
  * plan to pass), the laundry (two baskets on two plates open the gate to the boiler), the boiler (two hounds, and
  * THE NO in a chest in the north-east corner; the east gate opens only to a hero who holds it), the stair, the
- * Best Room. A lever in the boiler opens the barred lobby gate: the short way home. The Gift Shop is optional.
+ * Best Room and THE SYCOPHANT (`engine/bossSycophant.ts`). A lever in the boiler opens the barred lobby gate: the
+ * short way home. The Gift Shop is optional: two attendants throw souvenirs, and four refused in one visit open the
+ * gate to a heart piece (`engine/gifts.ts`).
  * No keyring: no keys, no lock, no Big Key (a Shrine key in hand shows in the house; that is accepted).
  *
  * Rooms are plain tile rows. Attendants are `npc`s with `attend` (the same offer at every one: the sameness is the
- * joke). Marker chars: `@ & + !` entries, `V` the door, `a e j` attendants, `s d k h l` signs, the rest by room.
+ * joke). Marker chars: `@ & + !` entries, `V` the door, `a e j` attendants, `8 9` the throwers, `s d k h l` signs,
+ * the rest by room.
  */
 import type { EntDef, MapDef, Mark, TalkBranch } from '../types'
 import { joinCells, ROCK } from './cells'
@@ -39,6 +42,11 @@ const OFFER: TalkBranch = {
   },
 }
 const attendant = (id: string, ring: number, first: Partial<TalkBranch> = {}): Mark => npc(id, 'ghost', [{ ...OFFER, ...first }], { attend: { mode: 'ask', ring } })
+/** The Gift Shop's attendants: they lob souvenirs on a beat until four are refused in one visit. */
+const thrower = (id: string): Mark => npc(id, 'ghost', [
+  { when: { flag: 'steamhouse.shop' }, lines: ['(THE ATTENDANTS STAND VERY STILL. ONE LOOKS RELIEVED.)'] },
+  { lines: ['ATTENDANT: FREE. EVERYTHING HERE IS FREE.'] },
+], { attend: { mode: 'throw', stock: { n: 4, set: 'steamhouse.shop' } } })
 
 const LOBBY = [
   '#######gX#######',
@@ -105,6 +113,7 @@ const BOILER = [
   '#######XX#######',
 ]
 
+// A thrower behind each counter (a gift flies over a counter, and stops at a wall).
 const SHOP = [
   '################',
   '#..........#.2.#',
@@ -115,7 +124,7 @@ const SHOP = [
   '...............#',
   '#..............#',
   '#..nnnn.....nn.#',
-  '#..............#',
+  '#...8.......9..#',
   '#..............#',
   '################',
 ]
@@ -177,7 +186,9 @@ export const STEAMHOUSE: MapDef = {
     // (Two hounds, in the west half: the tough one by the boiler, the plain one by the chest's side of the room.)
     u: { ent: { t: 'enemy', kind: 'hound', tough: true, once: 'steamhouse.hound', dir: 'right' } },
     v: { ent: { t: 'enemy', kind: 'hound', once: 'steamhouse.pup', dir: 'right' } },
-    // The gift shop: the heart piece behind a gate that part two opens.
+    // The gift shop: its two throwers, and the heart piece behind the gate they open.
+    '8': thrower('steam.shop.long'),
+    '9': thrower('steam.shop.short'),
     '2': { ent: { t: 'chest', id: 'steamhouse.heart', item: 'heartPiece' } },
     '3': { tile: 'X', ent: { t: 'gate', open: { flag: 'steamhouse.shop' } } },
   },
@@ -198,12 +209,13 @@ const STAIR = [
   '################',
 ]
 
-// Plain, spotless, carpeted. Part two puts the Sycophant here; the gate in the north wall opens when it falls.
+// Plain, spotless, carpeted. The Sycophant floats in the north half (`z`); the gate in the north wall opens when it
+// falls, and the door behind it comes out at the lobby's desk. Nothing in the room is solid but its four pillars.
 const BEST = [
   '#######DD#######',
   '#######yX#######',
   '#I....,,,,....I#',
-  '#.....,,,,.....#',
+  '#.....,,z,.....#',
   '#.....,,,,.....#',
   '......,,,,.....#',
   '......,,,,.....#',
@@ -226,7 +238,11 @@ export const STEAMSUITE: MapDef = {
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE STAIR' },
-    '1,0': { name: 'THE BEST ROOM', track: 'boss' },
+    '1,0': {
+      name: 'THE BEST ROOM',
+      track: 'boss',
+      events: [{ when: { notFlag: 'sycophant' }, lines: ['THE SYCOPHANT. IT AGREES WITH YOU. IT ALWAYS HAS.'], set: 'steamsuite.met' }],
+    },
   },
   rows: joinCells([[STAIR, BEST]]),
   marks: {
@@ -234,6 +250,7 @@ export const STEAMSUITE: MapDef = {
     '<': { tile: '>', ent: { t: 'warp', to: 'steamhouse', entry: 'fromstair' } },
     D: { tile: 'D', ent: { t: 'warp', to: 'steamhouse', entry: 'checkout' } },
     y: { tile: 'X', ent: { t: 'gate', open: { flag: 'sycophant' } } },
+    z: { ent: { t: 'enemy', kind: 'sycophant', once: 'sycophant' } },
   },
 }
 

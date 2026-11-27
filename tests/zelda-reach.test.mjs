@@ -212,6 +212,8 @@ function round(W, world, opened) {
         }
         // (A beam lights a receiver from across its room: nobody need stand beside it.)
         if (e.t === 'receiver' && cells.has(`${m.id}|${cell}`)) set(e.flag)
+        // (A thrower's gifts are refused from anywhere in its room, by a hero who holds THE NO.)
+        if (e.t === 'npc' && e.attend?.stock && flags['item:no'] && cells.has(`${m.id}|${cell}`)) set(e.attend.stock.set)
         if (!near(m, x, y)) continue
         if (e.t === 'chest' && holds(e.appear, m, cell)) once(`chest ${e.id}`, () => { set(`chest:${e.id}`); get(e.item, ring) })
         if (e.t === 'item' && holds(e.appear, m, cell)) once(`item ${e.id}`, () => { set(`took:${e.id}`); get(e.item, ring) })
@@ -278,12 +280,7 @@ function solve(W) {
  * What a dungeon that is landing part by part cannot open yet. The list is exact: the part that opens a thing takes
  * its line out, and a finished world has none.
  */
-const OWED = [
-  // The Steamhouse: the Gift Shop's throwers (part two) and the Sycophant's fall (part three).
-  'steamhouse: heartPiece at 45,13',
-  'steamhouse: gate steamhouse.45,15',
-  'steamsuite: gate steamsuite.23,1',
-]
+const OWED = []
 
 describe('the whole world can be opened', () => {
   it('reaches every chest, key, locked door and gate in some order, with only what the world gives', () => {
