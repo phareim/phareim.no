@@ -10,6 +10,7 @@ import {
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
 import { echoBlade, echoOnTile, setEcho } from './echo'
+import { useLamp } from './lamp'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -1021,6 +1022,7 @@ const TOOL_USE: Record<ToolId, (c: Ctx, inp: Input) => void> = {
   disc: throwDisc,
   bombs: setBomb,
   echo: c => { setEcho(c) },
+  lamp: c => { useLamp(c) },
 }
 
 function useItem(c: Ctx, inp: Input) {

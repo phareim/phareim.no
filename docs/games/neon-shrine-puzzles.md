@@ -39,6 +39,7 @@ them out of rooms with a boss that places itself, and let `validateWorld` check 
 `docs/games/neon-shrine.md`, "The view as a rule". `Cond { view }` opens a gate or raises a chest in one view.
 Taught in the Turn Room (below). The kit solver (`solveKit`) does not know them.
 
+A storm lamp set down is one more emitter (`engine/lamp.ts`, `docs/games/neon-shrine-lighthouse.md`).
 Beams pass over water, fences and counters, stop at anything else solid (a block pushed in their way too) and
 burn the foes they cross. Bombs shove blocks and mirrors beside them (on ice they slide). On a physical map a foe
 knocked into a pit or water is gone, onto spikes hurt.

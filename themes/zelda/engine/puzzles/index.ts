@@ -23,6 +23,7 @@ import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
 import { cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
 import { dirVec, nextId, toDir } from '../util'
 import { echoOnTile } from '../echo'
+import { lampDown, lampEmitters, stepLamp } from '../lamp'
 import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
 import { stepTubes } from './tubes'
 import { turns, turnTube } from '../../world/tubes'
@@ -62,12 +63,14 @@ const sameCell = (c: Ctx, a: number, x: number, y: number) =>
 // ---------------------------------------------------------------------------
 
 export function stepPhysics(c: Ctx, dt: number) {
-  if (!pz(c).on) return
+  // (A map with no puzzle tile runs no rule at all but the beam of a lamp set down on it.)
+  if (!pz(c).on) { if (lampDown(c)) { traceBeams(c, phys(c)); stepLamp(c, dt) } return }
   const ph = phys(c)
   if (ph.cool > 0) ph.cool = Math.max(0, ph.cool - dt)
   stepSluices(c, ph)
   stepBoulders(c, ph, dt)
   traceBeams(c, ph)
+  stepLamp(c, dt)
   stepTubes(c)
 }
 
@@ -385,7 +388,7 @@ function traceBeams(c: Ctx, ph: PhysState) {
   const m = s.map
   ph.beams = []
   ph.lit = []
-  for (const em of p.emitters) {
+  for (const em of lampEmitters(c, p.emitters)) {
     if (c.info.def.kind === 'dungeon' && em.cell !== s.zoneIndex) continue
     if (!condMet(s, c.w, em.when, em.cell)) continue
     const v = dirVec(em.dir)
@@ -419,7 +422,7 @@ function traceBeams(c: Ctx, ph: PhysState) {
         } else { x = nx; y = ny }
       }
       if (!end) end = [x + 0.5, y + 0.5]
-      ph.beams.push({ x0, y0, x1: end[0], y1: end[1] })
+      ph.beams.push({ x0, y0, x1: end[0], y1: end[1], ...(em.src ? { src: em.src } : {}) })
     }
   }
   for (const idx of ph.lit) {
@@ -437,6 +440,8 @@ function traceBeams(c: Ctx, ph: PhysState) {
     if (e.dead || e.invuln > 0 || STATS[e.kind].invulnerable) continue
     if (c.info.def.kind === 'dungeon' && e.cell !== s.zoneIndex) continue
     for (const b of ph.beams) {
+      // (The lamp's beam burns on a clock of its own: `engine/lamp.ts`.)
+      if (b.src) continue
       if (segDist(e.x, e.y, b.x0, b.y0, b.x1, b.y1) < e.r) { hitEnemy(c, e, 1, e.x - Math.sign(b.x1 - b.x0) * 0.5, e.y - Math.sign(b.y1 - b.y0) * 0.5, 'shot'); break }
     }
   }

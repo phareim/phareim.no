@@ -74,7 +74,7 @@ export const YULEFJORD: MapDef = {
     '~~~............FFFFFF...,...........,.;....;,.........;...;#......4#.,....####.###..####',
     '~~.HHH.6........,.f.....,....;.;....,t...T..,.###########.T####,####.,........,NT..:####',
     '~~.HHH.........FFFFFF...,....FFFF..,,.;.....,T#.;HHHHH.;#......,,O,,,,,,,,,,,,,.TTTT####',
-    '~~.HHH....t.::..,.....;.,.........,,...w...;,;#..HHHHH..#TTT.TT......,.T.;T.TT.T.:..####',
+    '~~.HQH....t.::..,.....;.,.........,,...w...;,;#..HHHHH..#TTT.TT......,.T.;T.TT.T.:..####',
     '~~..,.....;.,,,,,,,,,...,....FFFF.,.........,.#..HHHHH..#.;...;..T...,:.;.T.........####',
     '~~.;,,,,,,,,,.......,,,,,,,,,...;.,.........,;#.;HHHHH..#...8.T.T.T..,:.T.T..T..T.T.####',
     '~~..;...L....;....;.;..TT...,....;,..;......,,,....a....#..;TT.....T***.T........T..####',
@@ -109,6 +109,8 @@ export const YULEFJORD: MapDef = {
     'camp': { x: 36.5, y: 23.5, dir: 'down' },
     'ferry': { x: 26.5, y: 15.5, dir: 'down' },
     'lighthouse': { x: 8.5, y: 32.5, dir: 'down' },
+    // The way out of the tower: the path tile before its door.
+    'lighthousedoor': { x: 4.5, y: 32.5, dir: 'down' },
     'church': { x: 51.5, y: 35.5, dir: 'down' },
     'iceflats': { x: 60.5, y: 21.5, dir: 'up' },
     'farshore': { x: 70.5, y: 6.5, dir: 'down' },
@@ -205,6 +207,8 @@ export const YULEFJORD: MapDef = {
     // The ferry home from the end of the harbour pier; the sea cave's mouth in the far shore's cliff.
     '3': { ent: { t: 'warp', to: 'overworld', entry: 'ferry' }, tile: '=' },
     '5': { ent: { t: 'warp', to: 'seacave', entry: 'door' }, tile: 'D' },
+    // The lighthouse's door: the middle of the foot of its 3×3 (inside the landmark's `cover`, as the Stillsand pyramid's door is).
+    Q: { ent: { t: 'warp', to: 'lighthouse1', entry: 'door' }, tile: 'D' },
     // Signs: the passes, the junctions and a few places.
     'A': sign('↑ THE STILTS AND THE HARBOUR.\n↓ LUMENBY QUARRY, OVER THE TOPS.'),
     'B': sign('← THE STILTS. ↑ THE ICE FLATS.\n↓ SETER FELL, OVER THE TOPS.'),

@@ -187,6 +187,28 @@ function emitter(g: G, px: number, py: number) {
   for (let x = 4; x < 12; x += 3) r(g, STEEL.d, px + x, py + 12, 2, 1)
 }
 
+/** The storm lamp set down (`engine/lamp.ts`): a brass-footed lantern, its glass lit cyan round a white heart. */
+function lamp(g: G, px: number, py: number) {
+  r(g, 'rgba(0,0,0,0.35)', px + 2, py + 12, 13, 4)
+  r(g, '#4a2e0c', px + 4, py + 12, 8, 3)
+  r(g, '#c4861c', px + 5, py + 11, 6, 2)
+  r(g, '#1a6f7a', px + 4, py + 3, 8, 9)
+  r(g, '#2ff3ff', px + 5, py + 4, 6, 7)
+  r(g, '#9de8ff', px + 6, py + 5, 4, 5)
+  r(g, '#ffffff', px + 7, py + 6, 2, 3)
+  r(g, '#c4861c', px + 4, py + 2, 8, 2)
+  r(g, '#ffd23f', px + 7, py + 0, 2, 2)
+}
+
+/** The Black Box's pedestal: one tile of a low slab (nine of them stand as one block). */
+function pedestal(g: G, px: number, py: number) {
+  r(g, 'rgba(0,0,0,0.3)', px, py + 13, T, 3)
+  r(g, STEEL.d, px, py + 3, T, 12)
+  r(g, STEEL.m, px + 1, py + 4, T - 2, 9)
+  r(g, STEEL.h, px + 1, py + 4, T - 2, 1)
+  r(g, STEEL.l, px + 1, py + 5, 1, 7)
+}
+
 function receiver(g: G, px: number, py: number) {
   plinth(g, px, py)
   r(g, STEEL.d, px + 4, py + 2, 8, 9)
@@ -234,6 +256,8 @@ export function paintPuzzleObject(g: G, t: TileChar, px: number, py: number): bo
     case 'ξ': valve(g, px, py); return true
     case 'Θ': tap(g, px, py); return true
     case 'Λ': socket(g, px, py); return true
+    case 'Φ': lamp(g, px, py); return true
+    case 'Ξ': pedestal(g, px, py); return true
   }
   return PUZZLE_TILES.has(t)
 }

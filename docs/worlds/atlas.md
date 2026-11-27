@@ -152,7 +152,10 @@ from the fell and the quarry hills; THE STILTS is the sleeping village on
 stilts (the lamp warden, a sleeper, the chalk girl); THE STAVE CHURCH stands on
 a rise (ASLAK and the cracked bell); THE HARBOUR is the ferry's dock
 (boathouses, the fishwife); THE LIGHTHOUSE watches the fjord mouth; THE ICE
-FLATS hold the realm's puzzles (ice, beams). A sea cave under the cliffs.
+FLATS hold the realm's puzzles (ice, beams). A sea cave under the cliffs. The
+lighthouse's door (tile (4, 31), back out at the entry `lighthousedoor`) leads
+into THE LIGHTHOUSE, a four-floor dungeon (`lighthouse0`…`lighthouse3`,
+`docs/games/neon-shrine-lighthouse.md`) with the Storm Lamp.
 
 ### THE SPORELIGHT (`sporelight`)
 Giant glowing fungus over clean white roots. From the market gate THE CAPS

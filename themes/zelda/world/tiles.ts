@@ -96,6 +96,9 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   'ω': LOW,
   'ψ': OPEN,
   'ξ': LOW,
+  // The Lighthouse: the storm lamp set down, and the Black Box's pedestal (low: they stop walkers and beams, not shots or sight)
+  'Φ': LOW,
+  'Ξ': LOW,
   // Lumen tubes (world/tubes.ts, engine/puzzles/tubes.ts): walked over; the tap and the socket stand.
   '╵': OPEN, '╶': OPEN, '╷': OPEN, '╴': OPEN,
   '│': OPEN, '─': OPEN, '┌': OPEN, '┐': OPEN, '└': OPEN, '┘': OPEN, '├': OPEN, '┤': OPEN, '┬': OPEN, '┴': OPEN, '┼': OPEN,

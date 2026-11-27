@@ -46,6 +46,8 @@ export type SfxName =
   | 'flip' | 'comet' | 'hop' | 'slip'
   // The Echo Barrow: an echo left on the floor, and the echo's blade
   | 'echo' | 'echoCut'
+  // The Lighthouse: the storm lamp set down or taken up
+  | 'lamp'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2748,6 +2750,11 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     echoCut() {
       nz({ dur: 0.15, vol: 0.26, f: 660, to: 2800, q: 1.6, at: 0.02 })
       tone({ f: 465, to: 825, dur: 0.08, vol: 0.05, at: 0.02, verb: true })
+    },
+    // The storm lamp: a glass chime, and a warm tone under it.
+    lamp() {
+      tone({ f: 1320, to: 1760, dur: 0.09, type: 'sine', vol: 0.12, verb: true })
+      tone({ f: 330, to: 440, dur: 0.16, type: 'triangle', vol: 0.12 })
     },
     // An echo left: a call, and the call coming back softer.
     echo() {

@@ -79,6 +79,8 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 
 /** `echo`: a blow of the echo's blade (`engine/echo.ts`), the blade to every rule of armour. */
 export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit' | 'echo'
+  /** The storm lamp's beam (`engine/lamp.ts`): a burn that leaves no mercy and no shove. */
+  | 'beam'
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
@@ -141,8 +143,24 @@ export interface HitOpts {
   echo?: boolean
 }
 
+/**
+ * The storm lamp's burn (`engine/lamp.ts`, `HitSource` 'beam'): hit points off a foe with no mercy window, no shove, no
+ * poise and no reeling, so it never swallows the hero's blows. A foe nothing hurts, and a `BIG` one (its own rules
+ * would say), takes none.
+ */
+export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
+  if (e.dead || STATS[e.kind].invulnerable || BIG.has(e.kind)) return false
+  e.hp -= dmg
+  e.flash = 0.14
+  const killed = e.hp <= 0
+  c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed })
+  if (killed) killEnemy(c, e)
+  return true
+}
+
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
+  if (src === 'beam') return burnFoe(c, e, dmg)
   if (e.dead || (src === 'echo' ? (e.echoInvuln ?? 0) : e.invuln) > 0) return false
   if (src === 'echo') opt = { ...opt, echo: true }
   const st = STATS[e.kind]
@@ -441,6 +459,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bits50': return ['YOU GOT 50 BITS!']
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
     case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
+    case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
@@ -487,6 +506,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'hook': inv.hook = true; inv.selected = 'hook'; break
     case 'arc': inv.arc = true; inv.sword = true; break
     case 'echo': inv.echo = true; inv.selected = 'echo'; break
+    case 'lamp': inv.lamp = true; inv.selected = 'lamp'; break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break

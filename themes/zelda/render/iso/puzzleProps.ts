@@ -19,12 +19,14 @@ export type PuzzlePropKind =
   | 'pzMirrorA' | 'pzMirrorB' | 'pzPrism' | 'pzReceiver' | 'pzReceiverLit' | 'pzValveShut' | 'pzValveOpen'
   | `pzRollX${0 | 1 | 2 | 3}` | `pzRollY${0 | 1 | 2 | 3}`
   | 'pzTap' | 'pzSocket' | 'pzSocketLit'
+  | 'pzPedestal'
 
 export const PUZZLE_PROP_KINDS: readonly PuzzlePropKind[] = [
   'pzEmitterD', 'pzEmitterU', 'pzEmitterL', 'pzEmitterR',
   'pzMirrorA', 'pzMirrorB', 'pzPrism', 'pzReceiver', 'pzReceiverLit', 'pzValveShut', 'pzValveOpen',
   'pzRollX0', 'pzRollX1', 'pzRollX2', 'pzRollX3', 'pzRollY0', 'pzRollY1', 'pzRollY2', 'pzRollY3',
   'pzTap', 'pzSocket', 'pzSocketLit',
+  'pzPedestal',
 ]
 
 /** Which of them glow by themselves (the materials test asks). */
@@ -115,6 +117,11 @@ function roll(b: Solids, axis: 'X' | 'Y', frame: number) {
   })
 }
 
+/** The Black Box's pedestal: a low slab, a tile of it (nine stand as one block). */
+function pedestal(b: Solids) {
+  b.box(-8, -8, 0, 8, 8, 6.5, (_x, _y, z, _nx, _ny, nz) => (nz > 0.5 ? 'chrome' : z < 1.5 ? 'pole' : 'shrine'))
+}
+
 export const PUZZLE_BUILD: Record<PuzzlePropKind, (b: Solids) => void> = {
   pzEmitterD: b => emitter(b, 'down'),
   pzEmitterU: b => emitter(b, 'up'),
@@ -132,6 +139,7 @@ export const PUZZLE_BUILD: Record<PuzzlePropKind, (b: Solids) => void> = {
   pzTap: tap,
   pzSocket: b => socket(b, false),
   pzSocketLit: b => socket(b, true),
+  pzPedestal: pedestal,
 }
 
 /** What stands for a puzzle tile now: `lit` a receiver a beam reaches (or solved), `open` a valve's flag, `dir` an emitter's way. */
@@ -146,6 +154,9 @@ export function puzzlePropOf(t: TileChar, state: { lit?: boolean; open?: boolean
     case 'κ': return 'boulder'
     case 'Θ': return 'pzTap'
     case 'Λ': return state.lit ? 'pzSocketLit' : 'pzSocket'
+    // The storm lamp set down stands as an emitter shining the way it was set; the Box's pedestal as a slab.
+    case 'Φ': return state.dir === 'up' ? 'pzEmitterU' : state.dir === 'left' ? 'pzEmitterL' : state.dir === 'right' ? 'pzEmitterR' : 'pzEmitterD'
+    case 'Ξ': return 'pzPedestal'
   }
   return null
 }
