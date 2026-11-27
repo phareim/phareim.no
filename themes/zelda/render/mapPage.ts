@@ -20,7 +20,7 @@ import { mapDef, mapInfo } from '../engine/map'
 import { charted, seenTile } from '../engine/explore'
 import { glyphRows } from '../../base/pixel/font'
 import { viewList } from '../views'
-import { drawMenuTabs, hudFont, type HudFont, type HudSkin } from './hud'
+import { drawMenuTabs, hudFont, menuTabsBox, type HudFont, type HudSkin } from './hud'
 import {
   Buf, CAP_H, CAP_W, CORNER_SKIN, GEM_H, GEM_W, PLATE_H, STUB, chartProjection, cornerParts, hasGem, pinName,
   renderCorner, stampCap, stampChain, stampGem, stampPlate, sunPhase, RULE_TAGS, TURN_STEPS, type CornerPicture, type PinName,
@@ -702,7 +702,7 @@ export function mapPageLayout(vw: number, vh: number, o: PageLayoutOpts, grid: G
     const finish = (y: number, h: ReturnType<NonNullable<ReturnType<typeof head>>['place']>, placed: Array<Partial<PageLayout>>, k: number, lastY: number): PageLayout => {
       const out: PageLayout = {
         wide,
-        tabs: tabsBox(o, vw, y),
+        tabs: menuTabsBox(o.font, vw, y, o.keys),
         title: h.title,
         land: h.chart?.land ?? null,
         gem: h.chart?.gem ?? null,
@@ -858,19 +858,10 @@ export function mapPageLayout(vw: number, vh: number, o: PageLayoutOpts, grid: G
 
 function empty(o: PageLayoutOpts, vw: number, top: number): PageLayout {
   return {
-    wide: false, tabs: tabsBox(o, vw, top), title: { x: 2, y: top + 14, w: 0, h: 0, name: { x: 2, y: top + 14 }, sub: null },
+    wide: false, tabs: menuTabsBox(o.font, vw, top, o.keys), title: { x: 2, y: top + 14, w: 0, h: 0, name: { x: 2, y: top + 14 }, sub: null },
     land: null, gem: null, gemHit: null, plate: null, cap: null, chain: null, stub: null, places: null, legend: null, world: null, last: null,
     gave: [...GIVE_WAY],
   }
-}
-
-/** Where `drawMenuTabs` lays the three tabs. */
-function tabsBox(o: PageLayoutOpts, vw: number, y: number): Box {
-  const widths = (o.keys ? ['P ITEMS', 'N MOVES', 'M MAP'] : ['ITEMS', 'MOVES', 'MAP']).map(t => o.font.width(t))
-  const sum = widths.reduce((a, b) => a + b, 0)
-  const gap = Math.min(18, Math.max(8, Math.floor((vw - sum) / 4)))
-  const total = sum + gap * 2
-  return { x: Math.round((vw - total) / 2), y, w: Math.ceil(total), h: TABS_H }
 }
 
 /** The room of the shell's button over the Prism: 44 × 44 CSS px or more round the Prism and its plate, on the screen, under the tabs, over the deck, and off the list, the legend and the world. */

@@ -43,6 +43,7 @@ There is no menu and no page route but `/`. `servers/mw-world/` is not part of t
   - **No prefetch hints.** `server/plugins/no-prefetch.ts` strips them; it rewrites `html.head` as a string, and filtering that array removes the entire head.
   - **Styles are a file, not inline.** `features.inlineStyles: false` in `nuxt.config.ts`.
   - **No dead assets in `public/`.**
+- **A commit whose subject begins `Neon Shrine: ` is a line of the game's change list** (the menu's LOG page) and raises its version, so write it for a player. Details: `docs/site.md` → "Build-time values".
 - **Neon Shrine's iso art packs**: the stalls, machines and realm kits are PNG packs in the fixer art library, pinned in `themes/zelda/render/iso/artIndex.ts`; bake them only with `scripts/zelda-lab/art-pack.mjs` (via `frontier-art.mjs`, `codex/kit-bake.mjs` or `--splice`), never as TS (`tests/zelda-no-art-ts.test.mjs`); `npm run art:pull` fills the tests' `.art-cache/`. Details: `docs/games/neon-shrine.md` → "The art packs".
 - No `runtimeConfig`: server routes read bindings and secrets from `event.context.cloudflare.env`. If it comes back, server code **must** call `useRuntimeConfig(event)`, or Workers return a config frozen before env vars exist (`docs/site.md` → "Config, geo and auth").
 - Norway only for Ulrikke's games (Mini World, Lag Din Figur): `server/middleware/norway.ts` and `plugins/norway.server.ts`; `mw-world` has the same gate in nginx (`~/github/sleeper/geo/`).

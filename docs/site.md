@@ -154,6 +154,15 @@ A visit starts in the isometric view, which adds to that number for every browse
 - No auth system of its own; identity is auth.phareim.no's (Reader keeps users and sessions, cookie `session_token` on `.phareim.no`).
 - The auth gate for Ulrikke's games: the browser renders the game only when `useAccount().state` is `in` (`Landing.vue`); the server is the actual lock (`server/utils/account.ts`, `sessionCheck.ts`, `accountLinks.ts`; fail closed when auth is down). `server/utils/sessionCheck.ts` and `themes/zelda/account.ts` are shared with `mw-world`, so `deploy.sh` restarts it when they change. Hall of Fame scores stay open. The portal needs no login, but a signed-in visitor plays under the account's profile (`usePortalAccountLink`), and once a profile is an account's, `/api/save` for every slot needs its owner's session (`guardLinkedPlayer`); another account signing in on the browser clears the local copies. Under `nuxi dev` the games show the retry window (auth refuses localhost); `scripts/login-lab/shots.mjs` fakes auth. Details: `docs/games/mini-world.md` (Sign-in), `docs/games/portal.md`.
 
+## Build-time values
+
+One thing the site is built with is read from git: Neon Shrine's version and change list.
+
+- `scripts/zelda-changes.mjs` writes `themes/zelda/changes.gen.ts` (`CHANGE_LOG: { version, date, hash, changes }`; gitignored, never edited). `nuxt.config.ts` calls it, so `npm ci` (through `nuxt prepare`), `npm run dev`, `typecheck` and `build` all write it; `node scripts/zelda-changes.mjs` by hand. A dev server writes it when it starts, not at each commit.
+- A change is a commit reachable from HEAD whose subject begins exactly `Neon Shrine: ` (`Neon Shrine tests:`, `Neon Shrine docs:` and merges do not). The version is their count; the list holds the newest 40 by day, subject without the prefix, in capitals, characters the pixel face lacks swapped for the nearest.
+- Without git, outside a checkout of its own, or where a shallow history cuts into the game's, it writes version 0 and an empty list, and never fails the build. "Cuts into" means a commit the shallow history ends at already holds `themes/zelda`. A history cut before the game was there counts whole: a clone of Sleeper's checkout in November 2026 was shallow from March 2026. A depth-1 clone gets 0; `git fetch --unshallow origin` deepens one.
+- The tests do not import the generated file: the LOG page is handed the list (`tests/zelda-log-page.test.mjs` runs the step itself).
+
 ## Deployment extras
 
 - D1 migrations apply before publishing to Pages (`phareim-no`, production branch `master`). `wrangler.toml` carries the output dir, compatibility flags and `LEADERBOARD_DB` binding. Credentials: `~/.config/phareim-deploy/env` (600), with Pages and D1 edit rights.

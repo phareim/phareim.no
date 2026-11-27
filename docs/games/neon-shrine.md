@@ -1053,8 +1053,8 @@ classic picture. `/?view=<id>` asks for one.
     harder. A save from the four arts' days knows the hop, in hand where an art was
     (`parseSave`'s `OLD_ARTS`), with `item:artHop` set so the Keeper does not teach it
     twice; no boss teaches anything now.
-  - *The MOVES page* (N, the second of the menu's three pages; on touch the deck's
-    page button goes round ITEMS, MOVES, MAP): every combo with its buttons (A the
+  - *The MOVES page* (N, the second of the menu's four pages; on touch the deck's
+    page button goes round ITEMS, MOVES, MAP, LOG): every combo with its buttons (A the
     blade in the hot colour, R the roll in the cool one) and a bar to its mastery,
     MASTER in gold once it is (a full gold bar where the word would run into the
     buttons; B, the hop, in gold); under them the hop in its slot (dim while resting,
@@ -1488,7 +1488,7 @@ squares. Two of it:
   chart unfolded, in the corner's five colours in both dresses, with no window:
   it lies on the stopped world under a veil of its own, the same in both dresses
   (the corner's ink at 0.86, `PAGE_VEIL`). It has the whole screen from the
-  menu's tabs (`P ITEMS`, `N MOVES`, `M MAP`), at the top with a small margin,
+  menu's tabs (`P ITEMS`, `N MOVES`, `M MAP`, `G LOG`), at the top with a small margin,
   to the touch deck, or the line `ESC RESUME` beside a keyboard: on every page
   of the menu the HUD's hearts, counters and item box are not drawn (they are
   back as soon as the menu closes, and stand behind the start-over question),
@@ -1572,6 +1572,52 @@ squares. Two of it:
   data on the real grids, in headless Chrome without the game's page
   (`CHROME_BIN` for another browser).
 
+- **The LOG page** of the menu (G, which also opens it from play;
+  `render/logPage.ts`) is the ITEMS and MAP pages' sibling: `PAGE_VEIL`, no
+  window, no HUD, the tabs at the top, the corner's colours, the dress's own
+  face. Top to bottom: `NEON SHRINE` in gold; the version in lilac (`V 86 · 27
+  NOV 2026 · 42B263E`: the count of changes, the newest one's date and hash;
+  on one row with the name on a screen under 340 logical px tall); the change
+  list, the newest 40, a day in dim lilac over its lines; the pages' row; the
+  DEV MODE switch; and beside a keyboard `ESC RESUME · D DEV MODE · ARROWS
+  OLDER/NEWER`.
+  - **The list** comes from git at build time (`docs/site.md` → "Build-time
+    values"): **every commit whose subject begins `Neon Shrine: ` is a line of
+    it, in capitals, and raises the version by one**. Nobody keeps either by
+    hand. Without a history the page says `NO HISTORY IN THIS BUILD`.
+  - **Pages.** Nothing scrolls: the list is cut into pages (`logPages`), whole
+    days to a page where they fit; a day longer than a page starts one and goes
+    on over the next with its date said again. Down, right and S show older, up,
+    left and W newer; `OLDER` and `NEWER` (each only where there is such a page,
+    `2/4` between them) are pressed with a finger or the mouse. The page opens on
+    the newest each time.
+  - **DEV MODE**: `OFF` / `ON`, gold when on; D, or a press on the row. The
+    three presses are bare buttons over the painted words (`LogPageButtons.vue`,
+    44 × 44 CSS px or more, from the layout's boxes; `logShell.ts` has the
+    keys and the page asked for). The deck holds RESUME and ITEMS.
+  - `logPageLayout` is pure (`tests/zelda-log-page.test.mjs`).
+- **DEV MODE** (`devMode.ts`) is a choice of the browser,
+  `localStorage['zelda.dev'] = '1'`, off by default; it survives a reload and
+  goes into no save or profile. While on, in play and in the menu, one line lies
+  along the top edge inside the safe area (`DevStrip.vue`: an HTML element over
+  the canvas, no pointer, `aria-hidden`, 8 px Neon Pixel in lilac at a third of
+  its strength): `60 FPS · UP 0.00 MB · DN 1.8 MB · V 86`. The shell adds its
+  12 px to the top safe inset (`safeInsets`), so the HUD, the corner, the menu's
+  pages and the Escape pill stand a row lower. It is written anew twice a second.
+  - **FPS**: frames the shell painted in the last half second. A menu page is
+    painted once, so it reads 0 there.
+  - **DN**: the sum of `transferSize` over the page's Performance entries, the
+    navigation and every resource, since it loaded. The browser keeps 250
+    resource entries from before the observer is there (a dev server has far
+    more), and another origin that sends no `Timing-Allow-Origin` counts as
+    nothing: today the art packs on media.fixer.ink.
+  - **UP**: the bytes of the **bodies** of requests made with `fetch` and
+    `navigator.sendBeacon` while the mode is on (from the world's mount after a
+    reload); headers are not counted, nor a stream's body. Two decimals under
+    0.1 MB; 1 MB is 1 000 000 bytes.
+  - Off, none of it runs: no observer, no element, and `fetch` and `sendBeacon`
+    are the browser's own again.
+
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; pressed again, the next hit of the chain;
 hold after a swing, release to spin; in a roll, a flip; see "Combos and the hop");
@@ -1581,8 +1627,9 @@ menu Tab moves the focus); P or an
 Escape tap pauses on the menu's ITEMS page (what B holds, to pick from with
 the arrows or WASD and Enter, Space, J or Z; the Weights, heart pieces, the
 current quest), N on its MOVES page (the combos, their mastery, the hop), M on
-its MAP page (see "The map"); the key of the open page or Escape closes it, another
-page's key turns to it. In the menu O turns the
+its MAP page (see "The map"), G on its LOG page (the version, the change list, DEV
+MODE on D, older and newer on the arrows and W S); the key of the open page or
+Escape closes it, another page's key turns to it. In the menu O turns the
 sound on or off, T goes to town; V
 turns to the next view anywhere (see "Views"). Holding Escape saves and
 goes to town. Starting over
@@ -1595,7 +1642,7 @@ lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
 SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
 the chain and the roll); on a phone lying on its side
 they sit lower and more side by side, the roll a size smaller over B, so
-the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP); on ITEMS SOUND ON/OFF and TO TOWN, and a tap on a cell of the grid puts it on B; on MOVES ITEMS; on MAP VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP, LOG); on ITEMS SOUND ON/OFF and TO TOWN, and a tap on a cell of the grid puts it on B; on MOVES ITEMS; on MAP VIEW; on LOG nothing more, and OLDER, NEWER and the DEV MODE row are pressed on the page); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status

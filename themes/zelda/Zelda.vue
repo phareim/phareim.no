@@ -4,7 +4,7 @@
   <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused }" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
-  <EscHold :class="{ px16: dress16 }" class="zelda-esc" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
+  <EscHold :class="{ px16: dress16 }" :data-dev="devOn || undefined" class="zelda-esc" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
   <!-- The corner (`render/corner.ts`): one object, painted on one canvas that takes no pointer, with three real
     buttons laid over it from `cornerLayout`. The chart is its body and the frame's shape says the view: a square in
     the 8-bit view, a 2:1 diamond in the isometric one, turning with the world. A press on the chart opens the menu
@@ -119,13 +119,17 @@
       @contextmenu.prevent
     />
   </template>
+  <!-- The menu's LOG page, painted on the canvas: its buttons over it, placed where the page laid them. -->
+  <LogPageButtons v-if="phase === 'play' && paused && menuPage === 'log' && !confirmReset && logAt" :at="logAt" :dev="devOn" @older="logPage.older" @newer="logPage.newer" @dev="toggleDev" />
+  <!-- DEV MODE's line along the top edge (`devMode.ts`); the HUD and the corner stand under it (`safeInsets`). -->
+  <DevStrip v-if="devOn" :text="devText" />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
     the left 60 % that isn't a button. The menu (the chart) and the views (the
     Sun Prism) sit apart, in the top-right corner, where no thumb rests. While the game stands
-    still the deck holds the menu's buttons: its two pages, and what each
-    switches, four to a page (the views are on the MAP page, and in the
+    still the deck holds the menu's buttons: RESUME, the next page, and what a
+    page switches, four at most (the views are on the MAP page, and in the
     corner in play). -->
   <div
     v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
@@ -168,7 +172,7 @@
         <button class="zelda-pad zelda-pad-wide" :aria-pressed="!sound.muted.value" @pointerdown.prevent.stop="toggleSound" @contextmenu.prevent>{{ sound.muted.value ? 'SOUND OFF' : 'SOUND ON' }}</button>
         <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
       </template>
-      <template v-else>
+      <template v-else-if="menuPage === 'map'">
         <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>VIEW: {{ viewLabel }}</button>
       </template>
     </div>
@@ -200,8 +204,9 @@
  * throw; hold then release for a spin); K / X / Shift = B (item or art); Q swaps
  * item, Tab too in play when there is one (else, and in the menu, Tab moves the focus as on any page);
  * P or an Escape tap open the menu on its ITEMS page, N on its MOVES page, M on its MAP page
- * (`render/mapPage.ts`); there the key of the open page (or Escape) closes
- * it, another page's key turns to it. On ITEMS (`render/itemsPage.ts`) the arrows
+ * (`render/mapPage.ts`), G on its LOG page (`render/logPage.ts`: the version, the change
+ * list, DEV MODE on D, older and newer on the arrows and W S); there the key of the open page
+ * (or Escape) closes it, another page's key turns to it. On ITEMS (`render/itemsPage.ts`) the arrows
  * and WASD move a cursor over the grid and Enter, Space, J or Z put what is under it
  * on B; a tap on a cell does too. In the menu T goes to town, O turns the
  * sound on or off; V turns to the next view anywhere (`views.ts`: the
@@ -255,6 +260,11 @@ import { viewSide } from './render/turn'
 import { ruleLoose, ruleMove } from './viewRule'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
 import { HIRES_WINDOW_SKIN, type MenuPage } from './render/hud'
+import DevStrip from './DevStrip.vue'
+import LogPageButtons from './LogPageButtons.vue'
+import { STRIP_H, createDevMode } from './devMode'
+import { createLogShell } from './logShell'
+import { CHANGE_LOG } from './changes.gen'
 import { cursorStart, moveCursor, pickCell, sockets } from './render/itemsPage'
 import { CORNER_H, CORNER_W, PRESS_TIME, RULE_TAGS, STAND_CLEAR, TAG_TIME, VIEW_NOT_LOADED, awayStep, backStep, chartNight, chromeAlpha, cornerLayout, cornerShape, cornerTargets, hasChart, oneViewWords, paintCorner, sunPhase, turnAmount, type CornerState } from './render/corner'
 import { resolveParams } from './viewParams'
@@ -307,10 +317,11 @@ const safeProbe = ref<HTMLDivElement | null>(null)
 /** The touch deck's row of buttons on the pause screen (`deckTop`). */
 const pausedRow = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
-/** The menu's page while paused: ITEMS (P, Escape, the pause chip) or MAP (M, the chart in the corner). */
+/** The menu's page while paused: ITEMS (P, Escape, the pause chip), MOVES (N), MAP (M, the chart in the corner) or LOG (G). */
 const menuPage = ref<MenuPage>('items')
-/** The page the deck's second button turns to: ITEMS → MOVES → MAP → ITEMS. */
-const nextPage = computed<MenuPage>(() => (menuPage.value === 'items' ? 'moves' : menuPage.value === 'moves' ? 'map' : 'items'))
+/** The page the deck's second button turns to: ITEMS → MOVES → MAP → LOG → ITEMS. */
+const NEXT_PAGE: Record<MenuPage, MenuPage> = { items: 'moves', moves: 'map', map: 'log', log: 'items' }
+const nextPage = computed(() => NEXT_PAGE[menuPage.value])
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
 /** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror, the newsstand's reader); the hero stands still while it is open. */
@@ -755,6 +766,22 @@ function applyLiveViews(live: LiveViews | null) {
   slowT = 0
 }
 
+// ---- the menu's LOG page and DEV MODE -------------------------------------------------
+
+/** DEV MODE (`devMode.ts`): its strip's words, and whether it is on. */
+const dev = createDevMode(CHANGE_LOG.version)
+const { on: devOn, text: devText } = dev
+/** The LOG page's own keys, its page of the change list and its buttons (`logShell.ts`). */
+const logPage = createLogShell({ repaint: () => { pausedDrawn = false }, turned: () => audio?.sfx('select'), toggleDev })
+const { at: logAt } = logPage
+
+/** The strip comes or goes, and everything under the top edge moves with it. */
+function toggleDev() {
+  dev.toggle()
+  resize()
+  audio?.sfx('select')
+}
+
 // ---- the corner ---------------------------------------------------------------------
 
 /**
@@ -1112,6 +1139,7 @@ function shellKey(e: KeyboardEvent): boolean {
     return true
   }
   if (paused.value && menuPage.value === 'items' && !confirmReset.value && itemsKey(e)) return true
+  if (paused.value && menuPage.value === 'log' && !confirmReset.value && logPage.key(e)) return true
   if (paused.value && !e.repeat) {
     if (confirmReset.value) {
       // Y only: Enter and Space are A, and an A mashed through the machine's lines must not answer.
@@ -1128,6 +1156,8 @@ function shellKey(e: KeyboardEvent): boolean {
   if (e.code === 'KeyM' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('map'); return true }
   // N: the MOVES page (the combos, their mastery, the arts). (While asking "start over?" N is no, above.)
   if (e.code === 'KeyN' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('moves'); return true }
+  // G: the LOG page (the version, the change list, DEV MODE).
+  if (e.code === 'KeyG' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('log'); return true }
   // Nothing to swap, or the world standing still: Tab keeps its job (the MAP page's Prism, the page's link index).
   if (e.code === 'Tab' && (paused.value || !hasItem.value)) return true
   return false
@@ -1405,6 +1435,7 @@ function openPage(page: MenuPage) {
   if (menuPage.value === page) { togglePause(); return }
   menuPage.value = page
   if (page === 'items') itemCursor = cursorStart(state.inv)
+  if (page === 'log') logPage.open()
   pausedDrawn = false
   audio?.sfx('select')
 }
@@ -1414,7 +1445,7 @@ function togglePause(page: MenuPage = 'items') {
   if (phase.value !== 'play') return
   // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
-  if (!paused.value) { menuPage.value = page; itemCursor = cursorStart(state.inv) }
+  if (!paused.value) { menuPage.value = page; itemCursor = cursorStart(state.inv); logPage.open() }
   paused.value = !paused.value
   pausedDrawn = false
   slowT = 0
@@ -1588,6 +1619,7 @@ let steppedWaiting = false
 function drawFrame(nowMs: number, dt: number) {
   if (!renderer) return
   renderer.draw(state, ui, dt)
+  dev.painted()
   const vs = renderer.viewState()
   if (vs.failed !== failedSeen) { failedSeen = vs.failed; viewFailed(); steppedWaiting = false; stepDress(vs); stepCorner(nowMs); return }
   if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepRule(vs); stepDress(vs); stepCorner(nowMs); return }
@@ -1596,6 +1628,7 @@ function drawFrame(nowMs: number, dt: number) {
 
 function frame(nowMs: number) {
   raf = requestAnimationFrame(frame)
+  dev.tick(nowMs)
   if (!renderer) return
   const dt = lastT ? Math.min((nowMs - lastT) / 1000, 0.1) : 0
   lastT = nowMs
@@ -1608,7 +1641,7 @@ function frame(nowMs: number) {
   if (viewHold) { if (nightLeft() > 0) return; viewHold = false; syncDress() }
   { const f = renderer.viewState().failed; if (f !== failedSeen) { failedSeen = f; viewFailed() } }
   // A visit's first dark moments: the view is on its way (`arrive`), and nothing steps until there is a picture.
-  if (renderer.viewState().dark) { renderer.draw(state, ui, 0); return }
+  if (renderer.viewState().dark) { renderer.draw(state, ui, 0); dev.painted(); return }
   // A turn caught by a pause, a panel or the ending would hang half done (the world is drawn once, or five times a
   // second): finish it. The picture follows in this frame, not at the next slow tick, and a view that threw being
   // asked is followed before the dress and the corner are stepped for it.
@@ -1629,6 +1662,7 @@ function frame(nowMs: number) {
   ui.paused = paused.value
   ui.page = menuPage.value
   ui.itemCursor = itemCursor
+  ui.log = logPage.view(devOn.value)
   ui.turn = turnAmount(renderer.viewState().turn)
   ui.confirmReset = confirmReset.value
   ui.muted = sound.muted.value
@@ -1650,11 +1684,12 @@ function frame(nowMs: number) {
   if (paused.value) { const top = deckTop(); if (top !== ui.deckTop) { ui.deckTop = top; pausedDrawn = false } }
   // (And when the keyboard's focus comes to its Prism or leaves it: the ring is part of the picture.)
   if (paused.value) { const on = pagePrismFocused(); if (on !== !!ui.prismFocus) { ui.prismFocus = on; pausedDrawn = false } }
-  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism(); placeItemCells() } return }
+  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism(); placeItemCells(); logPage.place(renderer.logTargets()) } return }
   pausedDrawn = false
   // (A page opened later starts without a place left over from this one.)
   if (pagePrismAt.value) pagePrismAt.value = null
   if (itemCells.value) itemCells.value = null
+  if (logAt.value) logPage.place(null)
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
   if (panel.value) { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
@@ -1782,7 +1817,8 @@ function deckTop(): number | null {
 function safeInsets() {
   const cs = safeProbe.value ? getComputedStyle(safeProbe.value) : null
   const px = (v?: string) => parseFloat(v ?? '') || 0
-  return { top: px(cs?.paddingTop), right: px(cs?.paddingRight), bottom: px(cs?.paddingBottom), left: px(cs?.paddingLeft) }
+  // (DEV MODE's strip lies under the top inset: what keeps clear of the notch keeps clear of it too.)
+  return { top: px(cs?.paddingTop) + (devOn.value ? STRIP_H : 0), right: px(cs?.paddingRight), bottom: px(cs?.paddingBottom), left: px(cs?.paddingLeft) }
 }
 
 let observer: ResizeObserver | null = null
@@ -1793,6 +1829,8 @@ let walletStop: (() => void) | null = null
 onMounted(() => {
   if (!canvas.value) return
   alive = true
+  // Before the first request and the first size: DEV MODE counts from here, and takes its row off the top.
+  dev.mount()
   // The studio's published art over the drawn sprites, before the first frame (render/live.ts).
   liveStop = startLiveSprites({
     search: location.search,
@@ -1900,6 +1938,8 @@ onBeforeUnmount(() => {
   // The 16-bit view holds a GPU context: give it back now, not when the collector gets round to it.
   renderer?.dispose()
   renderer = null
+  // (Last, after the save has been sent: `fetch` goes back to being the browser's own.)
+  dev.unmount()
   navigationLocked.value = false
 })
 </script>
@@ -2035,6 +2075,8 @@ onBeforeUnmount(() => {
     top: calc(max(14px, env(safe-area-inset-top, 0px)) + 140 * var(--zelda-corner-u, 1px));
   }
 }
+/* DEV MODE's strip has the top edge: the pill stands a row lower, as the corner does. */
+.zelda-esc[data-dev].esc-hold-layer { margin-top: 12px; }
 .zelda-turn-said {
   position: absolute;
   /* (At a place of its own: left where the page's flow puts it, it lies under the stage and makes it a px taller.) */

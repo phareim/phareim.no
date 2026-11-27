@@ -374,7 +374,7 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys, skin: Hud
 }
 
 /** The menu's pages. */
-export type MenuPage = 'items' | 'moves' | 'map'
+export type MenuPage = 'items' | 'moves' | 'map' | 'log'
 
 /**
  * The row the menu's tabs stand on, ITEMS and MOVES alike: a small margin under the safe area, smaller on a short
@@ -382,23 +382,38 @@ export type MenuPage = 'items' | 'moves' | 'map'
  */
 export const menuTabsY = (vh: number, safeTop = 0) => safeTop + (vh < 340 ? 2 : 4)
 
-/** The menu's three pages, side by side over it, the one open lit: ITEMS (P, Escape), MOVES (N) and MAP (M). Returns the y under them. */
+/** Where each of the menu's tabs stands in the row at `y`, in the menu's order; `keyboard`: each says its key. */
+export function menuTabs(F: Pick<HudFont, 'width'>, vw: number, y: number, keyboard: boolean) {
+  const tabs: Array<[MenuPage, string]> = [['items', keyboard ? 'P ITEMS' : 'ITEMS'], ['moves', keyboard ? 'N MOVES' : 'MOVES'], ['map', keyboard ? 'M MAP' : 'MAP'], ['log', keyboard ? 'G LOG' : 'LOG']]
+  const words = tabs.reduce((a, [, t]) => a + F.width(t), 0)
+  const gap = Math.min(18, Math.max(8, Math.floor((vw - words) / tabs.length)))
+  let x = Math.round((vw - words - gap * (tabs.length - 1)) / 2)
+  return tabs.map(([id, label]) => {
+    const tab = { id, label, x, y, w: Math.ceil(F.width(label)), h: 10 }
+    x += tab.w + gap
+    return tab
+  })
+}
+
+/** The box round the whole row of tabs, as the pages' layouts keep clear of it. */
+export function menuTabsBox(F: Pick<HudFont, 'width'>, vw: number, y: number, keyboard: boolean) {
+  const tabs = menuTabs(F, vw, y, keyboard)
+  const last = tabs[tabs.length - 1]!
+  return { x: tabs[0]!.x, y, w: last.x + last.w - tabs[0]!.x, h: last.h }
+}
+
+/** The menu's four pages, side by side over it, the one open lit: ITEMS (P, Escape), MOVES (N), MAP (M) and LOG (G). Returns the y under them. */
 export function drawMenuTabs(g: G, page: MenuPage, vw: number, y: number, keys: HudKeys, skin: HudSkin): number {
   const F = hudFont(skin)
-  const tabs: Array<[MenuPage, string]> = [['items', keys.touch ? 'ITEMS' : 'P ITEMS'], ['moves', keys.touch ? 'MOVES' : 'N MOVES'], ['map', keys.touch ? 'MAP' : 'M MAP']]
-  const gap = Math.min(18, Math.max(8, Math.floor((vw - tabs.reduce((a, [, t]) => a + F.width(t), 0)) / 4)))
-  const total = tabs.reduce((a, [, t]) => a + F.width(t), 0) + gap * (tabs.length - 1)
-  let x = Math.round((vw - total) / 2)
-  for (const [id, label] of tabs) {
-    const on = id === page
-    F.draw(g, label, x, y, on ? skin.hot : skin.faint, on ? skin.outline : undefined)
-    if (on) { g.fillStyle = skin.hot; g.fillRect(x, y + GLYPH_H + 2, Math.ceil(F.width(label)), 1) }
-    x += Math.ceil(F.width(label)) + gap
+  for (const t of menuTabs(F, vw, y, !keys.touch)) {
+    const on = t.id === page
+    F.draw(g, t.label, t.x, y, on ? skin.hot : skin.faint, on ? skin.outline : undefined)
+    if (on) { g.fillStyle = skin.hot; g.fillRect(t.x, y + GLYPH_H + 2, t.w, 1) }
   }
   return y + 14
 }
 
-/** The NEW GAME machine's question over the stopped world. (The menu's pages: `itemsPage.ts`, `drawMoves`, `mapPage.ts`.) */
+/** The NEW GAME machine's question over the stopped world. (The menu's pages: `itemsPage.ts`, `drawMoves`, `mapPage.ts`, `logPage.ts`.) */
 export function drawPause(g: G, vw: number, vh: number, keys: HudKeys, skin: HudSkin = NEON_SKIN) {
   g.fillStyle = skin.veil
   g.fillRect(0, 0, vw, vh)
