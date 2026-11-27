@@ -25,7 +25,7 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 
 ## Dungeons
 
-State on 2026-11-27, late evening. "Played by script" means door to Weight with real keys in a local browser at 1280x800 and 390x844 in both views; nothing here has been played by a person or on a real phone. Reviews are in `tmp/dungeons/reviews/`.
+State on 2026-11-27, night: all seven dungeons are whole on master. "Played by script" means door to Weight with real keys in a local browser at 1280x800 and 390x844 in both views; nothing here has been played by a person or on a real phone. Reviews are in `tmp/dungeons/reviews/`.
 
 - [ ] 1. Seter Fell: THE ECHO BARROW. The Echo. Mixtral. THE STOCHASTIC PARROT. Weight: MEANING.
   - Whole (commits 7915db1, 5a0a020). Played by script; the door was walked on the live site in both views.
@@ -37,7 +37,8 @@ State on 2026-11-27, late evening. "Played by script" means door to Weight with 
   - Whole in three parts (commits ee76f0b, 458f645, 047ddde). Played by script.
   - Reviewed: the findings that held are fixed (commit 89a57ff), not seen in a browser. The banner and the pile of paper are drawn by code.
 - [ ] 4. Stillsand: THE EXAMINATION. The Duck. THE BENCHMARK TITAN. Weight: SURPRISE.
-  - Parts one and two are in (commits c2694b7, 8506b1e): the Front Desk, three rounds with their marks, the Staff Room, the Duck, Falcon. Part three (round four, the Titan, the Weight) is being built. The panes and the cactus are stand-ins; the drawn ones are in `tmp/dungeons/art/examshow/`.
+  - Whole in three parts (commits c2694b7, 8506b1e, 44e0771): the Front Desk, four rounds with their marks, the Staff Room, the Duck, Falcon, the Marking Room, the Titan's Hall. Played by script; the phone fights against the Titan were uneven in headless Chrome and want a real thumb. Its review is running.
+  - Stand-ins: the hollow pot, the Titan's SPIN and BOULDER cards, the Titan down, the Duck on the floor.
 - [ ] 5. Rerun Estates: THE LATE SHOW. The Stomp. Copilot. THE UNCANNY WEAVER. Weight: FINGERS.
   - Whole in three parts (commits 1274b3d, 752714e, a271f20). Played by script.
   - Reviewed: ten findings held and are fixed (commit 2f09aaa), not seen in a browser.
