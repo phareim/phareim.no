@@ -12,15 +12,17 @@
  * - It burns slowly (`stepLamp`): a foe the beam crosses takes 1 hit point a second on a clock of its own (no mercy
  *   window, no shove, no poise), and the first touch stuns it for `TOUGH.stunHook` s; then it shrugs the next stun
  *   off for `TOUGH.shrug` s (a clock of its own, `ai.lampShrug`, the same for every kind of foe). The burn goes on.
- *   A `BIG` foe is left alone unless its own rules say otherwise (`burnsBig`: none yet).
+ *   A `BIG` foe is left alone unless its own rules say otherwise (`LAMP_BURNS`: ORCA, whose dash or sweep a stun
+ *   cancels, `orcaStunned`).
  */
 import type { Enemy, GameState, TileChar } from '../types'
-import { HERO_R, TOUGH } from '../types'
+import { DARK_HOUND, HERO_R, TOUGH } from '../types'
 import { TILE_INFO } from '../world/tiles'
-import { BIG, burnFoe, type Ctx } from './combat'
+import { orcaStunned } from './bossOrca'
+import { BIG, burnFoe, LAMP_BURNS, type Ctx } from './combat'
 import { echoOnTile } from './echo'
 import type { Emitter } from './puzzles/info'
-import { cellIndex, circleOnTile, tileAt } from './map'
+import { cellIndex, cellIsDark, circleOnTile, tileAt, type MapInfo } from './map'
 import { STATS } from './spawn'
 import { dirVec } from './util'
 
@@ -70,7 +72,14 @@ export function useLamp(c: Ctx) {
   const v = dirVec(h.dir)
   const tx = Math.floor(h.x) + v.x
   const ty = Math.floor(h.y) + v.y
-  if (!lampMayStand(c, tx, ty)) { c.ev.push({ type: 'error' }); return }
+  // A hero whose shoulder is over the line of the tile ahead steps back off it (never out of his own tile): B does
+  // not refuse floor he is only leaning on, which from a third of all places in a tile he would be.
+  const at = { x: h.x, y: h.y }
+  if (v.x > 0) h.x = Math.min(h.x, tx - HERO_R - 0.001)
+  if (v.x < 0) h.x = Math.max(h.x, tx + 1 + HERO_R + 0.001)
+  if (v.y > 0) h.y = Math.min(h.y, ty - HERO_R - 0.001)
+  if (v.y < 0) h.y = Math.max(h.y, ty + 1 + HERO_R + 0.001)
+  if (!lampMayStand(c, tx, ty)) { Object.assign(h, at); c.ev.push({ type: 'error' }); return }
   const m = s.map
   const idx = ty * m.w + tx
   s.lamp = { idx, dir: h.dir, under: tileAt(m, tx, ty) }
@@ -118,9 +127,6 @@ export function lampEmitters(c: Ctx, own: Emitter[]): Emitter[] {
   return [...own, { idx: l.idx, dir: l.dir, cell, src: 'lamp' }]
 }
 
-/** Does a `BIG` foe take the lamp's burn? Only a kind whose own rules say so (none yet). */
-const burnsBig = (_e: Enemy): boolean => false
-
 /** Shortest distance from (px, py) to the segment (x0, y0)-(x1, y1). */
 function segDist(px: number, py: number, x0: number, y0: number, x1: number, y1: number): number {
   const vx = x1 - x0
@@ -130,10 +136,27 @@ function segDist(px: number, py: number, x0: number, y0: number, x1: number, y1:
   return Math.hypot(px - (x0 + vx * t), py - (y0 + vy * t))
 }
 
+/** Does the lamp's beam cross this foe now? (Read off the beams as last traced: the burn's test and the renderer's.) */
+export function inLampBeam(s: GameState, e: Enemy): boolean {
+  return !!s.map.phys?.beams.some(b => b.src === 'lamp' && segDist(e.x, e.y, b.x0, b.y0, b.x1, b.y1) < e.r)
+}
+
+/**
+ * A dark hound unseen (`DARK_HOUND`): in the dark, out of the lamp's beam and further than `near` tiles from the lamp's
+ * tile. Its eyes are drawn then, and nothing else of it.
+ */
+export function unseen(s: GameState, info: MapInfo, e: Enemy): boolean {
+  if (!e.dark || e.dead || !cellIsDark(s, info, e.cell) || inLampBeam(s, e)) return false
+  const l = s.lamp
+  if (!l) return true
+  const x = l.idx % s.map.w
+  const y = Math.floor(l.idx / s.map.w)
+  return Math.hypot(e.x - Math.max(x, Math.min(e.x, x + 1)), e.y - Math.max(y, Math.min(e.y, y + 1))) > DARK_HOUND.near
+}
+
 /** The beam's burn and stun on the foes of the hero's room, and the clocks of both. Runs after the beams are traced. */
 export function stepLamp(c: Ctx, dt: number) {
   const s = c.s
-  const beams = (s.map.phys?.beams ?? []).filter(b => b.src === 'lamp')
   const dungeon = c.info.def.kind === 'dungeon'
   for (const e of s.map.enemies) {
     if (e.dead || (dungeon && e.cell !== s.zoneIndex)) continue
@@ -141,12 +164,12 @@ export function stepLamp(c: Ctx, dt: number) {
     const shrug = (ai.lampShrug as number | undefined) ?? 0
     if (shrug > 0) ai.lampShrug = Math.max(0, shrug - dt)
     const burn = ai.lampBurn as number | undefined
-    const inBeam = beams.length > 0 && !STATS[e.kind].invulnerable && (!BIG.has(e.kind) || burnsBig(e))
-      && beams.some(b => segDist(e.x, e.y, b.x0, b.y0, b.x1, b.y1) < e.r)
+    const inBeam = !STATS[e.kind].invulnerable && (!BIG.has(e.kind) || LAMP_BURNS.has(e.kind)) && inLampBeam(s, e)
     if (!inBeam) { if (burn !== undefined) delete ai.lampBurn; continue }
     // The first touch stuns, unless it shrugs the stun off still (its own clock, or the tough foe's).
     if (burn === undefined && e.stun <= 0 && shrug <= 0 && ((ai.shrug as number | undefined) ?? 0) <= 0) {
       e.stun = TOUGH.stunHook
+      if (e.kind === 'orca') orcaStunned(e)
       ai.lampShrug = TOUGH.stunHook + TOUGH.shrug
       e.flash = 0.1
       c.ev.push({ type: 'discHit', x: e.x, y: e.y })

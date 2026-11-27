@@ -432,6 +432,29 @@ export const STAND_WAIT = 1.2
  * at most. It rouses for `rouse` s, harmless, and walks `rest` s before it may tell again.
  */
 export const MIXTRAL = { stalk: 1.8, line: 0.8, tell: 0.7, tell2: 0.5, charge: 9, dazed: 2.2, rouse: 0.5, rest: 1.1 } as const
+/**
+ * ORCA (`engine/bossOrca.ts`). Between moves it rows at `row` tiles/s for `idle` s, keeping `keep` tiles off the hero and
+ * coming into line with him: for `patience` s it holds a drag until the hero is near its line, and it never drags with
+ * less than `dragLeast` tiles clear (cover in the way, it rows round it, looking again every `look` s) unless it has
+ * waited three times as long.
+ * Further off than `near` it DRAGS: a lane `dragW` wide and up to `dragLen` long from its middle (`dragTell` s), down
+ * which it dashes at `dragSpeed` tiles/s till its bow reaches the lane's end; the oar planted, it is open `planted` s.
+ * Nearer, it SWEEPS: a box `sweepW` wide from `sweepFrom` to `sweepTo` tiles ahead of its middle (two tiles beyond its
+ * bow, `sweepTell` s), the oar swinging `swing` s; then it is off balance, open `offBalance` s. A blow of either takes
+ * `dmg` half hearts, once. Open (planted, off balance, or stunned by the lamp) the blade takes `take` hit points at most.
+ */
+export const ORCA = {
+  row: 1.2, keep: 3.5, idle: 0.9, near: 2.6, patience: 1.2, dragLeast: 1.8, look: 0.4,
+  dragTell: 0.8, dragLen: 5, dragW: 2, dragSpeed: 10, planted: 2.2,
+  sweepTell: 0.7, sweepW: 3, sweepFrom: -0.2, sweepTo: 2.9, swing: 0.25, offBalance: 1.6,
+  dmg: 2, take: 5,
+} as const
+/**
+ * THE DARK HOUND (a tough hound whose mark says `dark`): its lunge is aimed when the tell begins, the tell is `tell` s
+ * (the second one too), and the lane it will take, `w` tiles wide, lies on the floor all that while. Its body shows only
+ * in the storm lamp's beam, in a lit room, or within `near` tiles of the lamp; else two eyes.
+ */
+export const DARK_HOUND = { tell: 0.7, w: 2, near: 0.9 } as const
 
 // ---------------------------------------------------------------------------
 // Authored world
@@ -469,6 +492,7 @@ export type EnemyKind =
   | 'sycophant' // boss: never attacks; refused, its smile slips and the blade bites (`engine/bossSycophant.ts`)
   | 'grok' // miniboss: rolls down a stencilled lane; open only while a wall or iron has it dazed
   | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
+  | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -519,6 +543,8 @@ export type EntDef =
     calm?: boolean
     /** A tough foe (`TOUGH`): a sentry or a hound only, never a calm one (`validate.ts`). */
     tough?: boolean
+    /** A dark hound (`DARK_HOUND`): a tough hound only (`validate.ts`). */
+    dark?: boolean
   }
   | {
     t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond
@@ -876,6 +902,8 @@ export interface Enemy {
   calm?: boolean
   /** A tough foe (the mark's `tough`, `TOUGH`): its own hit points, poise until it is open, a bar over its head. */
   tough?: boolean
+  /** A dark hound (the mark's `dark`, `DARK_HOUND`): unseen in the dark but for its eyes; it aims as its tell begins. */
+  dark?: boolean
   /** Spawn point, for respawning on room re-entry. */
   home: Vec
   dead: boolean

@@ -20,6 +20,7 @@ export type PuzzlePropKind =
   | `pzRollX${0 | 1 | 2 | 3}` | `pzRollY${0 | 1 | 2 | 3}`
   | 'pzTap' | 'pzSocket' | 'pzSocketLit'
   | 'pzPedestal'
+  | 'pzLampD' | 'pzLampU' | 'pzLampL' | 'pzLampR'
 
 export const PUZZLE_PROP_KINDS: readonly PuzzlePropKind[] = [
   'pzEmitterD', 'pzEmitterU', 'pzEmitterL', 'pzEmitterR',
@@ -27,10 +28,11 @@ export const PUZZLE_PROP_KINDS: readonly PuzzlePropKind[] = [
   'pzRollX0', 'pzRollX1', 'pzRollX2', 'pzRollX3', 'pzRollY0', 'pzRollY1', 'pzRollY2', 'pzRollY3',
   'pzTap', 'pzSocket', 'pzSocketLit',
   'pzPedestal',
+  'pzLampD', 'pzLampU', 'pzLampL', 'pzLampR',
 ]
 
 /** Which of them glow by themselves (the materials test asks). */
-export const PUZZLE_PROPS_GLOW = /^pz(Emitter|Mirror|Prism|ReceiverLit|Valve|Roll|Tap|SocketLit)/
+export const PUZZLE_PROPS_GLOW = /^pz(Emitter|Mirror|Prism|ReceiverLit|Valve|Roll|Tap|SocketLit|Lamp)/
 
 function plinth(b: Solids) {
   b.box(-8, -8, 0, 8, 8, 3, 'pole')
@@ -117,9 +119,32 @@ function roll(b: Solids, axis: 'X' | 'Y', frame: number) {
   })
 }
 
-/** The Black Box's pedestal: a low slab, a tile of it (nine stand as one block). */
+/**
+ * The Black Box's pedestal: a low slab, a whole tile of it, so that the nine of a 3×3 stand as one block (a cyan line
+ * round its sides).
+ */
 function pedestal(b: Solids) {
-  b.box(-8, -8, 0, 8, 8, 6.5, (_x, _y, z, _nx, _ny, nz) => (nz > 0.5 ? 'chrome' : z < 1.5 ? 'pole' : 'shrine'))
+  b.box(-16, -16, 0, 16, 16, 9, (_x, _y, z, _nx, _ny, nz) => (nz > 0.5 ? 'shrine' : z < 2 ? 'pole' : z > 5.5 && z < 7 ? 'bandCyan' : 'shrine'))
+}
+
+/**
+ * The storm lamp set down (`engine/lamp.ts`): a brass lantern with its glass lit, a ring to carry it by, and a hooded
+ * lens on the side it shines from.
+ */
+function stormLamp(b: Solids, dir: Dir) {
+  const [dx, dy] = dir === 'down' ? [0, 1] : dir === 'up' ? [0, -1] : dir === 'left' ? [-1, 0] : [1, 0]
+  b.box(-7.5, -7.5, 0, 7.5, 7.5, 3.5, 'gold')
+  b.post(0, 0, 3.5, 15, 5, (_x, _y, z) => (z > 6.5 && z < 12 ? 'core' : 'glassCyan'))
+  for (const sx of [-5, 5]) for (const sy of [-5, 5]) b.post(sx, sy, 3.5, 15, 1.1, 'pole')
+  b.box(-7, -7, 15, 7, 7, 17.5, 'gold')
+  b.ball(0, 0, 18, 4.6, 4.6, 3.2, 'gold')
+  // The ring, across the side it shines from.
+  for (const s of [-3.4, 3.4]) b.post(dy ? s : 0, dx ? s : 0, 19, 25, 0.8, 'gold')
+  b.box(dy ? -3.8 : -0.8, dx ? -3.8 : -0.8, 24.2, dy ? 3.8 : 0.8, dx ? 3.8 : 0.8, 25.8, 'gold')
+  // The lens.
+  const lx = dx * 8.5
+  const ly = dy * 8.5
+  b.box(dx ? lx - 3 : -3.6, dy ? ly - 3 : -3.6, 6, dx ? lx + 3 : 3.6, dy ? ly + 3 : 3.6, 13, (_x, _y, z) => (z > 11.5 ? 'gold' : 'core'))
 }
 
 export const PUZZLE_BUILD: Record<PuzzlePropKind, (b: Solids) => void> = {
@@ -140,6 +165,10 @@ export const PUZZLE_BUILD: Record<PuzzlePropKind, (b: Solids) => void> = {
   pzSocket: b => socket(b, false),
   pzSocketLit: b => socket(b, true),
   pzPedestal: pedestal,
+  pzLampD: b => stormLamp(b, 'down'),
+  pzLampU: b => stormLamp(b, 'up'),
+  pzLampL: b => stormLamp(b, 'left'),
+  pzLampR: b => stormLamp(b, 'right'),
 }
 
 /** What stands for a puzzle tile now: `lit` a receiver a beam reaches (or solved), `open` a valve's flag, `dir` an emitter's way. */
@@ -154,8 +183,8 @@ export function puzzlePropOf(t: TileChar, state: { lit?: boolean; open?: boolean
     case 'κ': return 'boulder'
     case 'Θ': return 'pzTap'
     case 'Λ': return state.lit ? 'pzSocketLit' : 'pzSocket'
-    // The storm lamp set down stands as an emitter shining the way it was set; the Box's pedestal as a slab.
-    case 'Φ': return state.dir === 'up' ? 'pzEmitterU' : state.dir === 'left' ? 'pzEmitterL' : state.dir === 'right' ? 'pzEmitterR' : 'pzEmitterD'
+    // The storm lamp set down, turned the way it was set; the Box's pedestal as a slab.
+    case 'Φ': return state.dir === 'up' ? 'pzLampU' : state.dir === 'left' ? 'pzLampL' : state.dir === 'right' ? 'pzLampR' : 'pzLampD'
     case 'Ξ': return 'pzPedestal'
   }
   return null

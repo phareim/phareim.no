@@ -13,6 +13,8 @@ export { echoMayStand, echoAim, ECHO_R } from './echo'
 // The Magnet (`magnet.ts`): what a tap would take, and iron smashed (it comes home).
 export { magnetPlan, magnetPreview, smashIron, MAGNET, type MagnetPlan } from './magnet'
 export { stencilsOf, inStencil, type Stencil } from './stencils'
+// The storm lamp (`lamp.ts`): its beam on a foe, and whether a dark hound is unseen.
+export { inLampBeam, unseen } from './lamp'
 // The side view's numbers (the lab measures them).
 export { SIDE, type SideHero } from './side'
 // The Stomp's numbers, what it would come down on, and the intertitle cards' timing.

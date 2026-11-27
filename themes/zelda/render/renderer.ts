@@ -16,8 +16,8 @@
  * light map.
  */
 import type { Dir, Enemy, GameEvent, GameState, ViewSide, World } from '../types'
-import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP, roomed } from '../types'
-import { airTime, BIG, bossOpen, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen } from '../engine/index'
+import { BOMB_FUSE, FLIP_CHOP, ORCA, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP, roomed } from '../types'
+import { airTime, BIG, bossOpen, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen, unseen } from '../engine/index'
 import { itemSpriteName } from './itemIcon'
 import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
@@ -35,6 +35,7 @@ import { drawFloorMarks } from './floorMarks'
 import { drawClock, drawGifts, drawRings, drawRobe, queueRack, steamLights, SYCO_HOVER, sycophantGold, sycophantLift, sycophantLight, sycophantSprite } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
+import { drawEyes, stripLights } from './lighthouse'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -1117,6 +1118,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const lit = e.ai.mode === 'rest' || e.stun > 0
         return { name: lit ? 'phi_lit' : e.ai.mode === 'tell' || e.ai.mode === 'dart' ? 'phi_eat' : `phi_down_${f('phi_down')}`, flip: false }
       }
+      // Half a boat: its oar planted (stranded, off balance, stunned) or rowing. It swings the oar by turning about.
+      case 'orca': {
+        const down = e.ai.mode === 'planted' || e.ai.mode === 'off' || e.stun > 0
+        const swung = e.ai.mode === 'swing' && e.ai.t < ORCA.swing / 2
+        return { name: down ? 'orca_strand' : 'orca_row', flip: (e.dir === 'left') !== swung }
+      }
     }
   }
 
@@ -1189,6 +1196,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       return
     }
+    // A dark hound unseen: two eyes, and its bar (`foeBars`). No body, no shadow, no outline.
+    if (e.dark && unseen(s, mapInfo(world, s.map.id), e)) {
+      drawEyes(g, x, feet, e.dir === 'left' ? -1 : e.dir === 'right' ? 1 : 0)
+      lights.push({ x: e.x, y: e.y - 0.3, r: 0.7, color: '#ff2fa0', a: 1 })
+      return
+    }
     if (e.kind !== 'eye' && e.kind !== 'blade' && !flat) shadow(g, x, feet - 1, Math.round(e.r * T * 1.6))
     if (flying && !flat) feet -= 6 + Math.round(Math.sin(time * 6 + e.home.x) * 1.5)
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
@@ -1219,6 +1232,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     // GROK carries a light of its own, as MIXTRAL does: pale, gold while it is open.
     if (e.kind === 'grok') lights.push({ x: e.x, y: e.y - 0.3, r: 2.1, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: 0.65 })
+    if (e.kind === 'orca') {
+      // Its pictures are small ones at twice their size, as Mixtral's; it shakes as it winds up.
+      const shake = e.ai.tell > 0 && !frameReduced ? (Math.floor(time * 24) % 2 ? 1 : -1) : 0
+      const ox = Math.round(x + shiver(e) + shake)
+      const put2 = (color?: string) => { const c = doubledSprite(name, flip, color); g.drawImage(c, Math.round(ox - c.width / 2), Math.round(feet - c.height)) }
+      put2(flashing(e) ? '#ffffff' : undefined)
+      // Burning in the lamp's beam: washed pink, with flecks of flame going up off it.
+      if (e.ai.lampBurn !== undefined) {
+        g.globalAlpha = frameReduced ? 0.4 : 0.3 + 0.2 * Math.abs(Math.sin(time * 9))
+        put2('#ff2fa0')
+        g.globalAlpha = 1
+        for (let i = 0; i < 7; i++) {
+          const p = frameReduced ? i / 7 : (time * 1.4 + i * 0.37) % 1
+          g.fillStyle = p < 0.45 ? '#ffd23f' : '#ff2fa0'
+          g.fillRect(ox - 12 + ((i * 11) % 25), Math.round(feet - 8 - p * 26), p < 0.6 ? 2 : 1, p < 0.6 ? 3 : 2)
+        }
+        lights.push({ x: e.x, y: e.y - 0.6, r: 2.4, color: '#ff2fa0', a: 0.8 })
+      }
+      lights.push({ x: e.x, y: e.y - 0.5, r: e.ai.tell > 0 ? 1.8 : 2.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.55 : 0.5 })
+      return
+    }
     if (e.tough) {
       toughOutline(g, e, name, x + shiver(e), feet, flip, sx, sy)
       // A light of its outline's colour while it tells or is open, so dusk and night do not dull it.
@@ -1296,7 +1330,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' ? 2 : 1)) - standsAbove(e)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
@@ -1613,6 +1647,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' ? 1.8 : 1.4, color: p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })
     }
     for (const b of m.blasts) lights.push({ x: b.x, y: b.y, r: 5 * (1 - b.t), color: '#ff8a3d', a: 1 })
+    stripLights(world, s, lights, dark)
     // Blows, kills and rolls light the ground for a moment.
     pulses = pulses.filter(P => time - P.at < P.life && time >= P.at - 1)
     for (const P of pulses) lights.push({ x: P.x, y: P.y, r: P.r, color: P.color, a: P.a * (1 - Math.max(0, time - P.at) / P.life) })

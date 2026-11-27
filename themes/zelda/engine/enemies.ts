@@ -3,10 +3,11 @@
  * `ai.tell` > 0 means "about to attack" and the renderer shows it.
  */
 import type { Enemy, Projectile } from '../types'
-import { HERO_R, TOUGH, roomed } from '../types'
+import { DARK_HOUND, HERO_R, TOUGH, roomed } from '../types'
 import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
+import { orca } from './bossOrca'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
@@ -89,6 +90,28 @@ export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number, throu
   return hit
 }
 
+/**
+ * Where a straight run of `len` tiles from where `e` stands ends, along the unit way (ux, uy): at its length, or at
+ * the first wall (a charge's, which goes through the echo).
+ */
+export function lineEnd(c: Ctx, e: Enemy, ux: number, uy: number, len: number): { x: number; y: number } {
+  const z = cellRect(c.info, e.cell)
+  const bounded = roomed(c.info.def.kind)
+  let x = e.x
+  let y = e.y
+  for (let gone = 0; gone < len - 1e-9; gone += 0.075) {
+    const step = Math.min(0.075, len - gone)
+    const r = moveCircle(c.w, c.s.map, x, y, e.r, ux * step, uy * step, mode(e))
+    const nx = bounded ? clamp(r.x, z.x + 1 + e.r, z.x + z.w - 1 - e.r) : r.x
+    const ny = bounded ? clamp(r.y, z.y + 1 + e.r, z.y + z.h - 1 - e.r) : r.y
+    const blocked = r.hitX || r.hitY || nx !== r.x || ny !== r.y
+    x = nx
+    y = ny
+    if (blocked) break
+  }
+  return { x, y }
+}
+
 export function seesHero(c: Ctx, e: Enemy, range: number): boolean {
   const h = c.s.hero
   if (c.s.demo || h.act === 'dead') return false
@@ -163,6 +186,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'sycophant': sycophant(c, e, dt); break
     case 'grok': grok(c, e, dt); break
     case 'phi': phi(c, e, dt); break
+    case 'orca': orca(c, e, dt); break
   }
   contact(c, e)
 }
@@ -693,7 +717,31 @@ function toughSentry(c: Ctx, e: Enemy, dt: number) {
   if (ai.t <= 0 && heroDist(c, e) < TOUGH.range) { ai.mode = 'tell'; ai.t = TOUGH.tell; ai.tell = TOUGH.tell }
 }
 
-/** The tough hound: the hound's prowl and tell, two lunges with a short second tell between, then a long rest. */
+/**
+ * A dark hound's aim, taken as its tell begins: the line is fixed on where the hero stands now, to end
+ * `TOUGH.houndPast` beyond (a wall ends it sooner), and the lane it will take is kept for the floor (`lx`, `ly`).
+ */
+function darkAim(c: Ctx, e: Enemy) {
+  const ai = e.ai
+  const h = c.s.hero
+  aimStrike(c, e, TOUGH.lunge, TOUGH.houndPast)
+  e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
+  ai.run = ai.t
+  ai.t = ai.tell = DARK_HOUND.tell
+  darkLane(c, e)
+}
+
+/** Where the aimed lunge will end from where the hound stands (a blast may have shoved it). */
+function darkLane(c: Ctx, e: Enemy) {
+  const ai = e.ai
+  const vx = ai.vx as number
+  const vy = ai.vy as number
+  const end = lineEnd(c, e, vx / TOUGH.lunge, vy / TOUGH.lunge, (ai.run as number) * TOUGH.lunge)
+  ai.lx = end.x
+  ai.ly = end.y
+}
+
+/** The tough hound: the hound's prowl and tell, two lunges with a short second tell between, then a long rest. A dark one (`DARK_HOUND`) aims as each tell begins, and both tells are long. */
 function toughHound(c: Ctx, e: Enemy, dt: number) {
   const ai = e.ai
   const h = c.s.hero
@@ -704,12 +752,18 @@ function toughHound(c: Ctx, e: Enemy, dt: number) {
     ai.mode = 'tell'
     ai.t = TOUGH.retell
     ai.tell = TOUGH.retell
+    if (e.dark) darkAim(c, e)
     c.ev.push({ type: 'bark', x: e.x, y: e.y })
     return
   }
   if (ai.mode === 'tell') {
-    e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
     ai.tell = Math.max(0, ai.t)
+    if (e.dark) {
+      darkLane(c, e)
+      if (ai.t <= 0) { ai.mode = 'lunge'; ai.t = ai.run as number; ai.tell = 0 }
+      return
+    }
+    e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
     if (ai.t <= 0) { aimStrike(c, e, TOUGH.lunge, TOUGH.houndPast); ai.mode = 'lunge' }
     return
   }
@@ -717,6 +771,7 @@ function toughHound(c: Ctx, e: Enemy, dt: number) {
   // (Born 'idle': its first time up is the one it was spawned with.)
   ai.mode = 'prowl'
   prowl(c, e, dt, TOUGH.houndTell)
+  if (e.dark && (e.ai.mode as string) === 'tell') darkAim(c, e)
 }
 
 /** Lab drone: hovers in a slow figure eight; lined up with the hero it fires a pellet (send it back). */

@@ -9,6 +9,7 @@ import { TILE } from '../types'
 import { cellIndex, mapInfo } from '../engine/map'
 import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
 import { laneOf, throwerLanes } from '../engine/gifts'
+import { drawLanes, drawStrip } from './lighthouse'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -22,6 +23,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
   const info = mapInfo(world, s.map.id)
   const m = s.map
   const dungeon = info.def.kind === 'dungeon'
+  drawLanes(g, world, s, cx, cy)
   for (const i of info.stands) {
     const x = i % m.w
     const y = Math.floor(i / m.w)
@@ -46,6 +48,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
       g.clip()
     }
     if (st.t === 'ray') ray(g, st, cx, cy, time, reduced)
+    else if (st.t === 'strip') drawStrip(g, st, cx, cy, time, reduced)
     else paint(g, st, cx, cy, time, reduced)
     g.restore()
   }
@@ -57,7 +60,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
  * deepens as the tell runs out, a hard edge, and down a lane the chevrons of the way it will be run. A copy's is
  * fainter, and dotted at the edge. Footsteps are only prints: nothing is hit there.
  */
-function paint(g: G, st: Exclude<Stencil, { t: 'ray' }>, cx: number, cy: number, time: number, reduced: boolean) {
+function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const faint = st.dim ? 0.55 : 1
   if (st.t === 'steps') { steps(g, st, cx, cy, faint); return }
   const box = bounds(st)
@@ -101,7 +104,7 @@ function paint(g: G, st: Exclude<Stencil, { t: 'ray' }>, cx: number, cy: number,
 }
 
 /** The tiles a stencil lies within. */
-function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' }>): { x0: number; y0: number; x1: number; y1: number } {
+function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' | 'strip' }>): { x0: number; y0: number; x1: number; y1: number } {
   if (st.t !== 'lane') return { x0: st.x - st.r, y0: st.y - st.r, x1: st.x + st.r, y1: st.y + st.r }
   const pad = Math.hypot(st.cap, st.w / 2)
   return { x0: Math.min(st.x0, st.x1) - pad, y0: Math.min(st.y0, st.y1) - pad, x1: Math.max(st.x0, st.x1) + pad, y1: Math.max(st.y0, st.y1) + pad }

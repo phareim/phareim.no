@@ -86,6 +86,7 @@ export function validateWorld(world: World): string[] {
         if (m.ent.kind !== 'sentry' && m.ent.kind !== 'hound') out.push(`${id}: marker '${ch}' is a tough ${m.ent.kind} (only a sentry or a hound may be tough)`)
         if (m.ent.calm) out.push(`${id}: marker '${ch}' is calm and tough at once`)
       }
+      if (m.ent.t === 'enemy' && m.ent.dark && !(m.ent.tough && m.ent.kind === 'hound')) out.push(`${id}: marker '${ch}' is a dark ${m.ent.kind} (only a tough hound may be dark)`)
     }
     // Exits: one placement per id, and each adds an entry of that name.
     const exitIds = new Set<string>()

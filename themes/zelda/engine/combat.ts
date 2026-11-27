@@ -3,7 +3,7 @@
  * calls into. `Ctx` bundles what a step needs.
  */
 import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, WeightId, World } from '../types'
-import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
+import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ORCA, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
 import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
@@ -111,6 +111,10 @@ BOSSES.add('sycophant')
 // The Heap's (`heapFoes.ts`).
 BIG.add('grok')
 BOSSES.add('grok')
+BIG.add('orca')
+BOSSES.add('orca')
+/** The `BIG` ones the storm lamp's beam burns and stuns (`engine/lamp.ts`): a boss is left alone unless it is named here. */
+export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -157,6 +161,8 @@ export function bossOpen(e: Enemy): boolean {
     // Dazed, while this daze still has blows to give.
     case 'grok': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
     case 'phi': return phiOpen(e)
+    // The oar planted, off balance after a sweep, or stunned by the lamp, while this opening still has blows to give.
+    case 'orca': return (mode === 'planted' || mode === 'off' || e.stun > 0) && ((e.ai.took as number | undefined) ?? 0) < ORCA.take
     default: return false
   }
 }
@@ -177,11 +183,11 @@ export interface HitOpts {
 
 /**
  * The storm lamp's burn (`engine/lamp.ts`, `HitSource` 'beam'): hit points off a foe with no mercy window, no shove, no
- * poise and no reeling, so it never swallows the hero's blows. A foe nothing hurts, and a `BIG` one (its own rules
- * would say), takes none.
+ * poise and no reeling, so it never swallows the hero's blows. A foe nothing hurts, and a `BIG` one not in
+ * `LAMP_BURNS`, takes none.
  */
 export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
-  if (e.dead || STATS[e.kind].invulnerable || BIG.has(e.kind)) return false
+  if (e.dead || STATS[e.kind].invulnerable || (BIG.has(e.kind) && !LAMP_BURNS.has(e.kind))) return false
   e.hp -= dmg
   e.flash = 0.14
   const killed = e.hp <= 0
@@ -352,6 +358,15 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       turned(e, src, 0.2)
       return false
     }
+    // ORCA: bombs and thrown pots hurt it at any time; the blade only while it is open, `ORCA.take` an opening at
+    // most. Anything else clanks, the disc and the hook with the rest: only the lamp stuns it.
+    case 'orca': {
+      if (src === 'bomb' || src === 'pot') return damage(c, e, dmg, fromX, fromY, opt)
+      if (blade(src) && bossOpen(e)) return damage(c, e, dmg, fromX, fromY, { ...opt, cap: ORCA.take - ((ai.took as number | undefined) ?? 0) })
+      c.ev.push({ type: 'clank', x: e.x, y: e.y })
+      turned(e, src, 0.2)
+      return false
+    }
     case 'sycophant': return sycophantHit(c, e, fromX, fromY, src)
     // GROK and PHI: their own file says what lands (`heapFoes.ts` `heapRule`).
     case 'grok':
@@ -404,7 +419,8 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   const len = Math.hypot(ddx, ddy) || 1
   const dx = ddx / len
   const dy = ddy / len
-  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini') {
+  // (ORCA is never shoved: its stencils say where it will be.)
+  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca') {
     const k = (opt?.knock ?? 1) * (big ? 0.4 : 1)
     e.knock = { vx: dx * 9 * k, vy: dy * 9 * k, t: 0.14 }
   }
