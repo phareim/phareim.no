@@ -3,9 +3,8 @@ import { avatarThumbUrl, type LeaderboardResponse } from '~/themes/leaderboard/g
 /**
  * GET /api/leaderboard?player=<id>
  * Top rows for every game plus the requesting player's own row, name and
- * avatar. A known player whose picture is missing or stale (rerolled name)
- * gets one painted in the background, so players from before avatars
- * existed catch up the first time they open the board.
+ * avatar (null for players without one). `scheduleAvatar` would paint a
+ * missing or stale picture; painting is off (server/utils/avatar.ts).
  */
 export default defineEventHandler(async (event): Promise<LeaderboardResponse> => {
   const store = getStore(event)

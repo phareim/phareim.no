@@ -44,7 +44,18 @@ if you are outside the top ten a `· · ·` gap and your own row with its
 rank, plus RANK n OF total. Short viewports show fewer rows (measured from
 the space the panel has, minimum three). Empty game: NO SCORES YET.
 
-**Avatars (2026-09-08).** Every player gets a painted portrait of their
+**Avatars.** Painting is **off** since 2026-11-27: too few visitors used the
+board to justify a painting each. `AVATARS_PAINTING = false` in
+`themes/leaderboard/games.ts` makes `scheduleAvatar` return at once and
+stops the footer blink and the client's rechecks; wave-jobs refuses
+`POST /avatar` as well (`AVATAR_DAILY_CAP=0` in its env file). Players
+painted before then keep their pilot; everyone else gets an empty disc.
+`/api/avatar` still stores a file, for a repaint done by hand. Turning it
+back on means the constant to `true` and a cap above 0 on wave-jobs. In
+the last week before it went off, 39 pilots were painted, 34 of them on
+2026-11-26. What follows is how painting works when it is on.
+
+A player gets a painted portrait of their
 name's animal as a space pilot — Petter's painterly Fortiche-style prompt,
 animal edition, the name stencilled on the helmet as callsign — made by
 gpt-image-2 at quality `low` through the wave CLI on Sleeper and stored in
@@ -73,9 +84,9 @@ board the pilot is pixel art (`PixelAvatar.vue`): the painting shrunk into
 pixel with a one-pixel edge, gold on the podium, pink on your row. The
 footer's edge blinks while a painting is pending; the theme refetches the
 board once or twice at 45 s while its own picture is missing. `nuxi dev`
-has no key, so avatars stay null there. **REROLL is gone from the footer
-since 2026-09-08** — a new name costs a painting; `useLeaderboard.reroll`
-and the server's rename path remain for when it returns with a cap.
+has no key, so avatars stay null there. **REROLL is not in the footer**
+(left 2026-09-08, when a new name cost a painting); `useLeaderboard.reroll`
+and the server's rename path remain.
 **Krea repaint (2026-09-28).** Petter preferred Krea 2 to gpt-image-2 for
 the same prompt, so every existing player was repainted once with Krea 2
 Turbo (mflux q4, 8 steps, 3:2) on his Mac — `wave --local --model krea`
@@ -83,7 +94,7 @@ via `wave-mac`, prompt from `avatarPrompt()` in wave-jobs' `avatar.mjs`,
 uploads tagged `phareim-avatar,krea-avatar` — and the file set through
 `/api/avatar` like a normal callback. ~4.5 min per painting, one at a time,
 yielding to the Mac's GPU measure lock. The old gpt-image-2 paintings stay
-in the library. New players still get gpt-image-2 from wave-jobs.
+in the library.
 Seven of the gpt-image-2 paintings, picked by Petter, are Star Fox's
 squadron and rival as 40×40 portraits (`docs/games/star-fox.md`,
 2026-09-25); those were left as they are.
@@ -103,7 +114,7 @@ caller's own row. The private player id is the only credential: it stays
 in its own browser and no answer carries anyone else's
 (`tests/leaderboard-board.test.mjs`);
 `POST /api/player { id, name }` → 400 bad id/name, 409 name taken;
-`POST /api/avatar { playerId, name, file }` (Bearer `WAVE_JOBS_KEY`, called by wave-jobs) → 401/400/404, stores the painting;
+`POST /api/avatar { playerId, name, file }` (Bearer `WAVE_JOBS_KEY`, wave-jobs' callback; with painting off only a hand-made repaint calls it) → 401/400/404, stores the painting;
 `POST /api/score { playerId, game, score }` → `{ best, rank }`, 400 for an
 unknown game or a score outside 1..`maxScore` (a per-game plausibility cap in
 `themes/leaderboard/games.ts`), 404 unknown player (the client re-registers

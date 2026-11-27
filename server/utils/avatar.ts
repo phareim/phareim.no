@@ -1,8 +1,11 @@
 import type { H3Event } from 'h3'
+import { AVATARS_PAINTING } from '~/themes/leaderboard/games'
 import type { Player, Store } from './store'
 
 /**
- * Player avatars (2026-09-08). The painting happens on Sleeper: wave-jobs'
+ * Player avatars. Painting is off (`AVATARS_PAINTING`, 2026-11-27):
+ * `scheduleAvatar` returns at once, and only `/api/avatar` still takes a
+ * file, for a hand-made repaint. When it is on, the painting happens on Sleeper: wave-jobs'
  * `POST /avatar` runs gpt-image-2 (quality low) through the wave CLI and
  * uploads to the fixer.ink media library. A painting takes 35-45 s and
  * Cloudflare ends a request's `waitUntil` work 30 s after the response, so
@@ -39,6 +42,7 @@ function waitUntil(event: H3Event, p: Promise<unknown>): void {
 
 /** Paints `player.name` if the player has no picture of that name yet. */
 export function scheduleAvatar(event: H3Event, store: Store, player: Pick<Player, 'id' | 'name'> & Partial<Player>): void {
+  if (!AVATARS_PAINTING) return
   if (player.avatarName === player.name) return
   const key = forgeKey(event)
   if (!key) return

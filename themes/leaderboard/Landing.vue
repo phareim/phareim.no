@@ -56,12 +56,12 @@
         </div>
       </Transition>
 
-      <!-- REROLL left 2026-09-08: a new name now costs a painting. The
-           composable still knows how; the button can come back with a cap. -->
+      <!-- REROLL left 2026-09-08, when a new name cost a painting. The
+           composable still knows how. -->
       <footer class="lb-footer">
         <span class="lb-footer-label">YOU ARE</span>
         <span class="lb-footer-who">
-          <span class="lb-avatar lb-avatar--me" :class="{ 'lb-avatar--pending': player && !avatar }">
+          <span class="lb-avatar lb-avatar--me" :class="{ 'lb-avatar--pending': AVATARS_PAINTING && player && !avatar }">
             <PixelAvatar :src="avatar" :n="16" />
           </span>
           <span ref="footName" class="lb-footer-name">{{ player ? clip(player.name, footChars) : '· · ·' }}</span>
@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import PixelAvatar from './PixelAvatar.vue'
-import { GAMES, TOP_N, type BoardRow, type GameBoard } from './games'
+import { AVATARS_PAINTING, GAMES, TOP_N, type BoardRow, type GameBoard } from './games'
 
 /** The hall scene is its own chunk (2026-09-30). */
 const Hall = defineAsyncComponent(() => import('./Hall.vue'))
@@ -168,8 +168,8 @@ function step(delta: number): void {
 }
 
 /**
- * A player's pilot is painted on Sleeper after registration (~40 s). While
- * ours is missing, or a reroll made it stale, one more fetch after a pause
+ * When painting is on, a player's pilot is painted on Sleeper after
+ * registration (~40 s). While ours is missing, one more fetch after a pause
  * picks it up — then we stop asking; the next visit shows it anyway.
  */
 const AVATAR_RECHECK_MS = 45_000
@@ -191,7 +191,7 @@ async function load(): Promise<void> {
     const data = await fetchBoards()
     boards.value = data.boards
     status.value = 'ready'
-    if (data.player && !data.player.avatar) scheduleAvatarRecheck()
+    if (AVATARS_PAINTING && data.player && !data.player.avatar) scheduleAvatarRecheck()
   } catch {
     status.value = 'error'
   }

@@ -61,7 +61,7 @@ Five.
 - **studio.phareim.no**: Neon Shrine reads the studio's published sprites from `/live/neon-shrine.json` after mount (public, no cookie) and draws them over its own (`themes/zelda/render/live.ts`, `docs/games/neon-shrine.md` → "Live art from the studio"); the build writes `public/studio/neon-shrine.json` (about 100 KB) for the studio to edit against.
 - **sleeper.phareim.md** (the news feed): the newsstand on the portal's coast fetches the feed's reader JSON (`/reader/index.json`, `/reader/<slug>.json`) from the browser, no cookie, and shows the pieces in a panel; the address is `NEWS_BASE` in `themes/zelda/newsLinks.ts` (`docs/games/portal.md` → "The newsstand").
 - **auth.phareim.no**, the site-wide account: the login console in Petter's house asks `GET /api/session` and `POST /api/sign-out` cross-origin with the cookie and links to its sign-in page; the address is `AUTH_BASE` in `themes/zelda/account.ts` (`docs/games/portal.md`). Mini World and Lag Din Figur also sign in through it (`POST /api/sign-in` from their own windows, `composables/useAccount.ts`), and the site's server and `mw-world` ask `GET /api/session` with the request's `session_token` cookie to lock them.
-- **wave-jobs** on Sleeper: `POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`, paints the Hall of Fame avatars.
+- **wave-jobs** on Sleeper: `POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`, paints the Hall of Fame avatars. Painting is off since 2026-11-27 (`docs/games/hall-of-fame.md` → Avatars), so the site no longer calls it.
 - **mw-world** on Sleeper: `wss://sleeper.phareim.no/mw-world/ws`, PM2, port 3034, code in `servers/mw-world/`, deployed by the sleeper-deploy webhook's `deploy.sh`; relays Mini World's shared world. Mini World plays solo when it is down.
 
 `server/` holds the Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`, and `/api/avatar` for wave-jobs' callback), `/api/wallet` and Mini World's `/api/mw/*`.
@@ -91,7 +91,7 @@ The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the n
 - `components/GameFrame.vue` — a game on another address in an iframe that fills the screen, for the installed app (`/?frame=<id>`, `composables/useFrame.ts`, `themes/frames.ts`; `docs/games/frame.md`)
 - `server/api/` — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API); profile.get (Hangar); ship/select.post (the ship pick; no screen calls it since the Hangar dropped its picker); save.get/.post (profile save slots: Neon Shrine, Another Shore, Night of the Dead Battery, Mini World); wallet.get/.post (site bits); mw/* (Mini World's neighbourhood); account/link.post
 - `server/utils/store.ts` — D1 store + in-memory dev store behind one interface, id validation
-- `server/utils/avatar.ts` — asks wave-jobs on Sleeper to paint a player's pilot (callback into avatar.post)
+- `server/utils/avatar.ts` — asks wave-jobs on Sleeper to paint a player's pilot (callback into avatar.post); off behind `AVATARS_PAINTING`
 - `server/utils/miniworld*.ts` — the wallet and neighbourhood stores (D1 + memory) and route rules
 - `server/utils/account.ts`, `accountLinks.ts`, `sessionCheck.ts` — the sign-in gate for Mini World and Lag Din Figur
 - `migrations/` — D1 schema for phareim-leaderboard, numbered SQL, applied by the Sleeper deploy

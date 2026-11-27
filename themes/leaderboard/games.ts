@@ -74,6 +74,13 @@ export const AVATAR_MEDIA_BASE = 'https://media.fixer.ink'
 /** How many paintings one player may cost (a reroll repaints). */
 export const AVATAR_MAX_GENS = 6
 
+/**
+ * Whether new players get a pilot painted. Off since 2026-11-27: too few
+ * visitors came back to the board to justify a painting each. Players who
+ * already have one keep it; the rest show an empty disc.
+ */
+export const AVATARS_PAINTING = false
+
 export function avatarThumbUrl(file: string | null | undefined): string | null {
   if (!file) return null
   const stem = file.replace(/\.[a-z0-9]+$/i, '')
