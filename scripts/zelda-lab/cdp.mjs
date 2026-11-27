@@ -38,9 +38,10 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
   const port = 9300 + Math.floor(Math.random() * 500)
   mkdirSync(join(homedir(), 'zshots'), { recursive: true })
   const profile = mkdtempSync(join(homedir(), 'zshots', 'prof-'))
-  // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU).
+  // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU). The mock keychain keeps a Mac's
+  // Chrome, started over ssh with a new profile, from asking the desktop for a keychain to store its key in.
   const proc = spawn(process.env.CHROME_BIN || 'chromium-browser', [
-    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--allow-file-access-from-files',
+    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--use-mock-keychain', '--password-store=basic', '--allow-file-access-from-files',
     `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, ...args, 'about:blank',
   ], { stdio: 'ignore' })
   let targets
