@@ -32,7 +32,7 @@ import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { copySprite, doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
 import { drawFloorMarks } from './floorMarks'
-import { drawClock, drawGifts, drawPaper, drawRings, drawRobe, queueHouse, steamLights, SYCO_HOVER, sycophantAlpha, sycophantBar, sycophantGold, sycophantLift, sycophantLight, sycophantShown, sycophantSprite } from './steamPaint'
+import { drawClock, drawGifts, drawPaper, drawRings, drawRobe, queueHouse, steamLights, SYCO_HOVER, sycophantAlpha, sycophantBar, sycophantBarFloor, sycophantGold, sycophantLift, sycophantLight, sycophantShown, sycophantSprite } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
 import { BOX_AHEAD, boxFoot, drawBox, drawEyes, drawNumbers, eyesShut, lampItem, stripLights } from './lighthouse'
@@ -1447,6 +1447,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         drawNumbers(g, s, e, (x, y) => place(x, y, 0), time, frameReduced)
         const mid = place(e.x, e.y, 0)
         bar(g, Math.round(mid.x), Math.round(mid.y) + boxFoot(e, span), Math.round(e.r * T) * 2, e)
+        continue
+      }
+      const under = sycophantBarFloor(s, e)
+      if (under) {
+        const at = place(under.x, under.y, 0)
+        bar(g, Math.round(at.x), Math.round(at.y) + 3, Math.round(e.r * T) * 2, e)
         continue
       }
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)

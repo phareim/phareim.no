@@ -213,7 +213,8 @@ export function drawEyes(g: G, x: number, y: number, side: number, blink = false
 
 export function eyesShut(e: Enemy, time: number, reduced: boolean): boolean {
   if (reduced || e.ai.mode === 'tell' || e.ai.mode === 'lunge') return false
-  const phase = (time + (e.x * 7.3 + e.y * 3.1)) % 3.4
+  // (Out of step from hound to hound by where each was set: by where it is now, a hound on the move would flicker.)
+  const phase = (time + (e.home.x * 7.3 + e.home.y * 3.1)) % 3.4
   return phase < 0.16
 }
 

@@ -19,11 +19,13 @@ const GOLD = '#ffd23f'
  * the two eyes, where the standing frames have it.
  */
 const FALLEN_AT = [[1, 1], [2, 5]] as const
+/** The gold core in the choking frame, art px a size: its middle, half its width and half its height. */
+const CORE = [[24.5, 36, 4.5, 4], [33.5, 45, 5.5, 5]] as const
 
 /** The frame it shows. */
 export function golemSprite(e: Enemy): string {
   const size = golemSize(e) ? 'l' : 'm'
-  const pose = e.dead ? 'hurt' : e.ai.mode === 'pull' ? 'pull' : e.ai.mode === 'choke' || e.ai.mode === 'ease' ? 'choke' : '0'
+  const pose = e.dead ? 'hurt' : e.ai.mode === 'pull' ? 'pull' : e.ai.mode === 'choke' ? 'choke' : '0'
   return `golem_${size}_${pose}`
 }
 
@@ -61,6 +63,15 @@ export function drawGolem(g: G, e: Enemy, at: At, cx: number, cy: number, time: 
   const x = Math.round(at.x * T - cx) + dx
   const feet = Math.round(at.y * T - cy + 1) + dy
   g.drawImage(c, Math.round(x - c.width / 2), feet - c.height)
+  // (The first 0.3 s of a choke, while the blade still clanks, the core is white: gold means open.)
+  if (mode === 'choke' && e.ai.t > GOLEM.choke - GOLEM.clank) {
+    const [mx, my, rx, ry] = CORE[size]
+    const pale = silhouette(name, '#ffffff')
+    for (let row = Math.floor(my - ry); row < my + ry; row++) {
+      const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((row + 0.5 - my) / ry) ** 2)))
+      if (half) g.drawImage(pale, Math.round(mx) - half, row, half * 2, 1, Math.round(x - c.width / 2) + Math.round(mx) - half, feet - c.height + row, half * 2, 1)
+    }
+  }
   // A pale light of its own, so the heap stands out of a violet floor; gold on the core while it is open.
   const open = golemOpen(e)
   lights.push({ x: e.x, y: e.y - 0.3, r: size ? 3.6 : 2.9, color: '#c4fbff', a: 0.5 })

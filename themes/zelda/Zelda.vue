@@ -1,7 +1,7 @@
 <template>
   <!-- `px16` on every root (and on the canvas, for the page's hint beside it): the HTML wears the 16-bit dress while the canvas HUD does.
-    The canvas also says when the game is paused, so that hint can step aside. -->
-  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused }" />
+    The canvas also says when the game is paused or someone is talking, so that hint can step aside. -->
+  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused, 'zelda-canvas--talking': talking }" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
   <EscHold :class="{ px16: dress16 }" :data-dev="devOn || undefined" class="zelda-esc" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
@@ -2176,8 +2176,10 @@ onBeforeUnmount(() => {
   image-rendering: pixelated;
 }
 
-/* Paused before the first step: the page's hint (portal/Landing.vue, after the canvas) would lie on the pause screen's key line. */
-.zelda-canvas--paused ~ .portal-hint {
+/* Paused before the first step: the page's hint (portal/Landing.vue, after the canvas) would lie on the pause screen's key line.
+   Words before the first step (a reload in a room that speaks): it would lie on a keyboard's dialog box. */
+.zelda-canvas--paused ~ .portal-hint,
+.zelda-canvas--talking ~ .portal-hint {
   visibility: hidden;
 }
 

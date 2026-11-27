@@ -7,12 +7,26 @@
 // wounded Box back at its round); and a hero who stands still before the Black Box, who loses.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
 import { load } from './zelda-load.mjs'
 import { walker } from './zelda-walk.mjs'
 
 let Z
 let P
-before(async () => { Z = await load(); P = walker(Z) })
+/** The painter's own clock for the dark hound's eyes (`render/lighthouse.ts`). */
+let eyesShut
+before(async () => {
+  Z = await load()
+  P = walker(Z)
+  const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  const out = createRequire(import.meta.url)('esbuild').buildSync({
+    stdin: { contents: "export { eyesShut } from './themes/zelda/render/lighthouse'", resolveDir: repo, loader: 'ts' },
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+  })
+  ;({ eyesShut } = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64')))
+})
 
 const FPS = 60
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, rollPress: false, cycle: false, autoFace: false, ...o })
@@ -402,6 +416,12 @@ describe('the Lighthouse', () => {
     assert.equal(tile(s, 16, 5), 'X', 'shut in')
     const dark = Z.mapInfo(Z.WORLD, 'lighthouse2')
     assert.ok(Z.unseen(s, dark, hound), 'in the dark there is nothing of it but its eyes')
+    // Its eyes blink on a clock of their own: a hound on the move shuts them as long and as seldom as one at rest.
+    const blinks = x => Array.from({ length: 680 }, (_, k) => eyesShut({ ...hound, x: x(k), ai: { mode: 'prowl' } }, k / 100, false))
+    const moving = blinks(k => hound.x - k / 40)
+    assert.deepEqual(moving, blinks(() => hound.x))
+    assert.equal(moving.filter(Boolean).length, 32, '0.16 s of every 3.4 s')
+    assert.ok(!eyesShut(hound, 0, true), 'never under reduced motion')
     const found = duel(s, hound, 60, { lamp: true, until: () => hound.stun > 0 })
     assert.ok(Z.toughOpen(hound) && hound.hp < 10 && !Z.unseen(s, dark, hound), `the beam shows it, stuns it and burns it (${found.seconds.toFixed(1)} s)`)
     const fought2 = duel(s, hound, 60)

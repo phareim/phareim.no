@@ -410,7 +410,7 @@ export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> &
   bombs: { name: 'BOMBS', does: 'OPEN CRACKED WALLS. MIND YOUR FEET.' },
   hop: { name: 'THE HOP', does: 'A SHORT JUMP. NOTHING LANDS ON YOU IN THE AIR.' },
   echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
-  lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. B SETS IT DOWN, MOVES IT FROM AFAR, TAKES IT UP FROM BESIDE IT.' },
+  lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. SET IT DOWN, MOVE IT FROM AFAR, TAKE IT UP FROM BESIDE.' },
   magnet: { name: 'THE MAGNET', does: 'LATCHES METAL. LOOSE COMES TO YOU. YOU GO TO BOLTED. A CART RIDES ITS RAIL.' },
   duck: { name: 'THE DUCK', does: 'FOES LOOK AT IT. IT WEIGHS ONE. IT FLOATS.' },
 }

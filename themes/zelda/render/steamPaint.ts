@@ -282,6 +282,8 @@ export function sycophantAlpha(e: Enemy): number {
 export const sycophantShown = (e: Enemy) => sycophantAlpha(e) > 0
 /** Its bar: through the fight, and over the hanging banner (the fourth cut is the corner's); not while it only talks. */
 export const sycophantBar = (e: Enemy) => !['end', 'torn', 'out', 'true', 'leaving'].includes(e.ai.mode as string)
+/** While the banner hangs it hides up where the classic view ends: its bar lies on the floor under the loose corner. */
+export const sycophantBarFloor = (s: GameState, e: Enemy) => (e.kind === 'sycophant' && e.ai.mode === 'hung' ? { x: e.x, y: s.zone.y + BANNER.y1 } : null)
 
 /** Its light: a soft white, gold while the smile is slipped. */
 export function sycophantLight(e: Enemy): Light {

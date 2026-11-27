@@ -225,7 +225,7 @@ export interface HitOpts {
 export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
   if (e.dead || STATS[e.kind].invulnerable || (BIG.has(e.kind) && !LAMP_BURNS.has(e.kind))) return false
   // (Gold means open: a shut PHI takes no burn.)
-  if (e.kind === 'phi' && !phiOpen(e)) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
+  if (e.kind === 'phi' && !phiOpen(e)) { c.ev.push({ type: 'clank', x: e.x, y: e.y, white: true }); return false }
   e.hp -= dmg
   e.flash = 0.14
   const killed = e.hp <= 0
