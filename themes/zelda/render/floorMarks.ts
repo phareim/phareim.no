@@ -7,7 +7,7 @@
 import type { GameState, World } from '../types'
 import { TILE } from '../types'
 import { cellIndex, mapInfo } from '../engine/map'
-import { stencilsOf, type Stencil } from '../engine/stencils'
+import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -38,48 +38,90 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
         g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
         g.clip()
       }
-      lane(g, st, cx, cy, time, reduced)
+      paint(g, st, cx, cy, time, reduced)
       g.restore()
     }
   }
   if (s.echo) echoRing(g, s.echo.x * T - cx, s.echo.y * T - cy + 4, time, reduced)
 }
 
-/** A lane (they run along an axis): a wash that deepens as the tell runs out, a hard edge, chevrons down it. */
-function lane(g: G, st: Stencil, cx: number, cy: number, time: number, reduced: boolean) {
-  const len = Math.hypot(st.x1 - st.x0, st.y1 - st.y0)
-  const flat = Math.abs(st.x1 - st.x0) >= Math.abs(st.y1 - st.y0)
-  const way = Math.sign(flat ? st.x1 - st.x0 : st.y1 - st.y0) || 1
-  const half = st.w / 2
-  const a = flat ? Math.min(st.x0, st.x1) - st.cap : st.x0 - half
-  const b = flat ? st.y0 - half : Math.min(st.y0, st.y1) - st.cap
-  const x = Math.round(a * T - cx)
-  const y = Math.round(b * T - cy)
-  const w = Math.round((flat ? len + st.cap * 2 : st.w) * T)
-  const h = Math.round((flat ? st.w : len + st.cap * 2) * T)
-  g.globalAlpha = 0.2 + 0.25 * st.k
-  g.fillStyle = PINK
-  g.fillRect(x, y, w, h)
-  const blink = !reduced && st.k > 0.65 && Math.floor(time * 14) % 2 === 0
-  g.globalAlpha = 1
-  g.fillStyle = blink ? PINK_LIGHT : PINK
-  g.fillRect(x, y, w, 2)
-  g.fillRect(x, y + h - 2, w, 2)
-  g.fillRect(x, y, 2, h)
-  g.fillRect(x + w - 2, y, 2, h)
-  // Chevrons, a tile apart, running the way the charge will.
-  const run = reduced ? 0 : (time * 2.5) % 1
-  const wing = Math.round(half * T * 0.55)
-  g.globalAlpha = 0.85
-  for (let d = 0.4 + run; d < len + st.cap - 0.2; d += 1) {
-    const px = Math.round((st.x0 + (flat ? way * d : 0)) * T - cx)
-    const py = Math.round((st.y0 + (flat ? 0 : way * d)) * T - cy)
-    for (let k = 0; k <= wing; k++) {
-      const back = Math.round(k * 0.55) * way
-      for (const side of k ? [-1, 1] : [1]) {
-        if (flat) g.fillRect(px - back - 1, py + k * side, 3, 1)
-        else g.fillRect(px + k * side, py - back - 1, 1, 3)
+/**
+ * One stencil, a pixel at a time, so that its edge is exactly where the blow's is (`inStencil`): a pink wash that
+ * deepens as the tell runs out, a hard edge, and down a lane the chevrons of the way it will be run. A copy's is
+ * fainter, and dotted at the edge. Footsteps are only prints: nothing is hit there.
+ */
+function paint(g: G, st: Stencil, cx: number, cy: number, time: number, reduced: boolean) {
+  const faint = st.dim ? 0.55 : 1
+  if (st.t === 'steps') { steps(g, st, cx, cy, faint); return }
+  const box = bounds(st)
+  const x0 = Math.floor(box.x0 * T - cx)
+  const x1 = Math.ceil(box.x1 * T - cx)
+  const y0 = Math.floor(box.y0 * T - cy)
+  const y1 = Math.ceil(box.y1 * T - cy)
+  const at = (px: number, py: number) => inStencil(st, (px + 0.5 + cx) / T, (py + 0.5 + cy) / T)
+  const blink = !reduced && !st.dim && st.k > 0.65 && Math.floor(time * 14) % 2 === 0
+  const run = reduced ? 0 : time * 2.5
+  const half = st.t === 'lane' ? st.w / 2 : 0
+  for (let py = y0; py < y1; py++) {
+    // Runs of one ink along the row.
+    let ink = 0
+    let from = x0
+    for (let px = x0; px <= x1; px++) {
+      let now = 0
+      if (px < x1 && at(px, py)) {
+        now = 1
+        if (!at(px - 2, py) || !at(px + 2, py) || !at(px, py - 2) || !at(px, py + 2)) now = st.dim && (px + py) % 4 < 2 ? 1 : 2
+        else if (st.t === 'lane') {
+          const wx = (px + 0.5 + cx) / T - st.x0
+          const wy = (py + 0.5 + cy) / T - st.y0
+          const u = wx * Math.cos(st.a) + wy * Math.sin(st.a)
+          const v = Math.abs(wy * Math.cos(st.a) - wx * Math.sin(st.a))
+          const phase = u + v * 0.55 - run
+          if (v < half * 0.62 && u > 0.2 && phase - Math.floor(phase) < 0.16) now = 3
+        }
       }
+      if (now === ink) continue
+      if (ink) {
+        g.globalAlpha = faint * (ink === 1 ? 0.2 + 0.25 * st.k : ink === 2 ? 1 : 0.85)
+        g.fillStyle = ink === 2 && blink ? PINK_LIGHT : PINK
+        g.fillRect(from, py, px - from, 1)
+      }
+      ink = now
+      from = px
+    }
+  }
+  g.globalAlpha = 1
+}
+
+/** The tiles a stencil lies within. */
+function bounds(st: Exclude<Stencil, { t: 'steps' }>): { x0: number; y0: number; x1: number; y1: number } {
+  if (st.t !== 'lane') return { x0: st.x - st.r, y0: st.y - st.r, x1: st.x + st.r, y1: st.y + st.r }
+  const pad = Math.hypot(st.cap, st.w / 2)
+  return { x0: Math.min(st.x0, st.x1) - pad, y0: Math.min(st.y0, st.y1) - pad, x1: Math.max(st.x0, st.x1) + pad, y1: Math.max(st.y0, st.y1) + pad }
+}
+
+/** Three steps toward the hero: a bird's prints ahead of it, left and right of the way, each coming up in turn. */
+function steps(g: G, st: Extract<Stencil, { t: 'steps' }>, cx: number, cy: number, faint: number) {
+  const dx = st.x1 - st.x0
+  const dy = st.y1 - st.y0
+  const d = Math.hypot(dx, dy) || 1
+  const ux = dx / d
+  const uy = dy / d
+  g.fillStyle = PINK
+  for (let i = 0; i < 3; i++) {
+    if (st.k < i * 0.25) continue
+    const along = (i + 1) / 3
+    const side = i % 2 ? 0.28 : -0.28
+    // From its front edge on, or its own body would hide them.
+    const x = Math.round((st.x0 + dx * along + ux * 0.8 - uy * side) * T - cx)
+    const y = Math.round((st.y0 + dy * along + uy * 0.8 + ux * side) * T - cy)
+    g.globalAlpha = faint * 0.9
+    // A pad, and three toes forward.
+    g.fillRect(x - 2, y - 2, 4, 4)
+    for (const turn of [-0.6, 0, 0.6]) {
+      const ax = ux * Math.cos(turn) - uy * Math.sin(turn)
+      const ay = uy * Math.cos(turn) + ux * Math.sin(turn)
+      for (let r = 3; r <= 6; r++) g.fillRect(Math.round(x + ax * r) - 1, Math.round(y + ay * r) - 1, 2, 2)
     }
   }
   g.globalAlpha = 1

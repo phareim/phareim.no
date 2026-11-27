@@ -452,6 +452,7 @@ export type EnemyKind =
   | 'deepseek' // miniboss: swims under the floor, surfaces to bite; the hook drags it up
   | 'gemini' // boss: one of the twins; both must fall close together
   | 'mixtral' // miniboss: stencils a lane and charges down it; open only while dazed against the wall
+  | 'parrot' // boss: recites the hero's moves back, stencilled; open while it thinks, and to the echo at its back
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -504,7 +505,8 @@ export type EntDef =
     tough?: boolean
   }
   | { t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond }
-  | { t: 'item'; id: string; item: ItemId; appear?: Cond } // lies on the floor, one-time
+  /** Lies on the floor, one-time. `atFall`: it appears where the foe whose `once` flag it waits on fell. */
+  | { t: 'item'; id: string; item: ItemId; appear?: Cond; atFall?: boolean }
   | {
     t: 'npc'; id: string; look: NpcLook; dir?: Dir; talk: TalkBranch[]; wander?: boolean
     /** Not there while this holds (checked on load and after every talk). */
@@ -710,7 +712,10 @@ export interface MapDef {
    * opens its areas' first-visit words on arrival.
    */
   away?: boolean
-  /** A reload of the tab continues here, at the last entry used, without `away`'s other doing (the Steamhouse). */
+  /**
+   * A reload of the tab here continues at the last door or stair used, as in a land (`awayMap`), with none of a
+   * land's other marks (`away`): a dungeon far from town.
+   */
   resume?: true
   /**
    * The drawing engines this map may be shown in (`viewParams.ts`); absent,
@@ -882,7 +887,8 @@ export interface Drop {
   fall?: number
 }
 
-export interface Bomb { id: number; x: number; y: number; t: number }
+/** `by`: a bomb of the Stochastic Parrot's or of its copy's (none: the hero's own). */
+export interface Bomb { id: number; x: number; y: number; t: number; by?: 'parrot' | 'copy' }
 export interface Blast { id: number; x: number; y: number; t: number }
 
 export interface Disc {
@@ -954,6 +960,8 @@ export interface Pickup {
   appear?: Cond
   /** True while its appear condition is unmet (not drawn, not collectable). */
   hidden: boolean
+  /** Appears where the foe it waits on fell (the item mark's `atFall`). */
+  atFall?: boolean
 }
 
 export interface MapState {
@@ -1383,6 +1391,8 @@ export type GameEvent =
   | { type: 'back' } // an exit's lines were closed without leaving
   | { type: 'buy'; ok: boolean }
   | { type: 'bossPhase'; phase: number }
+  /** A move of the Parrot's (or its copy's) has come: a cut or a spin from (x, y), a rush setting off, a jump landing. */
+  | { type: 'recited'; move: 'C' | 'S' | 'R' | 'H'; x: number; y: number; a: number }
   | { type: 'bossDown'; kind: EnemyKind }
   | { type: 'won'; elapsed: number }
   | { type: 'exit'; id: string; to: ExitTarget }

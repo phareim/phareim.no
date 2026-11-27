@@ -42,9 +42,9 @@ const PARROT = [
   '#вввв......вввв#',
   '#вI..........Iв#',
   '#в.&..........в#',
-  '#.....вввв.....#',
+  '#.....вzвв.....#',
   '#....вв..вв....#',
-  '#....вв..вв....#',
+  '#....ввu.вв....#',
   '#.....вввв.....#',
   '#в..........&.в#',
   '#вI..........Iв#',
@@ -155,10 +155,19 @@ export const ECHOBARROW: MapDef = {
   views: ['iso', 'classic'],
   keyring: 'echobarrow',
   crystal: 'echobarrow',
+  // A reload in here stays in here, at the porch (not `away`: no chart of the world, no land's marks).
+  resume: true,
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE ANSWERING ROOM' },
-    '1,0': { name: 'THE PARROT', track: 'boss' },
+    '1,0': {
+      name: 'THE PARROT',
+      track: 'boss',
+      events: [
+        { when: { notFlag: 'parrot' }, lines: ['THE STOCHASTIC PARROT. IT HAS HEARD EVERYTHING. IT HAS UNDERSTOOD NONE OF IT.'], set: 'echobarrow.parrot.met' },
+        { when: { flag: 'parrot' }, lines: ['(THE HALL IS QUIET. YOUR OWN HELLO COMES BACK, ONCE, AND STOPS.)'], set: 'echobarrow.parrot.quiet' },
+      ],
+    },
     '2,0': { name: 'THE SHIELD HALL' },
     '0,1': {
       name: 'MIXTRAL\'S ROOM',
@@ -204,7 +213,10 @@ export const ECHOBARROW: MapDef = {
     Q: { ent: { t: 'enemy', kind: 'knight', once: 'echobarrow.shield2', dir: 'down' } },
     '5': { ent: { t: 'chest', id: 'echobarrow.bigkey', item: 'bigKey', big: true, appear: { flags: ['echobarrow.shield1', 'echobarrow.shield2'] } } },
     '7': { tile: '}', ent: { t: 'lever', flag: 'echobarrow.lever' } },
-    // The Parrot's room: two pots on their stands.
+    // The Parrot's room: the Parrot, two pots on their stands, and the Weight, which lies where the Parrot fell (after
+    // a reload: where it is marked, in the middle).
+    z: { tile: 'в', ent: { t: 'enemy', kind: 'parrot', once: 'parrot' } },
+    u: { tile: 'в', ent: { t: 'item', id: 'echobarrow.weight', item: 'weightMeaning', appear: { flag: 'parrot' }, atFall: true } },
     '&': { tile: 'o', ent: { t: 'stand' } },
   },
 }

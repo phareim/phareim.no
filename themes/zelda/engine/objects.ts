@@ -3,9 +3,10 @@
  * Prism Disc, thrown pots, drops, projectiles, sliding blocks, pressure
  * plates, gates, chests/items that appear, and wandering NPCs.
  */
-import type { Cond } from '../types'
+import type { Bomb, Cond } from '../types'
 import { BOMB_FUSE, BOMB_RADIUS, DISC_RANGE, DISC_SPEED, HERO_R, PUSH_TIME, STAND_WAIT, THROW_RANGE } from '../types'
 import { echoOnTile } from './echo'
+import { PARROT } from './parrot'
 import { TILE_INFO } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -44,7 +45,7 @@ function stepBombs(c: Ctx, dt: number) {
     b.t += dt
     if (b.t >= BOMB_FUSE) {
       m.bombs.splice(i, 1)
-      explode(c, b.x, b.y)
+      explode(c, b.x, b.y, b.by)
     }
   }
   for (let i = m.blasts.length - 1; i >= 0; i--) {
@@ -53,7 +54,8 @@ function stepBombs(c: Ctx, dt: number) {
   }
 }
 
-export function explode(c: Ctx, x: number, y: number) {
+/** `by`: the Parrot's bomb, or its copy's: the copy's never hurts the Parrot, its own only if it is still on it. */
+export function explode(c: Ctx, x: number, y: number, by?: Bomb['by']) {
   const s = c.s
   const m = s.map
   m.blasts.push({ id: nextId(s), x, y, t: 0 })
@@ -62,6 +64,7 @@ export function explode(c: Ctx, x: number, y: number) {
   s.shake = Math.max(s.shake, 0.35)
   for (const e of m.enemies) {
     if (!enemyActive(c, e)) continue
+    if (e.kind === 'parrot' && by && (by === 'copy' || Math.hypot(e.x - x, e.y - y) >= PARROT.there)) continue
     if (Math.hypot(e.x - x, e.y - y) < BOMB_RADIUS + e.r) {
       if (e.kind === 'zapper') e.stun = Math.max(e.stun, 0.01)
       if (e.kind === 'king') { if (e.ai.mode === 'down') hitEnemy(c, e, 3, x, y, 'bomb') }

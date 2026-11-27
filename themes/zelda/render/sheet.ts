@@ -166,8 +166,11 @@ export function silhouette(name: string, color: string, flip = false): Canvas {
 /** The echo's two tones of cyan: the sprite's light pixels and its dark ones. */
 export const ECHO_TONES = { light: [0xc4, 0xfb, 0xff], dark: [0x22, 0xb4, 0xd8] } as const
 
-/** A canvas in the echo's two tones: every pixel light or dark cyan by how bright it was; its alpha as it was. */
-export function echoTones(src: Canvas): Canvas {
+/** The tones of the Stochastic Parrot's still copy: its own pink. */
+const COPY_TONES = { light: [0xff, 0xc2, 0xe6], dark: [0xff, 0x2f, 0xa0] } as const
+
+/** A canvas in two tones (the echo's cyan): every pixel the light or the dark one by how bright it was; its alpha as it was. */
+export function echoTones(src: Canvas, tones: { light: readonly number[]; dark: readonly number[] } = ECHO_TONES): Canvas {
   const c = makeCanvas(src.width, src.height)
   const g = c.getContext('2d')!
   g.drawImage(src, 0, 0)
@@ -175,10 +178,10 @@ export function echoTones(src: Canvas): Canvas {
   const d = img.data
   for (let i = 0; i < d.length; i += 4) {
     if (!d[i + 3]) continue
-    const tone = d[i]! * 0.3 + d[i + 1]! * 0.59 + d[i + 2]! * 0.11 > 105 ? ECHO_TONES.light : ECHO_TONES.dark
-    d[i] = tone[0]
-    d[i + 1] = tone[1]
-    d[i + 2] = tone[2]
+    const tone = d[i]! * 0.3 + d[i + 1]! * 0.59 + d[i + 2]! * 0.11 > 105 ? tones.light : tones.dark
+    d[i] = tone[0]!
+    d[i + 1] = tone[1]!
+    d[i + 2] = tone[2]!
   }
   g.putImageData(img, 0, 0)
   return c
@@ -192,6 +195,14 @@ export function echoSprite(name: string, flip = false, flipV = false): Canvas {
   c = echoTones(spriteT(name, flip, flipV))
   tinted.set(key, c)
   tags.set(c, { name, flip, echo: true, ...(flipV ? { flipV } : {}) })
+  return c
+}
+
+/** A sprite in the pink of the Parrot's copy. */
+export function copySprite(name: string, flip = false): Canvas {
+  const key = `${name}|${flip ? 'f' : ''}|copy`
+  let c = tinted.get(key)
+  if (!c) tinted.set(key, c = echoTones(sprite(name, flip), COPY_TONES))
   return c
 }
 

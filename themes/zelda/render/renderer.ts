@@ -29,10 +29,11 @@ import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
+import { copySprite, doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
 import { drawFloorMarks } from './floorMarks'
 import { drawClock, drawRings, drawTurban } from './steamPaint'
 import { toDir } from '../engine/util'
+import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
 import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
@@ -578,7 +579,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           fx.push(fxSprite('poof', 0.36, e.x, e.y, -0.1))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
           pulse(e.x, e.y, 3, '#ff2fa0', 0.2)
-          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral') {
+          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral' || e.kind === 'parrot') {
             for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
@@ -612,6 +613,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'charged': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.3, color: '#2ff3ff', size: 0.6, name: 'hero' }); break
         case 'spin': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: SPIN_TIME, color: '#2ff3ff', size: 1.6, name: 'hero' }); break
         case 'bossPhase': flashT = 0.3; flashColor = '#ff2fa0'; break
+        // The Parrot's move comes: stars along its blade, a ring where it spins or lands, a burst where it rushes off.
+        case 'recited':
+          if (e.move === 'C') for (let i = -2; i <= 2; i++) { const a = e.a + (i / 5) * PARROT.cut.arc; fx.push({ kind: 'star', x: e.x + Math.cos(a) * 1.7, y: e.y + Math.sin(a) * 1.7, vx: 0, vy: 0, t: 0, life: 0.14, color: '#ff8ae0', size: 5, lift: 5 }) }
+          else if (e.move === 'R') spark(e.x, e.y, 10, '#ff8ae0', 5, 0.35)
+          else fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.3, color: '#ff8ae0', size: e.move === 'S' ? PARROT.spin : PARROT.hop.r })
+          pulse(e.x, e.y, 2.4, '#ff2fa0', 0.16)
+          break
         case 'won': flashT = 1; flashColor = '#ffd23f'; break
         // An echo left: a ring where it stands; its blows flash there; a pot back on its stand.
         case 'echo': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.45, color: '#2ff3ff', size: 1 }); pulse(e.x, e.y, 2.4, '#2ff3ff', 0.25); break
@@ -987,6 +995,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lights.push({ x: e.x, y: e.y - 0.3, r: blade ? 2.2 : 1.5, color: '#2ff3ff', a: blade ? 0.75 : 0.5 })
   }
 
+  /** The still copy the Parrot leaves: its own figure in pink, see-through, horn up while its move is stencilled. */
+  function drawParrotCopy(g: G, e: Enemy, x: number, feet: number) {
+    const telling = e.ai.con && !e.ai.cact
+    const c = copySprite(telling ? 'parrot_tell' : 'parrot_0', e.dir === 'right')
+    g.globalAlpha = frameReduced ? 0.55 : 0.5 + 0.08 * Math.sin(time * 6)
+    g.drawImage(c, Math.round(x - c.width / 2), Math.round(feet - c.height))
+    g.globalAlpha = 1
+  }
+
   function drawSpinBlade(g: G, s: GameState, x: number, y: number, lights: Light[]) {
     const h = s.hero
     const p = h.spin ? h.spin.t / SPIN_TIME : 0
@@ -1043,6 +1060,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const pose = dazed || e.ai.mode === 'stalk' || e.ai.mode === 'idle' ? heads[Math.floor(time * (dazed ? 9 : 2.2)) % 4]!
           : e.dir === 'left' ? 'left' : e.dir === 'right' ? 'right' : 'middle'
         return { name: `mixtral_${pose}`, flip: false }
+      }
+      // It faces west as drawn, and the hero always (`engine/parrot.ts`): head tilted while it thinks, its horn up
+      // while a move of its own is stencilled.
+      case 'parrot': {
+        const name = e.flash > 0 ? 'parrot_hurt' : e.ai.mode === 'think' ? 'parrot_think'
+          : e.ai.mode === 'recite' && e.ai.on && !e.ai.act ? 'parrot_tell' : `parrot_${f('parrot')}`
+        return { name, flip: e.dir === 'right' }
       }
     }
   }
@@ -1129,6 +1153,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // A small pale light of its own, so its picture reads against its own lane; gold while it is open.
       lights.push({ x: e.x, y: e.y - 0.5, r: e.ai.tell > 0 ? 1.8 : 2.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.55 : 0.5 })
       return
+    }
+    if (e.kind === 'parrot') {
+      // Off the ground in its hops, over its own shadow.
+      feet -= Math.round(((e.ai.z as number | undefined) ?? 0) * T)
+      const open = bossOpen(e)
+      lights.push({ x: e.x, y: e.y - 0.8, r: 3, color: open ? TOUGH_GOLD : e.ai.mode === 'recite' ? '#ff8ae0' : '#c4fbff', a: open ? 0.6 : 0.5 })
     }
     if (e.tough) {
       toughOutline(g, e, name, x + shiver(e), feet, flip, sx, sy)
@@ -1422,6 +1452,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       if (roomed(kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
+      if (e.kind === 'parrot' && e.ai.copy) {
+        const x = e.ai.cx as number
+        const y = e.ai.cy as number
+        // A hair behind: while the Parrot has not stirred from the spot, it is the Parrot that shows.
+        items.push({ x, foot: e.r + 1 / T, ay: y - 0.05, y: y - 0.05, big: true, draw: () => drawParrotCopy(g, e, x * T - cx, (y + e.r) * T - cy + 1) })
+      }
     }
     for (const b of m.bombs) {
       const fast = b.t > BOMB_FUSE - 0.6

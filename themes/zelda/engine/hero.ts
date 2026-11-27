@@ -1013,7 +1013,8 @@ function useItem(c: Ctx, inp: Input) {
 function setBomb(c: Ctx) {
   const s = c.s
   const h = s.hero
-  if (s.inv.bombs <= 0 || s.map.bombs.length >= 2) { c.ev.push({ type: 'error' }); return }
+  // (Two of the hero's own at a time; a boss's do not count.)
+  if (s.inv.bombs <= 0 || s.map.bombs.filter(b => !b.by).length >= 2) { c.ev.push({ type: 'error' }); return }
   const v = dirVec(h.dir)
   let bx = h.x + v.x * 0.7
   let by = h.y + v.y * 0.7

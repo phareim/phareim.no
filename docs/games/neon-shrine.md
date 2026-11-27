@@ -956,7 +956,7 @@ classic picture. `/?view=<id>` asks for one.
     - *Day and night.* It stands where it is at every hour: no rank, no twin
       (`settleFoes`).
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
-    DeepSeek, the twins, Mixtral). The tough foes' bar over each of their heads, in
+    DeepSeek, the twins, Mixtral, the Stochastic Parrot). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
     36 for the king): what is left is pink, gold while the boss is open
     (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
@@ -965,6 +965,7 @@ classic picture. `/?view=<id>` asks for one.
     pink); the king down; Mistral down; DeepSeek up or hauled (under the floor
     the bar rides over the fin); a twin on its feet, so always, except while it
     lies fallen; Mixtral dazed, while that daze still has blows to give; the
+    Parrot thinking, while that thought still has blows to give; the
     llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
     `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs`, which plays
@@ -991,11 +992,61 @@ classic picture. `/?view=<id>` asks for one.
     the heads take turns as it walks and spin while it is dazed); the 8-bit
     view draws them at twice their size (`doubledSprite`), the isometric one
     its own art for them (`render/iso/frontierArt/`).
+  - *The Stochastic Parrot* (`parrot`, the Echo Barrow's boss; hp 16, radius
+    0.9; `engine/parrot.ts`, every number in `PARROT`). Its card, the first
+    time in its room: THE STOCHASTIC PARROT. IT HAS HEARD EVERYTHING. IT HAS
+    UNDERSTOOD NONE OF IT. It always faces the hero and never leaves its room.
+    A blow from its front half clanks off its beak (the blade, the disc, the
+    hook, a pot, the echo's blade), except while it is open. Bombs and batted
+    shots hurt it at any time. Four states go round:
+    - *Listening* (2.4 s): it hops sideways round the hero, about four tiles
+      off, and notes each move the hero begins: CUT (a swing), SPIN, ROLL, HOP
+      (anything that leaves the ground), BOMB (a bomb laid), and WALK for each
+      second with none of those. It keeps the last three (padded with WALK).
+    - *Reciting*: the three in another order than they were done in (three
+      alike have only the one), a beat of 0.9 s each. For 0.5 s the move is
+      stencilled on the floor, aimed from the Parrot at where the hero stands
+      as the beat begins; then it comes. CUT: an arc of radius 2.1 ahead of it.
+      SPIN: a ring of 1.8 round it. ROLL: a lane of 2.4 that it rushes down.
+      HOP: a ring of 1.2 where it lands, 2 tiles on. BOMB: it lays a bomb at
+      its feet, fuse 1.2 s, the ordinary blast, ringed while it burns; it is
+      caught by it only if it is still within 1.2 tiles. WALK: three prints and
+      three steps toward the hero, 1.8 tiles; no blow, but its body is there.
+      A move's blow costs a heart. A move the hero is in the air over, or in
+      the first moments of a roll past, misses, as any foe's does.
+    - *Thinking* (2 s): head tilted, **open**: the blade hurts it from anywhere,
+      at most 6 hit points a thought (disc and hook only touch it, a pot hurts).
+    - *Rousing* (0.6 s): it leaps to a spot about four tiles from the hero, away
+      from the echo.
+    - *Its body* hurts on touch while it listens and recites (not in the air of
+      its rush or jump). It walks straight at the hero over pots and pillars,
+      comes to rest with its middle on open floor, and follows into a doorway's
+      mouth, so a hero who stands still is reached anywhere in the room. (A
+      shove through the open south door takes the hero out of the fight.)
+    - *The echo.* An echo's blow on its back half hurts it at any time, breaks
+      a recital off and makes it think for 1.2 s. A bomb the hero laid, copied
+      as BOMB before a move that does not carry it away, blows up under it.
+    - *From half its hit points* (`bossPhase`) it leaves a still pink copy
+      where a recital starts, which does the same recital 0.45 s behind it with
+      fainter, dotted stencils. The copy cannot be hurt; it goes when the
+      Parrot thinks, which is once both are done. The copy's bomb never harms
+      the Parrot.
+    - *Its fall*: its bombs go, the Weight of MEANING appears where it fell (the
+      nearest spot a hero can stand on; `atFall`), and the room says, once:
+      (THE HALL IS QUIET. YOUR OWN HELLO COMES BACK, ONCE, AND STOPS.) After a
+      reload an untaken Weight lies at its mark in the middle of the room.
+    - *Pictures*: `parrot_0`, `_1`, `_tell` (while a move is stencilled),
+      `_think`, `_hurt`, 48 × 48 (`render/spritesDungeonBosses.ts`); the
+      isometric view stands the same picture up. Each move that comes flashes
+      in pink (`recited`) with the sword's, spin's, roll's or landing's sound.
   - *Stencils* (`engine/stencils.ts` `stencilsOf`, painted by
     `render/floorMarks.ts`): what a foe's blow will hit, as shapes in tiles
-    read off its brain's state, painted flat on the floor under everything that
-    stands, in every view (`Kit.floorMarks`: each view lays them on its ground
-    picture once the standing things are off it), and never up a room's walls.
+    (lane, ring, arc; footprints for a walk) read off its brain's state, painted
+    flat on the floor under everything that stands, in every view
+    (`Kit.floorMarks`: each view lays them on its ground picture once the
+    standing things are off it), and never up a room's walls. The Parrot's blows
+    ask the very shape that is painted (`inStencil`), and the painter asks it
+    pixel by pixel.
   - *The lands' foes* are ordinary foe marks, drawn in the realm's own skins
     (`FRONTIER_FOE_LOOKS` in `render/renderer.ts`): which stand where is in
     `docs/worlds/atlas.md`, "The lands". The Sporelight's sentries are
@@ -1412,7 +1463,11 @@ last used) with the save's items. A save's own continue point is for death
 during a session, and for a reload out in a land past the coast: while the
 continue point is out there the shell keeps a per-tab flag (`zelda.out` in
 sessionStorage), and a reload in that tab continues at it (`loadSpot`). A new
-visit starts in town.
+visit starts in town. A map with `resume: true` (the Echo Barrow) is kept
+through a reload the same way and gets nothing else a land's `away` brings (no
+`seen:<id>` flag, no place on the MAP page's world): a tab reloaded inside
+starts at the last stair or door used, with its opened doors as saved. A reload
+in any other dungeon or cave starts in front of the exit last used, or in town.
 
 **The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25; the
 corner, `render/corner.ts`, and the MAP page, `render/mapPage.ts`,
@@ -1775,8 +1830,10 @@ grant sets only the flag `item:<id>` (`hasWeight`, `weightCount`), with the
 heart container's jingle and a picture of its own
 (`item_weight_meaning` … `item_weight_sources`: the brass weight, each with
 its band; `item_weight` is the plain one), and the ITEMS page hangs each on
-its beam with the same picture. No map gives one yet
-(`docs/worlds/sacred-weights.md` is the plan).
+its beam with the same picture. The Echo Barrow gives MEANING when the Parrot
+falls; no map gives the others yet (`docs/worlds/sacred-weights.md` is the
+plan). A reward that is to lie where a foe fell is an `item` mark with
+`appear: { flag }` (the foe's `once`) and `atFall`.
 
 **The Echo** (`engine/echo.ts`; item `echo`, a B item; the Echo Barrow's
 treasure). Its words: YOU GOT THE ECHO! / {B} LEAVES ONE WHERE YOU STAND. WHEN

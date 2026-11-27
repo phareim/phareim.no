@@ -10,7 +10,7 @@ export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artRead
 export { STATS } from './spawn'
 // The echo (`echo.ts`), and what the floor is stencilled with.
 export { echoMayStand, echoAim, ECHO_R } from './echo'
-export { stencilsOf, type Stencil } from './stencils'
+export { stencilsOf, inStencil, type Stencil } from './stencils'
 // The side view's numbers (the lab measures them).
 export { SIDE, type SideHero } from './side'
 // Test hooks: the play-through test kills bosses directly.

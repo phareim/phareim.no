@@ -621,7 +621,10 @@ function rescueSave(world: World, v: SaveData): SaveData {
   return { ...v, map: spot.map, entry: spot.entry, ...(explored ? { explored } : {}) }
 }
 
-/** A map out past the hand-made coast (`MapDef.away`), or one a save names that the world moved out there. */
+/**
+ * A map a reload continues in: one out past the hand-made coast (`MapDef.away`), one that says so itself
+ * (`MapDef.resume`), or one a save names that the world moved out there.
+ */
 export function awayMap(world: World, map: string, entry = ''): boolean {
   const def = mapDef(world, map)
   if (def) return !!def.away || !!def.resume

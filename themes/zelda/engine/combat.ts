@@ -3,10 +3,11 @@
  * calls into. `Ctx` bundles what a step needs.
  */
 import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, WeightId, World } from '../types'
-import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
+import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
 import { STATS } from './spawn'
-import { chance, nextId, rnd } from './util'
-import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
+import { PARROT, parrotStruck } from './parrot'
+import { chance, clamp, nextId, rnd } from './util'
+import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
 import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
 
 export interface Ctx {
@@ -18,6 +19,22 @@ export interface Ctx {
 
 export function ctx(w: World, s: GameState, ev: GameEvent[]): Ctx {
   return { w, s, ev, info: mapInfo(w, s.map.id) }
+}
+
+/**
+ * The spot nearest a fallen foe, well inside its room, where a hero can stand: what it leaves must not lie in a pillar,
+ * under a pot or in a doorway's wall.
+ */
+function footing(c: Ctx, e: Enemy): { x: number; y: number } {
+  const z = cellRect(c.info, e.cell)
+  for (let r = 0; r <= 4; r += 0.25) {
+    for (let i = 0; i < (r ? 16 : 1); i++) {
+      const x = clamp(e.x + Math.cos((i / 16) * Math.PI * 2) * r, z.x + 1.5, z.x + z.w - 1.5)
+      const y = clamp(e.y + Math.sin((i / 16) * Math.PI * 2) * r, z.y + 1.5, z.y + z.h - 1.5)
+      if (!circleBlocked(c.w, c.s.map, x, y, HERO_R)) return { x, y }
+    }
+  }
+  return { x: e.x, y: e.y }
 }
 
 // ---------------------------------------------------------------------------
@@ -83,9 +100,9 @@ export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'h
   | 'beam'
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
-export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
+export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
 /** The ones whose fall clears the room of its small fry and plays the boss fanfare. */
-const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
+const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -125,6 +142,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'gemini': return mode !== 'down'
     // Dazed against the wall, while this daze still has blows to give.
     case 'mixtral': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
+    // Thinking, while this thought still has blows to give.
+    case 'parrot': return mode === 'think' && ((e.ai.took as number | undefined) ?? 0) < PARROT.take
     default: return false
   }
 }
@@ -293,6 +312,28 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       turned(e, src, 0.2)
       return false
     }
+    // THE STOCHASTIC PARROT always faces the hero, so a blow from its front half (the hero's side) clanks off its
+    // beak unless it is thinking; then the blade bites from anywhere, `PARROT.take` a thought. The echo's blade at
+    // its back bites at any time and sets it thinking. Bombs and batted shots hurt it as any foe.
+    case 'parrot': {
+      if (src === 'bomb' || src === 'shot' || src === 'spit') return damage(c, e, dmg, fromX, fromY, opt)
+      const h = c.s.hero
+      const open = ai.mode === 'think'
+      const back = (fromX - e.x) * (h.x - e.x) + (fromY - e.y) * (h.y - e.y) < 0
+      // The disc and the hook never hurt it: where they get through, they only touch.
+      if ((src === 'disc' || src === 'hook') && (open || back)) { c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
+      if (src === 'pot' && (open || back)) return damage(c, e, dmg, fromX, fromY, opt)
+      const left = PARROT.take - ((ai.took as number | undefined) ?? 0)
+      if (blade(src) && open && left > 0) return damage(c, e, dmg, fromX, fromY, { ...opt, cap: left })
+      if (src === 'echo' && back && !open) {
+        const hit = damage(c, e, dmg, fromX, fromY, opt)
+        if (!e.dead) parrotStruck(c, e)
+        return hit
+      }
+      c.ev.push({ type: 'clank', x: e.x, y: e.y })
+      turned(e, src, 0.2)
+      return false
+    }
     case 'deepseek':
       if (ai.mode === 'under' || ai.mode === 'rise') {
         if (src !== 'hook') return false
@@ -365,7 +406,7 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   // Hitstop by weight: a quick hit of the chain, the finisher, a boss, a kill.
   c.ev.push({ type: 'hitStop', ms: killed ? 90 : BOSSES.has(e.kind) ? 60 : opt?.stop ?? 40 })
   if (killed) killEnemy(c, e)
-  else if ((e.kind === 'king' || e.kind === 'mistral' || e.kind === 'deepseek' || e.kind === 'mixtral') && e.hp <= STATS[e.kind].hp / 2 && e.ai.phase !== 2) {
+  else if ((e.kind === 'king' || e.kind === 'mistral' || e.kind === 'deepseek' || e.kind === 'mixtral' || e.kind === 'parrot') && e.hp <= STATS[e.kind].hp / 2 && e.ai.phase !== 2) {
     e.ai.phase = 2
     c.ev.push({ type: 'bossPhase', phase: 2 })
     c.ev.push({ type: 'hitStop', ms: 120 })
@@ -381,6 +422,10 @@ export function killEnemy(c: Ctx, e: Enemy) {
   e.knock = null
   c.ev.push({ type: 'kill', x: e.x, y: e.y, kind: e.kind })
   if (e.once) setFlag(c.s, e.once)
+  // A reward that waits on this fall and is to lie where it happened.
+  for (const p of c.s.map.pickups) if (p.atFall && p.appear && 'flag' in p.appear && p.appear.flag === e.once) Object.assign(p, footing(c, e))
+  // The Parrot's own bombs go with it.
+  if (e.kind === 'parrot') c.s.map.bombs = c.s.map.bombs.filter(b => !b.by)
   if (BOSSES.has(e.kind)) {
     c.ev.push({ type: 'bossDown', kind: e.kind })
     c.s.shake = 0.6

@@ -141,7 +141,8 @@ carries the path to Yule Fjord past STEINAR's cairns; THE MOUNDS in the west
 FELL is a cave behind a cracked boulder. South of the small mound by the stream
 a flight of stairs with a sign goes down to THE ECHO BARROW (below; tile
 (20, 26), back up at the entry `echobarrow`); while the Weight of MEANING is not
-held the mound elder speaks of the hall under them. The heart piece sits on a ledge seen
+held the mound elder speaks of the hall under them, and once it is, says: QUIET
+DOWN THERE NOW. I ASKED IT THE TIME. IT SAID NOTHING. LOVELY. The heart piece sits on a ledge seen
 from the Big Seter and reached from Cairn Ridge.
 Fights: blobs, bats, hounds and a sentry about the paths, and a tough sentry
 guarding the spur to the heart piece's chute.
@@ -219,7 +220,8 @@ and the HERDSMAN live down there.
 ### THE ECHO BARROW (`echobarrow`)
 The hidden folk's hall under the Mounds, where every call comes back: a dungeon
 (48×36, eight rooms of 16×12 on a 3×3 grid, the ninth rock), both views, on a
-keyring and a crystal group of its own. It needs the blade and nothing else.
+keyring and a crystal group of its own. It needs the blade and nothing else. A
+tab reloaded inside it continues at the last stair or door used (`resume`).
 Its look is `wild` (the chart's inks, the fireflies); the turf is laid as tiles
 (`в`) round the Shrine's stone and pillars, since no look repaints a dungeon.
 
@@ -232,7 +234,7 @@ Its look is `wild` (the chart's inks, the fireflies); the turf is laid as tiles
 | THE ANSWERING ROOM (0,0) | a light plate holds a gate open only while something stands on it; behind it the chest with small key B. A sign. The echo stands on the plate |
 | THE CROSSING (2,1) | a row of cyan blocks, ground, a row of pink ones, and one crystal switch south of both, out of reach past the first row. Leave the echo by the switch, cross the first row, cut. East of a wall, the short way down from the Shield Hall |
 | THE SHIELD HALL (2,0) | the way shuts; two knights; then a big chest with the Big Key. A lever opens the short way down (once both are down) |
-| THE PARROT (1,0) | behind the great lock: two pot stands, and nobody yet |
+| THE PARROT (1,0) | behind the great lock: two pot stands and THE STOCHASTIC PARROT; where it falls, the Weight of MEANING |
 
 The east shutter keeps key A for the west door: spent east, it would leave key B
 behind a door with no key. The disc, the hook's owner or a bomb may cut the

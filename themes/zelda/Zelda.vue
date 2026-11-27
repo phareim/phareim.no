@@ -1560,7 +1560,7 @@ function keepExploring() {
 
 // ---- events → sound, save, banner ----------------------------------------------
 
-const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
+const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
 
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   spin: 'spin', roll: 'roll', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
@@ -1586,6 +1586,7 @@ function handleEvents(events: GameEvent[]) {
     switch (e.type) {
       // The chain's hits climb a step, and the finisher swings heavy; a heavy blow lands heavy, a critical one rings.
       case 'swing': a?.sfx(e.n === 1 ? 'sword2' : e.n === 2 ? 'swordHeavy' : 'sword'); break
+      case 'recited': a?.sfx(e.move === 'C' ? 'sword' : e.move === 'S' ? 'spin' : e.move === 'R' ? 'roll' : 'land'); break
       // The acrobatics and the hop (`engine/moves.ts`).
       case 'air': a?.sfx(e.kind === 'comet' ? 'comet' : e.kind === 'tempest' ? 'spin' : e.kind === 'hop' ? 'hop' : 'flip'); break
       case 'touchdown': if (e.heavy) a?.sfx('swordHeavy'); else a?.sfx('land'); break

@@ -379,7 +379,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       })
     } else if (e.t === 'item') {
       if (flag(`took:${e.id}`)) continue
-      pickups.push({ id: e.id, item: e.item, x: cx, y: cy, appear: e.appear, hidden: !!e.appear })
+      pickups.push({ id: e.id, item: e.item, x: cx, y: cy, appear: e.appear, hidden: !!e.appear, ...(e.atFall ? { atFall: true } : {}) })
     } else if (e.t === 'shop') {
       if (e.once && flag(`took:${e.id}`)) continue
       pickups.push({ id: e.id, item: e.item, x: cx, y: cy, shop: { price: e.price, once: !!e.once }, hidden: false })

@@ -9,6 +9,7 @@ import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
+import { parrot, parrotHarmless } from './parrot'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -156,6 +157,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'deepseek': deepseek(c, e, dt); break
     case 'gemini': gemini(c, e, dt); break
     case 'mixtral': mixtral(c, e, dt); break
+    case 'parrot': parrot(c, e, dt); break
   }
   contact(c, e)
 }
@@ -167,7 +169,7 @@ function contact(c: Ctx, e: Enemy) {
   const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||
     (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
     (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e) ||
-    (e.kind === 'mixtral' && (e.ai.mode === 'dazed' || e.ai.mode === 'rouse'))
+    (e.kind === 'mixtral' && (e.ai.mode === 'dazed' || e.ai.mode === 'rouse')) || (e.kind === 'parrot' && parrotHarmless(e))
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     // THE NO: a cut at the right moment refuses the blow (`refuse.ts`).
     if (tryRefuse(c, e)) return
