@@ -644,7 +644,7 @@ export function resetPuzzleRoom(c: Ctx, index: number) {
   const m = s.map
   const cx = index % c.info.cols
   const cy = Math.floor(index / c.info.cols)
-  const solved = c.info.gates.some(g => g.cell === index && has(s, `gate:${g.id}`))
+  const solved = c.info.gates.some(g => !g.trap && g.cell === index && has(s, `gate:${g.id}`))
   const homes = p.mirrors.get(index)
   const inRoom = (i: number) => Math.floor((i % m.w) / c.info.cw) === cx && Math.floor(i / m.w / c.info.ch) === cy
   // Unless solved, the room's stones that came to rest go home too (a thrown lever lets them roll again).

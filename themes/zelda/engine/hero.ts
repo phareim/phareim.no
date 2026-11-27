@@ -3,9 +3,9 @@
  * exit / lift / throw / sword), the charged spin, B items, block pushing,
  * doors, walking out of a door, and the tiles underfoot.
  */
-import type { Dir, ExitSpot, GameState, Input, TileChar, UseItem, World } from '../types'
+import type { Dir, ExitSpot, GameState, Input, TileChar, ToolId, UseItem, World } from '../types'
 import {
-  ARC_REACH, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
+  ARC_REACH, B_ITEMS, BUFFER_A, CARRY_SPEED, CHAIN_CANCEL, CHARGE_SPEED, CHARGE_TIME, COMBO, COMBO_WINDOW, HERO_ACCEL, HERO_R,
   HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
@@ -983,16 +983,9 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
 // B items
 // ---------------------------------------------------------------------------
 
-/** The B items the hero has, in the cycle's order: the hook, the disc, bombs, then the hop. */
+/** The B items the hero has, in the cycle's order (`B_ITEMS`: the hook, the disc, bombs, then the hop). */
 export function useItems(s: GameState): UseItem[] {
-  const inv = s.inv
-  const owned: UseItem[] = []
-  if (inv.hook) owned.push('hook')
-  if (inv.disc) owned.push('disc')
-  if (inv.bombBag) owned.push('bombs')
-  // The art learned (`moves.ts`), after the items.
-  for (const a of inv.arts ?? []) owned.push(a)
-  return owned
+  return B_ITEMS.filter(b => b.owned(s.inv)).map(b => b.id)
 }
 
 export function cycleItem(c: Ctx) {
@@ -1004,36 +997,47 @@ export function cycleItem(c: Ctx) {
   c.ev.push({ type: 'cycle', item: inv.selected })
 }
 
+/** What pressing B does with each thing of `B_ITEMS`; an art does its own (`moves.ts` `useArt`). */
+const TOOL_USE: Record<ToolId, (c: Ctx, inp: Input) => void> = {
+  hook: c => fireHook(c),
+  disc: throwDisc,
+  bombs: setBomb,
+}
+
 function useItem(c: Ctx, inp: Input) {
+  const sel = c.s.inv.selected
+  if (isArt(sel)) useArt(c, inp, sel)
+  else if (sel && Object.prototype.hasOwnProperty.call(TOOL_USE, sel)) TOOL_USE[sel](c, inp)
+  else if (c.s.inv.sword) c.ev.push({ type: 'error' }) // no buzz for a visitor who has nothing yet
+}
+
+function setBomb(c: Ctx) {
   const s = c.s
   const h = s.hero
-  const inv = s.inv
-  if (inv.selected === 'bombs') {
-    if (inv.bombs <= 0 || s.map.bombs.length >= 2) { c.ev.push({ type: 'error' }); return }
-    const v = dirVec(h.dir)
-    let bx = h.x + v.x * 0.7
-    let by = h.y + v.y * 0.7
-    if (circleBlocked(c.w, s.map, bx, by, 0.2, 'enemy')) { bx = h.x; by = h.y }
-    inv.bombs--
-    s.map.bombs.push({ id: nextId(s), x: bx, y: by, t: 0 })
-    h.act = 'use'
-    h.actT = 0
-    c.ev.push({ type: 'bombPlace' })
-  } else if (inv.selected === 'hook') {
-    fireHook(c)
-  } else if (inv.selected === 'disc') {
-    if (s.disc) return
-    let dx = inp.move.x
-    let dy = inp.move.y
-    const len = Math.hypot(dx, dy)
-    if (len < 0.3) { const v = dirVec(h.dir); dx = v.x; dy = v.y } else { dx /= len; dy /= len }
-    s.disc = { x: h.x + dx * 0.4, y: h.y + dy * 0.4, vx: dx, vy: dy, t: 0, returning: false, hit: [], carrying: [] }
-    h.act = 'use'
-    h.actT = 0
-    c.ev.push({ type: 'disc' })
-  } else if (isArt(inv.selected)) {
-    useArt(c, inp, inv.selected)
-  } else if (s.inv.sword) c.ev.push({ type: 'error' }) // no buzz for a visitor who has nothing yet
+  if (s.inv.bombs <= 0 || s.map.bombs.length >= 2) { c.ev.push({ type: 'error' }); return }
+  const v = dirVec(h.dir)
+  let bx = h.x + v.x * 0.7
+  let by = h.y + v.y * 0.7
+  if (circleBlocked(c.w, s.map, bx, by, 0.2, 'enemy')) { bx = h.x; by = h.y }
+  s.inv.bombs--
+  s.map.bombs.push({ id: nextId(s), x: bx, y: by, t: 0 })
+  h.act = 'use'
+  h.actT = 0
+  c.ev.push({ type: 'bombPlace' })
+}
+
+function throwDisc(c: Ctx, inp: Input) {
+  const s = c.s
+  const h = s.hero
+  if (s.disc) return
+  let dx = inp.move.x
+  let dy = inp.move.y
+  const len = Math.hypot(dx, dy)
+  if (len < 0.3) { const v = dirVec(h.dir); dx = v.x; dy = v.y } else { dx /= len; dy /= len }
+  s.disc = { x: h.x + dx * 0.4, y: h.y + dy * 0.4, vx: dx, vy: dy, t: 0, returning: false, hit: [], carrying: [] }
+  h.act = 'use'
+  h.actT = 0
+  c.ev.push({ type: 'disc' })
 }
 
 export function heroInvulnFlash(h: { invuln: number }) {

@@ -17,7 +17,8 @@
  */
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP } from '../types'
-import { airTime, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen } from '../engine/index'
+import { airTime, BIG, bossOpen, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen } from '../engine/index'
+import { itemSpriteName } from './itemIcon'
 import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, drawPause, drawSlow, drawViewStrip, hudScale, NEON_SKIN, type Callout, type HudSkin, type MenuPage } from './hud'
@@ -52,9 +53,6 @@ const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 
 /** Seconds a fallen foe's white shape bursts before its poof (`Enemy.deathT`). */
 const DEATH_POP = 0.18
 
-/** Foes drawn larger than a person. */
-const BIG_FOES: ReadonlySet<string> = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
-
 /** Frontier skins for existing field enemy behaviours. The boss art has its own future encounters. */
 const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierCreature>>> = {
   lumenby: { skull: 'timberbeetle', zapper: 'orehopper' },
@@ -66,7 +64,7 @@ const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierC
 
 const T = TILE
 
-/** A tough foe's colours (its outline and bar): pink, gold while it is open; the bar's rim and what it has lost. */
+/** A tough foe's colours (its outline and bar, and a boss's bar): pink, gold while it is open; the bar's rim and what it has lost. */
 const TOUGH_PINK = '#ff2fa0'
 const TOUGH_GOLD = '#ffd23f'
 const TOUGH_RIM = '#0b0616'
@@ -276,7 +274,7 @@ export interface Kit {
   queue(g: G, s: GameState, ui: FrameUI, cx: number, cy: number, qw: number, qh: number, lights: Light[], flat?: G): SceneItem[]
   ambient(s: GameState, ui: FrameUI, lights: Light[]): string
   projectiles(g: G, s: GameState, place: Place, dirOf?: (vx: number, vy: number) => Vec): void
-  /** The effects that glow by themselves, and the tough foes' bars (`foes`: how this view draws their figures). */
+  /** The effects that glow by themselves, and the tough foes' and bosses' bars (`foes`: how this view draws their figures). */
   fx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash?: number, foes?: FoeView): void
   /**
    * The camera's kick from the last blow, in tiles (world axes): the picture leans that far along the blow and
@@ -820,7 +818,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       g.drawImage(spr, Math.round(x - 8), Math.round(feet - 16 - 10 * lift - 2))
     }
     if (h.act === 'get' && s.get) {
-      const icon = itemIcon(s.get.item)
+      const icon = itemSpriteName(s.get.item)
       const spr = sprite(icon)
       g.drawImage(spr, Math.round(x - spr.width / 2), Math.round(feet - 18 - spr.height))
       lights.push({ x: h.x, y: h.y - 1.4, r: 3.5, color: '#ffd23f', a: 0.9 })
@@ -902,31 +900,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (heroBare) return
     const bs = bladeSprite(a)
     blit(g, bs.name, bs.fh, bs.fv, x + Math.cos(a) * 12, y + Math.sin(a) * 11)
-  }
-
-  function itemIcon(item: string): string {
-    switch (item) {
-      case 'sword': return 'item_sword'
-      case 'bombBag': case 'bombs5': return 'item_bombbag'
-      case 'disc': return 'item_disc'
-      case 'smallKey': return 'item_key'
-      case 'bigKey': return 'item_bigkey'
-      case 'heartPiece': return 'item_heartpiece'
-      case 'heartContainer': return 'item_container'
-      case 'heart': return 'drop_heart'
-      case 'prism': return 'item_prism'
-      case 'hook': return 'item_hook'
-      case 'arc': return 'item_arc'
-      case 'bigBag': return 'item_bigbag'
-      case 'waffle': return 'item_waffle'
-      case 'shroom': return 'item_shroom'
-      case 'tube': return 'item_tube'
-      case 'walkie': return 'item_walkie'
-      case 'hat': return 'item_hat'
-      // The art learned (`engine/moves.ts`): its own icon.
-      case 'artHop': return 'item_hop'
-      default: return 'item_bits'
-    }
   }
 
   function enemySprite(e: Enemy, realm?: string): { name: string; flip: boolean } {
@@ -1058,10 +1031,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: e.x, y: e.y - 0.3, r: hot ? 2.4 : 1.2, color: '#ff3b5c', a: hot ? 1 : 0.6 })
     }
     if (e.kind === 'zapper' && e.stun <= 0) lights.push({ x: e.x, y: e.y - 0.4, r: 2, color: '#b6ff4a', a: 0.5 + 0.3 * Math.sin(time * 15) })
-    if ((e.kind === 'knight' || e.kind === 'llama') && e.ai.mode === 'dazed') drawStars(g, x, feet - 25)
-    if (e.kind === 'mistral' && e.ai.mode === 'down') drawStars(g, x, feet - 22)
-    // (A tough one's stars go with its bar, over its head as this view draws it.)
-    if (e.stun > 0 && !e.tough) drawStars(g, x, feet - (e.kind === 'knight' ? 25 : 16))
+    // (A tough one's stars and a boss's go with its bar, over its head as this view draws it: `foeBars`.)
+    if (e.stun > 0 && !e.tough && !BIG.has(e.kind)) drawStars(g, x, feet - 16)
     // (A tough one tells by its outline.)
     if (e.ai.tell > 0 && !e.tough && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek') {
       g.fillStyle = '#ff2fa0'
@@ -1104,31 +1075,49 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   /**
-   * Over every tough foe: a bar of what is left of it, 12 × 3 px, its lower edge 3 px above the figure, and its stars
-   * while stunned. Drawn with the effects, so it is unlit, crisp and above every sprite, in all the views.
+   * Over every tough foe and every boss (`BIG`): a bar of what is left of it, 3 px high, its lower edge 3 px above
+   * the figure, and its stars while stunned or dazed. A tough one's is 12 px wide, a boss's twice its radius; gold
+   * while the foe is open (`toughOpen`, `bossOpen`). Drawn with the effects, so it is unlit, crisp and above every
+   * sprite, in all the views.
    */
-  function toughBars(g: G, s: GameState, place: Place, view: FoeView) {
+  function foeBars(g: G, s: GameState, place: Place, view: FoeView) {
     const def = mapInfo(world, s.map.id).def
     for (const e of s.map.enemies) {
+      const big = BIG.has(e.kind)
       // (The same foes the queue draws.)
-      if (!e.tough || e.dead || e.away) continue
+      if ((!e.tough && !big) || e.dead || e.away) continue
       if (def.kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
-      const { name, flip } = enemySprite(e, def.realm)
+      // Under the floor only a fin shows: the bar rides over that.
+      const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
+      const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art))
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
-      if (e.stun > 0) drawStars(g, at.x, head - 1)
-      const x = Math.round(at.x) - 6
+      const dazed = ((e.kind === 'knight' || e.kind === 'llama') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
+      if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
+      const w = big ? Math.round(e.r * T) * 2 : 12
+      const x = Math.round(at.x) - w / 2
       const y = head - 6
+      const color = toughOpen(e) || bossOpen(e) ? TOUGH_GOLD : TOUGH_PINK
       g.fillStyle = TOUGH_RIM
-      g.fillRect(x, y, 12, 3)
+      g.fillRect(x, y, w, 3)
       g.fillStyle = TOUGH_LOST
-      g.fillRect(x + 1, y + 1, 10, 1)
+      g.fillRect(x + 1, y + 1, w - 2, 1)
       if (e.hp <= 0) continue
-      g.fillStyle = toughOpen(e) ? TOUGH_GOLD : TOUGH_PINK
-      g.fillRect(x + 1, y + 1, Math.max(1, Math.round((10 * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
+      g.fillStyle = color
+      g.fillRect(x + 1, y + 1, Math.max(1, Math.round(((w - 2) * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
     }
+  }
+
+  /**
+   * How far above its foot point `drawEnemy` sets a boss's figure, px, at the top of its bob (so the bar holds still):
+   * the king hovers, its picture hung 8 px low, and Mistral and the twins fly while they are up.
+   */
+  function standsAbove(e: Enemy): number {
+    if (e.kind === 'king') return (e.ai.mode === 'down' ? 0 : 8) - 8
+    if ((e.kind === 'mistral' || e.kind === 'gemini') && e.ai.mode !== 'down') return 7
+    return 0
   }
 
   /** White while struck: solid for the first 60 ms (a hit held in hitstop always shows it), then flickering out. */
@@ -1144,7 +1133,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** A foe squashed flat by a blow, then springing back up a little taller. */
   function foeSquash(e: Enemy): [number, number] {
     const t = e.hitT
-    if (t === undefined || BIG_FOES.has(e.kind)) return [1, 1]
+    if (t === undefined || BIG.has(e.kind)) return [1, 1]
     if (t < 0.07) return [1.2, 0.82]
     if (t < 0.14) return [0.94, 1.06]
     return [1, 1]
@@ -1242,7 +1231,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     for (const p of m.pickups) {
       if (p.hidden) continue
-      const icon = itemIcon(p.item)
+      const icon = itemSpriteName(p.item)
       const bob = p.shop || ui.reducedMotion ? 0 : Math.round(Math.sin(time * 3 + p.x) * 1.5)
       items.push({
         x: p.x,
@@ -1307,13 +1296,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const e of m.enemies) {
       if (e.dead) {
         // Just fallen: the pop, where it stood.
-        if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG_FOES.has(e.kind) && (kind !== 'dungeon' || e.cell === s.zoneIndex)) {
+        if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG.has(e.kind) && (kind !== 'dungeon' || e.cell === s.zoneIndex)) {
           items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, draw: () => drawDeathPop(g, s, e, cx, cy) })
         }
         continue
       }
       if (kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
-      items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG_FOES.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
+      items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
     }
     for (const b of m.bombs) {
       const fast = b.t > BOMB_FUSE - 0.6
@@ -1975,7 +1964,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       g.globalAlpha = 1
     }
     fx = keep
-    toughBars(g, s, place, foes)
+    foeBars(g, s, place, foes)
   }
 
   /** The hero's velocity last frame (a run turning round raises dust). */

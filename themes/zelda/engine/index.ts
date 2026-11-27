@@ -8,7 +8,8 @@ export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artRead
 export { STATS } from './spawn'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
-export { toughOpen } from './combat'
+export { toughOpen, bossOpen, BIG, itemText } from './combat'
+export { isWeight, hasWeight, weightCount, clearFoes } from './map'
 export { solidTile } from './map'
 export { DAY, DAY_LENGTH, HOURS, foeLevel, setDaytime, wayOut } from './day'
 export { terrainAbove, terrainZ, terrainRise, terrainLevel, heightAt, isRamp, RAMPS } from './terrain'

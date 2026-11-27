@@ -12,7 +12,7 @@ import type { GameState, MapDef, Rect } from '../types'
 export const CHUNK = 8
 /** Tiles round the hero that count as seen: about what the isometric view shows of the ground. */
 export const SIGHT = 10
-/** At most this many maps are kept; the first ones written make room (a save has 16 KB in all). */
+/** At most this many maps are kept; the first ones written make room (a save has 32 KB in all). */
 export const EXPLORE_MAPS = 200
 
 const DIGITS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'

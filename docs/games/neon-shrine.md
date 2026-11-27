@@ -855,6 +855,18 @@ classic picture. `/?view=<id>` asks for one.
       who stand, hammer A or lean on the disc are hurt; one who rolls off the
       strike and cuts in the opening wins untouched, in 6 to 20 s. Tune
       `TOUGH` against it.
+  - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
+    DeepSeek, the twins). The tough foes' bar over each of their heads, in
+    every view, as wide as twice the foe's radius in classic px (20 for a twin,
+    36 for the king): what is left is pink, gold while the boss is open
+    (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
+    points off it). The knight dazed or stunned (its unguarded back is open to
+    the blade too, but depends on where the hero stands, so the bar stays
+    pink); the king down; Mistral down; DeepSeek up or hauled (under the floor
+    the bar rides over the fin); a twin on its feet, so always, except while it
+    lies fallen; the llama never, its wool turns the blade. A stunned or dazed
+    boss's stars turn between its head and the bar. A new boss adds its case to
+    `bossOpen`.
   - *The lands' foes* are ordinary foe marks, drawn in the realm's own skins
     (`FRONTIER_FOE_LOOKS` in `render/renderer.ts`): which stand where is in
     `docs/worlds/atlas.md`, "The lands". The Sporelight's sentries are
@@ -1480,6 +1492,32 @@ AGENTS.md), so the dialog box and the button deck stay above it.
 A talk branch can end in a two-way question (`ask` on `TalkBranch`: two labels, a reply each; left/right or a tap picks, B closes). The town cat uses it: TALK or PET (2026-10-01).
 After lines close, A only swings until it has rested `TALK_REST` (0.35 s, restarted by each press), so mashing through someone's lines never starts them over (2026-10-06).
 
+**Dungeon pieces: gates, keys, the Weights.** A gate is an `X` run with one
+`gate` mark; it opens for good once its condition holds (`open`: a flag,
+plates, `clear`), saved as `gate:<map>.<x>,<y>`. A **trap gate**
+(`{ t: 'gate', trap: true }`, in a dungeon's rooms only, no condition of its
+own) is a room that locks: it is open, drawn and walked as floor, until the
+hero is in its room and clear of its tiles while a foe that counts for
+`clear` lives there (every kind but the `eye` and the `blade`); then it shuts,
+with the gate's sound and a shake, and is a wall to walkers, rolls, the air
+moves, the hook, the disc, shots and pushed blocks (a bomb's blast reaches
+past walls, this one too). It opens for good when the room is clear. It waits
+to shut while the hook's chain is out, or while a walking foe or a block is in
+the doorway. A death, a warp out or entering any room puts an unbeaten one
+back to open, the room's foes reset as always; with no such foe left it never
+shuts. A beaten trap gate does not count as a solved puzzle: the room's push
+blocks still go home. No map has one yet. Small keys and the big key are per
+keyring (`MapDef.keyring`, `docs/games/wildwood.md`); the big key says it
+opens the great door to the King in the Shrine's ring and the great door
+"here" in every other. A foe that `carries` a key needs a `once` flag
+(`validate.ts`), or it would come back with another; none is placed. The
+seven **Sacred Weights** (`WEIGHTS` in `types.ts`, one a land:
+MEANING, REASONS, NO, SURPRISE, FINGERS, CREDIT, SOURCES) are items whose
+grant sets only the flag `item:<id>` (`hasWeight`, `weightCount`), with the
+heart container's jingle and one shared stand-in picture (`item_weight`). No
+map gives one yet, and the ITEMS page does not show them
+(`docs/worlds/sacred-weights.md` is the plan).
+
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
 ship. Nothing is written before the hero has the blade, so a visitor who
@@ -1489,7 +1527,11 @@ time, `savedAt`) is the instant copy; every write also goes to the
 player's slot `zelda` through `POST /api/save` (`composables/useGameSave.ts`,
 one request in flight, keepalive). Written on every map entry, item,
 secret, door, gate, boss, respawn, exit, TO TOWN and when the tab is
-hidden. On load the shell starts on the local copy and pulls the slot in
+hidden. The server takes up to 32 KB of JSON (`SAVE_GAMES`; a bigger write is
+refused and the client says nothing): a save with everything in the world done
+is about 9 KB. What B holds is one of `B_ITEMS` (`types.ts`: the hook, the
+disc, bombs, the arts); a save naming anything else loads with nothing in
+hand. On load the shell starts on the local copy and pulls the slot in
 the background; `reconcile` in `progress.ts` keeps the newer write, and a
 newer profile save replaces the run at the next calm frame only if this
 session has not saved yet. A new game (a cleared slot, remembered locally
@@ -1642,7 +1684,10 @@ small fixture world (cabinet with lines, solid exit without, door, the
 entries beside them, validator errors), the rules before the blade, saves
 and death, and a **full scripted run** from the hut to the Sun Prism with
 a path-finding walker (god mode, bosses killed directly) — it proves every
-key, gate, crystal, push block and appear-chest is wired. The town's own
+key, gate, crystal, push block and appear-chest is wired. The dungeon pieces
+(the Weights, trap gates, `bossOpen`, the B items, the save cap, key carriers)
+are `tests/zelda-kit.test.mjs`; `SAVE_SIZE=1` prints what a full save holds.
+The town's own
 checks are `test:portal`. `node scripts/zelda-lab/shot.mjs <outDir>
 [scenes]` renders the real renderer for named scenes without Nuxt (`r-*`
 are the town, `r-road` the coast road); `scripts/zelda-lab/cdp.mjs` is a

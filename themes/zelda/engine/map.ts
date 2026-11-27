@@ -4,9 +4,9 @@
  * it; `loadMap` builds the mutable MapState for the current progress.
  */
 import type {
-  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, World, Enemy, Npc, Pickup,
+  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, WeightId, World, Enemy, Npc, Pickup,
 } from '../types'
-import { TOUGH } from '../types'
+import { TOUGH, WEIGHTS } from '../types'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { puzzleMarkTile } from '../world/puzzles'
 import { loadPuzzleTiles } from './puzzles/load'
@@ -16,7 +16,8 @@ import { dirVec, opposite } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
 export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; idx: number; x: number; y: number; cell: number }
-export interface GateInfo { id: string; tiles: number[]; open: Cond; cell: number }
+/** `trap`: a gate that starts open and shuts behind the hero (`open` is then the room's `clear`). */
+export interface GateInfo { id: string; tiles: number[]; open: Cond; cell: number; trap?: boolean }
 
 export interface MapInfo {
   def: MapDef
@@ -119,8 +120,10 @@ function buildInfo(def: MapDef): MapInfo {
     else if (e.t === 'plate') info.plates.set(idx, e.id)
     else if (e.t === 'glyph') info.glyphs.set(idx, e.ch)
     else if (e.t === 'lever') info.levers.set(idx, e.flag)
-    else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), open: e.open, cell })
+    else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open }) })
   }
+  // A trap gate is floor as authored: open on every load, and on the chart.
+  for (const g of info.gates) if (g.trap) for (const i of g.tiles) base[i] = '.'
   // Exits, and the entry beside each one (after the entry markers, which win a name clash).
   for (const m of marks) {
     const e = m.ent
@@ -301,9 +304,22 @@ export function condMet(s: GameState, world: World, c: Cond | undefined, cell: n
   if ('session' in c) return s.session === c.session
   if ('flags' in c) return c.flags.every(f => has(s, f)) && !(c.not ?? []).some(f => has(s, f))
   // clear: the room's enemies are all dead (and it had some)
-  const inCell = s.map.enemies.filter(e => e.cell === cell && e.kind !== 'eye' && e.kind !== 'blade')
+  const inCell = clearFoes(s, cell)
   return inCell.length > 0 && inCell.every(e => e.dead)
 }
+
+/** The foes a room's `clear` counts, dead or alive: all but the statues and the spike traps, which cannot fall. */
+export function clearFoes(s: GameState, cell: number): Enemy[] {
+  return s.map.enemies.filter(e => e.cell === cell && e.kind !== 'eye' && e.kind !== 'blade')
+}
+
+// ---------------------------------------------------------------------------
+// The Sacred Weights (`WEIGHTS`): held is the flag its grant set
+// ---------------------------------------------------------------------------
+
+export const isWeight = (item: string): item is WeightId => WEIGHTS.some(w => w.id === item)
+export const hasWeight = (s: Pick<GameState, 'flags'>, id: WeightId) => s.flags[`item:${id}`] === true
+export const weightCount = (s: Pick<GameState, 'flags'>) => WEIGHTS.filter(w => hasWeight(s, w.id)).length
 
 // ---------------------------------------------------------------------------
 // Loading

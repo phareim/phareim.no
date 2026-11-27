@@ -218,8 +218,33 @@ const itemHat: Rows = [
   '................',
 ]
 
+// ---------------------------------------------------------------------------
+// A Sacred Weight: a small brass scale weight with a ring on top. A STAND-IN, one picture for all seven; the seven
+// stamped icons are drawn later.
+// ---------------------------------------------------------------------------
+
+const itemWeight: Rows = [
+  '................',
+  '.....kkkkkk.....',
+  '....kyyyyYYk....',
+  '....kyk..kYk....',
+  '....kyk..kYk....',
+  '.....kyyYYk.....',
+  '......kyYk......',
+  '....kkkyYkkk....',
+  '...kyyyyyyYYk...',
+  '...kyyyyyYYYk...',
+  '..kyyyyyyyYYYk..',
+  '..kyyyyyyYYYYk..',
+  '..kyyyyyyyYYYk..',
+  '.kyyyyyyyYYYYYk.',
+  '.kYYYYYYYYYYYYk.',
+  '.kkkkkkkkkkkkkk.',
+]
+
 export const ITEMS: Record<string, Rows> = {
   item_hook: itemHook, item_arc: itemArc, item_bigbag: itemBigbag, item_waffle: itemWaffle,
   item_shroom: itemShroom, item_tube: itemTube, item_walkie: itemWalkie, item_hat: itemHat,
+  item_weight: itemWeight,
   hook_head_v: hookHeadV, hook_head_h: hookHeadH, hook_link: hookLink,
 }

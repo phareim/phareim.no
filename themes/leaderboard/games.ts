@@ -106,7 +106,8 @@ export interface SaveGameEntry {
 }
 
 export const SAVE_GAMES: readonly SaveGameEntry[] = [
-  { id: 'zelda', title: 'Neon Shrine', maxBytes: 16_384 },
+  // (A full save of the world is about 9 KB; seven dungeons more take it past 16: tests/zelda-kit.test.mjs.)
+  { id: 'zelda', title: 'Neon Shrine', maxBytes: 32_768 },
   { id: 'anotherworld', title: 'Another Shore', maxBytes: 1_024 },
   { id: 'battery', title: 'Night of the Dead Battery', maxBytes: 8_192 },
   { id: 'miniworld', title: 'Mini World', maxBytes: 32_768 },

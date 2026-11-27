@@ -60,6 +60,14 @@ export function validateWorld(world: World): string[] {
     for (const [ch, m] of Object.entries(def.marks)) {
       if (m.ent.t === 'entry') { entries.add(m.ent.id); markerEntries.add(m.ent.id) }
       if (!def.rows.some(r => r.includes(ch))) out.push(`${id}: marker '${ch}' is never placed`)
+      // A foe that carries something comes back with it on every room re-entry unless it falls for good.
+      if (m.ent.t === 'enemy' && m.ent.carries && !m.ent.once) out.push(`${id}: marker '${ch}' carries a ${m.ent.carries} and has no once flag`)
+      if (m.ent.t === 'gate') {
+        if (m.ent.trap) {
+          if (def.kind !== 'dungeon' || !def.cell) out.push(`${id}: marker '${ch}' is a trap gate outside a dungeon's rooms`)
+          if (m.ent.open) out.push(`${id}: marker '${ch}' is a trap gate with a condition of its own`)
+        } else if (!m.ent.open) out.push(`${id}: marker '${ch}' is a gate that nothing opens`)
+      }
       if (m.ent.t === 'enemy' && m.ent.tough) {
         if (m.ent.kind !== 'sentry' && m.ent.kind !== 'hound') out.push(`${id}: marker '${ch}' is a tough ${m.ent.kind} (only a sentry or a hound may be tough)`)
         if (m.ent.calm) out.push(`${id}: marker '${ch}' is calm and tough at once`)
@@ -145,7 +153,21 @@ function reachability(id: string, world: World): string[] {
       }
     }
   })
-  const tile = (x: number, y: number): TileChar => (filled.has(y * w + x) ? '.' : tileOf(def, x, y))
+  // A trap gate starts open and only ever shuts for a fight: floor, the whole run of it.
+  const trapped = new Set<number>()
+  def.rows.forEach((r, y) => {
+    for (let x = 0; x < w; x++) {
+      const e = def.marks[r[x]!]?.ent
+      if (e?.t !== 'gate' || !e.trap) continue
+      for (const st = [[x, y]]; st.length;) {
+        const [a, b] = st.pop() as [number, number]
+        if (a < 0 || b < 0 || a >= w || b >= h || trapped.has(b * w + a) || tileOf(def, a, b) !== 'X') continue
+        trapped.add(b * w + a)
+        st.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1])
+      }
+    }
+  })
+  const tile = (x: number, y: number): TileChar => (filled.has(y * w + x) || trapped.has(y * w + x) ? '.' : tileOf(def, x, y))
   const seen = new Uint8Array(w * h)
   const stack: number[] = []
   const seed = (x: number, y: number) => {

@@ -330,8 +330,50 @@ export type ItemId =
   | 'hat' // the troll's hat
   // The art (`engine/moves.ts`), for the B button
   | 'artHop' // the Keeper
+  // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
+  | WeightId
 
-export type UseItem = 'disc' | 'bombs' | 'hook' | ArtId
+export type WeightId =
+  | 'weightMeaning' | 'weightReasons' | 'weightNo' | 'weightSurprise'
+  | 'weightFingers' | 'weightCredit' | 'weightSources'
+
+/**
+ * The Sacred Weights: each is stamped with `word` and belongs to the land `land` (a map id). Holding one is the flag
+ * `item:<id>` every grant sets, and nothing else: no inventory field (`engine/map.ts` `hasWeight`, `weightCount`).
+ */
+export const WEIGHTS: ReadonlyArray<{ id: WeightId; word: string; land: string }> = [
+  { id: 'weightMeaning', word: 'MEANING', land: 'seterfell' },
+  { id: 'weightReasons', word: 'REASONS', land: 'yulefjord' },
+  { id: 'weightNo', word: 'NO', land: 'sporelight' },
+  { id: 'weightSurprise', word: 'SURPRISE', land: 'stillsand' },
+  { id: 'weightFingers', word: 'FINGERS', land: 'rerun' },
+  { id: 'weightCredit', word: 'CREDIT', land: 'lumenby' },
+  { id: 'weightSources', word: 'SOURCES', land: 'fogstage' },
+]
+
+/** What B can hold: a thing (`B_ITEMS`) or an art (`ARTS`). */
+export type UseItem = ToolId | ArtId
+export type ToolId = (typeof B_TOOLS)[number]['id']
+/** A row of `B_ITEMS`: its HUD name and icon, and whether the hero has it. */
+export interface BItem { id: string; name: string; icon: string; owned: (inv: Inventory) => boolean }
+
+/**
+ * The things B holds, in the cycle's order. A new one is a row here and its code: what pressing B does
+ * (`engine/hero.ts` `TOOL_USE`, which tsc requires) and what gives it (`grant`).
+ */
+const B_TOOLS = [
+  { id: 'hook', name: 'HOOK', icon: 'item_hook', owned: (inv: Inventory) => inv.hook },
+  { id: 'disc', name: 'DISC', icon: 'item_disc', owned: (inv: Inventory) => inv.disc },
+  { id: 'bombs', name: 'BOMBS', icon: 'item_bombbag', owned: (inv: Inventory) => inv.bombBag },
+] as const satisfies readonly BItem[]
+
+/** Everything B can hold, in the cycle's order: the things, then the arts. What `useItems`, a save and the HUD read. */
+export const B_ITEMS: ReadonlyArray<BItem & { id: UseItem }> = [
+  ...B_TOOLS,
+  ...ARTS.map(a => ({ id: a.id, name: a.name, icon: `item_${a.id}`, owned: (inv: Inventory) => !!inv.arts?.includes(a.id) })),
+]
+/** The row of `B_ITEMS` for `id`; undefined for anything else (a name a save holds and the game does not know). */
+export const bItem = (id: unknown) => B_ITEMS.find(b => b.id === id)
 
 /**
  * A map whose ground has heights (`engine/terrain.ts`). Every tile gets a height 0–4: walking crosses equal
@@ -422,7 +464,13 @@ export type EntDef =
   | { t: 'plate'; id: string }
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
   | { t: 'warp'; to: string; entry: string } // stepping on this tile warps
-  | { t: 'gate'; open: Cond } // on one tile of an X run (tile 'X')
+  /**
+   * On one tile of an X run (tile 'X'). A shut gate opens for good once `open` holds. A `trap` gate (a dungeon room
+   * only, no `open` of its own) starts open, shuts behind the hero in its room while a foe lives there, and opens for
+   * good when the room is clear (`engine/objects.ts`).
+   */
+  | { t: 'gate'; open: Cond; trap?: false }
+  | { t: 'gate'; trap: true; open?: never }
   | { t: 'glyph'; ch: string } // a letter stone (tile '{')
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   // Physical puzzles (`engine/puzzles/`): each also works unmarked with defaults, see world/puzzles.ts
@@ -1178,7 +1226,8 @@ export type GameEvent =
   | { type: 'itemGet'; item: ItemId }
   | { type: 'secret' }
   | { type: 'unlock'; x: number; y: number }
-  | { type: 'gate'; x: number; y: number }
+  /** A gate opened; with `shut`, a trap gate came down. */
+  | { type: 'gate'; x: number; y: number; shut?: boolean }
   | { type: 'plate'; x: number; y: number }
   | { type: 'crystal'; state: 'pink' | 'cyan' }
   | { type: 'push'; x: number; y: number }

@@ -2,8 +2,8 @@
  * Damage, drops and item grants — the rules every other engine module
  * calls into. `Ctx` bundles what a step needs.
  */
-import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, World } from '../types'
-import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH } from '../types'
+import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, WeightId, World } from '../types'
+import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
 import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
 import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
@@ -92,6 +92,28 @@ const blade = (src: HitSource) => src === 'sword' || src === 'spin'
  */
 export function toughOpen(e: Enemy): boolean {
   return !!e.tough && (e.stun > 0 || e.ai.mode === (e.kind === 'hound' ? 'rest' : 'spent'))
+}
+
+/**
+ * A boss open to the blade (the `BIG` foes; its bar is gold then, `render/renderer.ts` `foeBars`): the state in which
+ * the blade takes hit points off it (`hitEnemy`, `bossRules`). It asks the boss alone, so the knight's unguarded back,
+ * which depends on where the hero stands, does not count. A new boss adds its case here. False for any other foe.
+ */
+export function bossOpen(e: Enemy): boolean {
+  if (e.dead) return false
+  const mode = e.ai.mode
+  switch (e.kind) {
+    // Its shield is down: dazed against a wall, or stunned.
+    case 'knight': return mode === 'dazed' || e.stun > 0
+    case 'king': return mode === 'down'
+    // The wool turns the blade whatever it is doing.
+    case 'llama': return false
+    case 'mistral': return mode === 'down'
+    case 'deepseek': return mode === 'up' || mode === 'hauled'
+    // A twin on its feet; one that has fallen is out of reach until it gets up.
+    case 'gemini': return mode !== 'down'
+    default: return false
+  }
 }
 
 /**
@@ -379,7 +401,8 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bombs5': return ['FIVE BOMBS. HANDLE WITH CARE.']
     case 'disc': return ['YOU GOT THE PRISM DISC!', 'PRESS {B} TO THROW IT. IT STUNS FOES, FETCHES LOOT AND FLIPS FAR SWITCHES.', '{CYCLE} SWAPS BETWEEN BOMBS AND THE DISC.']
     case 'smallKey': return ['A SMALL KEY. WALK INTO A LOCKED DOOR TO OPEN IT.']
-    case 'bigKey': return ['THE BIG KEY! IT OPENS THE GREAT DOOR TO THE KING.']
+    // (The Shrine's ring is the one with the King behind its great door.)
+    case 'bigKey': return [s.map.ring === 'shrine' ? 'THE BIG KEY! IT OPENS THE GREAT DOOR TO THE KING.' : 'THE BIG KEY! IT OPENS THE GREAT DOOR HERE.']
     case 'heartPiece': return s.inv.pieces === 0
       ? ['A PIECE OF HEART!', 'THAT MAKES FOUR. YOUR LIFE GREW BY ONE HEART!']
       : [`A PIECE OF HEART! (${s.inv.pieces}/4)`]
@@ -400,7 +423,15 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
     case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
     case 'artHop': return ['YOU LEARNED HOP!', 'PRESS {B} TO HOP CLEAR OF A FOE, STILL FACING IT. NO BLOW REACHES YOU IN THE AIR.', 'PRESS {A} IN THE HOP AND YOU SPRING BACK IN WITH A CUT. THE CHAIN OF CUTS GOES ON THROUGH IT.', 'THE HOP SITS ON {B} WITH YOUR ITEMS: {CYCLE} SWAPS.']
+    case 'weightMeaning': case 'weightReasons': case 'weightNo': case 'weightSurprise':
+    case 'weightFingers': case 'weightCredit': case 'weightSources': return weightText(item)
   }
+}
+
+function weightText(id: WeightId): string[] {
+  const { word } = WEIGHTS.find(w => w.id === id)!
+  const end = id === 'weightNo' ? 'IT IS THE SMALLEST. IT IS THE HEAVIEST.' : 'IT IS HEAVIER THAN IT LOOKS.'
+  return ['YOU GOT A SACRED WEIGHT!', `IT IS STAMPED ${word}. ${end}`]
 }
 
 /** Apply an item to the inventory (no presentation). */
@@ -429,6 +460,9 @@ export function grant(s: GameState, item: ItemId) {
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
+    // A Sacred Weight is held by its flag alone (`hasWeight`).
+    case 'weightMeaning': case 'weightReasons': case 'weightNo': case 'weightSurprise':
+    case 'weightFingers': case 'weightCredit': case 'weightSources': break
     case 'artHop': learnArt(s, artOfItem(item)!); break
   }
   setFlag(s, `item:${item}`)

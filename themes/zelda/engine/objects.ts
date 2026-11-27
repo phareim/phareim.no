@@ -8,7 +8,8 @@ import { TILE_INFO } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
 import { cutTile, throwLever, toggleCrystal } from './hero'
-import { circleBlocked, condMet, has, moveCircle, setFlag, solidTile, tileAt } from './map'
+import { cellIndex, circleBlocked, circleOnTile, clearFoes, condMet, has, moveCircle, setFlag, solidTile, tileAt, type GateInfo } from './map'
+import { STATS } from './spawn'
 import { nextId, rndRange } from './util'
 import { isTube } from '../world/tubes'
 import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, puzzleInfo, stepPhysics } from './puzzles/index'
@@ -304,6 +305,7 @@ function stepPuzzles(c: Ctx) {
   m.plates = pressed
   // Gates.
   for (const g of c.info.gates) {
+    if (g.trap) { stepTrap(c, g); continue }
     if (m.tiles[g.tiles[0]!] !== 'X') continue
     if (!condMet(s, c.w, g.open, g.cell)) continue
     for (const i of g.tiles) m.tiles[i] = '.'
@@ -332,6 +334,46 @@ function stepPuzzles(c: Ctx) {
       c.ev.push({ type: 'secret' })
     }
   }
+}
+
+/**
+ * A trap gate: open until the hero is in its room and clear of its tiles while a foe the room's `clear` counts still
+ * lives, then shut; open for good (`gate:<id>`) once the room is clear. Loading the map and entering a room put an
+ * unsolved one back to open (`loadMap`, `enterCell`).
+ */
+function stepTrap(c: Ctx, g: GateInfo) {
+  const s = c.s
+  const m = s.map
+  const flag = `gate:${g.id}`
+  if (s.demo || has(s, flag)) return
+  const shut = m.tiles[g.tiles[0]!] === 'X'
+  const i0 = g.tiles[0]!
+  const at = { x: (i0 % m.w) + 0.5, y: Math.floor(i0 / m.w) + 0.5 }
+  if (condMet(s, c.w, g.open, g.cell)) {
+    if (shut) {
+      for (const i of g.tiles) m.tiles[i] = '.'
+      m.version++
+      c.ev.push({ type: 'gate', ...at })
+    }
+    setFlag(s, flag)
+    c.ev.push({ type: 'secret' })
+    return
+  }
+  const h = s.hero
+  // (Not while the chain is out: a pull flies him over whatever lies on its way.)
+  if (shut || s.zoneIndex !== g.cell || cellIndex(c.info, h.x, h.y) !== g.cell || s.hook) return
+  if (!clearFoes(s, g.cell).some(e => !e.dead)) return
+  // Never down on anyone or anything: the hero, a walking foe, a block come to rest in the doorway.
+  for (const i of g.tiles) {
+    const tx = i % m.w
+    const ty = Math.floor(i / m.w)
+    if (m.tiles[i] !== '.' || circleOnTile(h.x, h.y, HERO_R, tx, ty)) return
+    if (m.enemies.some(e => !e.dead && !STATS[e.kind].flying && circleOnTile(e.x, e.y, e.r, tx, ty))) return
+  }
+  for (const i of g.tiles) m.tiles[i] = 'X'
+  m.version++
+  s.shake = Math.max(s.shake, 0.25)
+  c.ev.push({ type: 'gate', ...at, shut: true })
 }
 
 // ---------------------------------------------------------------------------

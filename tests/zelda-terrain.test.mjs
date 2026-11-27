@@ -198,8 +198,8 @@ describe('Neon Shrine terrain', () => {
       const g = Z.createGame(Z.WORLD, { save: old })
       assert.equal(g.map.terrain.h[37 * g.map.w + 2], 4, 'the map as authored')
     }
-    // Something that never was an item still makes a save unreadable.
-    assert.equal(Z.parseSave({ ...save, inv: { ...save.inv, selected: 'spade' } }), null)
+    // Something that never was an item is nothing in hand too (it used to refuse the whole save).
+    assert.equal(Z.parseSave({ ...save, inv: { ...save.inv, selected: 'spade' } }).inv.selected, null)
     // Made down in the Old Quarry: back up in Lumenby's pit, the tools' flags kept and harmless.
     const g = Z.createGame(Z.WORLD, { save: { ...save, map: 'quarry', entry: 'start' } })
     assert.deepEqual([g.entry.map, g.entry.entry], ['lumenby', 'pit'])

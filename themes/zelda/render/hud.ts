@@ -11,7 +11,7 @@ import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
 import { itemIconName } from './itemIcon'
-import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
+import { ARTS, bItem, MOVES, type ArtId, type MoveId, type ToolId } from '../types'
 import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
 
 type G = CanvasRenderingContext2D
@@ -402,11 +402,13 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   let y = drawMenuTabs(g, 'items', vw, Math.max(8, Math.round(vh / 2 - 70)), keys, skin)
   skin.panel(g, x, y, w, 118, 'cool')
   // Items
+  /** A thing B holds, from its row of `B_ITEMS`. */
+  const tool = (id: ToolId): [string, boolean, string] => { const b = bItem(id)!; return [b.icon, b.owned(s.inv), b.name] }
   const items: Array<[string, boolean, string]> = [
     [s.inv.arc ? 'item_arc' : 'item_sword', s.inv.sword, s.inv.arc ? 'ARC' : 'BLADE'],
-    ['item_bombbag', s.inv.bombBag, 'BOMBS'],
-    ['item_hook', s.inv.hook, 'HOOK'],
-    ['item_disc', s.inv.disc, 'DISC'],
+    tool('bombs'),
+    tool('hook'),
+    tool('disc'),
     ['item_bigkey', hasBigKey(s), 'BIG KEY'],
   ]
   const slot = Math.floor((w - 16) / 5)
@@ -417,7 +419,7 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
     g.fillRect(ix, iy, slot - 4, 30)
     if (owned) {
       icon(g, skin, name, Math.round(ix + (slot - 4) / 2 - sprite(name).width / 2), iy + 2)
-      const selected = (name === 'item_disc' && s.inv.selected === 'disc') || (name === 'item_bombbag' && s.inv.selected === 'bombs') || (name === 'item_hook' && s.inv.selected === 'hook')
+      const selected = name === itemIconName(s)
       if (selected) { g.fillStyle = skin.prize; g.fillRect(ix, iy + 29, slot - 4, 1) }
     }
     F.draw(g, owned ? label : '---', Math.round(ix + (slot - 4) / 2 - F.width(owned ? label : '---') / 2), iy + 21, owned ? skin.dim : skin.faint)

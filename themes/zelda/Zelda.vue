@@ -216,7 +216,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { artRest, awayMap, createGame, HOURS, isArt, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
+import { artRest, awayMap, createGame, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -1317,7 +1317,7 @@ function handleEvents(events: GameEvent[]) {
       case 'collect': a?.sfx(e.kind === 'heart' ? 'heart' : e.kind === 'key' ? 'key' : 'coin'); break
       case 'chest': a?.sfx('chest'); break
       case 'itemGet':
-        a?.jingle(e.item === 'prism' ? 'fanfare' : e.item === 'heartPiece' || e.item === 'heartContainer' ? 'heartPiece' : 'item')
+        a?.jingle(e.item === 'prism' ? 'fanfare' : e.item === 'heartPiece' || e.item === 'heartContainer' || isWeight(e.item) ? 'heartPiece' : 'item')
         save = true
         break
       case 'secret': a?.jingle('secret'); save = true; break

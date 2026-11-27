@@ -7,7 +7,7 @@
  * hero left through an exit, the shell navigates) are terminal.
  */
 import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
-import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
+import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, WARP_TIME, bItem } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
@@ -171,10 +171,17 @@ function enterCell(c: Ctx, index: number) {
   m.thrown.length = 0
   m.spell = ''
   m.spellTiles = []
+  // A trap gate not yet beaten stands open again, in whatever room it is (the hero may have left by another way).
+  for (const g of c.info.gates) {
+    if (!g.trap || has(s, `gate:${g.id}`) || m.tiles[g.tiles[0]!] !== 'X') continue
+    for (const i of g.tiles) m.tiles[i] = '.'
+    m.version++
+  }
   // Push blocks go home unless their puzzle is solved.
   const authored = c.info.blocks.get(index)
   if (authored) {
-    const gateSolved = c.info.gates.some(g => g.cell === index && has(s, `gate:${g.id}`))
+    // (A trap gate beaten is a fight won, not a puzzle solved.)
+    const gateSolved = c.info.gates.some(g => !g.trap && g.cell === index && has(s, `gate:${g.id}`))
     if (!gateSolved) {
       const r = cellRect(c.info, index)
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
@@ -629,7 +636,8 @@ export function parseSave(raw: unknown): SaveData | null {
   const OLD_KEYS = ['sword', 'bombBag', 'bombs', 'disc', 'bits', 'keys', 'bigKey', 'pieces', 'selected', 'prism']
   for (const k of Object.keys(base) as Array<keyof Inventory>) {
     const want = typeof base[k]
-    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && !OLD_ITEMS.includes(inv[k] as string) && !OLD_ARTS.includes(inv[k] as string) && !(ART_IDS as readonly unknown[]).includes(inv[k])) return null; continue }
+    // What B holds is never a reason to refuse a save (below: a name the game does not know is nothing in hand).
+    if (k === 'selected') continue
     if (inv[k] === undefined && !OLD_KEYS.includes(k)) continue
     if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
@@ -639,22 +647,21 @@ export function parseSave(raw: unknown): SaveData | null {
   const flags = r.flags as string[]
   // Whoever knew an art the game has dropped knows the HOP, as if the Keeper had taught it.
   const taught = !!arts.arts?.includes('hop') && !flags.includes('item:artHop')
+  const clean: Inventory = { ...base, ...(cleanOld(inv) as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...arts }
+  if (!bItem(clean.selected)) clean.selected = null
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
-    inv: { ...base, ...(cleanOld(inv) as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...arts }, flags: taught ? [...flags, 'item:artHop'] : flags, rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
+    inv: clean, flags: taught ? [...flags, 'item:artHop'] : flags, rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
     ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
     ...(cleanExplored(r.explored) ? { explored: cleanExplored(r.explored)! } : {}),
   }
 }
 
-/** B items a save may hold that the game has since dropped: dig & build's DIG and BUILD (gone 2026-11-26). */
-const OLD_ITEMS: readonly string[] = ['dig', 'build']
-
-/** A save's items without what the game no longer has: dig & build's materials and hammer kind, its B items; tonics. */
+/** A save's items without what the game no longer has: dig & build's materials and hammer kind (gone 2026-11-26); tonics. */
 function cleanOld(inv: Record<string, unknown>): Record<string, unknown> {
   const { mats: _mats, build: _build, tonics: _tonics, ...rest } = inv
-  return OLD_ITEMS.includes(rest.selected as string) ? { ...rest, selected: null } : rest
+  return rest
 }
 
 /**

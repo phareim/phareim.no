@@ -530,8 +530,8 @@ describe('who teaches the hop, and the save', () => {
     const odd = Z.parseSave({ ...raw, inv: { ...raw.inv, selected: 'halo' } })
     assert.equal(odd.inv.selected, null)
     assert.equal(odd.inv.arts, undefined)
-    // Something that never was an art still makes a save unreadable.
-    assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, selected: 'nova' } }), null)
+    // Something that never was an art is nothing in hand too (it used to refuse the whole save).
+    assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, selected: 'nova' } }).inv.selected, null)
   })
 
   it('a save with the hop in hand loads as it was', () => {
