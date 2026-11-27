@@ -24,6 +24,7 @@ import { drawText, textWidth } from '../../base/pixel/font'
 import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, drawPause, drawSlow, drawViewStrip, hudScale, NEON_SKIN, type Callout, type HudSkin, type MenuPage } from './hud'
 import { drawMapPage, targetOnScreen } from './mapPage'
 import { drawItemsPage } from './itemsPage'
+import { drawLogPage, type ChangeLog } from './logPage'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -108,6 +109,8 @@ export interface FrameUI {
   deckTop?: number | null
   /** The cell of the ITEMS page's grid the cursor stands on (`itemsPage.ts`). */
   itemCursor?: number
+  /** What the LOG page shows (`logPage.ts`): the change list, the page of it and the dev switch. */
+  log?: { changes: ChangeLog; page: number; dev: boolean }
   /** The keyboard's focus is on the MAP page's Prism button: the page rings the Prism in gold. */
   prismFocus?: boolean
   /** The view rule turning on its own (`CornerState.rule`): the MAP page's Prism names it. */
@@ -115,6 +118,9 @@ export interface FrameUI {
   /** The view strip: every view in the round and which one is on, shown for a moment after a change. */
   strip?: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number } | null
 }
+
+type CssBox = { x: number; y: number; w: number; h: number }
+export interface LogTargets { page: number; pages: number; older: CssBox | null; newer: CssBox | null; dev: CssBox }
 
 /** Puts a world point (tiles; `z` tiles up off the ground) on the scene (logical px). */
 export type Place = (x: number, y: number, z?: number) => Vec
@@ -201,6 +207,8 @@ export interface Renderer {
   pagePrism(): { x: number; y: number; w: number; h: number } | null
   /** The nine cells of the ITEMS page as last painted, in CSS px from the canvas's top left; null: the page is not up. */
   itemCells(): Array<{ x: number; y: number; w: number; h: number }> | null
+  /** The LOG page's buttons as last painted, in CSS px from the canvas's top left, and which of how many pages is up (null: not on screen). */
+  logTargets(): LogTargets | null
 }
 
 /**
@@ -394,6 +402,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let prismAt: { x: number; y: number; w: number; h: number } | null = null
   /** The ITEMS page's cells as last painted (`Renderer.itemCells`). */
   let cellsAt: Array<{ x: number; y: number; w: number; h: number }> | null = null
+  /** The LOG page's buttons as last painted (`Renderer.logTargets`). */
+  let logAt: LogTargets | null = null
   let flashColor = '#ffffff'
   const glowCache = new Map<string, HTMLCanvasElement>()
   let scan: CanvasPattern | null = null
@@ -1682,6 +1692,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     } else dialogRow = { of: null, y: 0 }
     cellsAt = null
     prismAt = null
+    logAt = null
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
@@ -1758,6 +1769,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // (The MAP page lies on this skin's grid: the deck's top comes to it from the shell's CSS px.)
       else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, rule: ui.rule, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)
       else if (ui.paused && ui.confirmReset) drawPause(g, sp.vw, sp.vh, ui.keys, skin)
+      else if (ui.paused && ui.page === 'log' && ui.log && !ui.confirmReset) drawLogPage(g, sp.vw, sp.vh, { keys: ui.keys, log: ui.log.changes, page: ui.log.page, dev: ui.log.dev, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, placed: p => { const at = (b: CssBox) => targetOnScreen(b, sp, dpr, { w: W / dpr, h: H / dpr }); logAt = { page: p.page, pages: p.pages, older: p.older && at(p.older.hit), newer: p.newer && at(p.newer.hit), dev: at(p.dev.hit) } } }, skin)
       // (The ITEMS page keeps above the deck as the MAP page does, and says where its cells came to lie.)
       else if (ui.paused) drawItemsPage(g, s, sp.vw, sp.vh, { keys: ui.keys, cursor: ui.itemCursor ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, muted: ui.muted, view: ui.view, placed: p => { cellsAt = p.cells.map(b => targetOnScreen(b, sp, dpr, { w: W / dpr, h: H / dpr })) } }, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
@@ -2567,5 +2579,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
     pagePrism: () => prismAt,
     itemCells: () => cellsAt,
+    logTargets: () => logAt,
   }
 }

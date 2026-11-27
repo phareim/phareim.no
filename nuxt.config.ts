@@ -1,4 +1,10 @@
 import { defineNuxtConfig } from 'nuxt/config'
+import { writeChanges } from './scripts/zelda-changes.mjs'
+
+// Neon Shrine's version and change list, from git into themes/zelda/changes.gen.ts (docs/site.md → "Build-time
+// values"). Here so that `nuxt prepare` (npm ci), dev, typecheck and build all have it.
+writeChanges()
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   app: {

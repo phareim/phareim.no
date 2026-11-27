@@ -17,7 +17,7 @@ import { B_ITEMS, B_WORDS, WEIGHTS, type GameState, type Inventory, type UseItem
 import { hasBigKey, hasWeight, keyCount } from '../engine/map'
 import { objective } from '../progress'
 import type { HudKeys } from '../keys'
-import { drawMenuTabs, hudFont, menuTabsY, type HudFont, type HudSkin } from './hud'
+import { drawMenuTabs, hudFont, menuTabsBox, menuTabsY, type HudFont, type HudSkin } from './hud'
 import { Buf, CORNER_SKIN, type CornerPicture } from './corner'
 import { MARK_INKS, type Box } from './worldMap'
 import { PAGE_VEIL, pageBottom } from './mapPage'
@@ -356,15 +356,6 @@ function sizePick(o: ItemsLayoutOpts, cell: number, w: number, sp: Spacing): Siz
   }
 }
 
-/** Where `drawMenuTabs` lays the three tabs. */
-function tabsBox(o: ItemsLayoutOpts, vw: number, y: number): Box {
-  const widths = (o.keys ? ['P ITEMS', 'N MOVES', 'M MAP'] : ['ITEMS', 'MOVES', 'MAP']).map(t => o.font.width(t))
-  const sum = widths.reduce((a, b) => a + b, 0)
-  const gap = Math.min(18, Math.max(8, Math.floor((vw - sum) / 4)))
-  const total = sum + gap * 2
-  return { x: Math.round((vw - total) / 2), y, w: Math.ceil(total), h: TABS_H }
-}
-
 /**
  * Where every part of the page goes on a screen of vw × vh logical px. The tabs stand at the top under the safe area
  * and what is under them takes the middle of the rows left; the keys' hints end the page. The cells are as large as
@@ -412,7 +403,7 @@ export function itemsPageLayout(vw: number, vh: number, o: ItemsLayoutOpts): Ite
     if (!force && (spare < 0 || gridW > pickW || (wide ? widest > restW : widest > across))) return null
 
     const out: ItemsLayout = {
-      wide, tabs: tabsBox(o, vw, first),
+      wide, tabs: menuTabsBox(o.font, vw, first, o.keys),
       heading: null!, grid: null!, cells: [], line: null!,
       always: null, weights: null, carried: null, quest: null, last: null, gave: [],
     }

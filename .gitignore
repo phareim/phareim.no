@@ -37,3 +37,6 @@ __pycache__/
 
 # The studio's copy of the sprites, written by scripts/export-sprites.mjs before each build
 public/studio/
+
+# Neon Shrine's version and change list, written from git by scripts/zelda-changes.mjs (nuxt.config.ts)
+themes/zelda/changes.gen.ts
