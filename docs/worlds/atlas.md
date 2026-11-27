@@ -161,6 +161,8 @@ CLINKER is the smelter camp of the people the town turned away (RAGNA,
 TRIXIE); OLA's WINDMILL; THE SHELLYARD with grazers; THE CLEAN WELL, whose
 stair goes down to THE UNDER (the silent spirit and the seed); THE ROOT HOLLOW
 in the south, with the grazers' pool to its east.
+A door in the Steamhouse's south face leads into THE STEAMHOUSE, a dungeon
+with no keys (`docs/games/neon-shrine.md`).
 Fights: two slag hounds stalk the grazers' pool, on the road to the Clean
 Well; in the Shellyard's pen three calm grazers patrol and leave the hero be
 until struck, and a pink one, a tough foe, guards the shells chest: it stalks

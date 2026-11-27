@@ -8,6 +8,7 @@ import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
 import { roundEcho } from './echo'
+import { tryRefuse } from './refuse'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -160,6 +161,8 @@ function contact(c: Ctx, e: Enemy) {
     (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e) ||
     (e.kind === 'mixtral' && (e.ai.mode === 'dazed' || e.ai.mode === 'rouse'))
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
+    // THE NO: a cut at the right moment refuses the blow (`refuse.ts`).
+    if (tryRefuse(c, e)) return
     hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper', true)
   }
   if (e.kind === 'king' && e.ai.mode !== 'down') {

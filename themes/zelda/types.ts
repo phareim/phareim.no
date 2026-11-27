@@ -333,6 +333,7 @@ export type ItemId =
   // The art (`engine/moves.ts`), for the B button
   | 'artHop' // the Keeper
   | 'echo' // THE ECHO, the Echo Barrow's treasure: B leaves one (`engine/echo.ts`)
+  | 'no' // THE NO, the Steamhouse's treasure: a cut at the right moment refuses a blow (`engine/refuse.ts`); no slot, held by its flag
   // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
   | WeightId
 
@@ -470,7 +471,12 @@ export interface TalkBranch {
   ask?: TalkAsk
 }
 
-export interface TalkAsk { options: [string, string]; replies: [string[], string[]] }
+export interface TalkAsk {
+  options: [string, string]
+  replies: [string[], string[]]
+  /** What closing each reply does (one per answer): the Steamhouse's YES starts the bath (`engine/attendants.ts`). */
+  after?: [Dialog['after'], Dialog['after']]
+}
 
 /** Entity placed by a marker char in the rows. */
 export type EntDef =
@@ -489,9 +495,11 @@ export type EntDef =
     hide?: Cond
     /** Joins the hero as a follower once `hide` holds after a talk (Luna). */
     join?: boolean
+    /** An attendant of the Steamhouse (`engine/attendants.ts`): offers, never hunts. `ring`: tiles (default 2.5). */
+    attend?: { mode: 'ask' | 'throw'; ring?: number; stock?: { n: number; set: string } }
   }
   /** Read facing it (tile 'S'); `alt` is read instead while its condition holds. */
-  | { t: 'sign'; lines: string[]; alt?: { when: Cond; lines: string[] } }
+  | { t: 'sign'; lines: string[]; alt?: { when: Cond; lines: string[] }; /** The Steamhouse's rack of hooks: A takes the robe off. */ robe?: true }
   | { t: 'shop'; id: string; item: ItemId; price: number; once?: boolean }
   | { t: 'plate'; id: string }
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
@@ -683,6 +691,8 @@ export interface MapDef {
    * opens its areas' first-visit words on arrival.
    */
   away?: boolean
+  /** A reload of the tab continues here, at the last entry used, without `away`'s other doing (the Steamhouse). */
+  resume?: true
   /**
    * The drawing engines this map may be shown in (`viewParams.ts`); absent,
    * every view. Elsewhere the shell shows the first allowed one for as long
@@ -895,6 +905,8 @@ export interface Npc {
   t: number
   vx: number
   vy: number
+  /** An attendant's state (`engine/attendants.ts`); `ring` and `mode` come from the mark. Never saved. */
+  att?: { mode: 'ask' | 'throw'; ring: number; made: boolean; linger: boolean; clock: number; muted: boolean }
 }
 
 /** An exit as the renderer sees it (tile centre). */
@@ -1108,6 +1120,12 @@ export interface Hero {
   slipped?: boolean
   /** The next blow is critical (a SLIP's gift), until it lands or the slow ends. */
   edge?: boolean
+  /** In the Steamhouse's robe (a bath's cost): slower, never saved (`engine/attendants.ts`). */
+  robe?: boolean
+  /** THE NO: seconds before another window to refuse a blow can open (`engine/refuse.ts`). */
+  refuseCool?: number
+  /** THE NO: the window to refuse a blow is open (`a`: the way it faces; `tail`: seconds left once the cut is over). */
+  refuseWin?: { a: number; spin: boolean; tail?: number }
 }
 
 export interface Inventory {
@@ -1179,7 +1197,7 @@ export interface Dialog {
   /** Speaker look, for a portrait-free name tag. */
   who: string | null
   /** Shop purchase awaiting the last line, applied on close; `exit` starts that exit's fade on close. */
-  after: null | { panel?: { id: string; panel: PanelId }; give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true }
+  after: null | { panel?: { id: string; panel: PanelId }; give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true; bath?: true }
   /** Exit dialogs: the answer picked on the last line, 0 = YES (go), 1 = NO (stay). */
   choice?: 0 | 1
   /** A talk's own two-way choice on the last line (the labels replace YES / NO; the pick opens its reply). */
@@ -1213,7 +1231,7 @@ export interface GameState {
    * instead of changing map; with `at` it lands on that spot (a drop through
    * a hole) instead of an entry.
    */
-  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean; edge?: boolean }
+  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean; edge?: boolean; white?: true }
   dialog: Dialog | null
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }
@@ -1358,6 +1376,10 @@ export type GameEvent =
   | { type: 'move'; id: MoveId; n: number; first: boolean; mastered: boolean }
   /** A blow passed through a dodge: the world slows. */
   | { type: 'slip'; x: number; y: number }
+  /** THE NO met a blow (a gold ring bursts where it met it). */
+  | { type: 'refuse'; x: number; y: number }
+  /** The Steamhouse: a bath begins (the fade to white), the hero comes up in the lobby, the robe comes off. */
+  | { type: 'bath'; phase: 'begin' | 'arrive' | 'robeOff' }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

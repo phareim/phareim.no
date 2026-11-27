@@ -1509,6 +1509,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   gust: 'gust', bark: 'bark', tube: 'tube',
   slip: 'slip',
   echo: 'echo', echoCut: 'echoCut', restock: 'plate',
+  refuse: 'refuse',
 }
 
 function handleEvents(events: GameEvent[]) {
@@ -1537,6 +1538,7 @@ function handleEvents(events: GameEvent[]) {
       case 'secret': a?.jingle('secret'); save = true; break
       case 'shoot': a?.sfx(e.kind === 'laser' ? 'laser' : 'pellet'); break
       case 'buy': if (!e.ok) a?.sfx('error'); break
+      case 'bath': if (e.phase === 'begin') a?.sfx('bath'); else if (e.phase === 'robeOff') a?.sfx('cut'); save = save || e.phase === 'arrive'; break
       case 'bossDown': a?.sfx('bossDie'); a?.jingle('fanfare'); save = true; break
       case 'unlock': case 'gate': save = true; break
       case 'enter':

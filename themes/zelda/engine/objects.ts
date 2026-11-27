@@ -14,6 +14,7 @@ import { cellIndex, circleBlocked, circleOnTile, clearFoes, condMet, has, moveCi
 import { STATS } from './spawn'
 import { nextId, rndRange } from './util'
 import { isTube } from '../world/tubes'
+import { stepAttendants } from './attendants'
 import { blastPuzzle, hitPuzzle, isWeighed, potSlides, pressedWeights, puzzleInfo, stepPhysics } from './puzzles/index'
 
 export function stepObjects(c: Ctx, dt: number) {
@@ -29,6 +30,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepPuzzles(c)
   stepStands(c, dt)
   stepNpcs(c, dt)
+  stepAttendants(c, dt)
 }
 
 // ---------------------------------------------------------------------------

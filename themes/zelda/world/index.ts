@@ -18,6 +18,7 @@ import { TURNROOM } from './turnroom'
 import { linkBack } from './demos'
 import { ATLAS, rescueGone } from './atlas'
 import { LANDS } from './lands'
+import { MAPS as STEAMHOUSE_MAPS } from './steamhouse'
 
 export { INTRO } from './intro'
 
@@ -44,6 +45,8 @@ export const WORLD: World = {
     turnroom: TURNROOM,
     // The lands around the coast and the Wildwood (docs/worlds/atlas.md).
     ...LANDS,
+    // The Sporelight's dungeon with no keys, behind a door in its bathhouse.
+    ...STEAMHOUSE_MAPS,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,

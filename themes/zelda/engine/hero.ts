@@ -10,6 +10,7 @@ import {
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
 import { echoBlade, echoOnTile, setEcho } from './echo'
+import { hangRobe, ROBE_SPEED } from './attendants'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -166,6 +167,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   let speed = h.carry ? CARRY_SPEED : charging ? CHARGE_SPEED : HERO_SPEED
   if (h.swing) speed *= 0.25
   if (h.spin) speed = 0
+  if (h.robe) speed *= ROBE_SPEED
   let mx = inp.move.x
   let my = inp.move.y
   const mag = Math.hypot(mx, my)
@@ -407,6 +409,8 @@ function interact(c: Ctx): boolean {
   }
   if (t === 'S') {
     const sign = c.info.signs.get(idx)
+    // The Steamhouse's rack of hooks: an unrobed hero reads it, a robed one hangs the robe up.
+    if (sign?.robe && hangRobe(c)) return true
     if (sign) { openDialog(c, sign.alt && condFor(c, sign.alt.when) ? sign.alt.lines : sign.lines, null); return true }
   }
   if (t === 'B') {
@@ -458,7 +462,7 @@ function interact(c: Ctx): boolean {
   return false
 }
 
-function talkTo(c: Ctx, id: string) {
+export function talkTo(c: Ctx, id: string) {
   const s = c.s
   for (const m of c.info.marks) {
     const e = m.ent

@@ -13,6 +13,7 @@ import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, condMet, has, loadMap, mapDef, mapInfo, moveCircle, stepClear } from './map'
 import { stepObjects } from './objects'
+import { bathArrive, keepRobe, startBath } from './attendants'
 import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
@@ -125,6 +126,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.hook = null
   s.echo = null
   if (!at) s.entry = { map: mapId, entry: entryId }
+  keepRobe(s, mapId)
   // A land walked into is drawn on the MAP page's chart of the world (and the QUEST line stops pointing at the gates).
   if (info.def.away) s.flags[`seen:${mapId}`] = true
   placeLuna(s)
@@ -434,6 +436,7 @@ function warp(c: Ctx, dt: number) {
   if (!w.swapped && w.t >= WARP_TIME) {
     w.swapped = true
     enterMap(c.w, s, w.to, w.entry, c.ev, w.at)
+    if (w.white) bathArrive(c)
     if (w.drop) {
       landClear(c)
       s.hero.act = 'idle'
@@ -480,7 +483,12 @@ function dialog(c: Ctx, dt: number, inp: Input) {
       c.ev.push({ type: 'choose' })
     }
     if (inp.aPress && inp.tapSide) d.choice = inp.tapSide < 0 ? 0 : 1
-    if (d.ask && inp.aPress) { openDialog(c, d.ask.replies[d.choice ?? 0], d.who); return }
+    if (d.ask && inp.aPress) {
+      // The reply carries the offer's own flags, and the pick's `after` (the Steamhouse's YES starts the bath).
+      const pick = d.ask.after?.[d.choice ?? 0]
+      openDialog(c, d.ask.replies[d.choice ?? 0], d.who, d.after || pick ? { ...d.after, ...pick } : null)
+      return
+    }
     if (inp.aPress && d.choice === 1) { closeWithoutLeaving(c); return }
   }
   if (!inp.aPress && !inp.bPress) return
@@ -497,6 +505,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     for (const f of d.after.clear ?? []) delete s.flags[f]
     if (d.after.exit) { beginExit(c, d.after.exit); return }
     if (d.after.startOver) { c.ev.push({ type: 'startOver' }); return }
+    if (d.after.bath) { startBath(c); return }
     if (d.after.panel) { c.ev.push({ type: 'panel', id: d.after.panel.id, panel: d.after.panel.panel }); return }
     refreshNpcs(c)
     if (d.after.give) { acquire(c, d.after.give); return }
@@ -561,6 +570,7 @@ export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameE
   s.dying = null
   s.mode = 'play'
   s.hero.hp = s.hero.maxHp
+  s.hero.robe = false
   s.hero.invuln = 1.2
   enterMap(world, s, s.entry.map, s.entry.entry, ev)
   ev.push({ type: 'respawn' })
@@ -608,7 +618,7 @@ function rescueSave(world: World, v: SaveData): SaveData {
 /** A map out past the hand-made coast (`MapDef.away`), or one a save names that the world moved out there. */
 export function awayMap(world: World, map: string, entry = ''): boolean {
   const def = mapDef(world, map)
-  if (def) return !!def.away
+  if (def) return !!def.away || !!def.resume
   const to = world.rescue?.(map, entry)
   return !!to && !!mapDef(world, to.map)?.away
 }
