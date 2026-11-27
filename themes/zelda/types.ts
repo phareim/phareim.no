@@ -752,6 +752,8 @@ export interface CellDef {
   card?: { title: string; lines: string[] }
   /** The room is a round of an examination (`engine/exam.ts`). */
   round?: RoundDef
+  /** Walking into this room from the south makes this entry of the map the continue point (a stair of its own). */
+  stair?: string
 }
 
 /**

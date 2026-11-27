@@ -1112,6 +1112,12 @@ classic picture. `/?view=<id>` asks for one.
       off, and notes each move the hero begins: CUT (a swing), SPIN, ROLL, HOP
       (anything that leaves the ground), BOMB (a bomb laid), and WALK for each
       second with none of those. It keeps the last three (padded with WALK).
+      A listening that ends with fewer than two moves heard (a walk is no
+      move) makes the phrase up to two with moves drawn by the game's own rng
+      from the ones that hurt (cut, spin, roll, hop, bomb), so a hero who
+      stands or only walks is recited at, and a hero who stands still loses.
+      Nothing is kept from one listening to the next. A blade's hit never
+      shoves it, so a blow while it thinks does not stop its clock.
     - *Reciting*: the three in another order than they were done in (three
       alike have only the one), a beat of 0.9 s each. For 0.5 s the move is
       stencilled on the floor, aimed from the Parrot at where the hero stands
@@ -1575,7 +1581,11 @@ sessionStorage), and a reload in that tab continues at it (`loadSpot`). A new
 visit starts in town. A map with `resume: true` (the Echo Barrow) is kept
 through a reload the same way and gets nothing else a land's `away` brings (no
 `seen:<id>` flag, no place on the MAP page's world): a tab reloaded inside
-starts at the last stair or door used, with its opened doors as saved. A reload
+starts at the last stair or door used, with its opened doors as saved: the
+barrow's porch, or the two stairs of its way (`CellDef.stair`: walking into
+the Shield Hall or the Parrot's room from the south makes the entry
+`crossing`, north of the Crossing, or `parrot`, in the great lock's doorway,
+the continue point; the crystals stay as saved). A reload
 in any other dungeon or cave starts in front of the exit last used, or in town.
 
 **The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25; the
@@ -2000,9 +2010,13 @@ with the gate's sound and a shake, and is a wall to walkers, rolls, the air
 moves, the hook, the disc, shots and pushed blocks (a bomb's blast reaches
 past walls, this one too). It opens for good when the room is clear. It waits
 to shut while the hook's chain is out, or while a walking foe or a block is in
-the doorway. A death, a warp out or entering any room puts an unbeaten one
-back to open, the room's foes reset as always; with no such foe left it never
-shuts. A beaten trap gate does not count as a solved puzzle: the room's push
+the doorway. A hero who stands in its tiles is carried inward off them at
+about 3 tiles a second (his own input still counts) and the gate shuts behind
+him; into a wall, a pit or a foe he is never carried, and then it waits. A death, a warp out or entering any room puts an unbeaten one
+back to open, the room's foes reset as always, except a boss whose fight has
+begun (`hp < maxHp`, in any room): it stands at home in its first state with
+the hit points it had, and its second phase follows them; death restores it
+whole. With no such foe left a trap gate never shuts. A beaten trap gate does not count as a solved puzzle: the room's push
 blocks still go home. The Echo Barrow's two fight rooms have them. Small keys and the big key are per
 keyring (`MapDef.keyring`, `docs/games/wildwood.md`); the big key says it
 opens the great door to the King in the Shrine's ring and the great door
@@ -2031,7 +2045,9 @@ YOU CUT, IT CUTS.
   out in a land once the hero is a screen away. `GameState.echo`, never saved.
 - *Weight.* It weighs one, as the hero does: it holds a light plate, is half of
   a heavy one, balances a scale pan, and holds a plain plate `_` down as a
-  block does. Nothing is pushed onto it.
+  block does. It holds the plain plates of every dungeon, by design (the
+  Shrine's, Horizon Lab 1's, the Deep's, the Fossil Arcade's too). Nothing is
+  pushed onto it.
 - *The blade.* Every blow of the hero's blade is struck by the echo too, at the
   same moment, from where it stands: each hit of the chain, the spin, the
   comet, the tempest, the flip's chop and its ring. Same reach, arc and damage,

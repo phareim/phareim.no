@@ -12,7 +12,7 @@ import { TILE_INFO, isIron } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
 import { cutTile, throwLever, toggleCrystal } from './hero'
-import { cellIndex, circleBlocked, circleOnTile, clearFoes, condMet, has, moveCircle, setFlag, solidTile, tileAt, type GateInfo } from './map'
+import { cellIndex, cellRect, circleBlocked, circleOnTile, clearFoes, condMet, has, moveCircle, setFlag, solidTile, tileAt, type GateInfo } from './map'
 import { STATS } from './spawn'
 import { nextId, rndRange } from './util'
 import { isTube } from '../world/tubes'
@@ -31,7 +31,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepBlocks(c, dt)
   stepPhysics(c, dt)
   stepMagnet(c, dt)
-  stepPuzzles(c)
+  stepPuzzles(c, dt)
   stepStands(c, dt)
   stepNpcs(c, dt)
   stepAttendants(c, dt)
@@ -296,7 +296,7 @@ function stepBlocks(c: Ctx, dt: number) {
   }
 }
 
-function stepPuzzles(c: Ctx) {
+function stepPuzzles(c: Ctx, dt: number) {
   const s = c.s
   const m = s.map
   // Plates: pressed by a resting block.
@@ -320,7 +320,7 @@ function stepPuzzles(c: Ctx) {
   m.plates = pressed
   // Gates.
   for (const g of c.info.gates) {
-    if (g.trap) { stepTrap(c, g); continue }
+    if (g.trap) { stepTrap(c, g, dt); continue }
     if (g.latch) { stepHeld(c, g, g.latch); continue }
     if (m.tiles[g.tiles[0]!] !== 'X') continue
     if (!condMet(s, c.w, g.open, g.cell)) continue
@@ -357,7 +357,7 @@ function stepPuzzles(c: Ctx) {
  * lives, then shut; open for good (`gate:<id>`) once the room is clear. Loading the map and entering a room put an
  * unsolved one back to open (`loadMap`, `enterCell`).
  */
-function stepTrap(c: Ctx, g: GateInfo) {
+function stepTrap(c: Ctx, g: GateInfo, dt: number) {
   const s = c.s
   const m = s.map
   const flag = `gate:${g.id}`
@@ -379,7 +379,10 @@ function stepTrap(c: Ctx, g: GateInfo) {
   // (Not while the chain is out: a pull flies him over whatever lies on its way.)
   if (shut || s.zoneIndex !== g.cell || cellIndex(c.info, h.x, h.y) !== g.cell || s.hook) return
   if (!clearFoes(s, g.cell).some(e => !e.dead)) return
-  if (!clearToShut(c, g)) return
+  if (!clearToShut(c, g)) {
+    if (clearToShut(c, g, true)) carryIn(c, g, dt)
+    return
+  }
   for (const i of g.tiles) m.tiles[i] = 'X'
   m.version++
   s.shake = Math.max(s.shake, 0.25)
@@ -387,15 +390,39 @@ function stepTrap(c: Ctx, g: GateInfo) {
 }
 
 /** Never down on anyone or anything: the hero, a walking foe, a block come to rest in the doorway. */
-function clearToShut(c: Ctx, g: GateInfo): boolean {
+function clearToShut(c: Ctx, g: GateInfo, heroAside = false): boolean {
   const m = c.s.map
   const h = c.s.hero
   return g.tiles.every(i => {
     const tx = i % m.w
     const ty = Math.floor(i / m.w)
-    if (m.tiles[i] !== '.' || circleOnTile(h.x, h.y, HERO_R, tx, ty) || echoOnTile(c, tx, ty)) return false
+    if (m.tiles[i] !== '.' || (!heroAside && circleOnTile(h.x, h.y, HERO_R, tx, ty)) || echoOnTile(c, tx, ty)) return false
     return !m.enemies.some(e => !e.dead && !STATS[e.kind].flying && circleOnTile(e.x, e.y, e.r, tx, ty))
   })
+}
+
+/**
+ * The hero stands in a trap gate's way and nothing else does: he is carried inward (away from the gate, into the room)
+ * at about 3 tiles a second, his own input still his, so that it can shut behind him. Never into a wall, a pit or a foe:
+ * where inward is blocked, the gate waits.
+ */
+function carryIn(c: Ctx, g: GateInfo, dt: number) {
+  const m = c.s.map
+  const h = c.s.hero
+  const z = cellRect(c.info, g.cell)
+  const gx = g.tiles.reduce((n, i) => n + (i % m.w) + 0.5, 0) / g.tiles.length
+  const gy = g.tiles.reduce((n, i) => n + Math.floor(i / m.w) + 0.5, 0) / g.tiles.length
+  const ox = z.x + z.w / 2 - gx
+  const oy = z.y + z.h / 2 - gy
+  const flat = Math.abs(ox) / z.w >= Math.abs(oy) / z.h
+  const dx = flat ? Math.sign(ox) * 3 * dt : 0
+  const dy = flat ? 0 : Math.sign(oy) * 3 * dt
+  const r = moveCircle(c.w, m, h.x, h.y, HERO_R, dx, dy)
+  if (r.hitX || r.hitY) return
+  const t = TILE_INFO[tileAt(m, Math.floor(r.x), Math.floor(r.y))]
+  if (t.pit || t.hurt || m.enemies.some(e => !e.dead && Math.hypot(e.x - r.x, e.y - r.y) < e.r + HERO_R)) return
+  h.x = r.x
+  h.y = r.y
 }
 
 /**

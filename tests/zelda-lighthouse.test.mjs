@@ -113,10 +113,10 @@ describe('the Lighthouse', () => {
     assert.equal(again.inv.lamp, true)
     assert.equal(again.inv.selected, 'lamp')
     assert.ok(!again.map.tiles.includes('Φ'))
-    // One from the lab with the lamp on B and nothing else it knows of: loads, and B sets the lamp down.
+    // One from the lab with the lamp on B and nothing else it knows of: loads, with nothing in hand (the lamp is not in the bag).
     const bare = Z.parseSave({ ...JSON.parse(JSON.stringify(save)), inv: { ...save.inv, lamp: undefined, selected: 'lamp' } })
     assert.ok(bare, 'a save from before the lamp, with it on B, loads')
-    assert.equal(bare.inv.selected, 'lamp')
+    assert.equal(bare.inv.selected, null)
     // Leaving the room, falling, dying or warping puts it back in the hand.
     P.step(s, inp())
     Z.enterMap(Z.WORLD, s, 'lighthouse2', 'arrive', [])

@@ -457,7 +457,7 @@
  },
  {
   "id": "unknown-item",
-  "from": "a B item this build does not know",
+  "from": "a B item this build does not know, or one the save does not own (the Echo, the lamp, the magnet on B with none in the bag)",
   "save": {
    "v": 2,
    "map": "overworld",
@@ -490,6 +490,9 @@
    "elapsed": 912.5
   },
   "variants": [
+   { "name": "the Echo on B, never found", "inv": { "selected": "echo" } },
+   { "name": "the lamp on B, never found", "inv": { "selected": "lamp" } },
+   { "name": "the magnet on B, never found", "inv": { "selected": "magnet" } },
    {
     "inv": {
      "selected": "spade"
