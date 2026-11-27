@@ -2213,7 +2213,11 @@ to the Sun Prism with a path-finding walker (god mode, bosses killed directly;
 gate walked into its land and back (`zelda-world`, which also holds the real
 world's validator and the lands' page length); that every chest, key, locked
 door and gate can be reached in some order with only what the world gives
-(`zelda-reach`: the validator does not prove order); and every save shape of
+(`zelda-reach`: the validator does not prove order); that the hero can
+get back to the town from every tile he can stand on, in both view rules, with
+every item in hand and the hook at its own range (`zelda-strand`, the way-back
+gate: it names the map, the tiles and the way in; puzzles, locks, side maps and
+diagonal aims are outside it); and every save shape of
 earlier builds loaded and played (`zelda-old-saves`, fixtures in
 `tests/zelda-old-saves.json`: a change that drops or renames something a save
 holds adds its old shape there). The HUD, the corner and the MAP page on every
