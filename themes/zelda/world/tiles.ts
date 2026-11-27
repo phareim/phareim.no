@@ -105,6 +105,8 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   // The side view's (`engine/side.ts`): a ladder, and a platform solid from above only. Walked through otherwise.
   'Ħ': OPEN,
   '¯': OPEN,
+  // A spring pad (`engine/stomp.ts`): ground like any other, but to the stomp.
+  '▲': S,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]
@@ -112,6 +114,8 @@ export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]
 /** The side view's two tiles (`engine/side.ts`). */
 export const LADDER = 'Ħ' as const
 export const PLATFORM = '¯' as const
+/** The spring pad (`engine/stomp.ts`). */
+export const SPRING = '▲' as const
 
 /** The square block and the diamond block: the tiles the view makes solid or floor. */
 export const SQUARE_BLOCK = '□' as const

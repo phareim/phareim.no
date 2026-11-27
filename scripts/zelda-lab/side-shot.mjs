@@ -190,9 +190,9 @@ const FIGHTING = "h.swing && h.side.ground && h.swing.t > 0.07 && s.map.enemies.
   check(/classic only here/i.test(await H.said()), `V says: "${await H.said()}"`)
   await b.sleep(1700)
 
-  // Mid-jump: up on the keys is a jump too.
-  await still(b, `${out}/desk-03-mid-jump.png`, 'h.side && !h.side.ground && h.side.vy > -3', () => b.keyDown('ArrowUp'))
-  await b.keyUp('ArrowUp')
+  // Mid-jump (B only: up climbs and aims).
+  await still(b, `${out}/desk-03-mid-jump.png`, 'h.side && !h.side.ground && h.side.vy > -3', () => b.keyDown('KeyK'))
+  await b.keyUp('KeyK')
   await until(b, H, s => s.ground)
 
   // Over the gap, filmed.
@@ -286,7 +286,6 @@ const FIGHTING = "h.swing && h.side.ground && h.swing.t > 0.07 && s.map.enemies.
     if (Math.abs(e.x - s.x) < 0.5 && above > 0.45 && above < 1.5) {
       await b.keyDown('ArrowUp'); await b.keyDown('Space'); await b.sleep(70)
       await b.keyUp('Space'); await b.keyUp('ArrowUp'); await b.sleep(150)
-      // (Up is a jump on keys too: a cut upward from the ground leaves it.)
       await until(b, H, s => s.ground, 1500)
     } else await b.sleep(12)
   }

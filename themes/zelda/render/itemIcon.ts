@@ -25,6 +25,7 @@ export function itemSpriteName(item: ItemId): string {
     // The art learned (`engine/moves.ts`): its own icon.
     case 'artHop': return 'item_hop'
     case 'echo': return 'item_echo'
+    case 'stomp': return 'item_stomp'
     // Each Sacred Weight wears its own band.
     case 'weightMeaning': return 'item_weight_meaning'
     case 'weightReasons': return 'item_weight_reasons'

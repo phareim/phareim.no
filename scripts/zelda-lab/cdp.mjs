@@ -40,7 +40,7 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
   const profile = mkdtempSync(join(homedir(), 'zshots', 'prof-'))
   // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU).
   const proc = spawn(process.env.CHROME_BIN || 'chromium-browser', [
-    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--allow-file-access-from-files',
+    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--use-mock-keychain', '--password-store=basic', '--allow-file-access-from-files',
     `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, ...args, 'about:blank',
   ], { stdio: 'ignore' })
   let targets

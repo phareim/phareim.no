@@ -49,6 +49,9 @@ import { queueLife } from './life'
 import { frontierNpcLook, type FrontierCreature } from './frontierSprites'
 import { treeNow } from './tree'
 import { paintSide, sideScale, type SideKit } from './side'
+import { eraGreys, eraLight, greySprite } from './eras'
+import { drawCard } from './card'
+import { queueScreenDoor } from './lateshowPaint'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
@@ -605,6 +608,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'echoCut': pulse(e.x, e.y, 2, '#2ff3ff', 0.14, 0.8); break
         case 'restock': spark(e.x, e.y, 8, '#ffd23f', 3, 0.4); pulse(e.x, e.y, 1.6, '#ffd23f', 0.25); break
         case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
+        // The stomp coming down: the hero's cyan, a ring where it lands, dust off a floor, the camera pushed down.
+        case 'stomp': {
+          fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.24, color: '#2ff3ff', size: e.on === 'ground' ? 1.3 : 0.8 })
+          spark(e.x, e.y, e.on === 'crack' ? 12 : 7, e.on === 'crack' ? '#cfc6ff' : '#2ff3ff', 5, 0.3)
+          if (e.on === 'ground' || e.on === 'crack') dust(e.x, e.y - 0.3, 7)
+          pulse(e.x, e.y, 2.4, '#2ff3ff', 0.14)
+          kick = { x: 0, y: 3 / T, at: time, life: 0.12 }
+          break
+        }
         case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
         case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; pulse(e.x, e.y, 2.5, '#b6ff4a', 0.2); break
         case 'glyph': if (e.ok) fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.4, color: '#2ff3ff', size: 0.6 }); break
@@ -649,8 +661,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * A sprite with its bottom centre at (x, y). `sx`, `sy`: squashed or stretched about that point, to whole px (the
    * isometric view's art follows a drawing at another size). `color`: its silhouette in that colour instead.
    */
+  /** While a foe of a film's year is drawn: its own colours in that year's greys (`eras.ts`). */
+  let greyFoe = false
   function put(g: G, name: string, x: number, y: number, flip = false, flash = false, sx = 1, sy = 1, color?: string) {
-    const c = color ? silhouette(name, color, flip) : flash ? silhouette(name, '#ffffff', flip) : sprite(name, flip)
+    const c = color ? silhouette(name, color, flip) : flash ? silhouette(name, '#ffffff', flip) : greyFoe ? greySprite(sprite(name, flip)) : sprite(name, flip)
     if (sx === 1 && sy === 1) { g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height)); return }
     const w = Math.max(1, Math.round(c.width * sx))
     const h = Math.max(1, Math.round(c.height * sy))
@@ -1287,6 +1301,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     twinList = m.enemies
     queueProps(g, world, s, cx, cy, qw, qh, time, ui.reducedMotion, items, lights, flat)
     for (const it of items) it.big = true
+    // The door in the drive-in screen (THE LATE SHOW).
+    if (s.map.id === 'rerun') queueScreenDoor(g, cx, cy, flat !== g, items, lights)
     if (!ui.attract && kind === 'overworld') {
       queueWildlife(g, s, cx, cy, time, ui.reducedMotion, (dayOf(drawing)?.sun ?? 0.12) <= 0.12, items, def.isoLandmarks)
     }
@@ -1465,12 +1481,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const m = s.map
     const dark = kind !== 'overworld' && cellIsDark(s, info, s.zoneIndex)
     const day = kind === 'overworld' ? dayOf(drawing) : null
-    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : day ? day.ambient : AMBIENT[kind]
+    // (A film's year is lit by its own light, so that nothing tints it.)
+    const reel = eraLight(info.def)
+    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : reel ? reel.ambient : info.def.ambient ? AMBIENCE[info.def.ambient] : day ? day.ambient : AMBIENT[kind]
     const h = s.hero
     // Out in a dark realm, and anywhere on the frontier at night, the hero's own light is more of a lantern.
     const realm = day ? realmLook(info.def.look) : null
     const lantern = day ? Math.max(realm ? MOOD[realm].hero : 0, info.def.realm ? 0.6 * nightOf(day) : 0) : 0
-    if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6 + 0.9 * lantern, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 + 0.2 * lantern })
+    if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6 + 0.9 * lantern, color: dark ? '#b8a8e8' : reel ? reel.lamp : '#8a7ab8', a: dark ? 1 : 0.35 + 0.2 * lantern })
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
     for (const p of m.projectiles) {
       if (p.kind === 'gust') continue
@@ -1712,6 +1730,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // the next paint of play, or of the start-over question), and nothing of what would stand frozen behind it, since
       // it has no window of its own (a label, a banner, a line).
       const pageUp = ui.paused && !ui.confirmReset
+      // An intertitle card: over the stage, under the hearts (`card.ts`).
+      if (s.card && !pageUp) drawCard(g, s.card, sp.vw, sp.vh, ui.keys.touch ? 'A' : ui.keys.a, ui.reducedMotion)
       if (hud && !pageUp) {
         g.save()
         g.translate(left, top)
@@ -1726,7 +1746,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       if (!pageUp) drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
       // The view strip has the banner's place while it is up.
-      if (ui.banner && !pageUp && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
+      if (ui.banner && !pageUp && !s.card && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
       if (s.dialog && !pageUp) {
         g.save()
         g.translate(0, top)
@@ -1807,8 +1827,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       spin: (x, y) => drawSpinBlade(g, s, x, y, lights),
       // (A px lower than from above: its feet on the floor's lit edge.)
       foe(e) {
+        greyFoe = eraGreys(mapInfo(world, s.map.id).def)
         if (!e.dead) drawEnemy(g, s, e, cx, cy + 1, lights, true)
         else if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away) drawDeathPop(g, s, e, cx, cy + 1)
+        greyFoe = false
       },
     }
     paintSide(kit, s)

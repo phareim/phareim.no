@@ -79,6 +79,7 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 
 /** `echo`: a blow of the echo's blade (`engine/echo.ts`), the blade to every rule of armour. */
 export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit' | 'echo'
+  | 'stomp' // the hero coming down hard (`engine/stomp.ts`)
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
 export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
@@ -159,6 +160,11 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
   // Open, it gives the blade `TOUGH.take` in all and no more (the Arc Blade only gets there sooner); with that
   // taken it shuts (`toughClocks`).
   if (e.tough && blade(src)) opt = { ...opt, cap: Math.max(0, TOUGH.take - ((e.ai.took as number | undefined) ?? 0)) }
+  // The stomp meets poise as the blade does: shut, it clanks; open, its two come out of the same opening.
+  if (e.tough && src === 'stomp') {
+    if (!toughOpen(e)) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
+    opt = { ...opt, cap: Math.max(0, TOUGH.take - ((e.ai.took as number | undefined) ?? 0)) }
+  }
   // After a SLIP the hero's next blow is critical (`moves.ts`).
   const h0 = c.s.hero
   if (h0.edge && own(src)) {
@@ -441,6 +447,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bits50': return ['YOU GOT 50 BITS!']
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
     case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
+    case 'stomp': return ['YOU GOT THE STOMP!', 'IN THE AIR, {A} COMES DOWN HARD.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
@@ -487,6 +494,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'hook': inv.hook = true; inv.selected = 'hook'; break
     case 'arc': inv.arc = true; inv.sword = true; break
     case 'echo': inv.echo = true; inv.selected = 'echo'; break
+    case 'stomp': inv.stomp = true; break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break

@@ -18,6 +18,7 @@ import { enemyActive } from './enemies'
 import { cellIndex, cellRect, circleBlocked, hasBigKey, keyCount, moveCircle, solidTile, tileAt } from './map'
 import { STATS } from './spawn'
 import { collect, endRoll, underfoot, unlockDoor } from './hero'
+import { stompDive, stompDrop, type StompAim } from './stomp'
 import { dirAngle } from './util'
 
 /** The jump's rise, held to its top (tiles), and let go at once. */
@@ -60,6 +61,8 @@ export const SIDE = {
   /** Dropped through a platform: platforms are passed this long. */
   drop: 0.2,
   dead: 0.3,
+  /** The cut reaches this far (rad) either side of the way it is aimed: ahead, or straight up. */
+  cutArc: (55 * Math.PI) / 180,
 } as const
 
 /** The hero on a side map (`Hero.side`; made on the first step there, gone on every map change). Never saved. */
@@ -92,12 +95,19 @@ export interface SideHero {
   cam: number
   anchor: number
   snap: boolean
+  /** The stomp's (`stomp.ts`): the dive under way, a press still counting, one waiting for the top of the jump, a pad pressed flat. */
+  dive?: { aim: StompAim; t: number } | null
+  press?: number
+  wait?: number
+  squash?: { i: number; t: number } | null
+  /** Seconds left of the stomp's own mercy: the painter does not blink the hero for it. */
+  mercy?: number
 }
 
 /** A hair above the floor: the circle rests on a tile without being in it. */
 const EPS = 1e-4
 /** Half the width of the feet: the circle's, so no corner is met by the circle that the feet have missed. */
-const FOOT = HERO_R - 0.001
+export const FOOT = HERO_R - 0.001
 
 export function sideOf(c: Ctx): SideHero {
   const h = c.s.hero
@@ -136,7 +146,7 @@ export function ladderTop(tiles: (x: number, y: number) => TileChar, solid: (x: 
  * What bears feet `half` wide either side of x on the row `ty`: 'solid' a wall's tile (or anything that blocks),
  * 'thin' a platform or a ladder's top (nothing while `through`), null air.
  */
-function footing(c: Ctx, x: number, feet: number, half: number, through = false, mode: 'hero' | 'enemy' = 'hero'): 'solid' | 'thin' | null {
+export function footing(c: Ctx, x: number, feet: number, half: number, through = false, mode: 'hero' | 'enemy' = 'hero'): 'solid' | 'thin' | null {
   const m = c.s.map
   const ty = Math.floor(feet)
   let thin = false
@@ -188,8 +198,10 @@ export function sideTick(c: Ctx, inp: Input, dt: number) {
   if (sd.coyote > 0 && !sd.ground) sd.coyote -= dt
   if (sd.regrab > 0) sd.regrab -= dt
   if (sd.drop > 0) sd.drop -= dt
-  // Up is a jump too, but at a ladder (or on one) it climbs: only B jumps there.
-  if (inp.jumpPress && (inp.bPress || !(sd.ladder || ladderNear(c) !== null))) sd.buffer = sd.touch ? SIDE.touchBuffer : SIDE.buffer
+  // B is the jump, and nothing else is: up climbs and aims.
+  if (inp.bPress) sd.buffer = sd.touch ? SIDE.touchBuffer : SIDE.buffer
+  if (sd.squash && (sd.squash.t -= dt) <= 0) sd.squash = null
+  if ((sd.mercy ?? 0) > 0) sd.mercy! -= dt
 }
 
 function jump(c: Ctx, sd: SideHero) {
@@ -241,6 +253,7 @@ export function sideMove(c: Ctx, inp: Input, dt: number) {
     sd.regrab = SIDE.regrab
   }
   if (sd.ladder) climb(c, inp, sd, dt)
+  else if (sd.dive) stompDive(c, sd, dt)
   else {
     if (sd.buffer > 0 && (sd.ground || sd.coyote > 0) && !h.spin) jump(c, sd)
     // Down on a platform (and on nothing solid): through it.
@@ -398,6 +411,7 @@ function remember(c: Ctx, sd: SideHero) {
 /** Off the bottom: the pit's own fall (`hero.ts`: half a heart, and back to `Hero.safe`), onto the room's ledge. */
 function fellOut(c: Ctx, sd: SideHero, bottom: number) {
   const h = c.s.hero
+  stompDrop(sd)
   const entry = Object.values(c.info.entries).find(e => cellIndex(c.info, e.x, e.y) === c.s.zoneIndex)
   h.safe = { ...(sd.safe ?? (entry ? { x: entry.x, y: entry.y } : sd.entered)) }
   h.y = bottom - 0.6
@@ -434,6 +448,7 @@ export function sideShove(c: Ctx, dt: number): boolean {
   const sd = sideOf(c)
   sd.ladder = false
   sd.jumpT = -1
+  stompDrop(sd)
   const r = moveCircle(c.w, c.s.map, h.x, h.y, HERO_R, h.knock!.vx * dt, 0)
   h.x = r.x
   sd.vx = 0
@@ -467,6 +482,17 @@ export function sideAim(c: Ctx, inp: Input) {
   }
   h.dir = upward(inp) ? 'up' : sd.face
   h.aim = dirAngle(h.dir)
+}
+
+/**
+ * Is a foe at (dx, dy) from the hero in the cut aimed `dir`? Its middle within `cutArc` of the aim, or its body
+ * across the aim's own line ahead.
+ */
+export function inSideCut(dir: Dir, dx: number, dy: number, r: number): boolean {
+  const a = dirAngle(dir)
+  const along = dx * Math.cos(a) + dy * Math.sin(a)
+  const across = Math.abs(dx * Math.sin(a) - dy * Math.cos(a))
+  return along > -0.2 && (across <= Math.max(along * Math.tan(SIDE.cutArc), 0) || across < r + 0.15)
 }
 
 /** A stick that lands a moment after A: the cut may still turn up (or to the side it was thrown). */

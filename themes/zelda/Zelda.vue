@@ -136,7 +136,7 @@
       <button v-if="hasItem && !sideRoom" class="zelda-pad zelda-pad-swap" aria-label="Swap item" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
         <img v-if="swapIcon" :src="swapIcon" alt="" class="zelda-pad-icon">
       </button>
-      <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem && !sideRoom, 'zelda-deck-btns--roll': hasSword }">
+      <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem && !sideRoom, 'zelda-deck-btns--roll': hasSword, 'zelda-deck-btns--side': sideRoom }">
         <button v-if="hasSword" class="zelda-pad zelda-pad-roll" aria-label="Roll" @pointerdown.prevent.stop="pressRoll" @contextmenu.prevent>
           <img v-if="rollIcon" :src="rollIcon" alt="" class="zelda-pad-icon">
         </button>
@@ -689,6 +689,8 @@ let heldView: ViewId | null = null
 /** That map was a side map; and the turn being made goes into one or out of it. */
 let fitSide = false
 let sideCut = false
+/** A side map pinned the picture, or gave the visitor's own back: the corner does not announce it. */
+let quietTurn = false
 
 /** May this map be shown in that view? (MapDef.views; Lumenby's terrain is isometric only.) */
 function allows(id: ViewId): boolean {
@@ -725,7 +727,7 @@ function fitView() {
  * hero can take a step off the entry (floor in both views, `validate.ts`), so a view that is here is never refused.
  */
 function forceView(id: ViewId) {
-  if (sideCut) { void showView(id, true, false); return }
+  if (sideCut) { quietTurn = true; void showView(id, true, false); return }
   void showView(id, hasViewBlocks(state.map), false)
 }
 
@@ -940,14 +942,15 @@ function stepCorner(nowMs: number) {
   if (vs.turning && !vs.waiting) cn.sawTurn = true
   if (!vs.turning && !waiting) {
     if (cn.rest !== null && cn.rest !== viewId.value) {
-      turnSaid.value = `${sayView(viewId.value)} view`
-      if (!away) {
+      if (!quietTurn) turnSaid.value = `${sayView(viewId.value)} view`
+      if (!away && !quietTurn) {
         cornerTag(viewName(viewId.value), nowMs)
         if (cn.sawTurn) audio?.sfx('select')
       }
     }
     cn.rest = viewId.value
     cn.sawTurn = false
+    quietTurn = false
   } else if (cn.rest === null) cn.rest = ''
 
   // Stepping away in three dithers and back in three (at once with reduced motion).
@@ -1526,6 +1529,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   jump: 'hop',
   slip: 'slip',
   echo: 'echo', echoCut: 'echoCut', restock: 'plate',
+  stomp: 'stomp',
 }
 
 function handleEvents(events: GameEvent[]) {
@@ -1700,7 +1704,7 @@ function frame(nowMs: number) {
   // Asked again now the hero has moved, before the picture does: a turn they have walked into is taken back while it
   // is still short of its half, so the dress never crosses over for a turn that will not happen.
   stepRule(renderer.viewState())
-  if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
+  if (ui.banner && !state.card) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
   syncDeck()
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
     lowHpT -= dt
@@ -2257,6 +2261,15 @@ onBeforeUnmount(() => {
   /* The roll stays over B, a size smaller, and the row no wider: left of it the stick's 60 % is free. */
   .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) { height: 128px; }
   .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) .zelda-pad-roll { left: 12px; width: 48px; height: 48px; }
+}
+
+/* A side room: B is the jump and as large as A (one thumb cannot hold B and press A), the two apart, the roll
+   smaller over B. */
+.zelda-deck-btns.zelda-deck-btns--side { width: 184px; }
+.zelda-deck-btns--side .zelda-pad-b { width: 88px; height: 88px; }
+.zelda-deck-btns--side .zelda-pad-roll { left: 14px; top: 0; width: 48px; height: 48px; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .zelda-deck-btns.zelda-deck-btns--side:not(.zelda-deck-btns--solo) { height: 136px; }
 }
 
 /* Two wide buttons across a 375 px phone. */

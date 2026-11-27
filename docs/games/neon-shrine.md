@@ -224,16 +224,18 @@ classic picture. `/?view=<id>` asks for one.
   those. Four turns at the fewest from the isometric view, three from the
   8-bit one. The chest holds 20 bits (`turnroom.prize`); two signs; no foes.
 - **The side view** (`MapDef.kind` 'side'; `engine/side.ts`, `render/side.ts`;
-  2026-11-27, no map of the world uses it yet). A dungeon seen from the side:
+  the Late Show's reels use it). A dungeon seen from the side:
   rows run down the room, camera rooms, room activation, foe clamping and
   checkpoints as in a dungeon (`roomed`), and a room may be several cells high
   (`CellDef.tall`; it scrolls up and down only). It is not a view: the map is the
   classic engine's (`viewsOf`), V and the Prism are pinned, the stick is not
   turned, the picture cuts over behind the warp's fade and the visitor's view
-  comes back on the way out. The corner shows its stub, the MAP page the room's
-  name.
-  - **Moving.** Gravity and a jump (B, or up on keys; the B pad on touch, which
-    says JUMP whatever is owned): 3.2 tiles held, 1.6 tapped, 0.36 s to the top,
+  comes back on the way out, neither with a word from the corner. The corner
+  shows its stub, the MAP page the room's name.
+  - **Moving.** Gravity and a jump (B only, up climbs and aims; the B pad on
+    touch, which says JUMP whatever is owned and is as large as A, so that a
+    thumb can let go of one and reach the other): 3.2 tiles held, 1.6 tapped,
+    0.36 s to the top,
     falls faster (capped at 15 tiles/s), coyote time and a jump buffer of 0.1 s
     (0.13 under a thumb), a little air control. The stick is all or nothing
     sideways. The jump is not the HOP: it can be hit.
@@ -243,16 +245,60 @@ classic picture. `/?view=<id>` asks for one.
     a fall off a room's bottom costs half a heart and puts the hero on the last
     one stood by, else on their first footing in that room. A room is left upward
     only by a ladder.
-  - **The blade.** The three-cut chain ahead with its step, up + A upward, the
-    spin; touch turns a cut left or right only. The roll is a ground dash and
+  - **The blade.** The three-cut chain ahead with its step, up + A upward, each
+    a narrow cut (55° either side of the way it is aimed, `SIDE.cutArc`), the
+    spin all round; touch turns a cut left or right only. The roll is a ground dash and
     stops at an edge unless the stick holds on. The air's combos, the HOP, the B
     items and block pushing rest. Luna is not along.
   - **Foes** on foot fall, stand and stop at edges (a blow throws them off);
     flyers fly. Only the blob, the sentry and the bat have been tried.
+  - **Rooms.** A room to climb or fight in is 16 tiles wide and 24 tall: an
+    upright phone shows it whole, its floor above the touch deck. A run of rooms
+    changes screen sideways over solid floor.
   - **Trying it.** The trial room is a fixture (`scripts/zelda-lab/side-trial.ts`),
     played by `tests/zelda-side.test.mjs`, measured by
     `node scripts/zelda-lab/side-measure.mjs` and shot in the running shell by
     `node scripts/zelda-lab/side-shot.mjs <local url> <outDir>`.
+- **The Stomp** (`engine/stomp.ts`; `Inventory.stomp`, the Late Show's
+  treasure). Owned, never on B. On a side map, A in the air with something below
+  turns the blade down and dives at it (16 tiles/s down, steered at 8); with
+  nothing below it is the ordinary air cut. What it takes, the nearest across
+  first (a foe, then a pad, then a crack at the same distance), at most 6 down
+  with no floor between: a foe 0.9 across and 0.6 or more below the feet, once
+  the hero is falling or at the top (never a zapper, an eye or a spitter); a
+  spring pad or a cracked floor 1.1 across. A press on the way up over a pad or
+  a crack waits for the top of the jump (0.45 s), and any press counts for
+  0.12 s before something comes into reach, so B may be let go first. On keys,
+  down + A always dives. A foe takes 2 (`HitSource` 'stomp') and, if small,
+  stands stunned 1.4 s; a tough one that is not open clanks; the hero bounces a
+  held jump's height. Plain ground takes the blow in a ring of 1.3 tiles that
+  stuns small foes 1 s. Every impact gives 0.3 s of mercy, without the blink of
+  a hurt. There is no form of it seen from above. Measured by
+  `node scripts/zelda-lab/lateshow-measure.mjs`, shot in the running shell by
+  `node scripts/zelda-lab/lateshow-shot.mjs <local url> <outDir>`.
+- **Springs and cracked floor.** `▲` is a spring pad flush with the floor:
+  ground to stand, walk and cut on; only a stomp springs it, to 1.6 held jumps
+  (5.1 tiles), so a ledge 4 up is a pad's and no plain jump's. A cracked floor
+  is the `%` of every map, here the top row of a floor: a stomp breaks what lies
+  under the feet for good (the bomb's flag) and the hero drops through. A nook
+  is a one-tile hollow under such a floor with solid ground below: 2 down, out
+  again by a held jump.
+- **Cards** (`CellDef.card`, `engine/cards.ts`, `render/card.ts`). An
+  intertitle over the whole stage, under the hearts, when the hero comes into
+  that room by a warp: a title of 12 letters at most at twice the size, rows of
+  27 at most. It fades in over 0.25 s, may be passed after 0.6 s by A, the swap
+  key or a tap right of the stick's side, and passes by itself after 2.6 s. The
+  world holds still under it. A session shows each once (`GameState.cardsSeen`,
+  by `<map>:<cell>`): a retry after a death does not play it again, a reload
+  does. Neither is saved.
+- **Years** (`MapDef.era`, `render/eras.ts`). A year dresses a side map's world
+  only (tiles, sky, ordinary foes, the light), never the hero, the hearts, the
+  HUD, the deck, a pink warning or a gold marker, and uses no pink, gold or
+  cyan. 1958 is five greys from near black to bone, with a town for its sky and
+  its foes in greys. A year not dressed wears the map's own look.
+- **A reload in a dungeon's rooms** (`MapDef.resume`). A tab reloaded in such a
+  map continues at its last stair or door, as out in a land, with none of the
+  rest of what `away` does.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
   part every engine has (scanlines, neon bloom, vignette; `present` takes it).

@@ -59,9 +59,6 @@ const B_KEYS = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight'])
 const CYCLE_KEYS = new Set(['KeyQ', 'Tab'])
 const ROLL_KEYS = new Set(['KeyL', 'KeyC'])
 const MOVE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
-/** Up jumps on a side map, as B does (`Input.jumpPress`). */
-const UP_KEYS = ['ArrowUp', 'KeyW']
-
 export function isGameKey(code: string) {
   return MOVE_KEYS.has(code) || A_KEYS.has(code) || B_KEYS.has(code) || CYCLE_KEYS.has(code) || ROLL_KEYS.has(code)
 }
@@ -82,8 +79,7 @@ export function createInput(hooks: InputHooks): GameInput {
   let bPress = false
   let cyclePress = false
   let rollPress = false
-  // The side map's jump: up pressed this frame, and B held (a key or the pad).
-  let upPress = false
+  // The side map's jump is B: pressed this frame, and held (a key or the pad).
   const bKeys = new Set<string>()
   let bHeldTouch = false
   let tapSide: -1 | 1 | undefined
@@ -114,8 +110,8 @@ export function createInput(hooks: InputHooks): GameInput {
       bPress,
       cycle: cyclePress,
       ...(rollPress ? { rollPress } : {}),
-      ...(bPress || upPress ? { jumpPress: true } : {}),
-      ...(bKeys.size || bHeldTouch || UP_KEYS.some(k => keys.has(k)) ? { jumpHeld: true } : {}),
+      ...(bPress ? { jumpPress: true } : {}),
+      ...(bKeys.size || bHeldTouch ? { jumpHeld: true } : {}),
       autoFace: hooks.touch(),
       tapSide,
     }
@@ -124,7 +120,6 @@ export function createInput(hooks: InputHooks): GameInput {
     bPress = false
     cyclePress = false
     rollPress = false
-    upPress = false
     return input
   }
 
@@ -136,7 +131,6 @@ export function createInput(hooks: InputHooks): GameInput {
     bPress = false
     cyclePress = false
     rollPress = false
-    upPress = false
     bKeys.clear()
     bHeldTouch = false
     tapSide = undefined
@@ -233,7 +227,6 @@ export function createInput(hooks: InputHooks): GameInput {
     // A repeat of a key this input never saw go down was held across a page
     // change (back from a cabinet): it doesn't walk here.
     if (MOVE_KEYS.has(e.code)) {
-      if (!e.repeat && UP_KEYS.includes(e.code)) upPress = true
       if (!e.repeat || keys.has(e.code)) keys.add(e.code)
       return
     }

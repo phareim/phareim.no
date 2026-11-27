@@ -46,6 +46,8 @@ export type SfxName =
   | 'flip' | 'comet' | 'hop' | 'slip'
   // The Echo Barrow: an echo left on the floor, and the echo's blade
   | 'echo' | 'echoCut'
+  // The Late Show: the stomp coming down
+  | 'stomp'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2748,6 +2750,12 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     echoCut() {
       nz({ dur: 0.15, vol: 0.26, f: 660, to: 2800, q: 1.6, at: 0.02 })
       tone({ f: 465, to: 825, dur: 0.08, vol: 0.05, at: 0.02, verb: true })
+    },
+    // The stomp: a thud, and a blip rising off it.
+    stomp() {
+      tone({ f: 170, to: 42, dur: 0.18, type: 'sine', vol: 0.5 })
+      nz({ dur: 0.1, vol: 0.3, type: 'lowpass', f: 520 })
+      tone({ f: 320, to: 960, dur: 0.13, vol: 0.09, at: 0.04 })
     },
     // An echo left: a call, and the call coming back softer.
     echo() {

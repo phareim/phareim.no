@@ -264,6 +264,13 @@ describe('the world on the page', () => {
   it('names every room and the land outside it, with the hero at its door on the world', () => {
     assert.ok(rooms().length >= 14)
     for (const id of rooms()) {
+      // A side map says the room's own name, and draws no land outside.
+      if (Z.WORLD.maps[id].kind === 'side') {
+        const c = Z.mapPageContent(Z.WORLD, game(id))
+        assert.deepEqual([c.title, c.land, c.world], [Z.WORLD.maps[id].name.toUpperCase(), null, null], id)
+        assert.ok(Object.values(Z.WORLD.maps[id].cells ?? {}).some(r => r.name === c.sub), `${id}: ${c.sub}`)
+        continue
+      }
       const out = Z.outsideOf(Z.WORLD, id)
       assert.ok(out, `${id}: a land outside`)
       assert.ok(Z.WORLD.atlas[out.map], `${id}: on the grid`)

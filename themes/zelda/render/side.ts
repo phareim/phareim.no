@@ -15,10 +15,12 @@ import { HERO_R, ROLL_TIME, SPIN_TIME, TILE, WINDUP } from '../types'
 import { ladderTop } from '../engine/side'
 import { has, mapInfo } from '../engine/map'
 import { swingDur } from '../engine/hero'
-import { LADDER, PLATFORM, TILE_INFO } from '../world/tiles'
+import { LADDER, PLATFORM, SPRING, TILE_INFO } from '../world/tiles'
 import { chestStar, hash2, type Light } from './tiles'
 import { CLASSIC, realmLook } from './looks'
 import { itemSpriteName } from './itemIcon'
+import { eraBackdrop, eraInk } from './eras'
+import { diveStreak } from './lateshowPaint'
 import { frameCount, hasSprite, makeCanvas, paintRows, sprite } from './sheet'
 
 type G = CanvasRenderingContext2D
@@ -55,7 +57,7 @@ export interface SideKit {
 }
 
 /** A look's colours from the side: the sky behind, the near silhouettes, a block's face, shade, top and lit edge. */
-interface Ink { sky: string; sky2: string; far: string; face: string; shade: string; mortar: string; top: string; lip: string; wood: string; woodL: string }
+export interface Ink { sky: string; sky2: string; far: string; face: string; shade: string; mortar: string; top: string; lip: string; wood: string; woodL: string; coil?: string }
 const SHRINE: Ink = { sky: '#0d0920', sky2: '#150f30', far: '#1f1746', face: '#3a2f70', shade: '#271f50', mortar: '#2f2660', top: '#6a58b4', lip: '#3ff0ff', wood: '#8a4a8e', woodL: '#ff8ae0' }
 const LAB: Ink = { ...SHRINE, sky: '#071018', sky2: '#0c1a26', far: '#132a38', face: '#33465e', shade: '#212e42', mortar: '#2a3a50', top: '#6c8aa6', lip: '#b6ff4a', wood: '#4a6a7a', woodL: '#9fd8e8' }
 function inks(look: string | undefined): Ink {
@@ -68,7 +70,52 @@ function inks(look: string | undefined): Ink {
 const r = (g: G, c: string, x: number, y: number, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h) }
 
 /** The tiles drawn as a wall's block. */
-const BLOCKS: ReadonlySet<TileChar> = new Set<TileChar>(['#', '^', '%', 'Z', 'H', '[', 'q', 'R', 'T', 'I', 'b', 'B'])
+const BLOCKS: ReadonlySet<TileChar> = new Set<TileChar>(['#', '^', '%', 'Z', 'H', '[', 'q', 'R', 'T', 'I', 'b', 'B', SPRING])
+
+/** The lines of a split block, as corner points (px within the tile): the split through it, and two short ones off it. */
+const SPLITS: ReadonlyArray<{ w: number; at: ReadonlyArray<readonly [number, number]> }> = [
+  { w: 2, at: [[7, 0], [5, 4], [9, 8], [6, 12], [8, 15]] },
+  { w: 1, at: [[9, 8], [13, 10]] },
+  { w: 1, at: [[5, 4], [2, 5]] },
+]
+
+/**
+ * A block that will give way: a slab of its own (dark joints at its sides), split from top to bottom by a jagged
+ * line, with a break in the floor's lip over it. Every other one is its neighbour's mirror.
+ */
+function cracks(g: G, ink: Ink, px: number, py: number, mirror: boolean) {
+  const dark = '#05030c'
+  r(g, dark, px, py, 1, T)
+  r(g, dark, px + T - 1, py, 1, T)
+  for (const line of SPLITS) {
+    for (let k = 1; k < line.at.length; k++) {
+      const [x0, y0] = line.at[k - 1]!
+      const [x1, y1] = line.at[k]!
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))
+      for (let i = 0; i <= n; i++) {
+        const x = Math.round(x0 + ((x1 - x0) * i) / n)
+        r(g, dark, px + (mirror ? T - x - line.w : x), py + Math.round(y0 + ((y1 - y0) * i) / n), line.w, 1)
+      }
+    }
+  }
+  // Light on the broken edge of the lip.
+  r(g, ink.shade, px + (mirror ? 5 : 9), py + 1, 2, 3)
+}
+
+/** A spring pad flush with the floor: a plate to stand on and its coil in a dark well; `down` px pressed flat. */
+function spring(g: G, ink: Ink, px: number, py: number, down: number) {
+  const coil = ink.coil ?? ink.woodL
+  r(g, '#05030c', px + 1, py, T - 2, 13)
+  r(g, '#05030c', px + 1, py + 13, T - 2, 1)
+  for (let y = 5 + down, k = 0; y < 13; y += down ? 2 : 3, k++) {
+    r(g, coil, px + 3, py + y, 10, 1)
+    r(g, ink.wood, px + (k % 2 ? 3 : 11), py + y + 1, 2, down ? 1 : 2)
+  }
+  r(g, ink.lip, px + 1, py + down, T - 2, 2)
+  r(g, coil, px + 2, py + down + 2, T - 4, 2)
+  r(g, '#05030c', px + 3, py + down + 2, 1, 2)
+  r(g, '#05030c', px + 12, py + down + 2, 1, 2)
+}
 
 // ---------------------------------------------------------------------------
 // The still layer
@@ -97,7 +144,8 @@ function paintTile(g: G, ink: Ink, m: MapState, tx: number, ty: number) {
       r(g, ink.lip, px, py, T, 1)
       r(g, ink.shade, px, py + 4, T, 1)
     }
-    if (t === '%' || t === 'R') { r(g, ink.shade, px + 4, py + 5, 1, 4); r(g, ink.shade, px + 5, py + 9, 4, 1); r(g, ink.shade, px + 9, py + 9, 1, 5); r(g, ink.shade, px + 10, py + 4, 3, 1) }
+    if (t === '%' || t === 'R') cracks(g, ink, px, py, tx % 2 === 1)
+    if (t === SPRING) spring(g, ink, px, py, 0)
     return
   }
   if (t === PLATFORM) {
@@ -167,7 +215,8 @@ function layerOf(world: World, m: MapState): HTMLCanvasElement {
   const canvas = l?.canvas ?? makeCanvas(m.w * T, m.h * T)
   const g = canvas.getContext('2d')!
   g.clearRect(0, 0, canvas.width, canvas.height)
-  const ink = inks(mapInfo(world, m.id).def.look)
+  const def = mapInfo(world, m.id).def
+  const ink = eraInk(def) ?? inks(def.look)
   // Bottom rows first, so a ladder's rails over its top lie on what is above.
   for (let ty = m.h - 1; ty >= 0; ty--) for (let tx = 0; tx < m.w; tx++) paintTile(g, ink, m, tx, ty)
   layers.set(m, { version: m.version, canvas })
@@ -220,10 +269,14 @@ export function paintSide(k: SideKit, s: GameState) {
   const { g, world, cx, cy, vw, vh, time, reduced, lights } = k
   const m = s.map
   const info = mapInfo(world, m.id)
-  const ink = inks(info.def.look)
+  const ink = eraInk(info.def) ?? inks(info.def.look)
+  const sky = eraBackdrop(info.def)
   r(g, '#05030c', 0, 0, vw, vh)
-  for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) backdrop(k, ink, z)
+  for (const z of s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) { if (sky) sky(k, z); else backdrop(k, ink, z) }
   g.drawImage(layerOf(world, m), -cx, -cy)
+  // A pad just struck, pressed flat for a moment (the still layer has it at rest).
+  const flat = s.hero.side?.squash
+  if (flat) spring(g, ink, (flat.i % m.w) * T - cx, Math.floor(flat.i / m.w) * T - cy, 5)
 
   const x0 = Math.max(0, Math.floor(cx / T))
   const x1 = Math.min(m.w - 1, Math.floor((cx + vw) / T))
@@ -294,7 +347,8 @@ function hero(k: SideKit, s: GameState) {
     k.put('hero_side_hurt', x, feet + Math.round(q * 8), flip, false, 1 - 0.6 * q, 1 - 0.6 * q)
     return
   }
-  if (h.invuln > 0 && h.act !== 'get' && Math.floor(time * 20) % 2 === 0) return
+  // (The stomp's moment of mercy is no hurt: the hero does not blink for it.)
+  if (h.invuln > (sd?.mercy ?? 0) && h.act !== 'get' && Math.floor(time * 20) % 2 === 0) return
   const sw = h.swing
   const charging = h.charge > 0.12 && s.inv.sword && !h.carry
   let name = 'hero_side_0'
@@ -310,7 +364,8 @@ function hero(k: SideKit, s: GameState) {
   else if (sw) {
     const p = sw.t / swingDur(sw)
     name = p < WINDUP ? 'hero_side_atk_wind' : sw.n === 1 ? 'hero_side_atk_back' : sw.n === 2 ? (p < 0.7 ? 'hero_side_atk_lunge' : 'hero_side_atk_land') : 'hero_side_atk'
-  } else if (sd?.ladder) name = Math.floor(h.walkT * 6) % 2 ? 'hero_side_carry_0' : 'hero_side_push'
+  } else if (sd?.dive) name = 'hero_side_carry_0'
+  else if (sd?.ladder) name = Math.floor(h.walkT * 6) % 2 ? 'hero_side_carry_0' : 'hero_side_push'
   else if (sd && !sd.ground) name = sd.vy < 0 ? 'hero_side_run_2' : 'hero_side_carry_0'
   else if (charging) name = 'hero_side_charge'
   else if (Math.abs(h.vx) > 0.5) name = Math.abs(h.vx) >= 4.5 ? `hero_side_run_${Math.floor(h.walkT * 12) % 6}` : `hero_side_${[1, 0, 2, 0][Math.floor(h.walkT * 8.5) % 4]}`
@@ -319,6 +374,10 @@ function hero(k: SideKit, s: GameState) {
   // The blade behind the body while it is drawn back for a charge, else before it.
   if (armed && !sw) k.blade(x, feet - 7)
   k.put(name, x, feet, flip)
+  if (sd?.dive) {
+    diveStreak(k.g, x, feet, time, reduced)
+    lights.push({ x: h.x, y: h.y + 0.5, r: 2.2, color: '#2ff3ff', a: 0.8 })
+  }
   if (sw) k.blade(x, feet - 7)
   if (h.act === 'get' && s.get) {
     const c = sprite(itemSpriteName(s.get.item))
