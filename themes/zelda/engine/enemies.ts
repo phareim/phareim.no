@@ -8,6 +8,7 @@ import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
 import { orca } from './bossOrca'
+import { blackbox } from './bossBlackBox'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
@@ -187,6 +188,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'grok': grok(c, e, dt); break
     case 'phi': phi(c, e, dt); break
     case 'orca': orca(c, e, dt); break
+    case 'blackbox': blackbox(c, e, dt); break
   }
   contact(c, e)
 }

@@ -493,6 +493,7 @@ export type EnemyKind =
   | 'grok' // miniboss: rolls down a stencilled lane; open only while a wall or iron has it dazed
   | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
   | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
+  | 'blackbox' // boss (the Lighthouse): never moves; a lamp's beam comes out of another face, and its three receivers open it
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the

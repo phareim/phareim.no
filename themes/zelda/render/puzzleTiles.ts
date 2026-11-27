@@ -187,17 +187,9 @@ function emitter(g: G, px: number, py: number) {
   for (let x = 4; x < 12; x += 3) r(g, STEEL.d, px + x, py + 12, 2, 1)
 }
 
-/** The storm lamp set down (`engine/lamp.ts`): a brass-footed lantern, its glass lit cyan round a white heart. */
+/** The storm lamp set down (`engine/lamp.ts`): its shadow; the lamp itself stands over it (`lighthouse.ts` `lampItem`). */
 function lamp(g: G, px: number, py: number) {
   r(g, 'rgba(0,0,0,0.35)', px + 2, py + 12, 13, 4)
-  r(g, '#4a2e0c', px + 4, py + 12, 8, 3)
-  r(g, '#c4861c', px + 5, py + 11, 6, 2)
-  r(g, '#1a6f7a', px + 4, py + 3, 8, 9)
-  r(g, '#2ff3ff', px + 5, py + 4, 6, 7)
-  r(g, '#9de8ff', px + 6, py + 5, 4, 5)
-  r(g, '#ffffff', px + 7, py + 6, 2, 3)
-  r(g, '#c4861c', px + 4, py + 2, 8, 2)
-  r(g, '#ffd23f', px + 7, py + 0, 2, 2)
 }
 
 /** The Black Box's pedestal: one tile of a low slab (nine of them stand as one block). */

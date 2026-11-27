@@ -24,6 +24,7 @@ import { cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFl
 import { dirVec, nextId, toDir } from '../util'
 import { echoOnTile } from '../echo'
 import { lampDown, lampEmitters, stepLamp } from '../lamp'
+import { boxEmitters, boxFace, boxReceiver } from '../bossBlackBox'
 import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
 import { stepTubes } from './tubes'
 import { turns, turnTube } from '../../world/tubes'
@@ -378,7 +379,7 @@ export const isWeighed = (c: Ctx, idx: number) => pz(c).weights.has(idx)
 /** Tiles a beam crosses although they stop walkers. */
 const BEAM_PASSES = new Set<TileChar>(['~', 'ω', 'F', '¤', 'Z', 'n'])
 
-function stopsBeam(c: Ctx, x: number, y: number): boolean {
+export function stopsBeam(c: Ctx, x: number, y: number): boolean {
   const t = tileAt(c.s.map, x, y)
   if (BEAM_PASSES.has(t)) return false
   return solidTile(c.w, c.s.map, x, y, 'hero')
@@ -390,7 +391,7 @@ function traceBeams(c: Ctx, ph: PhysState) {
   const m = s.map
   ph.beams = []
   ph.lit = []
-  for (const em of lampEmitters(c, p.emitters)) {
+  for (const em of boxEmitters(c, lampEmitters(c, p.emitters))) {
     if (roomed(c.info.def.kind) && em.cell !== s.zoneIndex) continue
     if (!condMet(s, c.w, em.when, em.cell)) continue
     const v = dirVec(em.dir)
@@ -418,13 +419,20 @@ function traceBeams(c: Ctx, ph: PhysState) {
           stack.push([nx, ny, dy, dx], [nx, ny, -dy, -dx])
         } else if (t === 'ρ') {
           end = [nx + 0.5, ny + 0.5]
-          ph.lit.push(ny * m.w + nx)
+          // (The Black Box's three take its own beam only: a lamp's ends there and lights nothing.)
+          if (!(em.src === 'lamp' && boxReceiver(p.receivers.get(ny * m.w + nx)))) ph.lit.push(ny * m.w + nx)
+        } else if (t === 'Ξ') {
+          // The Box's pedestal: the beam ends at its face, and tells the Box.
+          end = [x + 0.5 + dx * 0.5, y + 0.5 + dy * 0.5]
+          boxFace(c, dx, dy, em.src)
         } else if (stopsBeam(c, nx, ny) || m.phys?.rolling.some(r => Math.floor(r.x) === nx && Math.floor(r.y) === ny)) {
           end = [x + 0.5 + dx * 0.5, y + 0.5 + dy * 0.5]
         } else { x = nx; y = ny }
       }
       if (!end) end = [x + 0.5, y + 0.5]
-      ph.beams.push({ x0, y0, x1: end[0], y1: end[1], ...(em.src ? { src: em.src } : {}) })
+      // (The Box's own beam shows from its face, not from inside it.)
+      const out = em.src === 'box' ? 0.5 : 0
+      ph.beams.push({ x0: x0 + v.x * out, y0: y0 + v.y * out, x1: end[0], y1: end[1], ...(em.src ? { src: em.src } : {}) })
     }
   }
   for (const idx of ph.lit) {

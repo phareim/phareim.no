@@ -27,6 +27,7 @@
 import type { GameState, MapKind, TileChar } from '../../types'
 import { SCROLL_TIME, TILE, roomed } from '../../types'
 import { mapInfo, raised } from '../../engine/index'
+import { boxFocus } from '../../engine/bossBlackBox'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { blockUp, isViewBlock } from '../../world/tiles'
@@ -353,7 +354,9 @@ export default function isoView(kit: Kit): View {
     const cClassic = project(P, cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      const focus = { x: s.hero.x, y: s.hero.y + 6 / T }
+      // (The Lamp Room: the camera rests on the Black Box as far as the hero lets it, `boxFocus`.)
+      const at = boxFocus(s, vw / 2 / T, vh / 2 / T, true) ?? s.hero
+      const focus = { x: at.x, y: at.y + 6 / T }
       let ci: Vec
       if (s.scroll) {
         const a = centreIn(P, focus, s.scroll.from, vw, vh, RISE)

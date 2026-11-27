@@ -9,6 +9,7 @@ import { GROK, PHI } from './heapFoes'
 import { PARROT, type ParrotMove, type Reciter } from './parrot'
 import { angleDiff, dirVec } from './util'
 import { sycophantLanes } from './bossSycophant'
+import { boxStencils } from './bossBlackBox'
 
 export type StencilShape =
   /** A lane from (x0, y0) to (x1, y1) along `a`, `w` tiles wide, and `cap` tiles on past each end. */
@@ -21,7 +22,11 @@ export type StencilShape =
   /** A straight way at any angle, `w` tiles wide, from (x0, y0) to (x1, y1): a gift's (`gifts.ts`). */
   | { t: 'ray'; x0: number; y0: number; x1: number; y1: number; w: number }
   /** The Lighthouse's one shape: a plain rectangle from (x0, y0) `len` tiles along the unit way (ux, uy), `w` wide. */
-  | { t: 'strip'; x0: number; y0: number; ux: number; uy: number; len: number; w: number }
+  | { t: 'strip'; x0: number; y0: number; ux: number; uy: number; len: number; w: number; hot?: boolean }
+  /** The Black Box's: a face's strip (its middle; `vert`: it runs north to south) with its number. Nothing there is hit. */
+  | { t: 'face'; x: number; y: number; vert: boolean; n: number; glow?: 'cyan' | 'pink'; spin?: number }
+  /** The Black Box's: the dashed way of a beam to come. Nothing there is hit (the beam itself is). */
+  | { t: 'dash'; x0: number; y0: number; x1: number; y1: number; hue: 'cyan' | 'pink' }
 /** `k`: 0 to 1 as its tell runs out; `dim`: a copy's, painted fainter. */
 export type Stencil = StencilShape & { k: number; dim?: boolean }
 
@@ -41,6 +46,8 @@ export function inStencil(s: StencilShape, x: number, y: number): boolean {
       return d <= s.r && (d < 1e-6 || angleDiff(Math.atan2(y - s.y, x - s.x), s.a) <= s.arc / 2)
     }
     case 'steps': return false
+    case 'face': return false
+    case 'dash': return false
     case 'strip': {
       const u = (x - s.x0) * s.ux + (y - s.y0) * s.uy
       return u >= 0 && u <= s.len && Math.abs((y - s.y0) * s.ux - (x - s.x0) * s.uy) <= s.w / 2
@@ -78,6 +85,7 @@ const unit = (k: number) => Math.max(0, Math.min(1, k))
 export function stencilsOf(e: Enemy): Stencil[] {
   if (e.dead) return []
   if (e.kind === 'sycophant') return sycophantLanes(e)
+  if (e.kind === 'blackbox') return boxStencils(e)
   const out: Stencil[] = []
   // How far a tell of `whole` s has run, 0 to 1.
   const run = (whole: number) => Math.max(0, Math.min(1, 1 - e.ai.tell / whole))

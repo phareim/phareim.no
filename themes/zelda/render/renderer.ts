@@ -35,7 +35,8 @@ import { drawFloorMarks } from './floorMarks'
 import { drawClock, drawGifts, drawRings, drawRobe, queueRack, steamLights, SYCO_HOVER, sycophantGold, sycophantLift, sycophantLight, sycophantSprite } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
-import { drawEyes, stripLights } from './lighthouse'
+import { BOX_AHEAD, boxFoot, drawBox, drawEyes, drawNumbers, lampItem, stripLights } from './lighthouse'
+import { boxSprite } from '../engine/bossBlackBox'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -1118,6 +1119,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const lit = e.ai.mode === 'rest' || e.stun > 0
         return { name: lit ? 'phi_lit' : e.ai.mode === 'tell' || e.ai.mode === 'dart' ? 'phi_eat' : `phi_down_${f('phi_down')}`, flip: false }
       }
+      case 'blackbox': return { name: boxSprite(e, time), flip: false }
       // Half a boat: its oar planted (stranded, off balance, stunned) or rowing. It swings the oar by turning about.
       case 'orca': {
         const down = e.ai.mode === 'planted' || e.ai.mode === 'off' || e.stun > 0
@@ -1194,6 +1196,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           lights.push({ x: p.x, y: p.y, r: 1.6, color: '#ff2fa0', a: 0.8 })
         }
       }
+      return
+    }
+    // THE BLACK BOX: on its pedestal, without a shadow (its ring is drawn) or a shove.
+    if (e.kind === 'blackbox') {
+      drawBox(g, e, cx, cy, time, frameReduced, lights, span, shiver(e))
       return
     }
     // A dark hound unseen: two eyes, and its bar (`foeBars`). No body, no shadow, no outline.
@@ -1327,6 +1334,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (roomed(def.kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
       // Under the floor only a fin shows: the bar rides over that.
       const fin = e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')
+      // The Black Box's bar lies under it, on its pedestal: over it, it would hide the north face's number.
+      if (e.kind === 'blackbox') {
+        drawNumbers(g, s, e, (x, y) => place(x, y, 0), time, frameReduced)
+        const mid = place(e.x, e.y, 0)
+        bar(g, Math.round(mid.x), Math.round(mid.y) + boxFoot(e, span), Math.round(e.r * T) * 2, e)
+        continue
+      }
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
@@ -1334,18 +1348,20 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
-      const w = big ? Math.round(e.r * T) * 2 : 12
-      const x = Math.round(at.x) - w / 2
-      const y = head - 6
-      const color = toughOpen(e) || bossOpen(e) ? TOUGH_GOLD : TOUGH_PINK
-      g.fillStyle = TOUGH_RIM
-      g.fillRect(x, y, w, 3)
-      g.fillStyle = TOUGH_LOST
-      g.fillRect(x + 1, y + 1, w - 2, 1)
-      if (e.hp <= 0) continue
-      g.fillStyle = color
-      g.fillRect(x + 1, y + 1, Math.max(1, Math.round(((w - 2) * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
+      bar(g, Math.round(at.x), head - 6, big ? Math.round(e.r * T) * 2 : 12, e)
     }
+  }
+
+  /** A foe's bar, `w` wide, its middle at `mx` and its top at `y`. */
+  function bar(g: G, mx: number, y: number, w: number, e: Enemy) {
+    const x = mx - w / 2
+    g.fillStyle = TOUGH_RIM
+    g.fillRect(x, y, w, 3)
+    g.fillStyle = TOUGH_LOST
+    g.fillRect(x + 1, y + 1, w - 2, 1)
+    if (e.hp <= 0) return
+    g.fillStyle = toughOpen(e) || bossOpen(e) ? TOUGH_GOLD : TOUGH_PINK
+    g.fillRect(x + 1, y + 1, Math.max(1, Math.round(((w - 2) * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
   }
 
   /**
@@ -1449,6 +1465,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       items.push({ x: e.x, foot: 6 / T, y: e.y, draw: () => drawEcho(g, s, cx, cy, lights) })
     }
     queuePuzzles(g, s, cx, cy, items)
+    // (The isometric view stands its own lantern: `lampItem` has no card there.)
+    if (s.lamp) items.push(lampItem(g, s, cx, cy, time, ui.reducedMotion))
     if (!ui.attract) queueHeap(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
@@ -1551,7 +1569,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         continue
       }
       if (roomed(kind) && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
-      items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
+      // (The Black Box's isometric card stands ahead of its pedestal, so that the pedestal does not cut it.)
+      const ahead = e.kind === 'blackbox' && span ? BOX_AHEAD : null
+      items.push({ x: e.x + (ahead ?? 0), foot: ahead ?? e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
       if (e.kind === 'parrot' && e.ai.copy) {
         const x = e.ai.cx as number
         const y = e.ai.cy as number

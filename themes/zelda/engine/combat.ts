@@ -7,6 +7,8 @@ import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ORCA, ROLL_IFRAMES, 
 import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
+import { BOX } from './bossBlackBox'
+import { lampHome } from './lamp'
 import { heapRule, phiOpen } from './heapFoes'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
@@ -113,6 +115,8 @@ BIG.add('grok')
 BOSSES.add('grok')
 BIG.add('orca')
 BOSSES.add('orca')
+BIG.add('blackbox')
+BOSSES.add('blackbox')
 /** The `BIG` ones the storm lamp's beam burns and stuns (`engine/lamp.ts`): a boss is left alone unless it is named here. */
 export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 
@@ -163,6 +167,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'phi': return phiOpen(e)
     // The oar planted, off balance after a sweep, or stunned by the lamp, while this opening still has blows to give.
     case 'orca': return (mode === 'planted' || mode === 'off' || e.stun > 0) && ((e.ai.took as number | undefined) ?? 0) < ORCA.take
+    // All three receivers lit, while this opening still has blows to give.
+    case 'blackbox': return mode === 'open' && ((e.ai.took as number | undefined) ?? 0) < BOX.take
     default: return false
   }
 }
@@ -368,6 +374,22 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       return false
     }
     case 'sycophant': return sycophantHit(c, e, fromX, fromY, src)
+    // THE BLACK BOX: only while it is open, and `BOX.take` an opening at most, whatever strikes: the blade (the echo is
+    // the blade), a bomb or a thrown pot (`BOX.throwDmg`). Anything else clanks, the disc, the hook and the stomp with
+    // the rest, and nothing stuns it.
+    case 'blackbox': {
+      const thrown = src === 'bomb' || src === 'pot'
+      if ((blade(src) || thrown) && bossOpen(e)) {
+        const hit = damage(c, e, thrown ? BOX.throwDmg : dmg, fromX, fromY, { ...opt, cap: BOX.take - ((ai.took as number | undefined) ?? 0) })
+        ai.hurt = BOX.hurt
+        // Its fall ends the fight: the lamp is back in the hand (the Weight may lie where it stood).
+        if (e.dead) lampHome(c.s)
+        return hit
+      }
+      c.ev.push({ type: 'clank', x: e.x, y: e.y + 1 })
+      turned(e, src, 0.2)
+      return false
+    }
     // GROK and PHI: their own file says what lands (`heapFoes.ts` `heapRule`).
     case 'grok':
     case 'phi': {
@@ -419,8 +441,8 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   const len = Math.hypot(ddx, ddy) || 1
   const dx = ddx / len
   const dy = ddy / len
-  // (ORCA is never shoved: its stencils say where it will be.)
-  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca') {
+  // (ORCA is never shoved: its stencils say where it will be. The Black Box stands on its pedestal.)
+  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini' && e.kind !== 'orca' && e.kind !== 'blackbox') {
     const k = (opt?.knock ?? 1) * (big ? 0.4 : 1)
     e.knock = { vx: dx * 9 * k, vy: dy * 9 * k, t: 0.14 }
   }
