@@ -120,8 +120,28 @@ export function queueHeap(g: G, world: World, s: GameState, cx: number, cy: numb
   }
   const mark = magnetPreview(world, s)
   if (mark) lights.push({ x: mark.x, y: mark.y, r: 1.3, color: CYAN, a: 0.75 })
+  // What the Golem spits (`engine/bossGolem.ts`): a piece of scrap through the air, pink with its harm.
+  for (const e of s.map.enemies) {
+    if (e.kind !== 'golem' || e.dead || !e.ai.fly) continue
+    const px = e.ai.sx as number
+    const py = e.ai.sy as number
+    items.push({
+      x: px,
+      ay: py + 0.5,
+      y: py + 0.5,
+      draw: () => {
+        const x = Math.round((px - 0.5) * T - cx)
+        const y = Math.round((py - 0.5) * T - cy)
+        g.fillStyle = 'rgba(0,0,0,0.35)'
+        g.fillRect(x + 2, y + 12, 12, 3)
+        g.drawImage(sprite('heap_scrap'), x, y - 5)
+      },
+    })
+    lights.push({ x: px, y: py, r: 1.5, color: '#ff2fa0', a: 0.85 })
+  }
   for (const f of s.map.iron?.flights ?? []) {
-    const lift = isRailed(f.ch) ? 0 : 4
+    // (What slides into the Golem's mouth stays on the floor, and is not the hero's to light.)
+    const lift = isRailed(f.ch) || f.golem ? 0 : 4
     items.push({
       x: f.x,
       ay: f.y + 0.5,
@@ -134,7 +154,7 @@ export function queueHeap(g: G, world: World, s: GameState, cx: number, cy: numb
         drawMetalGlint(g, x, y - lift, Math.floor(f.x), Math.floor(f.y), time, reduced)
       },
     })
-    lights.push({ x: f.x, y: f.y, r: 1.3, color: CYAN, a: 0.6 })
+    if (!f.golem) lights.push({ x: f.x, y: f.y, r: 1.3, color: CYAN, a: 0.6 })
   }
 }
 
@@ -153,7 +173,7 @@ export function drawLatchLines(g: G, s: GameState, cx: number, cy: number, time:
   const hx = h.x * T - cx
   const hy = h.y * T - cy - 4
   g.fillStyle = CYAN
-  for (const f of s.map.iron?.flights ?? []) stroke(g, hx, hy, f.x * T - cx, f.y * T - cy - 4, 1, 0, 0)
+  for (const f of s.map.iron?.flights ?? []) if (!f.golem) stroke(g, hx, hy, f.x * T - cx, f.y * T - cy - 4, 1, 0, 0)
   for (const e of s.map.enemies) if (!e.dead && e.kind === 'phi' && e.ai.mode === 'pulled') stroke(g, hx, hy, e.x * T - cx, e.y * T - cy, 1, 0, 0)
   const k = s.hook
   if (!k?.magnet) return

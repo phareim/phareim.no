@@ -6,6 +6,7 @@
  *   `MAGNET.cone` either side of it, from `MAGNET.near` to `MAGNET.reach` tiles centre to centre, in the hero's own
  *   room, with no wall or shut gate on the line. For a bolt or a cart no other resting iron may be on the line either.
  *   Foes are never targets, but for a PHI: gold is metal, and one is pulled to a tile before the hero, stunned.
+ *   B then rests long (`MAGNET.phiRest`): the five are not to be reeled in one after another.
  * - Resting iron is a tile (`world/tiles.ts`): solid to walkers and foes, open to shots and the blade's sight.
  * - Loose iron (`▣ ▤`) flies over pits and water and comes down on the last free floor tile of its line towards the
  *   hero, short of any iron on the way. A resting piece weighs on a plain plate.
@@ -34,6 +35,8 @@ export const MAGNET = {
   /** Seconds B rests after a latch, and after a tap that took nothing. */
   rest: 0.4,
   fizzle: 0.2,
+  /** Seconds B rests after it has pulled a PHI: gold is heavy. (The preview and the B box show it.) */
+  phiRest: 5,
   /** Tiles a second: loose iron through the air, a cart on its rail. (The hero's flight is the hook's pull.) */
   loose: 11,
   cart: 8,
@@ -282,7 +285,18 @@ export function magnetPlan(world: World, s: GameState, aim: number): MagnetPlan 
 export function magnetPreview(world: World, s: GameState): MagnetPlan | null {
   const h = s.hero
   if (s.inv.selected !== 'magnet' || s.mode !== 'play' || s.hook || h.carry || h.act === 'fall' || h.act === 'dead') return null
+  // (No bracket while the long rest runs: there is nothing a tap would take.)
+  if (magnetRest(s) < 1) return null
   return magnetPlan(world, s, h.act === 'walk' || h.act === 'push' ? aimOf(h) : dirAngle(h.dir))
+}
+
+/**
+ * 0 to 1 as a long rest runs out (after a PHI), 1 whenever B is ready, as far as the eye is told: the short rests
+ * after iron and a fizzle are over before a bar could say anything.
+ */
+export function magnetRest(s: GameState): number {
+  const st = s.map.iron
+  return st && st.rest > 0 && (st.of ?? 0) > MAGNET.rest ? 1 - st.rest / st.of! : 1
 }
 
 /** B with the Magnet in hand: a tap. */
@@ -297,11 +311,11 @@ export function useMagnet(c: Ctx, inp: Input) {
   h.act = 'use'
   h.actT = 0
   if (!plan) {
-    st.rest = MAGNET.fizzle
+    st.rest = st.of = MAGNET.fizzle
     c.ev.push({ type: 'fizzle', x: h.x + Math.cos(aim) * 0.5, y: h.y + Math.sin(aim) * 0.5 })
     return
   }
-  st.rest = MAGNET.rest
+  st.rest = st.of = plan.t === 'phi' ? MAGNET.phiRest : MAGNET.rest
   c.ev.push({ type: 'latch', x: plan.x, y: plan.y })
   if (plan.t === 'bolt') {
     const d = Math.hypot(plan.x - h.x, plan.y - h.y)
@@ -362,6 +376,7 @@ export function stepMagnet(c: Ctx, dt: number) {
   if (!st) return
   if (st.rest > 0) st.rest = Math.max(0, st.rest - dt)
   for (const f of [...st.flights]) {
+    if (f.golem === 'pull') continue
     const cart = isRailed(f.ch)
     const goal = mid(m, f.to)
     const dx = goal.x - f.x
@@ -371,10 +386,11 @@ export function stepMagnet(c: Ctx, dt: number) {
     if (len > sp) {
       const x = f.x + (dx / len) * sp
       const y = f.y + (dy / len) * sp
-      // A cart does not roll through whatever has stepped onto its rail: it stops where it is.
+      // A cart does not roll through whatever has stepped onto its rail: it stops where it is. (But for one the
+      // Golem spits back, which passes under it and comes to rest at the rail's end.)
       const now = tileOfPoint(m, f.x, f.y)
       const next = tileOfPoint(m, x, y)
-      if (cart && next !== now && next !== f.from && !free(c.w, c.s, next, f, true)) { f.to = now; continue }
+      if (cart && !f.golem && next !== now && next !== f.from && !free(c.w, c.s, next, f, true)) { f.to = now; continue }
       f.x = x
       f.y = y
       continue
@@ -399,15 +415,24 @@ export function stepMagnet(c: Ctx, dt: number) {
   }
 }
 
-/** The resting iron on tile `i` is smashed (or eaten): gone, and home again after `MAGNET.mend` s. False: no iron there. */
-export function smashIron(c: Ctx, i: number): boolean {
+/** The resting iron on tile `i`, taken off the map: what it was and its home tile. Null: no iron there. */
+export function takeIron(c: Ctx, i: number): { ch: TileChar; home: number } | null {
   const m = c.s.map
-  if (!isIron(m.tiles[i]!)) return false
+  const ch = m.tiles[i]!
+  if (!isIron(ch)) return null
   const st = iron(m)
-  st.smashed.push({ home: st.away[i] ?? i, t: MAGNET.mend })
+  const home = st.away[i] ?? i
   delete st.away[i]
   m.tiles[i] = under(c.info, i)
   m.version++
+  return { ch, home }
+}
+
+/** The resting iron on tile `i` is smashed: gone, and home again after `MAGNET.mend` s. False: no iron there. */
+export function smashIron(c: Ctx, i: number): boolean {
+  const taken = takeIron(c, i)
+  if (!taken) return false
+  iron(c.s.map).smashed.push({ home: taken.home, t: MAGNET.mend })
   return true
 }
 

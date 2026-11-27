@@ -32,6 +32,7 @@ import { blockUp, isViewBlock } from '../../world/tiles'
 import { SIDE_PATCH } from '../viewBlocks'
 import { dirAngle } from '../../engine/util'
 import { sycophantFocus } from '../../engine/bossSycophant'
+import { golemFocus } from '../../engine/bossGolem'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { drawLatchLines } from '../heapMarks'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -1015,7 +1016,7 @@ export default function isoView(kit: Kit): View {
     const cClassic = proj(cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      const at = sycophantFocus(s)
+      const at = golemFocus(s, sycophantFocus(s))
       const focus = { x: at.x, y: at.y + 6 / T }
       let ci: Vec
       if (s.scroll) {

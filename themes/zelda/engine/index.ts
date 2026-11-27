@@ -11,7 +11,9 @@ export { STATS } from './spawn'
 // The echo (`echo.ts`), and what the floor is stencilled with.
 export { echoMayStand, echoAim, ECHO_R } from './echo'
 // The Magnet (`magnet.ts`): what a tap would take, and iron smashed (it comes home).
-export { magnetPlan, magnetPreview, smashIron, MAGNET, type MagnetPlan } from './magnet'
+export { magnetPlan, magnetPreview, magnetRest, smashIron, MAGNET, type MagnetPlan } from './magnet'
+// The Scrape Golem's numbers (`bossGolem.ts`).
+export { GOLEM } from './bossGolem'
 export { stencilsOf, inStencil, type Stencil } from './stencils'
 // The side view's numbers (the lab measures them).
 export { SIDE, type SideHero } from './side'

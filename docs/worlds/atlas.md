@@ -216,7 +216,10 @@ the Flats meadow stands in the open west of the reeds chest.
 Three hand-made floors under the deep drift, two of the old six layers on
 each: ECHO LEDGES and THE UPSIDE GROVE; THE GLASS SEA and BROADCAST; THE
 FOSSIL ARCADE and THE CORE, whose Geyser goes home. BROR, SIGGE, HANNA, ECHO
-and the HERDSMAN live down there.
+and the HERDSMAN live down there. A bomb at the east of THE RAILS opens THE
+HEAP (`heap1`, `heap2`): the scrapyard dungeon on the Underglow's keyring, with
+THE MAGNET, GROK, PHI, the Scrape Golem and the Weight CREDIT
+(`docs/games/neon-shrine-heap.md`).
 
 ### THE ECHO BARROW (`echobarrow`)
 The hidden folk's hall under the Mounds, where every call comes back: a dungeon

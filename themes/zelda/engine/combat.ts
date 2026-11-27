@@ -8,6 +8,7 @@ import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
 import { heapRule, phiOpen } from './heapFoes'
+import { golemCap, golemFell, golemOpen } from './bossGolem'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
 import { artOfItem, endMoves, hopDodge, isArt, learnArt, slip } from './moves'
@@ -111,6 +112,8 @@ BOSSES.add('sycophant')
 // The Heap's (`heapFoes.ts`).
 BIG.add('grok')
 BOSSES.add('grok')
+BIG.add('golem')
+BOSSES.add('golem')
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -157,6 +160,8 @@ export function bossOpen(e: Enemy): boolean {
     // Dazed, while this daze still has blows to give.
     case 'grok': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
     case 'phi': return phiOpen(e)
+    // Choking on a cart, while this choke still has blows to give.
+    case 'golem': return golemOpen(e)
     default: return false
   }
 }
@@ -361,6 +366,15 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (rule !== false) return damage(c, e, dmg, fromX, fromY, rule === 'any' ? opt : { ...opt, cap: rule })
       turned(e, src, 0.2)
       return false
+    }
+    // THE SCRAPE GOLEM: the blade in a choke, and nothing else (`bossGolem.ts`). Nothing shoves it off its spot.
+    case 'golem': {
+      const cap = golemCap(e, src)
+      if (!cap) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); turned(e, src, 0.2); return false }
+      const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
+      e.knock = null
+      if (e.dead) golemFell(c, e)
+      return hit
     }
     case 'deepseek':
       if (ai.mode === 'under' || ai.mode === 'rise') {

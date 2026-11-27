@@ -15,7 +15,9 @@
  * across the line by a bolt to the lever that lets the drawbridge down; the key's door to the pump house.
  *
  * The pump house shuts all three of its ways while GROK lives; the dark shift shuts its one while any of five PHI
- * does, is played on its chart that long, and gives up the Big Key when they are down (`engine/heapFoes.ts`).
+ * does, is played on its chart that long, and gives up the Big Key when they are down (`engine/heapFoes.ts`). The
+ * heap is the Scrape Golem's (`engine/bossGolem.ts`): two rails with a striped cart each, a pad to send it from,
+ * four scraps it will eat; where it falls lies the Weight CREDIT.
  *
  * Every room is laid so that the hook, which every hero here owns, skips none of the Magnet's crossings: no post,
  * pillar, torch or chest stands where it would carry the hero over, and the bridge's lever stands behind a stub of
@@ -233,7 +235,7 @@ const THE_HEAP = [
   '#..............#',
   '#.J.......U..▥.#',
   '...............#',
-  '...............#',
+  '.......WQ......#',
   '#..............#',
   '#.....▤..▤.....#',
   '#....▤....▤....#',
@@ -254,7 +256,15 @@ export const HEAP2: MapDef = {
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE FOOT' },
-    '1,0': { name: 'THE HEAP', track: 'boss' },
+    '1,0': {
+      name: 'THE HEAP',
+      track: 'boss',
+      events: [
+        { when: { notFlag: 'heap.golem' }, lines: ["THE SCRAPE GOLEM. EVERYTHING IN IT WAS SOMEBODY'S."], set: 'heap2.golem.met' },
+        // After the fall (`engine/bossGolem.ts` sets the flag once it has faded).
+        { when: { flag: 'heap.golem.down' }, lines: ['(EVERY PIECE HAS A NAME STENCILLED ON IT. THE NAMES WERE ALWAYS THERE. NOBODY READ THEM.)'], set: 'heap2.named' },
+      ],
+    },
   },
   rows: joinCells([[FOOT, THE_HEAP]]),
   isoLandmarks: [shards(0, 5, 8), shards(1, 10, 2)],
@@ -267,6 +277,9 @@ export const HEAP2: MapDef = {
     U: rail(4),
     '5': pad('left'),
     '6': pad('right'),
+    // The Scrape Golem, its middle at the top left corner of its tile, and the Weight, which lies where it falls.
+    Q: { ent: { t: 'enemy', kind: 'golem', once: 'heap.golem' } },
+    W: { ent: { t: 'item', id: 'heap2.weight', item: 'weightCredit', appear: { flag: 'heap.golem' }, atFall: true } },
   },
 }
 

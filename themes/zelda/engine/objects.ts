@@ -8,6 +8,7 @@ import { BOMB_FUSE, BOMB_RADIUS, DISC_RANGE, DISC_SPEED, HERO_R, PUSH_TIME, STAN
 import { echoOnTile } from './echo'
 import { PARROT } from './parrot'
 import { stepMagnet } from './magnet'
+import { stepGolemFall } from './bossGolem'
 import { TILE_INFO, isIron } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -31,6 +32,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepBlocks(c, dt)
   stepPhysics(c, dt)
   stepMagnet(c, dt)
+  stepGolemFall(c)
   stepPuzzles(c)
   stepStands(c, dt)
   stepNpcs(c, dt)

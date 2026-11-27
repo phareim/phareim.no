@@ -13,6 +13,7 @@ import { asksChoice } from '../engine/game'
 import { itemIconName } from './itemIcon'
 import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
 import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
+import { magnetRest } from '../engine/magnet'
 import { PAGE_VEIL } from './mapPage'
 
 type G = CanvasRenderingContext2D
@@ -218,7 +219,7 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
     const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
     const item = itemIconName(s)
-    const rest = !jumps && isArt(inv.selected) ? artRest(s, inv.selected) : 1
+    const rest = jumps ? 1 : isArt(inv.selected) ? artRest(s, inv.selected) : inv.selected === 'magnet' ? magnetRest(s) : 1
     if (rest < 1) g.globalAlpha = 0.35
     if (jumps) g.drawImage(jumpIcon(), bx + 3, 6)
     else icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)
