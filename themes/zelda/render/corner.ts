@@ -198,21 +198,17 @@ export interface CornerShape {
   gem?: boolean
   /** The words on the plate under the chart. */
   tag?: string | null
-  /** Key caps, beside a keyboard. */
-  keys?: boolean
 }
 
 export interface Parts {
   step: number
   /** The frame without its ring: the current shape's box, or the stub's. */
   frame: Box
-  /** Null where the round holds one view only: no gem, no plate, no V. */
+  /** Null where the round holds one view only: no gem, no plate. */
   gem: Box | null
   chain: Box | null
   plate: Box | null
   tag: Box | null
-  keyM: Box
-  keyV: Box | null
 }
 
 export const PLATE_H = 13
@@ -235,22 +231,16 @@ export function cornerParts(sh: CornerShape): Parts {
     chain = { x: XR - 7, y: gem.y + GEM_H, w: 2, h: 4 }
     plate = { x: XR - pw, y: gem.y + GEM_H + 4, w: pw, h: PLATE_H }
   }
-  const under = frame.y + frame.h + 2
-  const keyM: Box = { x: frame.x + Math.floor((frame.w - CAP_W) / 2), y: under, w: CAP_W, h: CAP_H }
-  // (A pinned gem has nothing for V to do.) Under the gem on the diamond's tip, where the frame leaves room; on the
-  // square and the shapes between, the gem sits on the glass, and the cap goes under the frame, right of M.
-  const keyV: Box | null = gem && sh.keys && !sh.pinned ? { x: XR - 10, y: sh.chart && step === TURN_STEPS ? gem.y + GEM_H + 2 : under, w: CAP_W, h: CAP_H } : null
   let tag: Box | null = null
   if (sh.tag) {
     const tw = Math.min(CORNER_W - 2, textWidth(sh.tag) + 6)
-    let y = under
-    if (sh.keys) y = under + CAP_H + 1
+    let y = frame.y + frame.h + 2
     if (plate) y = Math.max(y, plate.y + plate.h + 1)
     // Beside the stub it hangs as low as under a chart: a room's counters, drawn large on a phone, reach under it higher up.
     if (!sh.chart) y = Math.max(y, Y0 + CHART_TILES + 2)
     tag = { x: XR - tw, y, w: tw, h: PLATE_H }
   }
-  return { step, frame, gem, chain, plate, tag, keyM, keyV }
+  return { step, frame, gem, chain, plate, tag }
 }
 
 /** The glass and its ink ring as one outline: for each row from the ring above the frame to the ring below, the columns it covers [from, to). */
@@ -381,8 +371,6 @@ export interface CornerState {
   pressed?: 'chart' | 'gem' | null
   /** Keyboard focus. */
   focus?: 'chart' | 'gem' | null
-  /** Key caps, when not on touch. */
-  keys?: boolean
   /** The first visit's ring, and its tag. */
   nudge?: 'gem' | 'chart' | null
   /** The words on the plate: the area's name (`areaTag`), a refusal (`refusalTag`) or a view's name. */
@@ -412,7 +400,7 @@ export function cornerShape(world: World, s: GameState, st: CornerState): Corner
   const chart = hasChart(world, s)
   const round = st.round ?? BUILT_IN
   // (With a rule to turn there is a gem to turn it by, whatever the round holds.)
-  return { chart, e: st.e, gem: hasGem(round) || !!st.rule, pinned: pinName(mapDef(world, s.map.id), round), tag: st.tag ?? (st.nudge ? NUDGE_TAG[st.nudge] : null), keys: !!st.keys }
+  return { chart, e: st.e, gem: hasGem(round) || !!st.rule, pinned: pinName(mapDef(world, s.map.id), round), tag: st.tag ?? (st.nudge ? NUDGE_TAG[st.nudge] : null) }
 }
 
 /**
@@ -530,7 +518,7 @@ export interface ChartWindow {
   /** The tile at the window's middle (its corner nearest the frame's centre). */
   wx: number
   wy: number
-  /** The hero shows whole there, clear of the gem, its plate and its key cap (false only where no window can). */
+  /** The hero shows whole there, clear of the gem and its plate (false only where no window can). */
   fits: boolean
 }
 
@@ -582,10 +570,10 @@ function glassOf(parts: Parts): (x: number, y: number) => boolean {
 
 const meets = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
-/** What of the chart lies under the gem, its plate and its key cap: nothing is marked there. */
+/** What of the chart lies under the gem and its plate: nothing is marked there. */
 function covered(parts: Parts): Box[] {
   const grow = (b: Box): Box => ({ x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 })
-  return [...(parts.gem ? [grow(parts.gem)] : []), ...(parts.plate ? [grow(parts.plate)] : []), ...(parts.keyV ? [grow(parts.keyV)] : [])]
+  return [...(parts.gem ? [grow(parts.gem)] : []), ...(parts.plate ? [grow(parts.plate)] : [])]
 }
 
 /** True where a w × h box at (x, y) lies wholly on the glass and clear of what covers it. */
@@ -841,11 +829,6 @@ export function renderCorner(world: World, s: GameState, st: CornerState, skin: 
     const text = RULE_TAGS[st.rule]
     const w = textWidth(text) + 6
     B.plate({ x: parts.frame.x - w - 3, y: parts.frame.y, w, h: PLATE_H }, text, WHITE, skin.cool, skin.outline)
-  }
-  if (st.keys) {
-    // (The stub is the pause: P. The chart opens the map: M.)
-    stampCap(B, shape.chart ? 'M' : 'P', parts.keyM, skin)
-    if (parts.keyV) stampCap(B, 'V', parts.keyV, skin)
   }
   if (parts.tag && shape.tag) {
     const edge = st.nudge ? skin.hot : shape.pinned && shape.tag === refusalTag(shape.pinned) ? skin.dim : skin.cool

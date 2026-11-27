@@ -25,6 +25,7 @@ import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, 
 import { drawMapPage, targetOnScreen } from './mapPage'
 import { drawItemsPage } from './itemsPage'
 import { drawLogPage, type ChangeLog } from './logPage'
+import { drawKeysPage, type KeysView } from './keysPage'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -111,6 +112,8 @@ export interface FrameUI {
   itemCursor?: number
   /** What the LOG page shows (`logPage.ts`): the change list, the page of it and the dev switch. */
   log?: { changes: ChangeLog; page: number; dev: boolean }
+  /** What the KEYS page shows (`keysPage.ts`): the rows with their keys' names, the cursor and what it waits for. */
+  keysPage?: KeysView
   /** The keyboard's focus is on the MAP page's Prism button: the page rings the Prism in gold. */
   prismFocus?: boolean
   /** The view rule turning on its own (`CornerState.rule`): the MAP page's Prism names it. */
@@ -121,6 +124,7 @@ export interface FrameUI {
 
 type CssBox = { x: number; y: number; w: number; h: number }
 export interface LogTargets { page: number; pages: number; older: CssBox | null; newer: CssBox | null; dev: CssBox }
+export interface KeysTargets { wide: boolean; pages: number[][]; rows: Array<{ index: number; box: CssBox }>; reset: CssBox | null; more: CssBox | null }
 
 /** Puts a world point (tiles; `z` tiles up off the ground) on the scene (logical px). */
 export type Place = (x: number, y: number, z?: number) => Vec
@@ -209,6 +213,8 @@ export interface Renderer {
   itemCells(): Array<{ x: number; y: number; w: number; h: number }> | null
   /** The LOG page's buttons as last painted, in CSS px from the canvas's top left, and which of how many pages is up (null: not on screen). */
   logTargets(): LogTargets | null
+  /** The KEYS page's buttons as last painted, in CSS px from the canvas's top left, and what each of its pages holds (null: not on screen). */
+  keysTargets(): KeysTargets | null
 }
 
 /**
@@ -404,6 +410,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let cellsAt: Array<{ x: number; y: number; w: number; h: number }> | null = null
   /** The LOG page's buttons as last painted (`Renderer.logTargets`). */
   let logAt: LogTargets | null = null
+  /** The KEYS page's buttons as last painted (`Renderer.keysTargets`). */
+  let keysAt: KeysTargets | null = null
   let flashColor = '#ffffff'
   const glowCache = new Map<string, HTMLCanvasElement>()
   let scan: CanvasPattern | null = null
@@ -1693,6 +1701,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     cellsAt = null
     prismAt = null
     logAt = null
+    keysAt = null
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
@@ -1756,7 +1765,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         if (callout.t > CALLOUT_TIME) callout = null
         else drawCallout(g, callout, sp.vw, sp.vh, skin, heroRow - 46)
       }
-      if (!pageUp) drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
+      if (!pageUp) drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : '', ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
       // The view strip has the banner's place while it is up.
       if (ui.banner && !pageUp && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
       if (s.dialog && !pageUp) {
@@ -1770,6 +1779,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, rule: ui.rule, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)
       else if (ui.paused && ui.confirmReset) drawPause(g, sp.vw, sp.vh, ui.keys, skin)
       else if (ui.paused && ui.page === 'log' && ui.log && !ui.confirmReset) drawLogPage(g, sp.vw, sp.vh, { keys: ui.keys, log: ui.log.changes, page: ui.log.page, dev: ui.log.dev, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, placed: p => { const at = (b: CssBox) => targetOnScreen(b, sp, dpr, { w: W / dpr, h: H / dpr }); logAt = { page: p.page, pages: p.pages, older: p.older && at(p.older.hit), newer: p.newer && at(p.newer.hit), dev: at(p.dev.hit) } } }, skin)
+      else if (ui.paused && ui.page === 'keys' && ui.keysPage && !ui.confirmReset) drawKeysPage(g, sp.vw, sp.vh, { keys: ui.keys, view: ui.keysPage, css: sp.scale / dpr, safe: { top, left, right, bottom }, placed: p => { const at = (b: CssBox) => targetOnScreen(b, sp, dpr, { w: W / dpr, h: H / dpr }); keysAt = { wide: p.wide, pages: p.pages, rows: p.rows.map(r => ({ index: r.index, box: at(r.box) })), reset: p.reset && at(p.reset.box), more: p.pager && at(p.pager.hit) } } }, skin)
       // (The ITEMS page keeps above the deck as the MAP page does, and says where its cells came to lie.)
       else if (ui.paused) drawItemsPage(g, s, sp.vw, sp.vh, { keys: ui.keys, cursor: ui.itemCursor ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, muted: ui.muted, view: ui.view, placed: p => { cellsAt = p.cells.map(b => targetOnScreen(b, sp, dpr, { w: W / dpr, h: H / dpr })) } }, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
@@ -2580,5 +2590,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     pagePrism: () => prismAt,
     itemCells: () => cellsAt,
     logTargets: () => logAt,
+    keysTargets: () => keysAt,
   }
 }

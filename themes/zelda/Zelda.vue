@@ -32,8 +32,8 @@
       data-game-keys
       :disabled="paused || !!panel || talking || leaving"
       aria-label="Pause"
-      aria-keyshortcuts="P"
-      :title="touchUI ? undefined : 'Pause (P)'"
+      :aria-keyshortcuts="shortcut(keyNames.items)"
+      :title="touchUI ? undefined : `Pause (${keyNames.items})`"
       @pointerdown.prevent="pressCorner('chart', $event) && openPage('items')"
       @click="$event.detail === 0 && openPage('items')"
       @mousedown.prevent
@@ -51,9 +51,9 @@
         data-game-keys
         :disabled="paused || !!panel || talking || leaving"
         :aria-label="turnLabel"
-        aria-keyshortcuts="V"
+        :aria-keyshortcuts="shortcut(keyNames.view)"
         :aria-busy="turnWaiting || undefined"
-        :title="touchUI ? undefined : 'View (V)'"
+        :title="touchUI ? undefined : `View (${keyNames.view})`"
         @pointerdown.prevent="turnPress"
         @mousedown.prevent
         @pointerup="turnRelease"
@@ -71,8 +71,8 @@
       data-game-keys
       :disabled="paused || !!panel || talking || leaving"
       :aria-label="mapLabel"
-      aria-keyshortcuts="M"
-      :title="touchUI ? undefined : 'Map (M)'"
+      :aria-keyshortcuts="shortcut(keyNames.map)"
+      :title="touchUI ? undefined : `Map (${keyNames.map})`"
       @pointerdown.prevent="pressCorner('chart', $event) && openPage('map')"
       @click="$event.detail === 0 && openPage('map')"
       @mousedown.prevent
@@ -90,8 +90,8 @@
     :style="pagePrismAt"
     data-game-keys
     :aria-label="turnLabel"
-    aria-keyshortcuts="V"
-    :title="touchUI ? undefined : 'View (V)'"
+    :aria-keyshortcuts="shortcut(keyNames.view)"
+    :title="touchUI ? undefined : `View (${keyNames.view})`"
     @pointerdown.prevent="pagePrismPress"
     @mousedown.prevent
     @click="$event.detail === 0 && cycleView()"
@@ -121,6 +121,8 @@
   </template>
   <!-- The menu's LOG page, painted on the canvas: its buttons over it, placed where the page laid them. -->
   <LogPageButtons v-if="phase === 'play' && paused && menuPage === 'log' && !confirmReset && logAt" :at="logAt" :dev="devOn" @older="logPage.older" @newer="logPage.newer" @dev="toggleDev" />
+  <!-- The menu's KEYS page (a keyboard's), painted on the canvas: its buttons over it, placed where the page laid them. -->
+  <KeysPageButtons v-if="phase === 'play' && paused && menuPage === 'keys' && !confirmReset && !touchUI && keyButtons" :buttons="keyButtons" @press="keysPage.press" />
   <!-- DEV MODE's line along the top edge (`devMode.ts`); the HUD and the corner stand under it (`safeInsets`). -->
   <DevStrip v-if="devOn" :text="devText" />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
@@ -202,18 +204,18 @@
  * flags. It is written (here and on the profile) only once the hero has the
  * blade, so a visitor who walks into a house never becomes a player.
  *
- * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
- * throw; hold then release for a spin); K / X / Shift = B (item or art); Q swaps
- * item, Tab too in play when there is one (else, and in the menu, Tab moves the focus as on any page);
- * P or an Escape tap open the menu on its ITEMS page, N on its MOVES page, M on its MAP page
- * (`render/mapPage.ts`), G on its LOG page (`render/logPage.ts`: the version, the change
- * list, DEV MODE on D, older and newer on the arrows and W S); there the key of the open page
- * (or Escape) closes it, another page's key turns to it. On ITEMS (`render/itemsPage.ts`) the arrows
- * and WASD move a cursor over the grid and Enter, Space, J or Z put what is under it
- * on B; a tap on a cell does too. In the menu T goes to town, O turns the
- * sound on or off; V turns to the next view anywhere (`views.ts`: the
- * isometric one a visit starts in, the classic one, and the studio's own);
- * holding Escape saves and goes back to town.
+ * Keys: `bindings.ts` is the one table, and the player changes it on the menu's KEYS page; the names here are the
+ * first ones. Arrows / WASD move; Space (and J, Z, Enter) = A (sword, talk, lift, throw; hold then release for a
+ * spin); K (and X, Shift) = B (item or art); L (and C) rolls; Q swaps item, Tab too in play when there is one (else,
+ * and in the menu, Tab moves the focus as on any page). P or an Escape tap open the menu on its ITEMS page, N on its
+ * MOVES page, M on its MAP page (`render/mapPage.ts`), G on its LOG page (`render/logPage.ts`: the version, the change
+ * list, DEV MODE on D, older and newer on the arrows and walk up / down), H on its KEYS page (`render/keysPage.ts`);
+ * there the key of the open page (or Escape) closes it, another page's key turns to it, and PageUp / PageDown turn
+ * to the page beside. On ITEMS (`render/itemsPage.ts`) the arrows and walk keys move a cursor over the grid and Enter
+ * or A's keys put what is under it on B; a click on a cell does too. In the menu T goes to town, O turns the sound on
+ * or off; V turns to the next view anywhere (`views.ts`: the isometric one a visit starts in, the classic one, and
+ * the studio's own); holding Escape saves and goes back to town. No key's name is drawn on the play picture beside a
+ * keyboard; once per browser the corner's tag says ESC: MENU.
  * Touch: floating stick on the left; on the right three round buttons with
  * pictures, no letters: A (what a press would do now: the sword, or talk,
  * read, lift, throw, open and the rest, `aPad.ts`), and with an item B (the
@@ -264,11 +266,14 @@ import { ease, turnMove } from './render/iso/project'
 import { viewSide } from './render/turn'
 import { ruleLoose, ruleMove } from './viewRule'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { HIRES_WINDOW_SKIN, type MenuPage } from './render/hud'
+import { HIRES_WINDOW_SKIN, menuPages, type MenuPage } from './render/hud'
 import DevStrip from './DevStrip.vue'
 import LogPageButtons from './LogPageButtons.vue'
 import { STRIP_H, createDevMode } from './devMode'
 import { createLogShell } from './logShell'
+import KeysPageButtons from './KeysPageButtons.vue'
+import { createKeysShell } from './keysShell'
+import { loadKeys, saveKeys, syncKeys, watchKeyNames } from './keysStore'
 import { CHANGE_LOG } from './changes.gen'
 import { cursorStart, moveCursor, pickCell, sockets } from './render/itemsPage'
 import { CORNER_H, CORNER_W, PRESS_TIME, RULE_TAGS, STAND_CLEAR, TAG_TIME, VIEW_NOT_LOADED, awayStep, backStep, chartNight, chromeAlpha, cornerLayout, cornerShape, cornerTargets, hasChart, oneViewWords, paintCorner, sunPhase, turnAmount, type CornerState } from './render/corner'
@@ -282,6 +287,7 @@ import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLoca
 import { syncWithProfile } from './profileSync'
 import { usePortalAccountLink } from '../../composables/useAccount'
 import { createInput, type GameInput } from './input'
+import { codesOf, keyboardKeys, menuCommand, onKeysChange, stepOf, type MenuCommand } from './bindings'
 import { loadHighScoreSign } from './hiscore'
 import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type WalletApi } from './wallet'
 import { parseHeroColors } from './render/heroColors'
@@ -314,7 +320,6 @@ const STUCK_S = 2.5
 const STUCK_URL_S = 8
 /** The ending panel ignores keys and taps this long, so the press that took the prism does not skip it. */
 const WON_GRACE_MS = 1200
-const CONTINUE_KEYS = new Set(['Enter', 'Space', 'KeyJ', 'KeyZ'])
 /** The start-over question ignores YES this long, so a tap mashed through the machine's lines does not answer it. */
 const RESET_GRACE_MS = 600
 
@@ -323,11 +328,16 @@ const safeProbe = ref<HTMLDivElement | null>(null)
 /** The touch deck's row of buttons on the pause screen (`deckTop`). */
 const pausedRow = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
-/** The menu's page while paused: ITEMS (P, Escape, the pause chip), MOVES (N), MAP (M, the chart in the corner) or LOG (G). */
+/** The menu's page while paused: ITEMS (P, Escape, the pause chip), MOVES (N), MAP (M, the chart in the corner), LOG (G) or, beside a keyboard, KEYS (H). */
 const menuPage = ref<MenuPage>('items')
-/** The page the deck's second button turns to: ITEMS → MOVES → MAP → LOG → ITEMS. */
-const NEXT_PAGE: Record<MenuPage, MenuPage> = { items: 'moves', moves: 'map', map: 'log', log: 'items' }
+/** The page the deck's second button turns to: ITEMS → MOVES → MAP → LOG → ITEMS. (The deck has no KEYS page.) */
+const NEXT_PAGE: Record<MenuPage, MenuPage> = { items: 'moves', moves: 'map', map: 'log', log: 'items', keys: 'items' }
 const nextPage = computed(() => NEXT_PAGE[menuPage.value])
+/** The page before or after the one open, round the ones there are (PageUp, PageDown). */
+function pageBeside(by: 1 | -1): MenuPage {
+  const pages = menuPages(touchUI.value)
+  return pages[(pages.indexOf(menuPage.value) + by + pages.length) % pages.length]!
+}
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
 /** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror, the newsstand's reader); the hero stands still while it is open. */
@@ -357,6 +367,8 @@ const { navigationLocked, launch } = useTheme()
 const { enter: enterFrame } = useFrame()
 const sound = useSound()
 const profileSave = useGameSave('zelda')
+/** The profile's hidden slot for the player's keys (`keysStore.ts`). */
+const keysRemote = useGameSave('zelda.keys')
 /** Signed in: play under the account's profile, so the save follows it to every device (composables/useAccount.ts). */
 const linkAccount = usePortalAccountLink()
 let linkedUser = ''
@@ -809,6 +821,25 @@ function toggleDev() {
   audio?.sfx('select')
 }
 
+// ---- the keys and the menu's KEYS page ------------------------------------------------
+
+/** Counts changes to the keys, so the words that name them are made again: 0 on the server and at the first render here. */
+const keysTick = ref(0)
+/** The menu's keys by name, for the hover titles of the corner's buttons and what a screen reader is told. */
+const keyNames = computed(() => (void keysTick.value, keyboardKeys().menu!))
+const shortcut = (name: string) => name.replace(/ /g, '')
+/** The KEYS page's cursor, its wait for a key and its buttons (`keysShell.ts`). */
+const keysPage = createKeysShell({
+  repaint: () => { pausedDrawn = false }, sfx: name => audio?.sfx(name), signedIn: () => signedIn,
+  reducedMotion: () => reducedMotion.value, save: table => saveKeys(table, keysRemote),
+})
+const { at: keyButtons } = keysPage
+// Whatever takes the page off the screen ends its wait for a key, in the same moment.
+watch([paused, menuPage, confirmReset], () => { if (!paused.value || menuPage.value !== 'keys' || confirmReset.value) keysPage.leave() }, { flush: 'sync' })
+// A touch: the deck has no KEYS page.
+watch(touchUI, (touch) => { if (touch && menuPage.value === 'keys') { menuPage.value = 'items'; itemCursor = cursorStart(state.inv); pausedDrawn = false } }, { flush: 'sync' })
+let keysStop: Array<() => void> = []
+
 // ---- the corner ---------------------------------------------------------------------
 
 /**
@@ -855,12 +886,19 @@ const DAWN_MS = 320
 const WAIT_SHOWN_MS = 150
 /** The first visit's lessons, once per browser: how far the player has come (a bit each), kept in this key. */
 const LESSON_KEY = 'zelda.cornerLessons'
-const LESSON = { chart: 1, gem: 2 } as const
+const LESSON = { chart: 1, gem: 2, menu: 4 } as const
+/** Beside a keyboard: how to open the menu, said on the tag this long after the first picture is up, to a visitor who has not. */
+const MENU_HINT = 'ESC: MENU'
+const MENU_HINT_MS = 4000
+/** The menu has been opened since the page loaded. */
+let menuSeen = false
 /** How long a lesson stands, and the pause before the next one. */
 const LESSON_MS = 3600
 const LESSON_GAP_MS = 1500
 const cn = {
   sig: '', layKey: '', unit: '', chrome: 1, firstAt: 0, el: null as HTMLCanvasElement | null,
+  /** When the first picture stood whole (after its slow first paint, which `firstAt` comes before). */
+  upAt: 0,
   /** The safe area's insets, CSS px (`safeInsets`, at each resize). */
   safe: { top: 0, right: 0 },
   press: null as 'chart' | 'gem' | null, pressAt: -1e9, byPointer: false,
@@ -902,7 +940,7 @@ function turnRefuse(tag: string = VIEW_NOT_LOADED, said = 'View not loaded') {
 }
 
 /** A lesson learnt, for good in this browser. */
-function learn(what: 'chart' | 'gem') {
+function learn(what: keyof typeof LESSON) {
   if (cn.lesson === what) { cn.lesson = null; cn.lessonDue = performance.now() + LESSON_GAP_MS }
   if (cn.lessons & LESSON[what]) return
   cn.lessons |= LESSON[what]
@@ -947,7 +985,7 @@ function stepCorner(nowMs: number) {
   const vs = renderer.viewState()
   if (vs.dark) { if (turnStage.value !== 'night') turnStage.value = 'night'; return }
   if (turnStage.value === 'night') { turnStage.value = 'dawn'; cn.firstAt = nowMs; cn.lessonDue = nowMs + 1200 }
-  else if (turnStage.value === 'dawn' && nowMs - cn.firstAt > DAWN_MS) turnStage.value = 'up'
+  else if (turnStage.value === 'dawn' && nowMs - cn.firstAt > DAWN_MS) { turnStage.value = 'up'; cn.upAt = nowMs }
   const fine = renderer.fineUnit() > 0
   // What changes dress beside the canvas (the page's hint, the deck's pictures) fades out before the flip and in
   // after it, as the canvas HUD does. The corner wears one dress and does not.
@@ -1000,14 +1038,19 @@ function stepCorner(nowMs: number) {
   }
   cn.level = away ? awayStep(nowMs - cn.awayAt, reduced) : backStep(nowMs - cn.backAt, cn.backFrom, reduced)
 
-  // The first visit's lessons, on touch only (beside a keyboard the key caps teach it): the chart first, a moment
-  // after the first picture where there is one; the Prism the first time the hero stands where it turns.
+  // The first visit's lessons, on touch only (they say TAP): the chart first, a moment after the first picture where
+  // there is one; the Prism the first time the hero stands where it turns.
   const keys = !touchUI.value
   if (cn.lesson && (away || keys)) { cn.lesson = null; cn.lessonDue = nowMs + 1200 }
   else if (cn.lesson && nowMs - cn.lessonAt > LESSON_MS) learn(cn.lesson)
   else if (!cn.lesson && !keys && !away && !vs.turning && !waiting && nowMs >= cn.lessonDue && nowMs - cn.tagAt > TAG_TIME * 1000) {
     const next = chart && !(cn.lessons & LESSON.chart) ? 'chart' : viewCount.value > 1 && !words && !(cn.lessons & LESSON.gem) ? 'gem' : null
     if (next) { cn.lesson = next; cn.lessonAt = nowMs }
+  }
+  // A keyboard's one line, learnt when it has been shown.
+  if (keys && !away && !menuSeen && !(cn.lessons & LESSON.menu) && phase.value === 'play' && !cn.lesson && !vs.turning && !waiting && turnStage.value === 'up' && nowMs - cn.upAt >= MENU_HINT_MS && nowMs - cn.tagAt > TAG_TIME * 1000) {
+    cornerTag(MENU_HINT, nowMs)
+    learn('menu')
   }
 
   // The unit, the one writer of it: the Escape pill below the corner reads it too.
@@ -1024,7 +1067,6 @@ function stepCorner(nowMs: number) {
     reduced,
     pressed: nowMs - cn.pressAt < PRESS_TIME * 1000 ? cn.press : null,
     focus: cornerFocus(),
-    keys,
     nudge: cn.lesson,
     tag: busy ? viewName(viewId.value) : tagOn ? cn.tag : null,
     rule,
@@ -1048,7 +1090,7 @@ function stepCorner(nowMs: number) {
   const sig = [
     uDev, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.floor(s.hero.x), Math.floor(s.hero.y), s.hero.dir, lay.step, blink,
     sunPhase(s.daytime), chartNight(WORLD, s), Object.keys(s.flags).length, +s.session, +!!s.demo,
-    st.pressed, st.focus, +keys, st.nudge, st.tag, st.away, shape.pinned, +!!shape.gem, +reduced, s.view, rule,
+    st.pressed, st.focus, st.nudge, st.tag, st.away, shape.pinned, +!!shape.gem, +reduced, s.view, rule,
   ].join('|')
   if (sig === cn.sig) return
   cn.sig = sig
@@ -1114,15 +1156,13 @@ function pagePrismFocused(): boolean {
 let itemCursor = 0
 /** The buttons over the page's cells, placed where it was last painted. */
 const itemCells = shallowRef<Array<{ style: BoxStyle; name: string; owned: boolean; held: boolean }> | null>(null)
-const CURSOR_KEYS: Record<string, [number, number]> = {
-  ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1],
-}
-const TAKE_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'KeyJ', 'KeyZ'])
+/** A press that takes (ITEMS) or goes on (the ending): A's keys, and Enter. */
+const takes = (code: string) => code === 'Enter' || code === 'NumpadEnter' || codesOf('a').has(code)
 
-/** The page's own keys: the arrows and WASD walk the grid, A's keys put what is under the cursor on B. */
+/** The page's own keys: the arrows and the walk keys move over the grid, A's keys put what is under the cursor on B. */
 function itemsKey(e: KeyboardEvent): boolean {
-  const step = CURSOR_KEYS[e.code]
-  if (!step && !TAKE_KEYS.has(e.code)) return false
+  const step = stepOf(e.code)
+  if (!step && !takes(e.code)) return false
   e.preventDefault()
   if (e.repeat) return true
   if (step) moveItemCursor(moveCursor(itemCursor, step[0], step[1]))
@@ -1159,37 +1199,42 @@ function placeItemCells() {
   if (JSON.stringify(next) !== JSON.stringify(itemCells.value)) itemCells.value = next
 }
 
-/** Ending, pause-screen and pause keys; the game keys are input.ts's. */
+/** Ending, pause-screen and pause keys (`menuCommand`, bindings.ts); the game keys are input.ts's. */
 function shellKey(e: KeyboardEvent): boolean {
   if (phase.value === 'won') {
-    if (CONTINUE_KEYS.has(e.code) && !e.repeat) { e.preventDefault(); keepExploring() }
+    if (takes(e.code) && !e.repeat) { e.preventDefault(); keepExploring() }
     return true
   }
   if (paused.value && menuPage.value === 'items' && !confirmReset.value && itemsKey(e)) return true
   if (paused.value && menuPage.value === 'log' && !confirmReset.value && logPage.key(e)) return true
-  if (paused.value && !e.repeat) {
-    if (confirmReset.value) {
-      // Y only: Enter and Space are A, and an A mashed through the machine's lines must not answer.
-      if (e.code === 'KeyY') { e.preventDefault(); resetRun(); return true }
-      if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
-    } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
-    else if (e.code === 'KeyO') { e.preventDefault(); toggleSound(); return true }
-  }
+  if (paused.value && menuPage.value === 'keys' && !confirmReset.value && keysPage.key(e)) return true
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
-  // V is the quick way to the next view, in play and on the pause screen (which also has it as a button).
-  if (e.code === 'KeyV' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) cycleView(); return true }
-  if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) openPage('items'); return true }
-  if (e.code === 'KeyM' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('map'); return true }
-  // N: the MOVES page (the combos, their mastery, the arts). (While asking "start over?" N is no, above.)
-  if (e.code === 'KeyN' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('moves'); return true }
-  // G: the LOG page (the version, the change list, DEV MODE).
-  if (e.code === 'KeyG' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) openPage('log'); return true }
+  const command = menuCommand(e.code, { paused: paused.value, confirmReset: confirmReset.value, touch: touchUI.value })
+  if (command) {
+    // (The question's answers and the menu's switches take one press: a repeat is nobody's.)
+    const once = command === 'yes' || command === 'no' || command === 'town' || command === 'sound'
+    if (once && e.repeat) return false
+    e.preventDefault()
+    if (!e.repeat) runCommand(command)
+    return true
+  }
   // Nothing to swap, or the world standing still: Tab keeps its job (the MAP page's Prism, the page's link index).
   // (Nor on a side map, where B is the jump.)
   if (e.code === 'Tab' && sideRoom.value) return true
   if (e.code === 'Tab' && (paused.value || !hasItem.value)) return true
   return false
+}
+
+function runCommand(command: MenuCommand) {
+  if (command === 'yes') resetRun()
+  else if (command === 'no') cancelReset()
+  else if (command === 'town') toTown()
+  else if (command === 'sound') toggleSound()
+  else if (command === 'view') cycleView()
+  else if (command === 'pagePrev') openPage(pageBeside(-1))
+  else if (command === 'pageNext') openPage(pageBeside(1))
+  else openPage(command)
 }
 
 /** The open lines lead out of the world (a cabinet, a door out, the NEW GAME machine): B, Backspace and an Escape tap back out. */
@@ -1366,8 +1411,10 @@ function applySession(on: boolean) {
   const first = on && !signedIn
   signedIn = on
   setSession(WORLD, state, on)
-  // Signed in through the console just now: link the profile, then bring its save in.
-  if (first && !linkedUser) void checkSession().then(() => syncProfile())
+  // (The KEYS page says whether the browser is signed in.)
+  pausedDrawn = false
+  // Signed in through the console just now: link the profile, then bring its save and its keys in.
+  if (first && !linkedUser) void checkSession().then(() => { void syncProfile(); void syncKeys(keysRemote) })
 }
 
 /** Asks auth.phareim.no who this browser is. Offline counts as nobody, and leaves the rope as it was. */
@@ -1469,6 +1516,7 @@ function openPage(page: MenuPage) {
   menuPage.value = page
   if (page === 'items') itemCursor = cursorStart(state.inv)
   if (page === 'log') logPage.open()
+  if (page === 'keys') keysPage.open()
   pausedDrawn = false
   audio?.sfx('select')
 }
@@ -1478,7 +1526,7 @@ function togglePause(page: MenuPage = 'items') {
   if (phase.value !== 'play') return
   // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
-  if (!paused.value) { menuPage.value = page; itemCursor = cursorStart(state.inv); logPage.open() }
+  if (!paused.value) { menuPage.value = page; itemCursor = cursorStart(state.inv); logPage.open(); keysPage.open(); menuSeen = true }
   paused.value = !paused.value
   pausedDrawn = false
   slowT = 0
@@ -1700,12 +1748,13 @@ function frame(nowMs: number) {
   ui.page = menuPage.value
   ui.itemCursor = itemCursor
   ui.log = logPage.view(devOn.value)
+  ui.keysPage = paused.value && menuPage.value === 'keys' ? keysPage.view() : undefined
   ui.turn = turnAmount(renderer.viewState().turn)
   ui.confirmReset = confirmReset.value
   ui.muted = sound.muted.value
   ui.reducedMotion = reducedMotion.value
   ui.touch = touchUI.value
-  ui.keys = touchUI.value ? TOUCH_KEYS : KEYBOARD_KEYS
+  ui.keys = touchUI.value ? TOUCH_KEYS : keyboardKeys()
   ui.stick = input.stick
   ui.view = viewLabel.value
   ui.rule = ruleBadge.value
@@ -1721,12 +1770,13 @@ function frame(nowMs: number) {
   if (paused.value) { const top = deckTop(); if (top !== ui.deckTop) { ui.deckTop = top; pausedDrawn = false } }
   // (And when the keyboard's focus comes to its Prism or leaves it: the ring is part of the picture.)
   if (paused.value) { const on = pagePrismFocused(); if (on !== !!ui.prismFocus) { ui.prismFocus = on; pausedDrawn = false } }
-  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism(); placeItemCells(); logPage.place(renderer.logTargets()) } return }
+  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0); placePagePrism(); placeItemCells(); logPage.place(renderer.logTargets()); keysPage.place(renderer.keysTargets()) } return }
   pausedDrawn = false
   // (A page opened later starts without a place left over from this one.)
   if (pagePrismAt.value) pagePrismAt.value = null
   if (itemCells.value) itemCells.value = null
   if (logAt.value) logPage.place(null)
+  if (keyButtons.value) keysPage.place(null)
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
   if (panel.value) { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
@@ -1891,9 +1941,9 @@ onMounted(() => {
   // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the 16-bit one.
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
-  // How far this browser has come with the corner's two lessons (`stepCorner`). (The old preference that put the
+  // How far this browser has come with the corner's lessons (`stepCorner`). (The old preference that put the
   // corner's map away is not read: the chart can no longer be hidden.)
-  try { cn.lessons = Number(localStorage.getItem(LESSON_KEY)) || 0 } catch { cn.lessons = LESSON.chart | LESSON.gem }
+  try { cn.lessons = Number(localStorage.getItem(LESSON_KEY)) || 0 } catch { cn.lessons = LESSON.chart | LESSON.gem | LESSON.menu }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
   // The dress of the view the visit starts in, before its first frame: nothing of the other look flashes by either.
   dressWanted = wears16(firstView)
@@ -1924,14 +1974,19 @@ onMounted(() => {
   // frontier continues at the save's continue point there; anything else starts in front of the exit last used, or in town.
   begin(local, loadSpot(WORLD, local, readReturn(), readOut()))
   walletStop = onWalletChange(b => purse.external(state.inv, b))
-  // The session first (a signed-in visitor plays under the account's profile), then the profile's save.
-  void checkSession().then(() => syncProfile())
+  // The session first (a signed-in visitor plays under the account's profile), then the profile's save and keys.
+  void checkSession().then(() => { void syncProfile(); void syncKeys(keysRemote) })
   resize()
   // (The page's hint may come up now: its dress and its unit are the real ones.)
   canvas.value.parentElement?.style.setProperty('--zelda-hint-play', 'running')
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)
   window.addEventListener('resize', resize)
+  // This browser's keys, now and not before (the server's page and the first render here name the first ones), and
+  // what this keyboard calls them. A changed key lets go of whatever is held.
+  keysStop = [onKeysChange((what) => { if (what === 'table') input.clear(); keysTick.value++; pausedDrawn = false })]
+  loadKeys()
+  keysStop.push(watchKeyNames())
   input.attach()
   window.addEventListener('keydown', onFirstGesture, true)
   window.addEventListener('pointerdown', onFirstGesture, true)
@@ -1956,6 +2011,9 @@ onBeforeUnmount(() => {
   canvas.value?.parentElement?.style.removeProperty('--zelda-corner-u')
   liveStop?.()
   liveStop = null
+  keysPage.leave()
+  for (const stop of keysStop) stop()
+  keysStop = []
   cancelAnimationFrame(raf)
   clearTimeout(pausedWordsT)
   observer?.disconnect()

@@ -32,6 +32,8 @@ const LOCAL_KEYS = [
   'miniworld.save', 'miniworld.heroColors', 'figur.save', 'figur.heroColors', 'phareim.wallet', 'phareim.player',
   // Neon Shrine's (the portal's world): its save, best time, the mark of a cleared run and the look from the NEW LOOK stall.
   'zeldaSave', 'zeldaBest', 'zeldaClearedAt', 'zelda.heroLook',
+  // (And the keys chosen there: a second account neither inherits nor sends them.)
+  'zelda.keys',
 ]
 
 export const ACCOUNT_TEXT = {

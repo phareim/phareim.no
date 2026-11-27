@@ -4,8 +4,8 @@
  * Framework-free: the shell passes hooks for what depends on its own state
  * (phase, pause, touch deck) and calls `read()` once per frame.
  *
- * Keys: arrows / WASD move; Space / J / Z / Enter = A; K / X / Shift = B;
- * L / C roll; Q / Tab cycle. Touch: a floating stick starts under a finger on the
+ * Which key walks, swings, throws, rolls and swaps is `bindings.ts`'s table, read
+ * as each key comes (the player changes it on the menu's KEYS page). Touch: a floating stick starts under a finger on the
  * left 60 % of the screen; a tap on the right 40 % presses A; any tap moves a
  * dialog on, and on a YES / NO line the half it lands on is the answer. A
  * finger that lands on the stick's side during a dialog and stays down is the
@@ -13,6 +13,7 @@
  * buttons call pressA, pressRoll …).
  */
 import type { Input } from './types'
+import { actionOf, bindings, stepOf } from './bindings'
 
 /** Stick drawn by the renderer, in CSS px relative to the canvas. */
 export interface StickView { ox: number; oy: number; dx: number; dy: number }
@@ -54,16 +55,12 @@ export interface GameInput {
 const STICK_PX = 38
 const TAP_PX = 10
 
-const A_KEYS = new Set(['Space', 'KeyJ', 'KeyZ', 'Enter'])
-const B_KEYS = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight'])
-const CYCLE_KEYS = new Set(['KeyQ', 'Tab'])
-const ROLL_KEYS = new Set(['KeyL', 'KeyC'])
-const MOVE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
+const PLAY_ACTIONS = new Set(['a', 'b', 'cycle', 'roll'])
 /** Up jumps on a side map, as B does (`Input.jumpPress`). */
-const UP_KEYS = ['ArrowUp', 'KeyW']
+const isUp = (code: string) => code === 'ArrowUp' || code === bindings().walkUp
 
 export function isGameKey(code: string) {
-  return MOVE_KEYS.has(code) || A_KEYS.has(code) || B_KEYS.has(code) || CYCLE_KEYS.has(code) || ROLL_KEYS.has(code)
+  return !!stepOf(code) || PLAY_ACTIONS.has(actionOf(code) ?? '')
 }
 
 /** Links, buttons and site chrome keep their own clicks and keys. */
@@ -97,10 +94,11 @@ export function createInput(hooks: InputHooks): GameInput {
   function read(): Input {
     let x = 0
     let y = 0
-    if (keys.has('ArrowLeft') || keys.has('KeyA')) x -= 1
-    if (keys.has('ArrowRight') || keys.has('KeyD')) x += 1
-    if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1
-    if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1
+    const k = bindings()
+    if (keys.has('ArrowLeft') || keys.has(k.walkLeft)) x -= 1
+    if (keys.has('ArrowRight') || keys.has(k.walkRight)) x += 1
+    if (keys.has('ArrowUp') || keys.has(k.walkUp)) y -= 1
+    if (keys.has('ArrowDown') || keys.has(k.walkDown)) y += 1
     if (stick) {
       const len = Math.hypot(stick.dx, stick.dy)
       if (len < 7) { x = 0; y = 0 } else { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
@@ -115,7 +113,7 @@ export function createInput(hooks: InputHooks): GameInput {
       cycle: cyclePress,
       ...(rollPress ? { rollPress } : {}),
       ...(bPress || upPress ? { jumpPress: true } : {}),
-      ...(bKeys.size || bHeldTouch || UP_KEYS.some(k => keys.has(k)) ? { jumpHeld: true } : {}),
+      ...(bKeys.size || bHeldTouch || keys.has('ArrowUp') || keys.has(k.walkUp) ? { jumpHeld: true } : {}),
       autoFace: hooks.touch(),
       tapSide,
     }
@@ -232,22 +230,23 @@ export function createInput(hooks: InputHooks): GameInput {
     if (hooks.paused()) return
     // A repeat of a key this input never saw go down was held across a page
     // change (back from a cabinet): it doesn't walk here.
-    if (MOVE_KEYS.has(e.code)) {
-      if (!e.repeat && UP_KEYS.includes(e.code)) upPress = true
+    if (stepOf(e.code)) {
+      if (!e.repeat && isUp(e.code)) upPress = true
       if (!e.repeat || keys.has(e.code)) keys.add(e.code)
       return
     }
     if (e.repeat) return
-    if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }
-    else if (B_KEYS.has(e.code)) { bPress = true; bKeys.add(e.code) }
-    else if (CYCLE_KEYS.has(e.code)) cyclePress = true
-    else if (ROLL_KEYS.has(e.code)) rollPress = true
+    const action = actionOf(e.code)
+    if (action === 'a') { aPress = true; aHeldKey = true }
+    else if (action === 'b') { bPress = true; bKeys.add(e.code) }
+    else if (action === 'cycle') cyclePress = true
+    else if (action === 'roll') rollPress = true
   }
 
   function onKeyUp(e: KeyboardEvent) {
     keys.delete(e.code)
     bKeys.delete(e.code)
-    if (A_KEYS.has(e.code)) aHeldKey = false
+    if (actionOf(e.code) === 'a') aHeldKey = false
   }
 
   function attach() {

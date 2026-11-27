@@ -18,8 +18,13 @@ score games show their GAME OVER screen; Another Shore returns to its title
 with progress kept, Another Shore II to idle; Russian Block Game shows its
 GAME OVER overlay, where a further Esc tap dismisses to idle; the portal's
 world saves and puts you back in town, its pill reads HOLD ESC FOR TOWN).
-`P` pauses too, everywhere. Idle attract mode leaves Escape to the shell,
-which goes back to the portal (see Keyboard).
+`P` pauses too, everywhere (in Neon Shrine it is the ITEMS page's key, which
+the player may change; Escape never changes). Idle attract mode leaves Escape to
+the shell, which goes back to the portal (see Keyboard).
+
+While Neon Shrine's KEYS page waits for a new key, a capture-phase listener
+swallows the next keydown (`keysShell.ts`): an Escape then only ends the wait. It
+neither pauses, resumes nor starts a hold, and the site's shell never hears it.
 
 Implementation: `themes/base/escHold.ts` holds the framework-free
 `EscHoldTracker` state machine (tap vs hold, `performance.now`-injected so

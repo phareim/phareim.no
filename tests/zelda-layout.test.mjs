@@ -223,12 +223,12 @@ describe('the layout matrix', () => {
           for (const b of [...hud.hearts, ...hud.counters]) {
             assert.ok(within(b, scr.safe?.left ?? 0, scr.safe?.top ?? 0, scr.w - (scr.safe?.right ?? 0), g.deckTop ?? scr.h), `${where}: the HUD at ${show(b)}`)
           }
-          // At rest, and with all it can carry: the key caps beside a keyboard, the widest words on its plate.
-          for (const [n, extra] of [{}, { keys: !g.keys.touch, tag }].entries()) {
+          // At rest, and with all it can carry: the widest words on its plate.
+          for (const [n, extra] of [{}, { tag }].entries()) {
             const st = { e: view.engine === 'iso' ? 1 : 0, ...extra }
             const shape = Z.cornerShape(Z.WORLD, s, st)
             const lay = Z.cornerLayout(scr.w, scr.h, g.u, shape, { top: scr.safe?.top ?? 0, right: scr.safe?.right ?? 0 })
-            const key = `${n},${!!st.keys}`
+            const key = `${n}`
             if (!painted.has(key)) painted.set(key, Z.renderCorner(Z.WORLD, s, st))
             const boxes = cornerPainted(painted.get(key), lay)
             assert.ok(boxes.length > 10, `${where}: the corner is painted`)

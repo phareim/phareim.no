@@ -137,8 +137,8 @@ classic picture. `/?view=<id>` asks for one.
     a pinned Prism, that this is the only one here), and a live region says
     the view after every change. Focused, it wears a gold ring (read from
     the page each frame, so the ring goes with the focus, whatever takes
-    it); beside a keyboard a V key cap stands under it, or under the frame
-    where the gem sits on the glass.
+    it). No key cap stands by it: the view key is on the KEYS page and in the
+    button's hover title.
   - *What changes dress beside the canvas* (the touch deck's pictures, the
     page's hint) fades out before the flip at k = 0.5 and in after it
     (`--zelda-chrome-a`), as the canvas HUD cross-fades between its skins.
@@ -1478,8 +1478,14 @@ squares. Two of it:
   always a touch away, through a target of 44 × 44 px or more (in every shape
   of the turn; the layout matrix, `tests/zelda-layout.test.mjs`). The chart can no longer be
   hidden (the old corner-map key, C on the MAP page, is gone; C is the roll).
-  Beside a keyboard, key caps stand under the chart (M; P under the stub)
-  and under the Prism (V). On touch, two lessons, once per browser
+  No key is named on the corner (or anywhere on the play picture beside a
+  keyboard); the buttons' hover titles and `aria-keyshortcuts` say the keys in
+  force. Beside a keyboard, one line, once per browser and to every visitor,
+  saved or not: the tag says `ESC: MENU`, at the first moment 4 s or more after
+  the first picture is up when the game is in play (no talk, no menu, no lesson
+  or tag showing), never to one who has opened the menu since the page loaded;
+  its bit in `zelda.cornerLessons` is set when it has been shown (without
+  storage it is not shown). On touch, two lessons, once per browser
   (`zelda.cornerLessons`): about 1.2 s after the first picture in a place
   with a chart, a pink ring round the chart and TAP MAP: MENU; later, the
   first time the hero stands where both views are allowed, a ring on the
@@ -1498,7 +1504,7 @@ squares. Two of it:
   without the game's page (`CHROME_BIN` for another browser): a sheet per
   charted map (square and diamond, arrived, half and fully walked), every
   state (the turn's six shapes, the gem's sun, pinned, the stub, press,
-  focus and key caps, the lessons, away, the tag, Lumenby's sockets, chests,
+  keyboard focus, the lessons, away, the tag, Lumenby's sockets, chests,
   pass tabs), the object over real pictures of the game, and the charts
   whole.
 - **The ITEMS page** of the menu (P, Escape; `render/itemsPage.ts`) is in the
@@ -1524,7 +1530,8 @@ squares. Two of it:
     Shrine) its small keys and its Big Key, and what is carried for someone.
   - **QUEST**: the pause screen's hint (`objective`).
   - Beside a keyboard, the last lines: `ESC RESUME`, `ARROWS PICK`, `ENTER TAKE`,
-    then `T TOWN`, `O SOUND ON`, `V VIEW …`.
+    then `T TOWN`, `O SOUND ON`, `V VIEW …` (those three letters are the keys in
+    force).
 
   Wider than tall, the grid and its line stand at the left and the rest in a
   column at the right. Where room is short the parts stand closer and the cells
@@ -1532,9 +1539,9 @@ squares. Two of it:
   (`ITEMS_GIVE_WAY`): the ALWAYS row, the quest's lines after the first (a cut
   one ends in `...`), the hearts' row. The grid, its line and the Weights stay.
   `itemsPageLayout` says where everything goes; it is pure, as are the pictures.
-  - **Picking.** While the menu is open on ITEMS the arrows and WASD move the
-    cursor (it stops at the edges) and Enter, Space, J or Z put what is under it
-    on B (an empty socket does nothing); Q and Tab keep their meaning in play,
+  - **Picking.** While the menu is open on ITEMS the arrows and the walk keys move
+    the cursor (it stops at the edges) and Enter or A's keys put what is under it
+    on B (an empty socket does nothing); the swap keys keep their meaning in play,
     and in the menu Tab moves the focus. On touch and with a mouse a tap on an
     owned cell does the same: the shell lays a bare `<button>` over each cell
     (`.zelda-page-cell`, under the deck, none under the start-over question;
@@ -1545,7 +1552,7 @@ squares. Two of it:
   chart unfolded, in the corner's five colours in both dresses, with no window:
   it lies on the stopped world under a veil of its own, the same in both dresses
   (the corner's ink at 0.86, `PAGE_VEIL`). It has the whole screen from the
-  menu's tabs (`P ITEMS`, `N MOVES`, `M MAP`, `G LOG`), at the top with a small margin,
+  menu's tabs (see "The tabs"), at the top with a small margin,
   to the touch deck, or the line `ESC RESUME` beside a keyboard: on every page
   of the menu the HUD's hearts, counters and item box are not drawn (they are
   back as soon as the menu closes, and stand behind the start-over question),
@@ -1573,8 +1580,9 @@ squares. Two of it:
     tip, its window showing the hour, with the view's name on a plate (`8-BIT`
     beside it on the square; under the diamond's tip `ISO`, or where the land
     allows one view dull facets and `ISO ONLY`, by the corner's own rule),
-    and, beside a keyboard, a `V` cap by the plate (none where the view is
-    pinned, since V does nothing there). Under the tip the plate
+    and, beside a keyboard, a cap by the plate with the view key (`V`; none
+    where the view is pinned, since the key does nothing there, nor where the
+    key's name is longer than one letter; the plate stands where it did). Under the tip the plate
     hangs 3 L at most (`PLATE_HANG`), on a chain when pinned; `ISO ONLY` goes
     on two rows where one would lie on the land. **It is a button**, as in the
     corner: the shell lays a bare `<button>` over it (`.zelda-page-prism`,
@@ -1645,8 +1653,8 @@ squares. Two of it:
     hand. Without a history the page says `NO HISTORY IN THIS BUILD`.
   - **Pages.** Nothing scrolls: the list is cut into pages (`logPages`), whole
     days to a page where they fit; a day longer than a page starts one and goes
-    on over the next with its date said again. Down, right and S show older, up,
-    left and W newer; `OLDER` and `NEWER` (each only where there is such a page,
+    on over the next with its date said again. Down, right and walk-down show
+    older, up, left and walk-up newer (D is the switch even if it walks); `OLDER` and `NEWER` (each only where there is such a page,
     `2/4` between them) are pressed with a finger or the mouse. The page opens on
     the newest each time.
   - **DEV MODE**: `OFF` / `ON`, gold when on; D, or a press on the row. The
@@ -1654,6 +1662,67 @@ squares. Two of it:
     44 × 44 CSS px or more, from the layout's boxes; `logShell.ts` has the
     keys and the page asked for). The deck holds RESUME and ITEMS.
   - `logPageLayout` is pure (`tests/zelda-log-page.test.mjs`).
+- **The tabs** (`menuTabs`, `hud.ts`; the one source of their words and places,
+  for the painters and the layouts): ITEMS, MOVES, MAP, LOG and, beside a
+  keyboard only, KEYS. Beside a keyboard each says its key (`P ITEMS`, `N
+  MOVES`, `M MAP`, `G LOG`, `H KEYS`) if every key's name is one letter and the
+  row fits with 6 logical px between tabs; else the names alone. With the first
+  keys the lettered row fits a 360 px screen in both dresses. PageUp and PageDown
+  turn to the page before and after, round the pages there are.
+- **The KEYS page** of the menu (H, which also opens it from play;
+  `render/keysPage.ts`, `keysShell.ts`) is where a keyboard player changes the
+  keys. It does not exist on touch (no tab, no place in the page order, H and
+  PageUp / PageDown ignored; a touch while it is open turns to ITEMS). `PAGE_VEIL`,
+  no window, no HUD. `PLAY` (WALK UP, WALK DOWN, WALK LEFT, WALK RIGHT, ACTION,
+  ITEM/JUMP, SWAP ITEM, ROLL) and `MENU` (the five pages, VIEW, SOUND, TO TOWN):
+  a name and its key in a small framed cell; then `RESET ALL`; `SIGN IN TO SYNC
+  DEVICES.` for a browser that is not signed in; and a last line, `ESC RESUME ·
+  ENTER CHANGE`. Wider than tall the two sections stand side by side where both
+  fit; else one column, in pages of whole rows with `1/2` and a `MORE` button,
+  the section's word again where it goes on. Rows are 24 CSS px tall or more.
+  - **The cursor** (gold) moves with the arrows and walk keys and does not wrap;
+    past a page's last row it turns the page. Left and right cross to the other
+    section where they stand side by side, else turn the page.
+  - **Changing.** Enter, an A key or a click on a row: the cell reads `...` and the
+    next key is the action's (a capture-phase listener takes it, so nothing else
+    hears it; chords with Ctrl, Meta or Alt are left to the browser; Escape
+    cancels). A key that is another action's swaps the two (`SWAPPED WITH …`, the
+    partner stays lit until the cursor moves); a refused key says `NOT THAT KEY`
+    and the wait goes on. The changed cell flashes (not under reduced motion).
+  - **RESET ALL** takes two presses (`PRESS AGAIN` for 3 s; any other key or a
+    move takes the question back).
+  - A bare button lies over each row on screen, RESET ALL and MORE
+    (`KeysPageButtons.vue`, `.zelda-key-row`; reached by Tab it owns Enter, Space,
+    Tab and Shift, and lets go when a wait begins). `keysPageLayout` is pure.
+- **The keys** (`bindings.ts`) are one table of 16 actions, read by `input.ts` as
+  each key comes, by the shell (`menuCommand` says what a code means to the
+  menu), by `keyboardKeys()` for every word that names a key (dialog lines' `{A}
+  {B} {CYCLE} {ROLL}`, tabs, footers, MOVES, hover titles) and by the KEYS page.
+  Codes are `KeyboardEvent.code`: a key's place, not its letter.
+  - Each action has one key a player can change. **Spares** are live as well and
+    are drawn nowhere: J, Z, Enter (A); X, Shift (B); Tab (swap); C (roll). A
+    spare yields: a key that is any action's own no longer answers as a spare.
+  - **Always on, never bindable:** the arrows (walking; the cursor in menus),
+    Escape, Enter and NumpadEnter, Backspace, Y and N on the start-over question
+    (N may also be an action's key; while the question is up it means no),
+    PageUp and PageDown, Tab. The login console, the mirror and the newsstand
+    keep key sets of their own.
+  - **Bindable** (`bindKey`, an allowlist): letters but Y, digits, the number
+    pad, punctuation, Space, either Shift, Insert, Delete, Home, End. No menu
+    action may take D (the LOG page's switch), by a swap either.
+  - **Names** (`keyName`: capitals, 8 at most, never stored): named keys from a
+    table (SPACE, L SHIFT, NUM 5 …); else the browser's layout map (Chromium),
+    else what the key has typed this session, else a punctuation table, else the
+    code. A Norwegian Ø is `Semicolon` and is called Ø where one of the first two
+    knows it.
+  - **Kept** (`keysStore.ts`): `localStorage['zelda.keys'] = { v: 1, map, at }`,
+    `map` the changed actions (and a newer version's unknown ones, never erased);
+    read in the shell's `onMounted`, so the server's page names the first keys.
+    The profile's hidden save slot `zelda.keys` (2 KB, `docs/games/hall-of-fame.md`)
+    carries it between devices: a change is sent if the browser has a player (it
+    never makes one); one pull at the start and after sign-in; the newer stamp
+    wins, the whole record at once. NEW GAME and a wiped save leave it; another
+    account signing in on the browser wipes it (`LOCAL_KEYS`).
 - **DEV MODE** (`devMode.ts`) is a choice of the browser,
   `localStorage['zelda.dev'] = '1'`, off by default; it survives a reload and
   goes into no save or profile. While on, in play and in the menu, one line lies
@@ -1676,18 +1745,21 @@ squares. Two of it:
   - Off, none of it runs: no observer, no element, and `fetch` and `sendBeacon`
     are the browser's own again.
 
-**Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
+**Controls.** Keys (the first ones; the player changes them on the menu's KEYS
+page, see "The keys"): arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; pressed again, the next hit of the chain;
 hold after a swing, release to spin; in a roll, a flip; see "Combos and the hop");
 K/X/Shift = B (the item or art in hand); L or C rolls
 (once the hero has the blade); Q, or Tab when there is an item, swaps (in the
 menu Tab moves the focus); P or an
 Escape tap pauses on the menu's ITEMS page (what B holds, to pick from with
-the arrows or WASD and Enter, Space, J or Z; the Weights, heart pieces, the
+the arrows or walk keys and Enter or A; the Weights, heart pieces, the
 current quest), N on its MOVES page (the combos, their mastery, the hop), M on
 its MAP page (see "The map"), G on its LOG page (the version, the change list, DEV
-MODE on D, older and newer on the arrows and W S); the key of the open page or
-Escape closes it, another page's key turns to it. In the menu O turns the
+MODE on D, older and newer on the arrows and the walk keys), H on its KEYS
+page; the key of the open page or
+Escape closes it, another page's key turns to it, and PageUp and PageDown turn
+to the page beside. In the menu O turns the
 sound on or off, T goes to town; V
 turns to the next view anywhere (see "Views"). Holding Escape saves and
 goes to town. Starting over
@@ -1709,7 +1781,8 @@ and the dialog box clear of them (`resize(w, h, dpr, safe)`). The bottom
 inset it measures is the site's bottom band, `--app-safe-bottom` (see
 AGENTS.md), so the dialog box and the button deck stay above it.
 
-**The A button says what it will do** (touch only; keys get no hint). One pure
+**The A button says what it will do** (touch only; beside a keyboard an exit's
+plate says its name alone and nothing else names a key). One pure
 function decides what a press does: `aPlan` (`engine/action.ts`), which
 `stepHero` asks and then acts on; the deck asks the same thing through `aWould`,
 once a frame (a few tile and flag look-ups: about 1 µs).
@@ -1894,7 +1967,10 @@ counted and the best time sent; after the ending the hero plays on where
 the prism was, and only the NEW GAME machine clears the save. Best
 times meet at the lower (`zeldaBest` locally, `best_seconds` on the slot,
 which also counts clears). The Hangar shows QUEST n/12 from the slot. A player is
-still one browser, so the save does not follow a person to another device.
+still one browser, so the save does not follow a person to another device unless
+they sign in, which gives the browser the account's profile
+(`composables/useAccount.ts`). The player's keys live in a slot of their own,
+which a new game leaves alone (see "The keys").
 
 **Never resize an existing map.** Bombed walls and opened doors are save
 flags keyed by tile index (`bomb:<map>:<idx>`, `door:<map>:<idx>`,

@@ -1838,7 +1838,8 @@ export function nearExit(s: GameState): ExitSpot | null {
 
 /**
  * Fade labels in and out and draw them on the HUD layer (logical px): the
- * exit's name and the A key, on a small plate above the exit. `zoom`: scene
+ * exit's name on a small plate above the exit, and after it `keyA`, the touch
+ * deck's word for A ('' beside a keyboard: the name alone). `zoom`: scene
  * px in HUD px, for a HUD on a grid of its own scale (the camera is then in
  * scene px on that grid, see `hudLayer`).
  */
@@ -1861,7 +1862,7 @@ export function drawExitLabels(
     const key = keyA.toUpperCase()
     const tw = Math.ceil(F.width(text))
     const kw = Math.ceil(F.width(key))
-    const w = 4 + tw + 3 + 2 + 3 + kw + 4
+    const w = 4 + tw + (key ? 3 + 2 + 3 + kw : 0) + 4
     const h = GLYPH_H + 6
     const ax = Math.round((e.x * T - cx) * zoom)
     const topPx = e.walk ? (e.y - 0.5) * T - 2 : (e.y + 0.5) * T - lookTop(e.look)
@@ -1879,10 +1880,12 @@ export function drawExitLabels(
       skin.panel(g, x, y, w, h + 1, 'hot')
       let sx = x + 4
       F.draw(g, text, sx, y + 3, skin.text, skin.shadow)
-      sx += tw + 3
-      F.draw(g, '·', sx, y + 3, skin.hot)
-      sx += 2 + 3
-      F.draw(g, key, sx, y + 3, skin.cool, skin.shadow)
+      if (key) {
+        sx += tw + 3
+        F.draw(g, '·', sx, y + 3, skin.hot)
+        sx += 2 + 3
+        F.draw(g, key, sx, y + 3, skin.cool, skin.shadow)
+      }
       g.globalAlpha = 1
       continue
     }
@@ -1903,10 +1906,12 @@ export function drawExitLabels(
     g.fillRect(x, y, w, 1)
     let tx = x + 4
     drawText(g, text, tx, y + 3, '#fff4ff', '#3a1a4a')
-    tx += tw + 3
-    drawText(g, '·', tx, y + 3, '#ff2fa0')
-    tx += 2 + 3
-    drawText(g, key, tx, y + 3, '#2ff3ff', '#0b3a4a')
+    if (key) {
+      tx += tw + 3
+      drawText(g, '·', tx, y + 3, '#ff2fa0')
+      tx += 2 + 3
+      drawText(g, key, tx, y + 3, '#2ff3ff', '#0b3a4a')
+    }
     g.globalAlpha = 1
   }
 }

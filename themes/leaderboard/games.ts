@@ -103,6 +103,8 @@ export interface SaveGameEntry {
   title: string
   /** Largest save the API accepts, in bytes of JSON. */
   maxBytes: number
+  /** A slot that is no adventure (a preference kept on the profile): the Hangar does not list it. */
+  hidden?: true
 }
 
 export const SAVE_GAMES: readonly SaveGameEntry[] = [
@@ -112,6 +114,8 @@ export const SAVE_GAMES: readonly SaveGameEntry[] = [
   { id: 'battery', title: 'Night of the Dead Battery', maxBytes: 8_192 },
   { id: 'miniworld', title: 'Mini World', maxBytes: 32_768 },
   { id: 'figur', title: 'Lag Din Figur', maxBytes: 32_768 },
+  // (The player's own keys in Neon Shrine: themes/zelda/keysStore.ts. NEW GAME leaves it.)
+  { id: 'zelda.keys', title: 'Neon Shrine keys', maxBytes: 2_048, hidden: true },
 ] as const
 
 export function saveGameById(id: unknown): SaveGameEntry | undefined {

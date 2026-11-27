@@ -165,13 +165,14 @@ test('lays out on every screen: inside it, above the deck, nothing over anything
   assert.deepEqual([p.pages, p.page, p.stamp.length, p.rows.map(r => r.text).join(' '), !!p.dev.hit], [1, 0, 0, Z.NO_HISTORY, true])
 })
 
-test('the menu\'s four tabs fit a screen 360 px wide in both dresses', () => {
+test('the menu\'s tabs fit a screen 360 px wide in both dresses', () => {
   for (const dpr of [2, 3]) for (const density of [1, 2]) for (const keyboard of [false, true]) {
     const { vw, vh } = grid({ w: 360, h: 640, dpr }, density)
     const F = Z.hudFont(density === 2 ? Z.HIRES_WINDOW_SKIN : Z.NEON_SKIN)
     const tabs = Z.menuTabs(F, vw, Z.menuTabsY(vh), keyboard)
     const where = `dpr ${dpr} density ${density} (${vw} wide) ${tabs.map(t => t.label).join(' ')}`
-    assert.deepEqual(tabs.map(t => t.id), ['items', 'moves', 'map', 'log'])
+    // (A keyboard has a fifth, KEYS.)
+    assert.deepEqual(tabs.map(t => t.id), ['items', 'moves', 'map', 'log', ...(keyboard ? ['keys'] : [])])
     for (const [i, t] of tabs.entries()) {
       assert.ok(t.x >= 0 && t.x + t.w <= vw, `${where}: ${t.label} at ${t.x}, ${t.w} wide`)
       assert.ok(F.width(t.label) <= t.w, where)

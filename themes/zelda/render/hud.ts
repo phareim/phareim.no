@@ -4,7 +4,7 @@
  * menu's tabs and MOVES page, and the start-over question.
  */
 import type { GameState, World } from '../types'
-import { subst, type HudKeys } from '../keys'
+import { KEYBOARD_KEYS, TOUCH_KEYS, subst, type HudKeys } from '../keys'
 import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount, mapDef } from '../engine/map'
@@ -229,7 +229,6 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
       g.fillStyle = skin.cool
       g.fillRect(bx + 3, 21, Math.round(16 * rest), 2)
     }
-    F.draw(g, 'K', bx + 24, 4, skin.cool, skin.outline)
   }
   void vw
 }
@@ -282,7 +281,7 @@ const tallest = new WeakMap<readonly string[], { font: HudFont; inner: number; k
 function tallestRows(lines: readonly string[], who: string | null | undefined, plate: boolean, F: HudFont, inner: number, keys: HudKeys): number {
   const hit = tallest.get(lines)
   // The key names are part of the lines ("PRESS {A}").
-  const named = keys.a + keys.b + keys.cycle
+  const named = [keys.a, keys.b, keys.cycle, keys.roll, ...Object.values(keys.menu ?? {})].join('|')
   if (hit && hit.font === F && hit.inner === inner && hit.keys === named) return hit.rows
   let rows = 1
   for (const raw of lines) {
@@ -378,7 +377,7 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys, skin: Hud
 }
 
 /** The menu's pages. */
-export type MenuPage = 'items' | 'moves' | 'map' | 'log'
+export type MenuPage = 'items' | 'moves' | 'map' | 'log' | 'keys'
 
 /**
  * The row the menu's tabs stand on, ITEMS and MOVES alike: a small margin under the safe area, smaller on a short
@@ -386,13 +385,35 @@ export type MenuPage = 'items' | 'moves' | 'map' | 'log'
  */
 export const menuTabsY = (vh: number, safeTop = 0) => safeTop + (vh < 340 ? 2 : 4)
 
-/** Where each of the menu's tabs stands in the row at `y`, in the menu's order; `keyboard`: each says its key. */
-export function menuTabs(F: Pick<HudFont, 'width'>, vw: number, y: number, keyboard: boolean) {
-  const tabs: Array<[MenuPage, string]> = [['items', keyboard ? 'P ITEMS' : 'ITEMS'], ['moves', keyboard ? 'N MOVES' : 'MOVES'], ['map', keyboard ? 'M MAP' : 'MAP'], ['log', keyboard ? 'G LOG' : 'LOG']]
-  const words = tabs.reduce((a, [, t]) => a + F.width(t), 0)
-  const gap = Math.min(18, Math.max(8, Math.floor((vw - words) / tabs.length)))
-  let x = Math.round((vw - words - gap * (tabs.length - 1)) / 2)
-  return tabs.map(([id, label]) => {
+const TAB_NAMES: Record<MenuPage, string> = { items: 'ITEMS', moves: 'MOVES', map: 'MAP', log: 'LOG', keys: 'KEYS' }
+
+/** The pages there are, in the menu's order. KEYS is a keyboard's: there is none on the touch deck. */
+export const menuPages = (touch: boolean): MenuPage[] => (touch ? ['items', 'moves', 'map', 'log'] : ['items', 'moves', 'map', 'log', 'keys'])
+
+/** What the tabs read of the keys; or whether there is a keyboard at all, with its first keys. */
+export type TabKeys = boolean | Pick<HudKeys, 'touch' | 'menu'>
+/** The least room between two tabs that say their keys, and the margin their row keeps. */
+const TAB_GAP = 6
+
+/**
+ * Where each of the menu's tabs stands in the row at `y`, in the menu's order. Beside a keyboard each says its key,
+ * if every key's name is one letter and the row fits so; else the pages' names alone.
+ */
+export function menuTabs(F: Pick<HudFont, 'width'>, vw: number, y: number, keys: TabKeys) {
+  const k = typeof keys === 'boolean' ? (keys ? KEYBOARD_KEYS : TOUCH_KEYS) : keys
+  const pages = menuPages(!!k.touch)
+  const width = (labels: string[]) => labels.reduce((a, t) => a + F.width(t), 0)
+  let labels = pages.map(p => TAB_NAMES[p])
+  if (!k.touch) {
+    const menu = k.menu ?? KEYBOARD_KEYS.menu
+    const lettered = pages.map(p => `${menu[p]} ${TAB_NAMES[p]}`)
+    if (pages.every(p => menu[p].length === 1) && width(lettered) + TAB_GAP * (pages.length - 1) <= vw - 4) labels = lettered
+  }
+  const words = width(labels)
+  const gap = Math.min(18, Math.max(TAB_GAP, Math.floor((vw - words) / pages.length)))
+  let x = Math.round((vw - words - gap * (pages.length - 1)) / 2)
+  return pages.map((id, i) => {
+    const label = labels[i]!
     const tab = { id, label, x, y, w: Math.ceil(F.width(label)), h: 10 }
     x += tab.w + gap
     return tab
@@ -400,16 +421,16 @@ export function menuTabs(F: Pick<HudFont, 'width'>, vw: number, y: number, keybo
 }
 
 /** The box round the whole row of tabs, as the pages' layouts keep clear of it. */
-export function menuTabsBox(F: Pick<HudFont, 'width'>, vw: number, y: number, keyboard: boolean) {
-  const tabs = menuTabs(F, vw, y, keyboard)
+export function menuTabsBox(F: Pick<HudFont, 'width'>, vw: number, y: number, keys: TabKeys) {
+  const tabs = menuTabs(F, vw, y, keys)
   const last = tabs[tabs.length - 1]!
   return { x: tabs[0]!.x, y, w: last.x + last.w - tabs[0]!.x, h: last.h }
 }
 
-/** The menu's four pages, side by side over it, the one open lit: ITEMS (P, Escape), MOVES (N), MAP (M) and LOG (G). Returns the y under them. */
+/** The menu's pages, side by side over it, the one open lit: ITEMS, MOVES, MAP, LOG and, beside a keyboard, KEYS. Returns the y under them. */
 export function drawMenuTabs(g: G, page: MenuPage, vw: number, y: number, keys: HudKeys, skin: HudSkin): number {
   const F = hudFont(skin)
-  for (const t of menuTabs(F, vw, y, !keys.touch)) {
+  for (const t of menuTabs(F, vw, y, keys)) {
     const on = t.id === page
     F.draw(g, t.label, t.x, y, on ? skin.hot : skin.faint, on ? skin.outline : undefined)
     if (on) { g.fillStyle = skin.hot; g.fillRect(t.x, y + GLYPH_H + 2, t.w, 1) }
@@ -530,8 +551,11 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
   }
   // The art on B: its icon in a slot (dim while it rests, underlined when in hand), its name and what it does.
   ry += 4
-  const use = keys.touch ? 'ON THE ITEM BUTTON' : `ON ${keys.b}, ${keys.cycle} SWAPS`
-  F.draw(g, known ? art.name : 'THE ART', x + 7, ry, skin.prize)
+  const title = known ? art.name : 'THE ART'
+  let use = keys.touch ? 'ON THE ITEM BUTTON' : `ON ${keys.b}, ${keys.cycle} SWAPS`
+  // (Long key names leave no room for the swap's.)
+  if (!keys.touch && F.width(use) > w - 20 - F.width(title)) use = `ON ${keys.b}`
+  F.draw(g, title, x + 7, ry, skin.prize)
   F.draw(g, use, x + w - 7 - F.width(use), ry, skin.faint)
   ry += 11
   g.fillStyle = skin.slot
