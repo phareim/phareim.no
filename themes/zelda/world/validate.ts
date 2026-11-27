@@ -140,6 +140,7 @@ export function validateWorld(world: World): string[] {
   for (const [id, def] of Object.entries(world.maps)) {
     for (const m of Object.values(def.marks)) {
       if (m.ent.t === 'warp' && !landsIn(m.ent.to)?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
+      if (m.ent.t === 'warp' && m.ent.when !== undefined && !liveCond(m.ent.when)) out.push(`${id}: warp to ${m.ent.to} waits on ${JSON.stringify(m.ent.when)} (want a flag, notFlag, item or flags condition)`)
     }
     out.push(...reachability(id, world))
     out.push(...ironProblems(id, world))
@@ -196,7 +197,9 @@ function reachability(id: string, world: World): string[] {
       }
     }
   })
-  const tile = (x: number, y: number): TileChar => (filled.has(y * w + x) || trapped.has(y * w + x) ? '.' : tileOf(def, x, y))
+  // A warp that waits on a condition is floor to the walk (its stair appears later, and is walkable too).
+  const waits = (x: number, y: number) => { const e = def.marks[def.rows[y]?.[x] ?? '']?.ent; return e?.t === 'warp' && !!e.when }
+  const tile = (x: number, y: number): TileChar => (filled.has(y * w + x) || trapped.has(y * w + x) || waits(x, y) ? '.' : tileOf(def, x, y))
   // The states a route may be walked in: one, or on a map with view blocks one a view. `seen` and the stack hold
   // tile + state × (w × h).
   const sides: Array<ViewSide | null> = hasBlocks(def) ? ['flat', 'iso'] : [null]
@@ -367,6 +370,17 @@ function ironProblems(id: string, world: World): string[] {
  * under the paint (a door air or wall), so the glass never changes what is solid; a hidden ledge is a real platform;
  * and nothing the way on needs is hidden.
  */
+/** A condition a warp may wait on: progress read live, nothing of a room's own. */
+function liveCond(c: object): boolean {
+  const k = c as Record<string, unknown>
+  const text = (v: unknown) => typeof v === 'string' && v.length > 0
+  if ('flag' in k) return text(k.flag)
+  if ('notFlag' in k) return text(k.notFlag)
+  if ('item' in k) return text(k.item)
+  if ('flags' in k) return Array.isArray(k.flags) && k.flags.length > 0 && k.flags.every(text)
+  return false
+}
+
 function lensProblems(id: string, world: World): string[] {
   const def = world.maps[id]!
   const out: string[] = []
@@ -375,11 +389,13 @@ function lensProblems(id: string, world: World): string[] {
       const e = def.marks[r[x]!]?.ent
       if (!e || (e.t !== 'lie' && e.t !== 'veil' && !(e.t === 'chest' && e.hidden))) continue
       const at = `${x},${y}`
-      if (def.kind !== 'side') out.push(`${id}: a ${e.t === 'lie' ? 'painted' : 'hidden'} thing at ${at} outside a side map`)
+      // (From above the glass knows a hidden chest only: the painted things and the ledges are side maps'.)
+      if (def.kind !== 'side' && e.t !== 'chest') out.push(`${id}: a ${e.t === 'lie' ? 'painted' : 'hidden'} thing at ${at} outside a side map`)
       const t = tileOf(def, x, y)
       if (e.t === 'lie' && t !== '.' && !(e.as === 'door' && TILE_INFO[t].wall)) out.push(`${id}: the painted ${e.as} at ${at} is on '${t}' (want air${e.as === 'door' ? ' or wall' : ''})`)
       if (e.t === 'veil' && t !== '¯') out.push(`${id}: the hidden ledge at ${at} is on '${t}', not a platform`)
-      if (e.t === 'chest' && (e.item === 'smallKey' || e.item === 'bigKey')) out.push(`${id}: the hidden chest at ${at} holds a key`)
+      // A hidden small key may only be one a room can do without (a dungeon from above, its second way): never a big one.
+      if (e.t === 'chest' && (e.item === 'bigKey' || (e.item === 'smallKey' && def.kind === 'side'))) out.push(`${id}: the hidden chest at ${at} holds a key`)
     }
   })
   return out

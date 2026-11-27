@@ -585,6 +585,8 @@ function chestsOf(world: World, s: GameState): Array<{ x: number; y: number; ope
     const opened = s.flags[`chest:${c.id}`] === true
     // (The engine sets `appear:<id>` the moment the chest's condition is met.)
     if (c.appear && !opened && s.flags[`appear:${c.id}`] !== true) continue
+    // (Nor one only THE LENS shows, until it is opened.)
+    if (c.hidden && !opened && mapDef(world, s.map.id)?.kind !== 'side') continue
     out.push({ x: c.x, y: c.y, opened })
   }
   return out

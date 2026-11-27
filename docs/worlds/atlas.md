@@ -297,6 +297,10 @@ key is in hand, one locked door can be reached
 (`node scripts/zelda-lab/lateshow-keys.mjs`). Without the Stomp a reel's own door
 is the way out. LENNY speaks of the door until the Scaffold has been seen.
 
+### UNDER THE NEON SHRINE (`balance`, `supply`, `supplyroom`)
+Off the grid, down a stair south of the pedestal once the prism is in hand: the Balance, three store rooms and the
+Supply Room: `docs/games/neon-shrine-balance.md`.
+
 ## Rules for every land
 
 - Ids: map id as above; chests `<map>.<name>`, never reusing a chest id from

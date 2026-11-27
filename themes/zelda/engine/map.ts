@@ -16,7 +16,7 @@ import { LUNA_GAP, dirVec, opposite, trailPoint } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
 export interface PadInfo { id: string; x: number; y: number; size: 1 | 2; worth: number; hold: number; when?: Cond; pic?: PadPic; handin: boolean; cell: number }
-export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; idx: number; x: number; y: number; cell: number }
+export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; hidden?: true; idx: number; x: number; y: number; cell: number }
 /** `trap`: a gate that starts open and shuts behind the hero (`open` is then the room's `clear`). */
 /** `latch`: a held gate, open while `open` holds until the latch does. */
 export interface GateInfo { id: string; tiles: number[]; open: Cond; cell: number; trap?: boolean; latch?: Cond }
@@ -28,7 +28,7 @@ export interface MapInfo {
   base: TileChar[]
   marks: MarkAt[]
   entries: Record<string, Spot>
-  warps: Array<Required<Warp>>
+  warps: Array<Required<Omit<Warp, 'when'>> & Pick<Warp, 'when'>>
   chests: Map<number, ChestInfo>
   chestList: ChestInfo[]
   signs: Map<number, Extract<EntDef, { t: 'sign' }>>
@@ -130,9 +130,9 @@ function buildInfo(def: MapDef): MapInfo {
     const e = m.ent
     const cell = cellIndex(info, m.x + 0.5, m.y + 0.5)
     if (e.t === 'entry') info.entries[e.id] = { x: m.x + 0.5, y: m.y + 0.5, dir: e.dir ?? 'down' }
-    else if (e.t === 'warp') info.warps.push({ x: m.x, y: m.y, w: 1, h: 1, to: e.to, entry: e.entry })
+    else if (e.t === 'warp') info.warps.push({ x: m.x, y: m.y, w: 1, h: 1, to: e.to, entry: e.entry, ...(e.when ? { when: e.when } : {}) })
     else if (e.t === 'chest') {
-      const c: ChestInfo = { id: e.id, item: e.item, big: !!e.big, appear: e.appear, idx, x: m.x, y: m.y, cell }
+      const c: ChestInfo = { id: e.id, item: e.item, big: !!e.big, appear: e.appear, ...(e.hidden ? { hidden: true as const } : {}), idx, x: m.x, y: m.y, cell }
       info.chests.set(idx, c)
       info.chestList.push(c)
     } else if (e.t === 'sign') info.signs.set(idx, e)
@@ -376,6 +376,8 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
   if (s.session) for (let i = 0; i < tiles.length; i++) if (tiles[i] === '¤') tiles[i] = '.'
   for (const g of info.gates) if (flag(`gate:${g.id}`)) for (const i of g.tiles) tiles[i] = '.'
   for (const c of info.chestList) if (c.appear) tiles[c.idx] = flag(`appear:${c.id}`) ? '$' : '.'
+  // A warp that waits (`when`) is floor until its condition holds, read live as the map loads.
+  for (const w of info.warps) if (w.when && !condMet(s, world, w.when, -1)) tiles[w.y * info.w + w.x] = '.'
   // Psi blocks moved out in the open, and blocks dropped here from the floor above.
   for (const f of Object.keys(s.flags)) {
     const p = f.split(':')

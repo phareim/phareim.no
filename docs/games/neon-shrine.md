@@ -14,6 +14,9 @@ sword, items, pause menu and saves work the same in the town and out on
 the coast. Design (story, maps, progression, enemies, look):
 `themes/zelda/DESIGN.md`.
 
+Under the Shrine's pedestal, once the prism is taken: the Balance for the seven
+Weights and the way to the Supply Room (`docs/games/neon-shrine-balance.md`).
+
 Around the hand-made maps lie seven lands drawn by hand, all on one grid
 with the coast and the Wildwood (`docs/worlds/atlas.md`, how they are built:
 `docs/worlds/README.md`): Seter Fell above the town, Yule Fjord beyond it, the

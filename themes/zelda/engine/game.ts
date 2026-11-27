@@ -20,6 +20,7 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { stepEcho } from './echo'
+import { stepBalance } from './balance'
 import { lampHome } from './lamp'
 import { homeIron } from './magnet'
 import { raiseCard, stepCard } from './cards'
@@ -285,6 +286,7 @@ function play(c: Ctx, dt: number, inp: Input) {
     if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, s.hero.x, s.hero.y, HERO_R)
     stepHero(c, inp, dt)
     stepEcho(c, dt)
+    stepBalance(c, dt)
     revealAround(s, c.info.def, c.info.w, c.info.h)
   }
   if (s.mode !== 'play') return
@@ -309,6 +311,8 @@ function play(c: Ctx, dt: number, inp: Input) {
   if (exit?.walk) { beginExit(c, exit); return }
   // Warps
   for (const w of c.info.warps) {
+    // (A warp that waits works once its condition holds and its stair has appeared: `objects.ts`.)
+    if (w.when && (!condMet(s, c.w, w.when, -1) || s.map.tiles[w.y * c.info.w + w.x] !== c.info.base[w.y * c.info.w + w.x])) continue
     if (h.x >= w.x && h.x < w.x + w.w && h.y >= w.y && h.y < w.y + w.h) {
       s.mode = 'warp'
       s.warp = { t: 0, to: w.to, entry: w.entry, swapped: false }

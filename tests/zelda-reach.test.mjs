@@ -129,7 +129,8 @@ function round(W, world, opened) {
       const [m, x, y] = queue[q]
       const { info } = m
       const warp = m.warps.get(m.at(x, y))
-      if (warp) enter(warp.to, warp.entry)
+      // (A warp that waits, the Shrine's lid and the Balance's floor, is floor until its condition holds.)
+      if (warp && holds(warp.when, m, m.cell(x, y))) enter(warp.to, warp.entry)
       // Over the edge onto the next land of the grid.
       const o = (x === 0 || y === 0 || x === info.w - 1 || y === info.h - 1) && W.atlas[m.id]
       if (o) for (const [dx, dy] of STEPS) {
@@ -194,7 +195,7 @@ function round(W, world, opened) {
     assert.ok(turns < 200, 'the walk settles')
     changed = false
     // (A new walk only when something has changed what can be walked on.)
-    const way = [...Object.values(NEEDS), 'item:hook', 'item:magnet'].filter(f => flags[f]).join() + guardsNow().join() + Object.keys(flags).filter(f => f.startsWith('gate:')).length
+    const way = [...Object.values(NEEDS), 'item:hook', 'item:magnet', 'item:prism', 'balance.level'].filter(f => flags[f]).join() + guardsNow().join() + Object.keys(flags).filter(f => f.startsWith('gate:')).length
     if (way !== walkedWay) { walkedWay = way; walk(); changed = true }
     for (const m of Object.values(maps)) {
       const ring = m.def.keyring ?? 'shrine'
@@ -226,6 +227,11 @@ function round(W, world, opened) {
           if (talk.set) set(talk.set)
           if (e.join && flags[talk.set ?? '']) set('luna')
         }
+      }
+      // The Balance takes the Weights of whoever walks in, and with all seven it is level.
+      if (m.id === 'balance' && cells.has('balance|0')) {
+        for (const w of Z.WEIGHTS) if (flags[`item:${w.id}`]) set(`balance.${w.word.toLowerCase()}`)
+        if (Z.WEIGHTS.every(w => flags[`balance.${w.word.toLowerCase()}`])) set('balance.level')
       }
       // What a room says on being walked into, and what Luna says once she follows.
       for (const [c, def] of Object.entries(m.def.kind === 'dungeon' ? m.def.cells ?? {} : {})) {
@@ -289,6 +295,16 @@ const OWED = [
   'examination: gate examination.7,11',
   'examination: gate examination.7,2',
   'examtop: never walked into',
+  // Under the Shrine: the Balance's floor opens for all seven Weights, and only two can be won so far.
+  'supply locked door at 3,12',
+  'supply: gate supply.11,12',
+  'supply: gate supply.2,27',
+  'supply: gate supply.7,2',
+  'supply: gate supply.7,24',
+  'supply: heartPiece at 2,25',
+  'supply: never walked into',
+  'supply: smallKey at 2,15',
+  'supplyroom: never walked into',
 ]
 
 describe('the whole world can be opened', () => {

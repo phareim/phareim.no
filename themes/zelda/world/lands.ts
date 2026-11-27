@@ -15,8 +15,10 @@ import { MAPS as echobarrow } from './echobarrow'
 import { MAPS as lighthouse } from './lighthouse'
 import { MAPS as lateshow } from './lateshow'
 import { MAPS as actthree } from './actthree'
+import { MAPS as balance } from './balance'
 
 export const LANDS: Record<string, MapDef> = { ...seterfell, ...yulefjord, ...sporelight, ...stillsand, ...rerun, ...lumenby, ...fogstage, ...underglow, ...echobarrow, ...lighthouse }
 // (A dungeon's maps, a line of their own.)
 Object.assign(LANDS, lateshow)
 Object.assign(LANDS, actthree)
+Object.assign(LANDS, balance)
