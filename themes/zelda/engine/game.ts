@@ -27,7 +27,7 @@ import { lampHome } from './lamp'
 import { homeIron } from './magnet'
 import { raiseCard, stepCard } from './cards'
 import { stepLens } from './lens'
-import { examEnterCell, examEnterMap, stepExam, stillK } from './exam'
+import { examEnterCell, examEnterMap, examForget, stepExam, stillK } from './exam'
 import { startChase, stepChase } from './chase'
 import { sideStanding } from './side'
 import { dirVec } from './util'
@@ -123,6 +123,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
     if (!e.dead && e.hp > 0 && e.hp < e.maxHp) (s.wounds ??= {})[e.id] = e.hp
     else if (s.wounds) delete s.wounds[e.id]
   }
+  examForget(s, mapId)
   s.map = loadMap(world, s, mapId)
   for (const e of s.map.enemies) if (s.wounds?.[e.id]) wound(e, s.wounds[e.id]!)
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!

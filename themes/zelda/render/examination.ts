@@ -1,14 +1,17 @@
 /**
  * THE EXAMINATION's drawing (`engine/exam.ts`), shared by both painters:
- * - on the floor, under everything that stands (`floorMarks.ts`): the pads, the ring in the pond's middle, and the
- *   stencil shapes of its fights;
+ * - on the floor, under everything that stands (`floorMarks.ts`): the pads, the ring in the pond's middle, the
+ *   lanes of the hall's two stones and the stencil shapes of its fights;
+ * - over THE BENCHMARK TITAN, on the HUD's layer: its two cards;
  * - standing in the world: the words over a HAND IN pad, and THE DUCK set down;
  * - over the world: the pale wash of a room that waits (TIME WAITS), round the hero;
  * - on the HUD: the strip of the round under way (its rule's short name, marks and the pass mark, and a clock with
  *   still hands while time waits) and the score card.
  */
-import type { GameState, World } from '../types'
-import { EXAM, STILL, TILE } from '../types'
+import type { Enemy, GameState, Vec, World } from '../types'
+import { EXAM, STILL, TILE, TITAN } from '../types'
+import { titanCards, titanOpen, type TitanKind } from '../engine/bossTitan'
+import { TILE_INFO } from '../world/tiles'
 import { cellDef, cellIndex, mapInfo, type PadInfo } from '../engine/map'
 import { puzzleInfo } from '../engine/puzzles/info'
 import type { Stencil } from '../engine/stencils'
@@ -26,6 +29,9 @@ const CYAN = '#2ff3ff'
 const GOLD = '#ffd23f'
 const GOLD_DARK = '#a86e14'
 const INK = '#0b0616'
+const PAPER = '#fbf1d8'
+const PAPER_EDGE = '#c9b78e'
+const PEN = '#2a1f4a'
 
 // ---------------------------------------------------------------------------
 // The pads
@@ -37,6 +43,7 @@ const seen = (s: GameState, p: PadInfo) => p.cell === s.zoneIndex || (!!s.scroll
 export function drawPads(g: G, world: World, s: GameState, cx: number, cy: number) {
   const info = mapInfo(world, s.map.id)
   drawFloats(g, world, s, cx, cy)
+  drawStoneLanes(g, world, s, cx, cy)
   for (const p of info.pads) {
     if (!seen(s, p)) continue
     const round = cellDef(info, p.cell)?.round
@@ -63,6 +70,33 @@ export function drawPads(g: G, world: World, s: GameState, cx: number, cy: numbe
       continue
     }
     ring(g, x + w / 2, y + w / 2, w / 2 - 2, fill, p.handin ? '#fff4ff' : CYAN)
+  }
+}
+
+/**
+ * The ways of the two stones in the Titan's hall: faint pink dashes down each lane from the start (a lever is a
+ * danger), bright while its stone rolls.
+ */
+function drawStoneLanes(g: G, world: World, s: GameState, cx: number, cy: number) {
+  if (s.map.id !== 'examtop') return
+  const info = mapInfo(world, s.map.id)
+  for (const m of info.marks) {
+    if (m.ent.t !== 'boulder') continue
+    const rolling = !!s.map.phys?.rolling.some(r => Math.floor(r.x) === m.x)
+    let end = m.y + 1
+    while (end < info.h && !TILE_INFO[info.base[end * info.w + m.x]!].solid) end++
+    const x = Math.round((m.x + 0.5) * T - cx)
+    g.globalAlpha = rolling ? 1 : 0.4
+    for (let y = (m.y + 1) * T; y < end * T; y += 8) {
+      // (Two rows of dashes, a stone's width apart.)
+      for (const dx of [-6, 5]) {
+        g.fillStyle = INK
+        if (rolling) g.fillRect(x + dx - 1, y - cy, 4, 7)
+        g.fillStyle = PINK
+        g.fillRect(x + dx, Math.round(y - cy) + 1, 2, 5)
+      }
+    }
+    g.globalAlpha = 1
   }
 }
 
@@ -321,6 +355,83 @@ export function drawShape(g: G, st: Extract<Stencil, { t: 'disc' | 'box' | 'path
 }
 
 // ---------------------------------------------------------------------------
+// THE BENCHMARK TITAN: its two cards, and its fall
+// ---------------------------------------------------------------------------
+
+/** The picture on each kind's card. (The POT's is the pot itself; BEAM and OTHER, a plain brass weight.) */
+const CARD_PIC: Record<TitanKind, string> = {
+  BLADE: 'item_sword', SPIN: 'card_spin', POT: 'pot', BOULDER: 'card_boulder', BOMB: 'item_bombbag', DISC: 'item_disc', HOOK: 'item_hook',
+  BEAM: 'item_weight', OTHER: 'item_weight',
+}
+/** A card, 3 tiles wide and 2 tall, and the room between the two. */
+const CARD_W = 48
+const CARD_H = 32
+const CARD_GAP = 6
+
+/** A figure's height over its feet, classic px, with its bar. */
+const TITAN_HEAD = 52
+/** On a wide HUD the hearts, the counters and the item box take this much of the left edge, down to `UNDER_HEARTS`. */
+const HEARTS_WIDE = 122
+const UNDER_HEARTS = 36
+/** On a wide HUD the corner chart takes this much of the right edge, down to `UNDER_CORNER`. */
+const CORNER_WIDE = 84
+
+/**
+ * The two cards over the Titan, the older left and the newer right, each a picture over the kind's word: gold-framed
+ * while it is open, pink as a blow of that kind is turned aside, turning over as a new kind takes its place. They are
+ * painted on the HUD's layer (crisp, over every light), `at` a ground point on it and `px` the HUD's px per classic
+ * px of a standing figure: over its head, pushed no further than keeps them whole on the screen and clear of the
+ * hearts, the item box and the corner chart.
+ */
+export function drawTitanCards(g: G, s: GameState, at: (x: number, y: number) => Vec, px: number, area: { vw: number; top: number; left: number; right: number }, time: number, reduced: boolean) {
+  const e = s.map.enemies.find(o => o.kind === 'titan' && !o.dead && o.cell === s.zoneIndex)
+  if (!e) return
+  const now = titanCards(e)
+  const flip = reduced ? 0 : ((e.ai.flip as number | undefined) ?? 0) / TITAN.flip
+  // The first half of the turn shows what hung there before, closing; the second what hangs now, opening.
+  const kinds = flip > 0.5 ? [(e.ai.was as TitanKind | undefined) ?? now[0], now[0]] as const : now
+  const wide = Math.max(2, Math.round(CARD_W * (flip > 0 ? Math.abs(flip - 0.5) * 2 : 1)))
+  const open = titanOpen(e)
+  const both = CARD_W * 2 + CARD_GAP
+  const feet = at(e.x, e.y + e.r)
+  const x0 = Math.round(Math.max(area.left + 3, Math.min(area.vw - area.right - both - 3, feet.x - both / 2)))
+  // How high they may go: between the two corners of a wide screen, to its top.
+  const underCorner = area.vw < NARROW || x0 + both > area.vw - area.right - CORNER_WIDE
+  const highest = underCorner ? UNDER_CORNER + 3 : x0 < area.left + HEARTS_WIDE ? UNDER_HEARTS : 3
+  const y = Math.round(Math.max(area.top + highest, feet.y - TITAN_HEAD * px - CARD_H))
+  kinds.forEach((kind, i) => {
+    const x = x0 + i * (CARD_W + CARD_GAP) + Math.round((CARD_W - wide) / 2)
+    const turned = ((e.ai.turnT as number | undefined) ?? 0) > 0 && e.ai.turned === kind
+    const hot = turned && (reduced || Math.floor(time * 14) % 2 === 0)
+    const rim = turned || open ? 1 : 0
+    g.fillStyle = INK
+    g.fillRect(x - 2, y - 2, wide + 4, CARD_H + 4)
+    g.fillStyle = turned ? PINK : open ? GOLD : PAPER_EDGE
+    g.fillRect(x - 1, y - 1, wide + 2, CARD_H + 2)
+    g.fillStyle = hot ? PINK : turned ? PINK_LIGHT : PAPER
+    g.fillRect(x + rim, y + rim, wide - rim * 2, CARD_H - rim * 2)
+    if (wide < CARD_W / 2) return
+    const pic = sprite(CARD_PIC[kind])
+    const pw = Math.round((pic.width * wide) / CARD_W)
+    g.drawImage(pic, x + Math.round((wide - pw) / 2), y + 3, pw, pic.height)
+    if (wide === CARD_W) drawText(g, kind, x + Math.round((CARD_W - textWidth(kind)) / 2), y + 22, hot ? '#ffffff' : PEN)
+  })
+}
+
+/** Seconds of the Titan's fall. */
+export const TITAN_FALL = 1.4
+
+/** It goes down where it stood, in its hurt pose (no picture of it fallen yet), and fades off what it sat on. */
+export function drawTitanFall(g: G, t: number, x: number, feet: number, reduced: boolean) {
+  const pic = sprite('titan_hurt')
+  const k = Math.min(1, t / TITAN_FALL)
+  const sink = reduced ? 0 : Math.round(k * k * 18)
+  g.globalAlpha = Math.min(1, (1 - k) * 2)
+  g.drawImage(pic, 0, 0, pic.width, pic.height - sink, Math.round(x - pic.width / 2), Math.round(feet - pic.height + sink), pic.width, pic.height - sink)
+  g.globalAlpha = 1
+}
+
+// ---------------------------------------------------------------------------
 // The strip and the card
 // ---------------------------------------------------------------------------
 
@@ -383,9 +494,6 @@ function drawStillClock(g: G, x: number, y: number) {
   }))
 }
 
-const PAPER = '#fbf1d8'
-const PAPER_EDGE = '#c9b78e'
-const PEN = '#2a1f4a'
 
 /**
  * The score card: a corner of an exam paper over the top third of the screen. The round's name, a tick box for every

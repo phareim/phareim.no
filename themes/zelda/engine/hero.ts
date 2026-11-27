@@ -181,7 +181,8 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   // --- movement ---------------------------------------------------------------
   if (side) { sideMove(c, inp, dt); return }
   const charging = h.charge > 0.12
-  let speed = h.carry ? CARRY_SPEED : charging ? CHARGE_SPEED : HERO_SPEED
+  // (A hollow pot slows no one: the free tell.)
+  let speed = h.carry && !h.carryHollow ? CARRY_SPEED : charging ? CHARGE_SPEED : HERO_SPEED
   if (h.swing) speed *= 0.25
   if (h.spin) speed = 0
   if (h.robe) speed *= ROBE_SPEED
@@ -422,6 +423,8 @@ function useThing(c: Ctx, a: AThing) {
     case 'lie': puffLie(c, a.i); return
     case 'ware': buy(c, a.id); return
     case 'lift':
+      if (tileAt(s.map, a.tx, a.ty) === 'ô') h.carryHollow = true
+      else delete h.carryHollow
       setTile(s.map, a.tx, a.ty, '.')
       h.carry = a.what
       h.act = 'lift'
@@ -962,7 +965,8 @@ function throwCarried(c: Ctx) {
   const s = c.s
   const h = s.hero
   const v = dirVec(h.dir)
-  s.map.thrown.push({ id: nextId(s), kind: h.carry!, x: h.x, y: h.y - 0.05, vx: v.x * THROW_SPEED, vy: v.y * THROW_SPEED, z: 0.9, dist: 0 })
+  s.map.thrown.push({ id: nextId(s), kind: h.carry!, x: h.x, y: h.y - 0.05, vx: v.x * THROW_SPEED, vy: v.y * THROW_SPEED, z: 0.9, dist: 0, ...(h.carryHollow ? { hollow: true } : {}) })
+  delete h.carryHollow
   h.carry = null
   h.act = 'throw'
   h.actT = 0

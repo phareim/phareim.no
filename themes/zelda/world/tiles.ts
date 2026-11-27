@@ -37,6 +37,7 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '=': OPEN,
   o: { ...LOW, lift: 'pot' },
   r: { ...LOW, lift: 'rock' },
+  'ô': { ...LOW, lift: 'pot' },
   R: { ...S, bomb: true },
   '%': { ...S, bomb: true },
   L: S,

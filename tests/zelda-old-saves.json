@@ -615,5 +615,45 @@
    },
    "savedAt": 1790000000000
   }
+ },
+ {
+  "id": "duck-chest-paid-bits",
+  "from": "the Examination's first hours (2026-11-27): the Staff Room's chest paid 50 bits in the Duck's place",
+  "save": {
+   "v": 2,
+   "map": "examination",
+   "entry": "r2",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword",
+    "exam.met",
+    "exam.r1",
+    "exam.r2",
+    "gate:examination.31,17",
+    "gate:examination.47,17",
+    "appear:examination.duck",
+    "chest:examination.duck"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  }
  }
 ]

@@ -28,8 +28,12 @@ import { hitEnemy, hurtHero, type Ctx } from './combat'
 import { swingDur } from './hero'
 import { has, setFlag, solidTile, tileAt, type MapInfo } from './map'
 import { inSideCut } from './side'
-import { inStencil, type StencilShape } from './stencils'
+import type { StencilShape } from './stencils'
+
 import { PLATFORM } from '../world/tiles'
+
+/** The Weaver's boxes are placed by their top-left corner (its own painter draws them, `render/lateshowPaint.ts`), not by the middle as `inStencil` reads a box. */
+const inRect = (r: { x: number; y: number; w: number; h: number }, x: number, y: number) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h
 
 /**
  * Seconds, tiles (the room's own) and tiles/s. `face`: the face's middle at rest, and sunk. `floor`: the floor's top.
@@ -145,7 +149,7 @@ function land(c: Ctx, e: Enemy) {
   const h = c.s.hero
   const n = handsRight(e)
   const box = weaverFootprint(c.info, n)
-  if (inStencil(box, h.x, h.y)) strike(c, box.x + 1.5, h.y)
+  if (inRect(box, h.x, h.y)) strike(c, box.x + 1.5, h.y)
   c.s.shake = Math.max(c.s.shake, 0.35)
   c.ev.push({ type: 'slam', x: box.x + 1.5, y: box.y + 2 })
   if (n >= 1) waves(c, e, 0)
@@ -292,7 +296,7 @@ export function weaver(c: Ctx, e: Enemy, dt: number) {
       if (ai.t <= 0) { to(e, 'snap', WEAVER.snap); c.s.shake = Math.max(c.s.shake, 0.2); c.ev.push({ type: 'slam', x: e.x, y: e.y + 1.4 }) }
       break
     case 'snap':
-      if (inStencil({ t: 'box', ...WEAVER.rect }, h.x, h.y)) strike(c, e.x, h.y)
+      if (inRect(WEAVER.rect, h.x, h.y)) strike(c, e.x, h.y)
       if (ai.t <= 0) to(e, 'rise', WEAVER.rise)
       break
     case 'rise':

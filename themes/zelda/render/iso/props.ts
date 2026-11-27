@@ -34,6 +34,7 @@ export type FenceKind = `fence${number}`
 export type PropKind = 'lampPink' | 'lampCyan' | 'lampGold' | 'lampAmber' | 'lampViolet' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
   | 'counter' | 'counterN' | 'counterS' | 'counterNS' | 'counterY'
   | 'chest' | 'chestOpen' | 'bigChest' | 'bigChestOpen' | 'blockPink' | 'blockCyan'
+  | 'potHollow'
   | FenceKind
   | PuzzlePropKind // the physical puzzles' things (`puzzleProps.ts`)
 export const PROP_KINDS: readonly PropKind[] = [
@@ -42,6 +43,7 @@ export const PROP_KINDS: readonly PropKind[] = [
   'chest', 'chestOpen', 'bigChest', 'bigChestOpen', 'blockPink', 'blockCyan',
   ...Array.from({ length: 16 }, (_, i): FenceKind => `fence${i}`),
   ...PUZZLE_PROP_KINDS,
+  'potHollow',
 ]
 
 /** How high a counter's top lies, in scene px: what stands on a counter stands there. */
@@ -93,6 +95,7 @@ export const MATS = {
   carve: mat(0, '#2a2650', '#34305e', '#443f72', '#443f72', '#5a558a'),
   moss: mat(0, '#12483f', '#1f7a6e', '#2fa88c', '#3fd8b0', '#8ffce0'),
   clay: mat(0, '#3a1812', '#7a3826', '#b0543a', '#e07a4e', '#ffa878'),
+  pale: mat(0.12, '#4a4668', '#8a85b0', '#bdb8d8', '#e2defa', '#fff8ff'),
   bandCyan: mat(0.35, '#12708c', '#1a9fc4', '#2ff3ff', '#6ff6ff', '#c4fbff'),
   bandPink: mat(0.35, '#7a1050', '#b01874', '#ff2fa0', '#ff5fd0', '#ffb0ec'),
   dark: mat(0, '#0b0616', '#0b0616', '#120a20', '#1c1030', '#1c1030'),
@@ -365,6 +368,17 @@ function pot(b: Solids) {
   b.post(0, 0, 17.5, 19.6, 5.8, (x, y, _z, _nx, _ny, nz) => (nz > 0.5 && Math.hypot(x, y) < 4 ? 'dark' : 'clay'))
 }
 
+/** The hollow pot (the Examination): the same shape in pale grey stone, a crack zigzagging down the side it shows. */
+function potHollow(b: Solids) {
+  const skin = (x: number, y: number, z: number): MatName => {
+    const a = (x - y) * Math.SQRT1_2
+    return x + y > 0 && Math.abs(a - 0.6 - (Math.floor(z / 3) % 2 ? 1.7 : -1.1) + (z % 3) * 0.3) < 0.9 ? 'dark' : z >= 9.6 && z < 11.6 ? 'stone' : 'pale'
+  }
+  b.ball(0, 0, 8.2, 7.6, 7.6, 8.2, skin)
+  b.post(0, 0, 14.5, 17.5, 4.3, 'pale')
+  b.post(0, 0, 17.5, 19.6, 5.8, (x, y, _z, _nx, _ny, nz) => (nz > 0.5 && Math.hypot(x, y) < 4 ? 'dark' : 'pale'))
+}
+
 /** A rock a hero can lift: three lumps grown together. */
 function rock(b: Solids) {
   b.ball(0, 0, 5.4, 8, 7.2, 8, 'rock')
@@ -509,6 +523,7 @@ export const BUILD: Record<PropKind, (b: Solids) => void> = {
   blockCyan: b => block(b, 'blockCyan', 'glassCyan'),
   ...Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`fence${i}`, (b: Solids) => fence(b, i)])),
   ...PUZZLE_BUILD,
+  potHollow,
 }
 
 let built: PropAtlas | null = null

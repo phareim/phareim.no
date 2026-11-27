@@ -226,6 +226,7 @@ export type TileChar =
   | '~' // water (solid to walkers, projectiles fly over)
   | '=' // bridge (walkable)
   | 'o' // pot (solid, liftable, may hide a drop)
+  | 'ô' // a hollow pot (the Examination): weighs nothing, slows no one, and shatters on a weighed tile
   | 'r' // rock (solid, liftable)
   | 'R' // cracked boulder (solid, bombs break it for good)
   | '%' // cracked wall (solid, bombs open it for good)
@@ -485,6 +486,14 @@ export const DUCK = { take: 1.2, sight: 7, near: 1.4, speed: 2.2, look: 8, bored
  * points an opening at most. `dmg`: half hearts for its touch, its lane and its ring.
  */
 export const FALCON = { perch: 1.6, fly: 2.4, flySpeed: 4, tell: 0.9, tell2: 0.65, lane: 0.5, ring: 1.1, dive: 12, stuck: 2.4, stare: 3.6, again: 0.5, take: 6, blind: 0.3, dmg: 2 } as const
+/**
+ * THE BENCHMARK TITAN (`engine/bossTitan.ts`). It walks `walk` s at `speed` tiles/s and stops `keep` tiles off, holds
+ * its stamp up `tell` s (`tell2` at half) over a square of `stamp` tiles, brings it down (`slam` s; at half the second
+ * square `second` s after the first) and rests `rest` s (`rest2`), open. At `half` hit points or fewer: the band. The
+ * Duck within `sight` turns its head for `look` s, then not again for `again` s. A blow of a new kind takes `blow`;
+ * `flip` and `flash`: the cards' turn, and the pink of a blow turned aside.
+ */
+export const TITAN = { walk: 2.2, speed: 1.5, keep: 4, tell: 0.9, tell2: 0.7, slam: 0.25, second: 0.35, rest: 3, rest2: 2.6, stamp: 3, half: 7, sight: 9, look: 3, again: 8, blow: 3, flip: 0.3, flash: 0.35 } as const
 export type RoundId = 'r1' | 'r2' | 'r3' | 'r4'
 /** What a pane on the floor shows. A cactus is worth marks; any other picture takes them. */
 export type PadPic = 'cactus' | 'palm' | 'stone' | 'cloud' | 'bones'
@@ -573,6 +582,7 @@ export type EnemyKind =
   | 'blackbox' // boss (the Lighthouse): never moves; a lamp's beam comes out of another face, and its three receivers open it
   | 'falcon' // miniboss (the Examination): circles, stencils a dive and takes it; open only while stuck in the sand
   | 'hallucinator' // boss, side maps: three bodies, one real; open at the bow's gold rail (`engine/bossHallucinator.ts`)
+  | 'titan' // boss (the Examination): stamps squares and leans on its stamp; open, it is hurt only by a kind of blow not on its two cards
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -1122,6 +1132,8 @@ export interface Thrown {
   vy: number
   z: number
   dist: number
+  /** A hollow pot in flight. */
+  hollow?: boolean
 }
 
 export interface MovingBlock {
@@ -1362,6 +1374,8 @@ export interface Hero {
   /** Seconds left of A's rest after a dialog (see TALK_REST). */
   talkRest: number
   carry: null | 'pot' | 'rock'
+  /** What is carried is a hollow pot (`ô`): no slower, and it shatters on a weighed tile (`engine/exam.ts`). */
+  carryHollow?: boolean
   push: number
   /** Where a pit fall returns the hero. */
   safe: Vec

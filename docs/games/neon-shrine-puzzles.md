@@ -5,7 +5,7 @@ on by the map: by its puzzle tiles, or (combat only) by `MapDef.physics` (Fogsta
 knocked into them). A map with none plays exactly as before (a test checks every older map is off). Code: `engine/puzzles/` (rules, kits), `world/puzzles.ts` (the tiles as
 data), `render/puzzleTiles.ts` (classic painter, beams), `render/iso/puzzleProps.ts` (the things in the round).
 Demo: `world/puzzlelab.ts`. Tests: `tests/zelda-puzzles.test.mjs`. THE EXAMINATION, behind the Lab's last room,
-adds pads on the floor, pot stands that fill one at a time, and THE DUCK, which weighs one and floats:
+adds pads on the floor, pot stands that fill one at a time, a hollow pot, and THE DUCK, which weighs one and floats:
 `docs/games/neon-shrine-examination.md`.
 
 **Tiles** (Greek letters; behaviour also in `world/tiles.ts`):
@@ -19,8 +19,9 @@ adds pads on the floor, pot stands that fill one at a time, and THE DUCK, which 
 | `ρ` | receiver | Mark `{ t: 'receiver', flag }` (unmarked: `beam:<map>:<tile>`). Lit once, the flag is set for good, by an emitter's beam. The Storm Lamp's beam (`docs/games/neon-shrine-lighthouse.md`) lights receivers only on a map with `lamplit: true` (the Lighthouse's, the Balance's store rooms); on any other map it ends in a receiver and lights nothing, with one buzz each time the lamp is set down, so a beam puzzle there stays a puzzle. |
 | `θ` `η` | light / heavy plate | Mark `{ t: 'plate', id }` (unmarked: `w:<tile>`). Held by weight ≥ 1 / ≥ 2: block or mirror 2, boulder 3, pot or rock tile 1, hero 1 (2 carrying a pot or rock), the echo 1 (`docs/games/neon-shrine.md`, "The Echo"; it holds a plain plate `_` too), the Duck 1 (not on a plain plate), foe 1 (big 3), Luna 1. Read by `{ plates: [id] }` like the old plates. |
 | `σ` | scale pan | Pans sharing a plate id are one scale: down only while all carry equal weight > 0. |
-| `κ` | boulder | Mark `{ t: 'boulder', dir, flag? }`: rolls along `dir` once `flag` is set (a lever); a bomb beside a boulder kicks it away, unless its lever still holds it. Crushes foes (4), hits the hero (2, thrown aside), bursts cracked walls (`%`, `R`) and rolls on, fills a pit for good, rests at anything solid. |
+| `κ` | boulder | Mark `{ t: 'boulder', dir, flag? }`: rolls along `dir` once `flag` is set (a lever); a bomb beside a boulder kicks it away, unless its lever still holds it. Crushes foes (4, a `'boulder'` blow: only the Benchmark Titan tells it from any other), hits the hero (2, thrown aside), bursts cracked walls (`%`, `R`) and rolls on, fills a pit for good, rests at anything solid. |
 | `ω` `ψ` | sluice water / drained floor | Mark `{ t: 'sluice', flag, invert? }` on every tile of a basin: full while `flag` is unset (set, with `invert`). Flooding waits for the hero to step out and drowns walking foes. A mark with `float: '<plate id>'` makes its tile a **float plate** while it is full: a light plate that only what floats there can hold (the Duck), with a ring on the water that lights while it is held. |
+| `ô` | hollow pot | Lifts and throws like a pot, weighs nothing, slows no one, and shatters if carried onto `θ`, `η` or `σ` (THE EXAMINATION, round four). Paler than a pot and cracked, on the floor and in the hands. |
 | `ξ` | valve | Mark `{ t: 'valve', flag }`: a hit or A sets or clears the flag (two valves on one flag, two basins with opposite `invert`: one drains as the other fills). |
 
 Lumen tubes (`╵ ─ ┌ … ╬`, the tap `Θ`, the socket `Λ`) are puzzle tiles too, with rules of their own:

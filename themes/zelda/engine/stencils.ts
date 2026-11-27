@@ -13,6 +13,7 @@ import { golemStencils } from './bossGolem'
 import type { LaneWorld } from './gifts'
 import { boxStencils } from './bossBlackBox'
 import { falconStencils } from './bossFalcon'
+import { titanStencils } from './bossTitan'
 
 export type StencilShape =
   /** A lane from (x0, y0) to (x1, y1) along `a`, `w` tiles wide, and `cap` tiles on past each end. */
@@ -60,7 +61,8 @@ export function inStencil(s: StencilShape, x: number, y: number): boolean {
       return u >= 0 && u <= s.len && Math.abs((y - s.y0) * s.ux - (x - s.x0) * s.uy) <= s.w / 2
     }
     case 'disc': return Math.hypot(x - s.x, y - s.y) <= s.r
-    case 'box': return x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h
+    // (A box is placed by its middle, as it is painted.)
+    case 'box': return Math.abs(x - s.x) <= s.w / 2 && Math.abs(y - s.y) <= s.h / 2
     case 'path':
     case 'ray': {
       const dx = s.x1 - s.x0
@@ -98,6 +100,7 @@ export function stencilsOf(e: Enemy, lw?: LaneWorld): Stencil[] {
   if (e.kind === 'golem') return golemStencils(e)
   if (e.kind === 'blackbox') return boxStencils(e)
   if (e.kind === 'falcon') return falconStencils(e)
+  if (e.kind === 'titan') return titanStencils(e)
   const out: Stencil[] = []
   // How far a tell of `whole` s has run, 0 to 1.
   const run = (whole: number) => Math.max(0, Math.min(1, 1 - e.ai.tell / whole))

@@ -36,7 +36,7 @@ import { drawClock, drawGifts, drawPaper, drawRings, drawRobe, queueHouse, steam
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
 import { BOX_AHEAD, boxFoot, drawBox, drawEyes, drawNumbers, eyesShut, lampItem, stripLights } from './lighthouse'
-import { drawExamCard, drawStillWash, queueExam, timeStands } from './examination'
+import { drawExamCard, drawStillWash, drawTitanCards, drawTitanFall, queueExam, TITAN_FALL, timeStands } from './examination'
 import { drawGolem, drawGolemFall, golemSprite, golemStand } from './golemPaint'
 import { GOLEM } from '../engine/bossGolem'
 import { boxSprite } from '../engine/bossBlackBox'
@@ -84,8 +84,6 @@ const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierC
   stillsand: { bat: 'stonebird' },
   rerun: { hound: 'mowermob', drone: 'flamingomob', spitter: 'mailboxmob' },
 }
-// The cactus that walks (round two of the examination).
-FRONTIER_FOE_LOOKS.stillsand!.spitter = 'cactus'
 
 const T = TILE
 
@@ -116,6 +114,11 @@ const TOUGH_LOST = '#3b2466'
  * sprite, 1 the view's own art, between in a turn), `lift` the ground's height under a foot point, in tiles.
  */
 export interface FoeView { art: number; lift?: (x: number, y: number) => number }
+/**
+ * Where a view that does not look from above has put the world, for what the HUD hangs over a foe: a ground point in
+ * the scene's px (as `heroY` is), and how many of those one classic px of a standing figure comes to.
+ */
+export interface Stands { at(x: number, y: number): Vec; px: number }
 
 export interface FrameUI {
   paused: boolean
@@ -387,7 +390,7 @@ export interface Kit {
    * one in over the second, instead of one giving way to the other in a
    * single frame. Their letters are never on top of each other.
    */
-  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }): void
+  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }, stands?: Stands): void
   /**
    * Where a skin's HUD lies on the screen: device px per HUD logical px, where
    * its logical origin lands (device px) and its logical size. The classic HUD
@@ -938,7 +941,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (blade && !away) drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
-      const spr = sprite(h.carry === 'rock' ? 'rock' : 'pot')
+      const spr = sprite(h.carry === 'rock' ? 'rock' : h.carryHollow ? 'pot_hollow' : 'pot')
       g.drawImage(spr, Math.round(x - 8), Math.round(feet - 16 - 10 * lift - 2))
     }
     if (h.act === 'get' && s.get) {
@@ -1091,13 +1094,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const f = (prefix: string) => tick % frameCount(prefix, 2)
     const fast = (prefix: string) => Math.floor(time * 10) % frameCount(prefix, 2)
     const { key, flip } = dirKey(e.dir)
+    // The cactus that walks (Stillsand's spitter, round two of the Examination): it faces the viewer, two steps.
+    if (realm === 'stillsand' && e.kind === 'spitter') return { name: `cactus_walk_${f('cactus_walk')}`, flip }
     const frontier = realm ? FRONTIER_FOE_LOOKS[realm]?.[e.kind] : undefined
     if (frontier) {
       if (frontier === 'stonebird') return { name: e.ai.mode === 'rest' ? 'stonebird_perch' : 'stonebird_fly', flip }
       if (frontier === 'nokk' && e.ai.mode === 'idle') return { name: 'nokk_eyes', flip }
       // Pink eyes: every grazer but a calm one that nobody has struck.
       if (frontier === 'grazer' && (!e.calm || e.ai.angry)) return { name: tick % 2 ? 'grazer_angryb' : 'grazer_angrya', flip }
-      if (frontier === 'cactus' && e.ai.tell > 0) return { name: 'cactus_popped', flip }
       const prefix = `${frontier}_${key}`
       return { name: `${prefix}_${f(prefix)}`, flip }
     }
@@ -1154,6 +1158,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const m = e.ai.mode
         const pose = e.hitT !== undefined && e.hitT < FALCON.blind ? 'blind' : m === 'stuck' ? 'quartz' : m === 'dive' ? 'dive' : m === 'fly' || m === 'tell' ? 'fly' : 'perch'
         return { name: `falcon_${pose}`, flip: e.dir === 'left' }
+      }
+      // THE BENCHMARK TITAN: stamp up, stamp down (and leaning on it), a head turned to the Duck (to the side the Duck
+      // is on), a blow taken; else the two frames of its walk. It falls in its hurt pose.
+      case 'titan': {
+        const m = e.ai.mode
+        if (e.dead || (e.hitT ?? 1) < 0.3) return { name: 'titan_hurt', flip: false }
+        const pose = m === 'tell' ? 'tell' : m === 'slam' || m === 'rest' ? 'slam' : m === 'look' ? 'look' : `${m === 'walk' ? tick % 2 : 0}`
+        return { name: `titan_${pose}`, flip: m === 'look' && e.dir === 'right' }
       }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
       case 'grok': {
@@ -1288,6 +1300,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (sycophantAlpha(e) > 0.5) lights.push(sycophantLight(e))
       return
     }
+    if (e.kind === 'titan') {
+      // It stamps from where it stands; pale about it so that it reads on its own paint, gold while it is open.
+      if (timeStands(s)) for (const [dx, dy] of AROUND) put(g, name, x + dx, feet + dy, flip, false, 1, 1, STILL_PALE)
+      put(g, name, x + shiver(e), feet, flip, flashing(e))
+      lights.push({ x: e.x, y: e.y - 0.8, r: 3.4, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.6 : 0.5 })
+      return
+    }
     if (e.kind === 'mixtral') {
       // Its pictures are small ones, drawn at twice their size (`doubledSprite`); the isometric view has its own.
       const shake = e.ai.mode === 'tell' && !frameReduced ? (Math.floor(time * 24) % 2 ? 1 : -1) : 0
@@ -1381,9 +1400,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.stun > 0 && !e.tough && !BIG.has(e.kind)) drawStars(g, x, feet - 16)
     // (A tough one tells by its outline.)
     // (GROK tells by its lane and its pose.)
-    if (e.ai.tell > 0 && !e.tough && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek' && e.kind !== 'grok') {
+    if (e.ai.tell > 0 && !e.tough && e.kind !== 'eye' && (e.kind !== 'spitter' || name.startsWith('cactus')) && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek' && e.kind !== 'grok') {
       g.fillStyle = '#ff2fa0'
-      const top = feet - (e.kind === 'knight' ? 28 : 19)
+      const top = feet - (e.kind === 'knight' || name.startsWith('cactus') ? 30 : 19)
       g.fillRect(Math.round(x), Math.round(top), 1, 4)
       g.fillRect(Math.round(x), Math.round(top) + 5, 1, 1)
     }
@@ -1687,6 +1706,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG.has(e.kind) && (!roomed(kind) || e.cell === s.zoneIndex)) {
           items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, draw: () => drawDeathPop(g, s, e, cx, cy) })
         }
+        // The Titan goes down in its hurt pose and fades off the Weight.
+        if (e.kind === 'titan' && (e.deathT ?? TITAN_FALL) < TITAN_FALL && e.cell === s.zoneIndex) {
+          items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, big: true, draw: () => drawTitanFall(g, e.deathT ?? 0, e.x * T - cx, (e.y + e.r) * T - cy, frameReduced) })
+        }
         // The Golem's own fall, longer than a pop.
         if (e.kind === 'golem' && (e.deathT ?? GOLEM.fall) < GOLEM.fall && e.cell === s.zoneIndex) {
           const at = golemStand(e, span)
@@ -1714,7 +1737,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: b.x, y: b.y - 0.5, r: 1, color: '#ff8a3d', a: 0.7 })
     }
     for (const o of m.thrown) {
-      items.push({ x: o.x, foot: 5 / T, y: o.y, draw: () => { shadow(g, o.x * T - cx, o.y * T - cy + 4, 8); put(g, o.kind === 'rock' ? 'rock' : 'pot', o.x * T - cx, o.y * T - cy + 8 - o.z * T * 1.4) } })
+      items.push({ x: o.x, foot: 5 / T, y: o.y, draw: () => { shadow(g, o.x * T - cx, o.y * T - cy + 4, 8); put(g, o.kind === 'rock' ? 'rock' : o.hollow ? 'pot_hollow' : 'pot', o.x * T - cx, o.y * T - cy + 8 - o.z * T * 1.4) } })
     }
     if (!ui.attract && s.hero.x > -10) {
       items.push({ x: s.hero.x, foot: 6 / T, y: s.hero.y, hero: true, draw: () => drawHero(g, s, cx, cy, lights) })
@@ -2002,7 +2025,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         put(g, name, d.x * T - cx, d.y * T - cy + 4 - d.z * T)
       }
       for (const b of m.bombs) put(g, `bomb_${Math.floor(time * (b.t > BOMB_FUSE - 0.6 ? 16 : 5)) % frameCount('bomb', 2)}`, b.x * T - cx, b.y * T - cy + 5)
-      for (const o of m.thrown) put(g, o.kind === 'rock' ? 'rock' : 'pot', o.x * T - cx, o.y * T - cy + 8 - o.z * T * 1.4)
+      for (const o of m.thrown) put(g, o.kind === 'rock' ? 'rock' : o.hollow ? 'pot_hollow' : 'pot', o.x * T - cx, o.y * T - cy + 8 - o.z * T * 1.4)
       flatly(() => {
         if (s.echo) drawEcho(g, s, cx, cy, lights)
         drawHero(g, s, cx, cy, lights)
@@ -2025,7 +2048,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * keeps clear of it): both in scene px, whatever grid the skin's HUD is on.
    * `from`: see `Kit.hudLayer`.
    */
-  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
+  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }, stands: Stands = { at: (x, y) => ({ x: x * TILE - cx, y: y * TILE - cy }), px: 1 }) {
     // A room on its chart lies over whichever view drew the world, and under the HUD.
     if (!ui.attract && s.mode !== 'exit') {
       const edge = (v: number) => Math.ceil(v * dpr)
@@ -2054,8 +2077,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
     // Between two dresses both are painted, the one being left over the one coming in, so the HUD is never
     // gone. (The second painting takes no time: its labels' fades have already moved this frame.)
-    if (old !== to && mix > 0 && mix < 1) { hudPaint(s, ui, dt, cx, cy, heroY, to, mix); hudPaint(s, ui, 0, cx, cy, heroY, old, 1 - mix) }
-    else hudPaint(s, ui, dt, cx, cy, heroY, mix < 0.5 ? old : to, 1)
+    if (old !== to && mix > 0 && mix < 1) { hudPaint(s, ui, dt, cx, cy, heroY, to, mix, stands); hudPaint(s, ui, 0, cx, cy, heroY, old, 1 - mix, stands) }
+    else hudPaint(s, ui, dt, cx, cy, heroY, mix < 0.5 ? old : to, 1, stands)
 
     // Touch stick
     if (ui.stick) {
@@ -2073,7 +2096,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let dialogRow: { of: unknown; y: number } = { of: null, y: 0 }
 
   /** One skin's HUD, painted on its own grid and laid on the screen at `alpha`. */
-  function hudPaint(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin, alpha: number) {
+  function hudPaint(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin, alpha: number, stands: Stands) {
     const ox = Math.floor((W - vw * scale) / 2)
     const oy = Math.floor((H - vh * scale) / 2)
     // The skin's own grid: the scene's for the classic HUD; at density 2 twice as fine, and of another size when the screen's scale is odd.
@@ -2103,6 +2126,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // An intertitle card: over the stage, under the hearts (`card.ts`).
       if (s.card && !pageUp) drawCard(g, s.card, sp.vw, sp.vh, ui.keys.touch ? 'A' : ui.keys.a, ui.reducedMotion)
       if (hud && !pageUp) {
+        // THE BENCHMARK TITAN's two cards, over its head: under the hearts and the corner, which they never cover.
+        drawTitanCards(g, s, (x, y) => {
+          const at = stands.at(x, y)
+          return { x: (ox - sp.ox + at.x * scale) / sp.scale, y: (oy - sp.oy + at.y * scale) / sp.scale }
+        }, stands.px * scale / sp.scale, { vw: sp.vw, top, left, right }, time, ui.reducedMotion)
         g.save()
         g.translate(left, top)
         drawHud(g, s, sp.vw - left - right, time, ui.touch, skin, world)

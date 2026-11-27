@@ -242,8 +242,8 @@ function round(W, world, opened) {
         const cell = m.cell(cx * m.def.cell.w, cy * m.def.cell.h)
         if (!cells.has(`${m.id}|${cell}`)) continue
         for (const ev of def.events ?? []) if (holds(ev.when, m, cell)) set(ev.set)
-        // A round of the Examination is passed by whoever plays it in its room (its own test plays it).
-        if (def.round && flags['item:sword']) set(`exam.${def.round.id}`)
+        // A round of the Examination is passed, with full marks too, by whoever plays it in its room (its own test plays it).
+        if (def.round && flags['item:sword']) { set(`exam.${def.round.id}`); set(`exam.${def.round.id}.full`) }
       }
     }
     if (flags.luna) { const b = W.luna?.find(v => Z.condMet(g, W, v.when, -1)); if (b?.set) set(b.set) }
@@ -291,23 +291,7 @@ function solve(W) {
  * What a dungeon that is landing part by part cannot open yet. The list is exact: the part that opens a thing takes
  * its line out, and a finished world has none.
  */
-const OWED = [
-  // The Examination: round four, the Marking Room's gates and the hall at the top (part three).
-  'examination: gate examination.16,5',
-  'examination: gate examination.7,11',
-  'examination: gate examination.7,2',
-  'examtop: never walked into',
-  // Under the Shrine: the Balance's floor opens for all seven Weights, and only two can be won so far.
-  'supply locked door at 3,12',
-  'supply: gate supply.11,12',
-  'supply: gate supply.2,27',
-  'supply: gate supply.7,2',
-  'supply: gate supply.7,24',
-  'supply: heartPiece at 2,25',
-  'supply: never walked into',
-  'supply: smallKey at 2,15',
-  'supplyroom: never walked into',
-]
+const OWED = []
 
 describe('the whole world can be opened', () => {
   it('reaches every chest, key, locked door and gate in some order, with only what the world gives', () => {

@@ -20,6 +20,7 @@ import { sycophant } from './bossSycophant'
 import { copilot } from './bossCopilot'
 import { weaver } from './bossWeaver'
 import { falcon } from './bossFalcon'
+import { titan } from './bossTitan'
 import { lured } from './duck'
 import { examBossHarmless } from './exam'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
@@ -207,6 +208,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'blackbox': blackbox(c, e, dt); break
     case 'falcon': falcon(c, e, dt); break
     case 'hallucinator': hallucinator(c, e, dt); break
+    case 'titan': titan(c, e, dt); break
   }
   contact(c, e)
 }

@@ -2,7 +2,7 @@
  * The dungeons' pictures that are seen outside a dungeon, so they stay in the home page's table (`sprites.ts`) and
  * not with the dungeons' own (`spritesDungeons.ts`): the icons of the Storm Lamp, the Magnet and the Duck (a treasure
  * is carried everywhere), and the lamp standing on the floor (16×16, two frames of flicker): it can be set down on any
- * plain floor in the world.
+ * plain floor in the world; and Stillsand's walking cactus, which the land shows too.
  */
 export const CARRIED_RAW: Record<string, string[]> = {
   item_lamp: [
@@ -95,5 +95,58 @@ export const CARRIED_RAW: Record<string, string[]> = {
     '..kyyyyyyyyyyk..',
     '..kkkkkkkkkkk...',
     '................',
+  ],
+  // The cactus that walks (16×24): Stillsand's skin of the spitter, met in the land as well as in the Examination.
+  cactus_walk_0: [
+    '................',
+    '.......kk.......',
+    '.....kkppk......',
+    '.....kpppk......',
+    '.....kpppkk.....',
+    '...kllLLLLFk....',
+    '...klLLLLLLkk...',
+    '.k.lLLLLLLLFkkk.',
+    'klklLwLLLwLFkllk',
+    'kLLlLwkLLwLFkLFk',
+    'kLLLLLLFLLLFLLFk',
+    '.kkLeLLkLLeFFkk.',
+    '.klLLLLLLLLFFk..',
+    '..leeLLLLLLeFk..',
+    '..lLLLLLLLLFFk..',
+    '..kLeLLLLLeFFk..',
+    '..kLLLLLLLLFF...',
+    '..klLLLLLLFFk...',
+    '...kiakLLFFk....',
+    '...kiakkkkk.....',
+    '...iia..kia.....',
+    '...kkk..kiak....',
+    '........iiik....',
+    '........kkkk....',
+  ],
+  cactus_walk_1: [
+    '................',
+    '................',
+    '................',
+    '.......kk.......',
+    '.....kkppk......',
+    '.....kpppk......',
+    '....kkpppkk.....',
+    '...kllLLLLFk....',
+    '...klLLLLLLkk...',
+    '.k.lLLLLLLLFkkk.',
+    'FlklLwkLLwLFkllk',
+    'FLLlLwkLLwLFkLFk',
+    'kLLLLLLkLLLFLFFk',
+    '.kkLeLLkLLeFFkk.',
+    '.klLLLLLLLLFFk..',
+    '.kleeLLLLLLeFk..',
+    '.klLLLLLLLLFFk..',
+    '.kkLeLLLLLeFFk..',
+    '..kLLLLLLLLFF...',
+    '...lLLLLLLFFk...',
+    '...kkLLLLkik....',
+    '...kiak.kiiik...',
+    '...kiik..kaak...',
+    '...iiak.........',
   ],
 }

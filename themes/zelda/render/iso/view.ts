@@ -1429,6 +1429,7 @@ export default function isoView(kit: Kit): View {
         let prop: PropKind | null = null
         if (t === 'G' && outdoors) prop = 'grave'
         else if (t === 'o') prop = 'pot'
+        else if (t === 'ô') prop = 'potHollow'
         else if (t === 'r') prop = 'rock'
         else if (t === 'R') prop = 'boulder'
         else if (t === 'S' && outdoors && !signExits(m.id).has(ty * m.w + tx)) prop = 'sign'
@@ -1475,7 +1476,7 @@ export default function isoView(kit: Kit): View {
         if (prop) {
           stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' || prop.startsWith('pz') ? ty + 0.5 : ty + 0.62, px, rise, terrainLift(m, tx, ty))
           const post = prop.startsWith('lamp')
-          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (post ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : post ? 0.14 : 0.24 })
+          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (post ? 1.6 : prop === 'pot' || prop === 'potHollow' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : post ? 0.14 : 0.24 })
           if (rise >= 1) { bare(sx, sy - up, T, T + up); continue }
           sunk = 1 - rise
         }
@@ -2153,7 +2154,8 @@ export default function isoView(kit: Kit): View {
     const at = hudOf(ref.x, ref.y)
     kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), hudOf(s.hero.x, s.hero.y).y,
       // The windows change dress in the middle of the turn: the classic ones fade out, these fade in.
-      par.windows === '16-bit' ? HIRES_WINDOW_SKIN : NEON_SKIN, k < 1 ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
+      par.windows === '16-bit' ? HIRES_WINDOW_SKIN : NEON_SKIN, k < 1 ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined,
+      { at: hudOf, px: (zoom * hs) / scr.scale })
   }
 
   return {
