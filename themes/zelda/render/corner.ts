@@ -242,6 +242,8 @@ export function cornerParts(sh: CornerShape): Parts {
     let y = under
     if (sh.keys) y = under + CAP_H + 1
     if (plate) y = Math.max(y, plate.y + plate.h + 1)
+    // Beside the stub it hangs as low as under a chart: a room's counters, drawn large on a phone, reach under it higher up.
+    if (!sh.chart) y = Math.max(y, Y0 + CHART_TILES + 2)
     tag = { x: XR - tw, y, w: tw, h: PLATE_H }
   }
   return { step, frame, gem, chain, plate, tag, keyM, keyV }

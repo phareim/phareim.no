@@ -24,6 +24,7 @@ const KEYS = {
   Home: { key: 'Home', code: 'Home', keyCode: 36 },
   End: { key: 'End', code: 'End', keyCode: 35 },
   KeyK: { key: 'k', code: 'KeyK', keyCode: 75 },
+  KeyM: { key: 'm', code: 'KeyM', keyCode: 77 },
   KeyQ: { key: 'q', code: 'KeyQ', keyCode: 81 },
   KeyP: { key: 'p', code: 'KeyP', keyCode: 80 },
   KeyN: { key: 'n', code: 'KeyN', keyCode: 78 },
@@ -39,7 +40,7 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
   const profile = mkdtempSync(join(homedir(), 'zshots', 'prof-'))
   // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU).
   const proc = spawn(process.env.CHROME_BIN || 'chromium-browser', [
-    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--allow-file-access-from-files',
+    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--use-mock-keychain', '--password-store=basic', '--allow-file-access-from-files',
     `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, 'about:blank',
   ], { stdio: 'ignore' })
   let targets

@@ -85,12 +85,13 @@ edits are dropped, and so are tonics a save holds.
 
 ## Checks and tools
 
-- `tests/zelda-world.test.mjs`: every land on the grid, none over another; every seam walked both ways; every gate
-  walked through and back, calm at both ends and locked the way it says; nobody out there without a blade; every
-  land and every map a land leads into reached from the start; a reload out there stays there; old frontier saves
-  continue in the right land; foes kept off the ways in; chest ids the world's own; every line in the pixel font
-  and three rows of the narrowest box, each speaker named first; every landmark's art in its map's kits; the world's
-  data small on `/`.
+- `tests/zelda-world.test.mjs`: the real world's validator and every land on the grid; every seam walked both ways;
+  every gate walked through and back, calm at both ends, locked the way it says and a save at it continuing there;
+  nobody out there without a blade; every land and every map a land leads into reached from the start; foes kept off
+  the ways in; chest ids the world's own; every line in the pixel font and three rows of the narrowest box, each
+  speaker named first; the world's data small on `/`. Old frontier saves continuing in the right land:
+  `tests/zelda-old-saves.test.mjs`. Every landmark's art in its map's kits: `tests/zelda-things.test.mjs`. Every
+  chest, key, locked door and gate reachable in some order: `tests/zelda-reach.test.mjs`.
 - `node scripts/world-lab/map-png.mjs <out.png> <map>|atlas`: a whole map, or the whole grid, as a picture
   (`scripts/world-lab/README.md`).
 - `heavy -x chrome -- env LIFE=<map>,<x>,<y> VIEW=iso node scripts/zelda-lab/shot.mjs <dir> life`: the game's own

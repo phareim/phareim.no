@@ -1,10 +1,11 @@
-// Neon Shrine, Relight the Sign (engine/puzzles/tubes.ts, world/tubes.ts, Lumenby's boards): the tubes as data,
-// every board solvable as authored and out of true on arrival, a board solved by play lighting its letter, open ends
-// keeping the gas from the socket, the blade and the disc turning only the tube they mean, and the rewards.
+// Neon Shrine, Relight the Sign (engine/puzzles/tubes.ts, world/tubes.ts, Lumenby's boards): the seven boards as
+// data, the whole sign lit by a scripted hero turning tubes with A (an open end holding the gas back first), what it
+// pays, and the blade and the disc turning only the tube they mean.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { load } from './zelda-load.mjs'
+import { walker } from './zelda-walk.mjs'
 
 let Z
 /** The tubes' data (`world/tubes.ts`), bundled on its own. */
@@ -78,21 +79,6 @@ function solveByHand(s, go, b, except = -1) {
 }
 
 describe('Neon Shrine, Relight the Sign', () => {
-  it('knows its tubes: four quarter turns come round, bolted tubes and the cross never turn', () => {
-    for (const t of Object.keys(T.TUBE_ARMS)) {
-      if (T.turns(t)) {
-        assert.equal(T.turnTube(t, 4), t, t)
-        assert.notEqual(T.turnTube(t), t, t)
-        assert.equal(T.armsOf(T.turnTube(t)), T.turnArms(T.armsOf(t)), t)
-        assert.ok(Z.TILE_INFO[t] && !Z.TILE_INFO[t].solid, `${t} is walked over`)
-      } else assert.equal(T.turnTube(t), t, t)
-    }
-    assert.equal(T.turnTube('┌'), '┐')
-    assert.equal(T.turnTube('╵'), '╶')
-    assert.equal(T.turnTube('═'), '═')
-    assert.ok(Z.TILE_INFO['Θ'].solid && Z.TILE_INFO['Λ'].solid)
-  })
-
   it('has seven boards in Lumenby, one a letter, each solved as the map draws it', () => {
     const p = Z.puzzleInfo(info())
     assert.equal(p.on, true)
@@ -112,65 +98,60 @@ describe('Neon Shrine, Relight the Sign', () => {
     // The sign on the hill reads the same flags, letter by letter.
     const lit = Z.WORLD.maps.lumenby.isoLandmarks.filter(l => /^quarry_letter_/.test(l.art)).map(l => [l.art, l.lit.flag])
     assert.deepEqual(lit, [...'lumenby'].map((ch, i) => [`quarry_letter_${ch}_off`, `q.lumenby.sign${i + 1}`]))
-    // No other map has tubes.
-    for (const id of Object.keys(Z.WORLD.maps)) if (id !== 'lumenby') assert.equal(Z.puzzleInfo(Z.mapInfo(Z.WORLD, id)).boards.length, 0, id)
   })
 
-  it('turns every board out of true on arrival, the same way each time, and leaves a lit one as drawn', () => {
-    const a = lumenby().s
-    const b = lumenby().s
-    assert.deepEqual(a.map.tiles, b.map.tiles)
-    for (const bd of boards()) assert.equal(Z.boardSolved(a.map.tiles, a.map.w, bd), false)
-    const { s, go } = lumenby({ 'q.lumenby.sign1': true })
-    go()
-    const L = boardOf('L')
-    for (const i of L.tubes) assert.equal(s.map.tiles[i], info().base[i])
-    assert.ok(s.map.phys.gas.fed.includes(L.sockets[0]), 'the gas runs to the L')
-    assert.equal(Z.boardSolved(s.map.tiles, s.map.w, boardOf('U')), false)
-  })
-
-  it('lights the L when the tubes are turned true by hand, and says so', () => {
-    const { s, go } = lumenby()
-    const L = boardOf('L')
-    let said = null
+  it('lights by hand from L to Y, says so, keeps what is lit, and pays: Gunn a heart piece, the vending unit twenty bits', () => {
+    // Every board is out of true on arrival, the same way each time.
+    const first = lumenby().s
+    const { s } = lumenby()
+    assert.deepEqual(s.map.tiles, first.map.tiles)
+    for (const bd of boards()) assert.equal(Z.boardSolved(s.map.tiles, s.map.w, bd), false)
     const ev = []
-    const orig = go
-    const watch = (i, n) => { for (let k = 0; k < (n ?? 1); k++) { ev.push(...Z.stepGame(Z.WORLD, s, 1 / 60, i ?? inp())); if (s.mode === 'dialog' && !said) said = s.dialog.lines.join(' ') } }
-    void orig
-    solveByHand(s, watch, L)
-    watch(inp(), 2)
-    assert.equal(s.flags['q.lumenby.sign1'], true)
-    assert.ok(ev.some(e => e.type === 'tube'), 'a tube turned')
-    assert.ok(ev.some(e => e.type === 'secret'), 'the secret rang')
-    assert.match(said ?? '', /THE L ON THE HILL SIGN LIGHTS UP! \(1\/7\)/)
-    // Turned away again, the gas stops short, and the letter stays lit.
+    let said = []
+    const go = (i, n = 1) => { for (let k = 0; k < n; k++) { ev.push(...Z.stepGame(Z.WORLD, s, 1 / 60, i ?? inp())); const line = s.mode === 'dialog' && s.dialog.lines.join(' '); if (line && !said.includes(line)) said.push(line) } }
+    for (const [n, letter] of [...LETTERS].entries()) {
+      const b = boardOf(letter)
+      said = []
+      if (letter === 'N') {
+        // One capped end left turned away: the gas reaches the socket but hisses out there.
+        const cap = b.tubes.find(i => [1, 2, 4, 8].includes(T.armsOf(info().base[i])))
+        solveByHand(s, go, b, cap)
+        if (s.map.tiles[cap] === info().base[cap]) s.map.tiles[cap] = T.turnTube(s.map.tiles[cap])
+        s.map.version++
+        go(inp(), 2)
+        const gas = s.map.phys.gas
+        assert.ok(gas.leaks.length > 0, 'an open end')
+        assert.ok(gas.tubes.some(t => b.tubes.includes(t.idx)), 'the gas is in the line')
+        assert.equal(gas.fed.includes(b.sockets[0]), false)
+        assert.ok(!s.flags['q.lumenby.sign5'])
+      }
+      solveByHand(s, go, b)
+      go(inp(), 2)
+      assert.equal(s.flags[`q.lumenby.sign${n + 1}`], true, `the ${letter} lights`)
+      assert.match(said.join(' '), new RegExp(`THE ${letter} ON THE HILL SIGN LIGHTS UP! \\(${n + 1}/7\\)`))
+      while (s.mode === 'dialog') { go(inp(), 18); go(A()) }
+      go(inp(), 40) // (a rested A talks and turns again)
+    }
+    assert.ok(ev.some(e => e.type === 'tube') && ev.some(e => e.type === 'secret'))
+    assert.match(said.join(' '), /GUNN/, 'the last letter says where to go')
+    // Turned away again, the gas stops short and the letter stays lit; walked in anew, every board lies as drawn.
+    const L = boardOf('L')
     const i = L.tubes.find(j => T.turns(s.map.tiles[j]))
     s.map.tiles[i] = T.turnTube(s.map.tiles[i])
     s.map.version++
-    watch(inp(), 2)
-    assert.equal(s.map.phys.gas.fed.length, 0)
+    go(inp(), 2)
     assert.equal(s.flags['q.lumenby.sign1'], true)
-  })
-
-  it('keeps the gas from a socket while any end of its line is open', () => {
-    const { s, go } = lumenby()
-    const N = boardOf('N')
-    const cap = N.tubes.find(i => [1, 2, 4, 8].includes(T.armsOf(info().base[i])))
-    solveByHand(s, go, N, cap)
-    // One capped end left turned away: the gas reaches the socket but hisses out there.
-    if (s.map.tiles[cap] === info().base[cap]) s.map.tiles[cap] = T.turnTube(s.map.tiles[cap])
-    s.map.version++
-    go(inp(), 2)
-    const gas = s.map.phys.gas
-    assert.ok(gas.leaks.length > 0, 'an open end')
-    assert.ok(gas.tubes.some(t => N.tubes.includes(t.idx)), 'the gas is in the line')
-    assert.equal(gas.fed.includes(N.sockets[0]), false)
-    assert.ok(!s.flags['q.lumenby.sign5'])
-    // Capped, it lights.
-    while (s.map.tiles[cap] !== info().base[cap]) s.map.tiles[cap] = T.turnTube(s.map.tiles[cap])
-    s.map.version++
-    go(inp(), 2)
-    assert.equal(s.flags['q.lumenby.sign5'], true)
+    Z.enterMap(Z.WORLD, s, 'lumenby', 'camp', [])
+    go()
+    for (const bd of boards()) assert.ok(s.map.phys.gas.fed.includes(bd.sockets[0]))
+    // The pay.
+    const P = walker(Z)
+    const { pieces, bits } = s.inv
+    P.talkTo(s, 'q.gunn')
+    assert.equal(s.inv.pieces, (pieces + 1) % 4)
+    assert.ok(s.flags['q.lumenby.sign.done'])
+    P.talkTo(s, 'lumenby.vending')
+    assert.equal(s.inv.bits, bits + 20)
   })
 
   it('turns only the tube faced with the blade, and the first one past the hero\'s feet with the disc', () => {
@@ -215,27 +196,5 @@ describe('Neon Shrine, Relight the Sign', () => {
     assert.equal(at(2, 4), '─', 'the tube underfoot')
     assert.equal(at(3, 4), '│', 'the first one ahead')
     assert.equal(at(4, 4), '─', 'and only that one')
-  })
-
-  it('pays for the whole sign: Gunn a heart piece, the vending unit its last twenty bits', () => {
-    const all = Object.fromEntries([...LETTERS].map((_, i) => [`q.lumenby.sign${i + 1}`, true]))
-    const gunn = Object.values(Z.WORLD.maps.unionhall.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'q.gunn').ent
-    const pay = gunn.talk.find(t => t.set === 'q.lumenby.sign.done')
-    assert.deepEqual(pay.when.flags, Object.keys(all))
-    assert.equal(pay.give, 'heartPiece')
-    const vend = Object.values(Z.WORLD.maps.lumenby.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'lumenby.vending').ent
-    const last = vend.talk.find(t => t.give)
-    assert.deepEqual(last.when.flags, Object.keys(all))
-    assert.equal(last.give, 'bits20')
-    // The last letter's words say where to go.
-    const { s, go } = lumenby({ ...all, 'q.lumenby.sign7': undefined })
-    delete s.flags['q.lumenby.sign7']
-    let said = ''
-    const watch = (i, n) => { for (let k = 0; k < (n ?? 1); k++) { Z.stepGame(Z.WORLD, s, 1 / 60, i ?? inp()); if (s.mode === 'dialog' && !said) said = s.dialog.lines.join(' ') } }
-    void go
-    solveByHand(s, watch, boardOf('Y'))
-    watch(inp(), 2)
-    assert.equal(s.flags['q.lumenby.sign7'], true)
-    assert.match(said, /THE Y ON THE HILL SIGN LIGHTS UP! \(7\/7\).*GUNN/)
   })
 })

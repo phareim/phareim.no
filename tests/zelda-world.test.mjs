@@ -1,9 +1,9 @@
-// The world beyond the coast (docs/worlds/atlas.md): seven hand-made lands around the coast and the Wildwood, on
-// one grid. Every map on the grid fits it; every seam between two lands is walked both ways; every gate is walked
-// through and back, calm at both ends and locked the way it says; nobody gets out there without a blade; every map
-// of the world is reached from the start; a save out there continues there, and a save made in the generated
-// frontier that the lands replaced continues in the land that took its place; every line fits the font and the box;
-// chest ids are the world's own; and every landmark's art is in the kits its map loads.
+// The world (docs/worlds/atlas.md): seven hand-made lands around the coast and the Wildwood, on one grid. The one
+// check of the real world by the validator; every seam between two lands walked both ways; each of the six gates
+// walked into its land and back, calm at both ends, locked the way it says, a save made at it continuing there;
+// nobody out there without a blade; every land reached from the start; and the data gates (foes off the ways in,
+// chest ids, the words in the font and the box, the size on `/`). Old saves are `zelda-old-saves.test.mjs`, the
+// landmarks' art `zelda-things.test.mjs`, what can be opened `zelda-reach.test.mjs`.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -12,33 +12,26 @@ import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { load } from './zelda-load.mjs'
 import { walker } from './zelda-walk.mjs'
-import { installArtFetch } from './helpers/art.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const zelda = join(here, '..', 'themes', 'zelda')
 const esbuild = createRequire(import.meta.url)('esbuild')
 let Z
 let P
-/** The font, the touch deck's key names, the name plate, and the gates and lands as data. */
+/** The font, the touch deck's key names, the name plate, and the gates and the grid as data. */
 let X
-/** Every art kit, loaded from its own art pack as the view does (the packs from the .art-cache, tests/helpers/art.mjs). */
-let KITS
 before(async () => {
-  installArtFetch()
   Z = await load()
   P = walker(Z)
   const out = esbuild.buildSync({
     stdin: {
       contents: `export { wrapText } from '../base/pixel/font'; export { subst, TOUCH_KEYS } from './keys'; export { speakerOf } from './render/hud';
-        export { GATES } from './world/gates'; export { ATLAS, rescueFrontier } from './world/atlas';
-        export { DEMOS } from './world/demos'; export { LANDS } from './world/lands';
-        export { REALM_ART_LOADERS, loadRealmArt, kitsFor } from './render/iso/frontierArt'; export { THING_ART } from './render/iso/thingArt'`,
+        export { GATES } from './world/gates'; export { ATLAS } from './world/atlas'`,
       resolveDir: zelda, loader: 'ts',
     },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
   })
   X = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
-  KITS = Object.fromEntries(await Promise.all(Object.keys(X.REALM_ART_LOADERS).map(async k => [k, await X.loadRealmArt(k)])))
 })
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
@@ -101,9 +94,10 @@ function gridAt(gx, gy, not) {
 
 /**
  * Shortest walks (tiles) from a map's entry over every map the feet reach: warps, seams on the grid; locks open
- * (boulders, cracks, thickets), wardens away (unless `blocked` says a tile is stood on); the hook only with `hook`.
+ * (boulders, cracks, thickets) but for the tiles in `shut`, wardens away (unless `blocked` says a tile is stood on);
+ * the hook only with `hook`.
  */
-function walkDistances(map, entry, { hook = false, max = 400, blocked = null } = {}) {
+function walkDistances(map, entry, { hook = false, max = 400, blocked = null, shut = '' } = {}) {
   const tileDist = new Map()
   const mapDist = {}
   const key = (m, i) => `${m}|${i}`
@@ -119,7 +113,7 @@ function walkDistances(map, entry, { hook = false, max = 400, blocked = null } =
   }
   const e = Z.mapInfo(Z.WORLD, map).entries[entry]
   push(map, e.x, e.y, 0)
-  const open = t => (!Z.TILE_INFO[t].solid && !Z.TILE_INFO[t].pit) || t === 'R' || t === '%' || t === '*'
+  const open = t => !shut.includes(t) && ((!Z.TILE_INFO[t].solid && !Z.TILE_INFO[t].pit) || t === 'R' || t === '%' || t === '*')
   for (let q = 0; q < queue.length; q++) {
     const [m, i, d] = queue[q]
     if (tileDist.get(key(m, i)) < d || d > max) continue
@@ -191,25 +185,15 @@ function passes() {
   return out
 }
 
-describe('the grid', () => {
-  it('puts every land on the grid, none over another, and leaves the hand-made maps their sizes', () => {
+describe('the world', () => {
+  it('is whole by the validator, with every land on the grid', () => {
     assert.deepEqual(Z.validateWorld(Z.WORLD), [])
     for (const id of lands()) assert.ok(Z.WORLD.atlas[id], `${id} is on the grid`)
     assert.deepEqual(Object.keys(Z.WORLD.atlas).sort(), Object.keys(X.ATLAS).sort())
-    assert.deepEqual([Z.WORLD.maps.overworld.rows.length, Z.WORLD.maps.overworld.rows[0].length], [48, 104])
-    assert.deepEqual([Z.WORLD.maps.wildwood.rows.length, Z.WORLD.maps.wildwood.rows[0].length], [52, 84])
-    assert.deepEqual(Z.WORLD.atlas.overworld, { x: 0, y: 0 })
-    assert.deepEqual(Z.WORLD.atlas.wildwood, { x: -84, y: -12 })
   })
+})
 
-  it('opens every seam between two lands on both sides, and only between lands', () => {
-    const ps = passes()
-    for (const p of ps) {
-      assert.ok(Z.WORLD.maps[p.from].away && Z.WORLD.maps[p.to].away, `${p.from} → ${p.to} at ${p.tiles[0]}: a seam joins two lands (the coast and the Wildwood are left by their gates)`)
-      assert.ok(ps.some(q => q.from === p.to && q.to === p.from), `${p.from} → ${p.to}: the pass is open from ${p.to} too`)
-    }
-  })
-
+describe('the grid', () => {
   it('walks every seam both ways and lands at the same place on the grid', () => {
     for (const p of passes()) {
       const [x, y] = p.tiles[Math.floor(p.tiles.length / 2)]
@@ -233,70 +217,57 @@ describe('the grid', () => {
   })
 })
 
+/** What keeps a hero from each gate: a tile that bombs open, or a warden who stands aside for the blade. */
+const LOCKS = { fell: 'R', spore: 'warden', sand: '%', lawns: 'warden', quarry: 'warden', fog: 'warden' }
+
 describe('the gates', () => {
-  for (const id of ['fell', 'spore', 'sand', 'lawns', 'quarry', 'fog']) {
-    it(`walks through the ${id} gate and back; calm at both ends, and a save made at it continues there`, () => {
-      const g = X.GATES.find(x => x.id === id)
-      const out = warpTo(g.home, g.land, `gate-${g.id}`)
-      assert.ok(out, `${g.home} leads to ${g.land}`)
+  it('lead into their lands and back, one walk each: locked the way it says, calm at both ends, a save at the gate continuing there', () => {
+    assert.deepEqual(X.GATES.map(g => g.id).sort(), Object.keys(LOCKS).sort())
+    const guards = bladeGuards()
+    for (const g of X.GATES) {
+      const { id } = g
+      const out = warpTo(g.home, g.land, `gate-${id}`)
+      const back = warpTo(g.land, g.home, `gate-${id}`)
+      assert.ok(out && back, `${g.home} and ${g.land} lead into each other by the ${id} gate`)
       // The gate's two ends lie side by side on the grid.
       const o = Z.WORLD.atlas[g.home]
       const t = Z.WORLD.atlas[g.land]
-      const back = warpTo(g.land, g.home, `gate-${g.id}`)
-      assert.ok(back, `${g.land} leads home to ${g.home}`)
       assert.equal(Math.abs(o.x + out.x - (t.x + back.x)) + Math.abs(o.y + out.y - (t.y + back.y)), 1, `${id}: the two ends are neighbours on the grid`)
-      const s = armed(g.home, `gate-${g.id}`, out)
+      // Locked as it says: reached from the start only once the lock gives way.
+      const reached = lock => walkDistances('overworld', 'start', { hook: true, max: 5000, blocked: (m, i) => !!Z.WORLD.maps[m].away || (lock === 'warden' && guards.has(`${m}|${i}`)), shut: lock === 'warden' ? '' : lock })
+        .tileDist.has(`${g.home}|${out.y * Z.mapInfo(Z.WORLD, g.home).w + out.x}`)
+      assert.ok(!reached(LOCKS[id]), `${id}: open without its lock giving way (${LOCKS[id]})`)
+      assert.ok(reached(''), `${id}: reached from the start`)
+      // The walk in.
+      const s = armed(g.home, `gate-${id}`, out)
       s.map.enemies = []
       P.walkTo(s, out.x, out.y, { keepDialog: true })
       for (let i = 0; i < 120 && s.mode === 'warp'; i++) step(s)
-      assert.equal(s.map.id, g.land)
-      const at = Z.mapInfo(Z.WORLD, g.land).entries[`gate-${g.id}`]
-      assert.deepEqual([round(s.hero.x), round(s.hero.y)], [at.x, at.y], 'at the gate')
-      assert.deepEqual(s.entry, { map: g.land, entry: `gate-${g.id}` })
+      assert.equal(s.map.id, g.land, id)
+      const at = Z.mapInfo(Z.WORLD, g.land).entries[`gate-${id}`]
+      assert.deepEqual([round(s.hero.x), round(s.hero.y)], [at.x, at.y], `${id}: at the gate`)
+      assert.deepEqual(s.entry, { map: g.land, entry: `gate-${id}` })
       P.settle(s)
       const near = s.map.enemies.filter(e => !e.dead && Math.abs(e.x - at.x) + Math.abs(e.y - at.y) < 10)
-      assert.deepEqual(near.map(e => `${e.kind} ${e.x},${e.y}`), [], 'no foe within ten tiles of the gate')
+      assert.deepEqual(near.map(e => `${e.kind} ${e.x},${e.y}`), [], `${id}: no foe within ten tiles of the gate`)
       for (let k = 0; k < 180; k++) { s.hero.invuln = 1; step(s) }
-      assert.equal(s.mode, 'play', 'no fight at the gate')
-      const u = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))) })
-      assert.equal(u.map.id, g.land)
-      assert.deepEqual([round(u.hero.x), round(u.hero.y)], [at.x, at.y])
-      Z.enterMap(Z.WORLD, s, g.land, `gate-${g.id}`, [])
+      assert.equal(s.mode, 'play', `${id}: no fight at the gate`)
+      // The save made here: a reload stays out there, a new visit starts on the plaza, and a land has a camp for a
+      // save that lost its spot.
+      const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+      const start = reload => Z.createGame(Z.WORLD, { save, at: Z.loadSpot(Z.WORLD, save, null, reload) })
+      const u = start(true)
+      assert.deepEqual([u.map.id, round(u.hero.x), round(u.hero.y)], [g.land, at.x, at.y], `${id}: continues at the gate`)
+      assert.deepEqual(start(false).entry, Z.WORLD.start, `${id}: a new visit starts on the plaza`)
+      assert.ok(Z.mapInfo(Z.WORLD, g.land).entries.camp, `${g.land} has a camp`)
+      // And the walk home.
+      Z.enterMap(Z.WORLD, s, g.land, `gate-${id}`, [])
       s.map.enemies = []
       P.walkTo(s, back.x, back.y)
       for (let i = 0; i < 120 && s.mode !== 'play'; i++) step(s)
-      assert.equal(s.map.id, g.home)
-      const home = Z.mapInfo(Z.WORLD, g.home).entries[`gate-${g.id}`]
-      assert.deepEqual([round(s.hero.x), round(s.hero.y)], [home.x, home.y])
-    })
-  }
-
-  it('keeps each gate locked the way it says: a boulder, a crack, a warden without a blade', () => {
-    const ow = Z.mapInfo(Z.WORLD, 'overworld')
-    const tile = (x, y) => ow.base[y * ow.w + x]
-    const fell = warpTo('overworld', 'seterfell', 'gate-fell')
-    assert.equal(tile(fell.x, fell.y + 1), 'R', 'a boulder in the woods gate')
-    const sand = warpTo('overworld', 'stillsand', 'gate-sand')
-    assert.equal(tile(sand.x - 1, sand.y), '%', 'a crack in the graves gate')
-    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'gate-spore' } })
-    for (const w of ['warden.market', 'warden.lake', 'warden.woods', 'warden.graves']) assert.ok(s.map.npcs.some(n => n.id === w), w)
-    const ww = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'wildwood', entry: 'gate-quarry' } })
-    assert.ok(ww.map.npcs.some(n => n.id === 'warden.grove') && ww.map.npcs.some(n => n.id === 'warden.deep'))
-    const t = armed('overworld', 'gate-spore')
-    assert.ok(!t.map.npcs.some(n => n.id.startsWith('warden.')), 'with a blade they stand aside')
-  })
-
-  it('reaches every gate on foot from the start, and the deep woods gate with the hook', () => {
-    const away = id => !!Z.WORLD.maps[id]?.away
-    const { tileDist } = walkDistances('overworld', 'start', { blocked: m => away(m) })
-    const reached = (map, w) => tileDist.has(`${map}|${w.y * Z.mapInfo(Z.WORLD, map).w + w.x}`)
-    for (const g of X.GATES) {
-      const w = warpTo(g.home, g.land, `gate-${g.id}`)
-      if (g.id === 'fog') {
-        assert.ok(!reached(g.home, w), 'the deep woods gate is past the ravine')
-        const deep = walkDistances('wildwood', 'deep', { hook: true, max: 200, blocked: m => away(m) })
-        assert.ok(deep.tileDist.has(`wildwood|${w.y * Z.mapInfo(Z.WORLD, 'wildwood').w + w.x}`), 'past the ravine, with the hook')
-      } else assert.ok(reached(g.home, w), `the ${g.id} gate is reached from the start`)
+      assert.equal(s.map.id, g.home, id)
+      const home = Z.mapInfo(Z.WORLD, g.home).entries[`gate-${id}`]
+      assert.deepEqual([round(s.hero.x), round(s.hero.y)], [home.x, home.y], `${id}: home again`)
     }
   })
 
@@ -317,75 +288,6 @@ describe('the lands', () => {
     const missing = [...want].filter(id => !(id in mapDist))
     assert.deepEqual(missing, [])
     if (process.env.LAND_DIST) console.log(mapDist)
-  })
-
-  it('reloads a tab that was out in a land where it was, and starts a new visit in town', () => {
-    for (const id of lands()) {
-      const entry = Object.keys(Z.mapInfo(Z.WORLD, id).entries).find(e => e.startsWith('gate-')) ?? 'camp'
-      const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: id, entry } })
-      s.inv.sword = true
-      const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
-      const start = (sv, b, out) => Z.createGame(Z.WORLD, { save: sv, at: Z.loadSpot(Z.WORLD, sv, b, out) })
-      assert.deepEqual([start(save, null, true).map.id, start(save, null, true).entry.entry], [id, entry], `${id}: a reload stays out there`)
-      assert.deepEqual(start(save, null, false).entry, Z.WORLD.start, `${id}: a new visit starts on the plaza`)
-      assert.ok(Z.mapInfo(Z.WORLD, id).entries.camp, `${id} has a camp, where a save out there that lost its spot goes`)
-    }
-  })
-
-  it('continues a save made in the old generated frontier in the land that took its place, items and flags kept', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'start' } })
-    s.inv.sword = true
-    s.flags['chest:fr:7,2.c0'] = true
-    s.flags['q.seed.heard'] = true
-    const base = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
-    for (const [map, entry, want] of [
-      ['fr:4,1', 'gate-fell', ['seterfell', 'gate-fell']],
-      ['fr:4,1', 'camp', ['seterfell', 'camp']],
-      ['fr:2,2', 'from-quarry', ['lumenby', 'camp']],
-      ['fr:8,2:cave0', 'in', ['sporelight', 'camp']],
-      ['fr:0,3:deep4', 'up', ['lumenby', 'deep']],
-      ['fr:6,7', 'camp', ['overworld', 'crossroads']],
-      ['fr:6,8', 'camp', ['overworld', 'ferry']],
-      ['fr:99,99', 'camp', [Z.WORLD.start.map, Z.WORLD.start.entry]],
-      // The Old Quarry went with dig & build: a save down there comes back up in Lumenby's pit.
-      ['quarry', 'start', ['lumenby', 'pit']],
-      ['nowhere', 'door', [Z.WORLD.start.map, Z.WORLD.start.entry]],
-    ]) {
-      const save = { ...base, map, entry, dig: { [map]: 'x', overworld: base.dig?.overworld ?? '' }, explored: { [map]: '1', overworld: '1' } }
-      const t = Z.createGame(Z.WORLD, { save })
-      assert.deepEqual([t.entry.map, t.entry.entry], want, `${map}:${entry}`)
-      assert.equal(t.inv.sword, true, 'the items are kept')
-      assert.ok(t.flags['chest:fr:7,2.c0'] && t.flags['q.seed.heard'], 'and the flags')
-      if (map.startsWith('fr:')) assert.ok(Z.awayMap(Z.WORLD, map, entry) === !!Z.WORLD.maps[want[0]].away, `${map}: a reload knows where it is`)
-    }
-  })
-
-  it('loads a save made in the glade under the Sporelight in the root hollow, without its tonics', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'start' } })
-    s.inv.sword = true
-    s.inv.bombs = 4
-    const raw = JSON.parse(JSON.stringify(Z.toSave(s)))
-    const old = { ...raw, map: 'arena', entry: 'start', inv: { ...raw.inv, tonics: 3 }, explored: { arena: '1', overworld: '1' } }
-    const save = Z.parseSave(old)
-    assert.ok(save, 'the save is read')
-    assert.ok(!('tonics' in save.inv))
-    const t = Z.createGame(Z.WORLD, { save })
-    assert.deepEqual([t.map.id, t.entry.entry], ['sporelight', 'from-arena'])
-    assert.deepEqual([t.inv.sword, t.inv.bombs], [true, 4], 'the rest of the items are kept')
-    assert.ok(!('tonics' in t.inv))
-    assert.ok(!('tonics' in Z.toSave(t).inv), 'and none are written back')
-    assert.ok(Z.awayMap(Z.WORLD, 'arena', 'start'), 'a reload knows it is out there')
-  })
-
-  it('points a hero with a blade past the coast until a land is walked into, in what the QUEST box holds', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'overworld', entry: 'start' } })
-    assert.ok(!Z.objective(s).includes(Z.LANDS_HINT), 'not before the blade')
-    s.inv.sword = true
-    assert.ok(Z.objective(s).includes(Z.LANDS_HINT), 'the gates once the blade is in hand')
-    s.flags['seen:seterfell'] = true
-    assert.ok(!Z.objective(s).includes(Z.LANDS_HINT), 'and not once a land is found')
-    const lines = t => t.split(' ').reduce((acc, w) => { const l = acc[acc.length - 1]; if (l !== undefined && (l + ' ' + w).length <= 37) acc[acc.length - 1] = l + ' ' + w; else acc.push(w); return acc }, [])
-    for (const t of [Z.questHint(Z.QUEST_STEPS), Z.questHint(1) + ' ' + Z.LANDS_HINT]) assert.ok(lines(t).length <= 4, `too long for the box: ${t}`)
   })
 
   it('keeps foes off the ways in: none near a gate, a seam, the ferry or a stair, and never a crowd', () => {
@@ -442,19 +344,6 @@ describe('the lands', () => {
       assert.ok(named, `${p.id} opens without a name: ${first}`)
       assert.ok(!OWN.has(named.name), `${p.id} speaks as ${named.name}`)
       for (const l of b.lines.slice(1)) if (!l.startsWith('(')) assert.ok(X.speakerOf(l, p.look, first)?.name === named.name, `${p.id} changes voice: ${l}`)
-    }
-  })
-
-  it('draws every landmark from art its map loads (the always-there things, its realm\'s kit and the kits it names)', () => {
-    for (const [id, def] of Object.entries(Z.WORLD.maps)) {
-      const kits = X.kitsFor(def).map(k => KITS[k])
-      const has = name => !!X.THING_ART[name] || kits.some(k => k?.[name])
-      for (const lm of def.isoLandmarks ?? []) {
-        for (const variant of [lm.art, lm.night, lm.lit?.art].filter(Boolean)) {
-          const names = lm.motion && !lm.motion.bob ? Array.from({ length: lm.motion.frames }, (_, i) => `${variant}_${i}`) : [variant]
-          for (const name of names) assert.ok(has(name), `${id}: ${name}`)
-        }
-      }
     }
   })
 

@@ -13,6 +13,8 @@ external APIs, fonts, icons, state, source layout, themes, cost of `/`, auth):
 
 - `npm run dev` — dev server on port 3030 (`docs/site.md`)
 - `npm test` — every `tests/*.test.mjs` in one pass. `npm run test:changed` — only what your change since `origin/master` (uncommitted work included) can break; the deploy runs the same against the last deployed revision. Per area: `npm run test:<area>` (`portal`, `zelda`, `miniworld`, `figur`, … ). The areas and what each path runs are one table, `tests/areas.mjs`; a new theme gets a row there. Details: `docs/site.md` → "Test areas"
+- Tests are few and end to end: one per data gate, no source-text checks, no sweeps; after a change to Neon Shrine's shell, `npm run smoke:zelda` against `npm run dev`.
+  Details: `docs/site.md` → "How tests are written here"
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); the Sleeper deploy runs this before build
 - `npm run build` — production build (`cloudflare-pages` preset in `nuxt.config.ts`, output `dist/`)
 - `npm run preview` — preview built site
@@ -43,7 +45,7 @@ There is no menu and no page route but `/`. `servers/mw-world/` is not part of t
   - **No prefetch hints.** `server/plugins/no-prefetch.ts` strips them; it rewrites `html.head` as a string, and filtering that array removes the entire head.
   - **Styles are a file, not inline.** `features.inlineStyles: false` in `nuxt.config.ts`.
   - **No dead assets in `public/`.**
-- **Neon Shrine's iso art packs**: the stalls, machines and realm kits are PNG packs in the fixer art library, pinned in `themes/zelda/render/iso/artIndex.ts`; bake them only with `scripts/zelda-lab/art-pack.mjs` (via `frontier-art.mjs`, `codex/kit-bake.mjs` or `--splice`), never as TS (`tests/zelda-no-art-ts.test.mjs`); `npm run art:pull` fills the tests' `.art-cache/`. Details: `docs/games/neon-shrine.md` → "The art packs".
+- **Neon Shrine's iso art packs**: the stalls, machines and realm kits are PNG packs in the fixer art library, pinned in `themes/zelda/render/iso/artIndex.ts`; bake them only with `scripts/zelda-lab/art-pack.mjs` (via `frontier-art.mjs`, `codex/kit-bake.mjs` or `--splice`), never as TS (`tests/zelda-size.test.mjs`'s ceiling is what catches a big table in the bundle); `npm run art:pull` fills the tests' `.art-cache/`. Details: `docs/games/neon-shrine.md` → "The art packs".
 - No `runtimeConfig`: server routes read bindings and secrets from `event.context.cloudflare.env`. If it comes back, server code **must** call `useRuntimeConfig(event)`, or Workers return a config frozen before env vars exist (`docs/site.md` → "Config, geo and auth").
 - Norway only for Ulrikke's games (Mini World, Lag Din Figur): `server/middleware/norway.ts` and `plugins/norway.server.ts`; `mw-world` has the same gate in nginx (`~/github/sleeper/geo/`).
 - No auth system of its own; identity is auth.phareim.no's (cookie `session_token` on `.phareim.no`). **The auth gate**: Mini World and Lag Din Figur need a signed-in account, and the server is the actual lock (`server/utils/account.ts`, `sessionCheck.ts`, `accountLinks.ts`; fail closed). A new route for these games must call `requireAccountPlayer` (or go through `mwRoute`); `tests/miniworld-account.test.mjs` fails on an uncovered file under `server/api/mw/`. `server/utils/sessionCheck.ts` and `themes/zelda/account.ts` are shared with `mw-world`, so `deploy.sh` restarts it when they change. Details: `docs/site.md`, `docs/games/mini-world.md` (Sign-in), `docs/games/portal.md`.

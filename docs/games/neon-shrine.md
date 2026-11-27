@@ -727,7 +727,8 @@ classic picture. `/?view=<id>` asks for one.
       frames (poses; the hair and the bow; get, hurt and the bottoms), cut as
       the folk were, then sorted into roles and parts by script
       (`tmp/iso-figures-21/tools/build.py` on the Mac); `tests/zelda-hero-art.test.mjs`
-      holds the coverage, the recolouring and the fallback.
+      holds that every covered shape composes in coloured letters and that the
+      generated pose file is current.
   - *The bosses* (`iso/bossArt.ts`; part 22, 2026-11-25; Petter: «Kjør på med
     rotoskopering, både av sjefer og greier rundt i verden. Viktig at vi holder
     oss i en ekte piksel-følelse.»; the llama redrawn and the mistral drawn in
@@ -815,8 +816,8 @@ classic picture. `/?view=<id>` asks for one.
       `pose_glb.py`'s `pitch`, `spin.py` for the turned guides, `orbalign.py`
       and `splice.py`, which replaces one family in `bossArt.ts` and leaves the
       others byte for byte);
-      `tests/zelda-boss-art.test.mjs` holds the families, the hashes, the
-      facings and the identity colours.
+      `tests/zelda-folk.test.mjs` holds the families' frames, their routing,
+      the hashes and the fall back to the classic sprite.
   - *What the studio would need* to edit them: a second kind of entry in the
     pack (`folk`: a family's palette, frames as rows at twice the classic
     size, anchors, the `src` hashes), exported by `export-sprites.mjs` beside
@@ -902,13 +903,13 @@ classic picture. `/?view=<id>` asks for one.
       lunge ending 2.2 tiles past its mark (`houndPast`: far enough off that
       the second can be answered) or at a wall; then it rests, spent.
     - *The fight* is played by scripted players in
-      `tests/zelda-tough.test.mjs`, over eight setups for each kind: one who
-      stands still is hurt; one who hammers A is hurt at least twice, with
-      the Arc Blade too; one who only throws the disc is hurt; one who rolls
-      off the strike 0.1 s after it starts and cuts while the bar is gold
-      wins untouched in 8 to 20 s (0.15 s after it starts: still untouched,
-      a little slower); one who rolls before the tell is
-      over is hit, because the foe aims when the tell ends.
+      `tests/zelda-tough.test.mjs`, over four seeds for each kind: one who
+      hammers A is hurt at least twice, with the Arc Blade too; one who throws
+      the disc, cuts while it is stunned and never dodges is hurt; one who
+      rolls off the strike 0.1 s after it starts and cuts while the bar is
+      gold wins untouched in 6 to 20 s (0.15 s after it starts: still
+      untouched); one who rolls before the tell is over is hit, because the foe
+      aims when the tell ends. Tune `TOUGH` against it.
     - *The bar, the outline and the light* (`render/renderer.ts`, every view;
       no art of its own). The foe's silhouette a px out on four sides: pink,
       gold while open, white and pink by turns at 8 Hz while it tells (steady
@@ -924,10 +925,6 @@ classic picture. `/?view=<id>` asks for one.
       is entered again.
     - *Day and night.* It stands where it is at every hour: no rank, no twin
       (`settleFoes`).
-    - *The fight is tested* (`tests/zelda-tough.test.mjs`): scripted players
-      who stand, hammer A or lean on the disc are hurt; one who rolls off the
-      strike and cuts in the opening wins untouched, in 6 to 20 s. Tune
-      `TOUGH` against it.
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
     DeepSeek, the twins). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
@@ -939,7 +936,9 @@ classic picture. `/?view=<id>` asks for one.
     the bar rides over the fin); a twin on its feet, so always, except while it
     lies fallen; the llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
-    `bossOpen`.
+    `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs`, which plays
+    each boss (a hero who stands is hurt, one who does what it asks wins) and
+    holds the bar to what the blade does all the way through.
   - *The lands' foes* are ordinary foe marks, drawn in the realm's own skins
     (`FRONTIER_FOE_LOOKS` in `render/renderer.ts`): which stand where is in
     `docs/worlds/atlas.md`, "The lands". The Sporelight's sentries are
@@ -1175,8 +1174,8 @@ classic picture. `/?view=<id>` asks for one.
   studio's live values and the first frame, and changes halfway through a
   turn, when the canvas does (`stepDress`). The dress itself is
   `themes/base/pixel/pixel16.css` (banded windows, bevel frames and letter
-  colours copied from `hud16.ts`; `tests/zelda-chrome16.test.mjs` holds the
-  two together) in the font `--font-pixel16`, `font16.ts` as a webfont
+  colours copied from `hud16.ts` by hand: no test holds the two together)
+  in the font `--font-pixel16`, `font16.ts` as a webfont
   (`docs/games/pixel-look.md`). What stands beside the canvas HUD is sized by
   that HUD's own pixel: `Renderer.fineUnit()` (CSS px to one fine HUD pixel
   on this screen and in this map), snapped to whole device px and written as
@@ -1253,7 +1252,7 @@ classic picture. `/?view=<id>` asks for one.
   (0.94×). Still TS, each until its phase moves it: the base things (`thingArt.ts`, `ferryArt.ts`,
   `roadsideData.ts`), the folk, the bosses, the frontier people and the foes' hurt frames, and the hero.
   **The bake step is `scripts/zelda-lab/art-pack.mjs`**; nothing writes art TS for these any more
-  (`tests/zelda-no-art-ts.test.mjs` fails on a restored or new table):
+  (a big table back in the view fails the ceiling in `tests/zelda-size.test.mjs`):
   - a realm kit or the arches: `node scripts/zelda-lab/frontier-art.mjs <kit>` (re-bake from the solids,
     the drawn pieces kept) or `node scripts/zelda-lab/codex/kit-bake.mjs <kit>` (Codex's drawings in); both
     read the kit back from its pinned pack (`art-pack.mjs unpack --kit <kit>`) and hand the new table to
@@ -1269,9 +1268,9 @@ classic picture. `/?view=<id>` asks for one.
   Commit the rewritten `artIndex.ts` with the change: an old commit keeps loading its own pinned packs, and a
   bad pack is undone by the next pin. The tests read the packs from `.art-cache/` (git-ignored, every file
   hash-checked; `npm run art:pull`, also run before `npm test`), so they run offline once it is filled:
-  `tests/zelda-artpack-parity.test.mjs` (the packs pinned at the move hold the TS tables' px, from git
-  `c41be83`; the game's loader paints each pinned pack as `paintThing` paints it unpacked) and
-  `tests/zelda-artpack-roundtrip.test.mjs` (the PNG writer and decoder).
+  `tests/zelda-artpack-parity.test.mjs` (every pack pinned; the game's loader paints each pinned pack as
+  `paintThing` paints it unpacked, and `artIndex.ts` is each pack's index). The packer itself
+  (`scripts/zelda-lab/lib/artpack.mjs`) has no test of its own.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
   [scenes]` renders the isometric view (`LIVE=<pack.json>` applies the
   studio's live sprites first, as the site does; `DAY=sun` a solved save's
@@ -1404,7 +1403,8 @@ squares. Two of it:
   day's arc, dusk, night with two stars; `sunPhase`). Where there is no chart
   (a room indoors, a cabinet's demo) a **stub** stands in its place: a small
   pane of glass with a door and the hero in it, the Prism beside it. Under
-  the frame a **tag** stands 1.6 s: the view's name after a turn, a pinned
+  the frame (beside the stub: as low as under a chart, clear of a room's
+  counters) a **tag** stands 1.6 s: the view's name after a turn, a pinned
   Prism's refusal, a lesson. The area's own name is not on it: the HUD's
   banner says that. Three real buttons lie over the picture, placed from
   `cornerLayout` 14 px from the top and the right inside the safe area: the
@@ -1418,7 +1418,7 @@ squares. Two of it:
   Tab and a screen reader only (a gold ring round the chart while it has
   the focus); where there is none it is the stub, on screen. So the menu is
   always a touch away, through a target of 44 × 44 px or more (in every shape
-  of the turn; `tests/zelda-corner.test.mjs`). The chart can no longer be
+  of the turn; the layout matrix, `tests/zelda-layout.test.mjs`). The chart can no longer be
   hidden (the old corner-map key, C on the MAP page, is gone; C is the roll).
   Beside a keyboard, key caps stand under the chart (M; P under the stub)
   and under the Prism (V). On touch, two lessons, once per browser
@@ -1526,7 +1526,8 @@ squares. Two of it:
   wherever giving up the list, and up to a third of the land, makes room. The
   shell hands the renderer the top of the deck's buttons (`FrameUI.deckTop`,
   measured while paused). `mapPageLayout`, `landPicture` and `worldPicture` are
-  pure (`tests/zelda-map-page.test.mjs`); `node scripts/zelda-lab/map-sheet.mjs
+  pure (`tests/zelda-map-page.test.mjs` reads the page; where its parts go on each
+  screen is `tests/zelda-layout.test.mjs`); `node scripts/zelda-lab/map-sheet.mjs
   [outDir] [name,…]` draws the page with the real painter and the real world's
   data on the real grids, in headless Chrome without the game's page
   (`CHROME_BIN` for another browser).
@@ -1745,24 +1746,27 @@ and the door fade runs; at full dark the engine emits `{ type: 'exit', id,
 to }` and stays in mode `exit`. All exits are in the town (cabinets, board,
 HANGAR door, kiosk, DJ booths, terminals); the shell saves and navigates.
 
-**Checks.** `npm run test:zelda` (run by the deploy; 114 tests with the audio,
-Wildwood, wallet, views and look suites, green 2026-10-13; the Wildwood's own checks are in
-`docs/games/wildwood.md`): world
-validation (everything reachable from the plaza), the first minute (the
-coast road from the town, the Keeper's story once, no clock before the
-blade, the blade chest; out of the hut door in ~0.22 s with input ignored;
-a save continuing at the plaza or a cabinet with its items;
-swing/cut/spin, lift/throw), the hut (one door, in and out), exits on a
-small fixture world (cabinet with lines, solid exit without, door, the
-entries beside them, validator errors), the rules before the blade, saves
-and death, and a **full scripted run** from the hut to the Sun Prism with
-a path-finding walker (god mode, bosses killed directly) — it proves every
-key, gate, crystal, push block and appear-chest is wired. The dungeon pieces
-(the Weights, trap gates, `bossOpen`, the B items, the save cap, key carriers)
-are `tests/zelda-kit.test.mjs`; `SAVE_SIZE=1` prints what a full save holds.
-The view rule and the Turn Room are `tests/zelda-view-rule.test.mjs` (every
-mover in both views, the refusals, a scripted solve, the validator's failures,
-the shell's wiring).
+**Checks.** `npm run test:zelda` (run by the deploy; the Wildwood's own checks
+are in `docs/games/wildwood.md`; how tests are written: `docs/site.md`). Played
+end to end through `stepGame`: the first minute, a save and where it continues,
+exits, talks, the chain and the roll, and a **full scripted run** from the hut
+to the Sun Prism with a path-finding walker (god mode, bosses killed directly;
+`zelda-engine`); each boss fought by a scripted hero (`zelda-gauntlet`); every
+gate walked into its land and back (`zelda-world`, which also holds the real
+world's validator and the lands' page length); that every chest, key, locked
+door and gate can be reached in some order with only what the world gives
+(`zelda-reach`: the validator does not prove order); and every save shape of
+earlier builds loaded and played (`zelda-old-saves`, fixtures in
+`tests/zelda-old-saves.json`: a change that drops or renames something a save
+holds adds its old shape there). The HUD, the corner and the MAP page on every
+screen are the layout matrix (`zelda-layout`). The dungeon pieces (the Weights,
+trap gates, the B items, the save cap, key carriers) are
+`tests/zelda-kit.test.mjs`; `SAVE_SIZE=1` prints what a full save holds. The
+view rule and the Turn Room are `tests/zelda-view-rule.test.mjs` (every mover in
+both views, the refusals, a scripted solve, the validator's failures, the rule
+following the picture). The shell (`Zelda.vue`) is not run by these: after a
+change to it, run `npm run smoke:zelda` against `npm run dev`
+(`docs/site.md` → "How tests are written here").
 The town's own
 checks are `test:portal`. `node scripts/zelda-lab/shot.mjs <outDir>
 [scenes]` renders the real renderer for named scenes without Nuxt (`r-*`

@@ -39,6 +39,25 @@ test:<area>`):
 - `test:miniworld` — Mini World: save, contests, wallet and neighbourhood rules (memory and real D1 SQL), physics, obby, the sign-in gate
 - `test:figur` — Lag Din Figur: garments, packing, figures and save, Pip, the renderers, the Minecraft skin
 
+### How tests are written here
+
+Few tests, end to end, through public entry points: what a player or a save
+meets (`stepGame`, `parseSave`, the real world, a view's layout), played or
+read, not the helpers behind it. One test per data gate (the world's validator,
+a sprite table, an art pack, a size ceiling), in one file only; a narrow rule
+goes into the played test that passes it. No checks of source text, no pinned
+pixels or constants, no sweeps over every case where one of each kind says the
+same. A new test replaces or joins an existing one before it gets a file of its
+own, and loops over maps or bosses read the list from the game. Neon Shrine's
+shell (`themes/zelda/Zelda.vue`) is not run by the node tests: after a change
+to it, start `npm run dev` and run `npm run smoke:zelda`
+(`scripts/zelda-lab/smoke.mjs`; `-- <url> [shotsDir]` for another address), a
+phone-sized headless Chrome that loads the game with a save, opens the menu's
+pages with M, N and P, turns the view with V and the Sun Prism, presses the
+chart, closes with Escape, and fails on a wrong state, a blank canvas or a
+logged error. It needs a Chrome with WebGL (`CHROME_BIN`) and is not part of
+the deploy.
+
 `npm run dev` listens on port 3030 (host 0.0.0.0); the lab scripts
 (`scripts/zelda-lab/*-shot.mjs`) default to `http://127.0.0.1:3030/`. `npm run build` uses the `cloudflare-pages` preset
 set in `nuxt.config.ts`; output goes to `dist/`.

@@ -1,6 +1,6 @@
 // Neon Shrine's light and life in the lands (docs/games/neon-shrine-looks.md, "Light and life"): the
-// landmarks' lights name tones the render side knows, a lit letter shines only with its flag, the night
-// factor runs from the dusk to the moon's hours, and the life in the air holds still under reduced motion.
+// landmarks' lights name tones the render side knows, the giant caps light only the wood's edge, and the
+// life in the air holds still under reduced motion. The looks' own tables are gated in `zelda-looks.test.mjs`.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -16,10 +16,8 @@ async function load() {
     stdin: {
       contents: `export { sceneryAt, sceneryPlaces } from './world/scenery'
 export { TONES } from './render/tones'
-export { MOOD, REALM_LOOKS, realmLook } from './render/looks'
-export { nightOf } from './render/daylight'
+export { realmLook } from './render/looks'
 export { realmLife } from './render/iso/air'
-export { buildBackdrop } from './render/iso/backdrop'
 export { WORLD } from './world/index'
 export { drawLiveTiles } from './render/tiles'
 export { createGame } from './engine/index'
@@ -54,26 +52,13 @@ describe('the lands’ light', () => {
   it('lands its landmarks’ lights in tones the render side has, and lit-only lights on lit landmarks', () => {
     const lms = landmarks()
     const lit = lms.filter(lm => lm.lights?.length)
-    assert.ok(lit.length > 20, `only ${lit.length} landmarks carry a light`)
+    assert.ok(lit.length > 0)
     for (const lm of lit) {
       for (const l of lm.lights) {
         assert.match(L.TONES[l.tone] ?? '', /^#[0-9a-f]{6}$/, `${lm.art}: tone ${l.tone}`)
         assert.ok(l.r > 0 && l.r <= 8 && l.a > 0 && l.a <= 1, `${lm.art}: r ${l.r}, a ${l.a}`)
         if (l.lit) assert.ok(lm.lit, `${lm.art} shines only when lit, but has no lit flag`)
       }
-    }
-    // The beams: the stage spotlights swing theirs (a preset until the fog stage is drawn).
-    const sweeps = new Set(lit.filter(lm => lm.lights.some(l => l.anim === 'sweep')).map(lm => lm.art.replace(/_\d+$/, '')))
-    assert.ok(sweeps.has('fogstage_spotlight'), [...sweeps].join(','))
-  })
-
-  it('gives every realm look its lamps, its shafts’ colour and its life', () => {
-    for (const look of L.REALM_LOOKS) {
-      const m = L.MOOD[look]
-      assert.ok(m.lamps > 0 && m.glow > 0, look)
-      for (const c of [...m.lamp, m.raysColor]) assert.match(c, /^#[0-9a-f]{6}$/, `${look}: ${c}`)
-      assert.ok(Array.isArray(m.life), look)
-      assert.ok(m.hero >= 0 && m.hero <= 1, look)
     }
   })
 
@@ -120,44 +105,10 @@ describe('the lands’ light', () => {
     } finally { globalThis.document = had }
   })
 
-  it('reckons the night from the dusk (none) to the moon’s hours (all)', () => {
-    assert.equal(L.nightOf(null), 0)
-    assert.equal(L.nightOf({ sun: 0.12 }), 0)
-    assert.equal(L.nightOf({ sun: 1 }), 0)
-    assert.equal(L.nightOf({ sun: -1 }), 1)
-    let last = -1
-    for (let sun = 0.2; sun >= -1; sun -= 0.05) { const n = L.nightOf({ sun }); assert.ok(n >= last); last = n }
-  })
-
-  it('puts shooting stars in the realm skies, dimmed by day as the stars are, and lets the aurora breathe', () => {
-    // (The backdrop paints into canvases: a stand-in that keeps the pixels.)
-    const had = globalThis.document
-    globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} }) }) }
-    try {
-      for (const look of L.REALM_LOOKS) {
-        const b = L.buildBackdrop(look, 640, 400)
-        const streaks = b.layers.filter(l => l.streak)
-        assert.equal(streaks.length, 2, `${look}: ${streaks.length} shooting stars`)
-        for (const l of streaks) {
-          assert.equal(l.role, 'stars')
-          assert.ok(l.streak.on < l.streak.every / 5, 'a shooting star is there only for a moment')
-        }
-        assert.equal(b.layers.some(l => l.role === 'aurora'), look === 'snow')
-      }
-    } finally { globalThis.document = had }
-  })
-
   it('keeps the life in the air still under reduced motion, and lights the water with lanterns', () => {
     const water = (x, y) => (x + y) % 9 < 6 ? '~' : '.'
     const view = { place: (x, y, z) => ({ x: x * 8, y: y * 8 - z * 8 }), tile: water, x0: 0, y0: 0, x1: 40, y1: 40, vw: 320, vh: 200, px: 0.5 }
-    const all = ['lanterns', 'glints', 'butterflies', 'birds', 'gulls', 'fish']
     // The time stands at 0: what comes and goes (glints, birds, jumps) is not there, the rest is drawn the same each frame.
-    const a = counter(); const la = []
-    L.realmLife(a, all, view, 0, la)
-    const b = counter(); const lb = []
-    L.realmLife(b, all, view, 0, lb)
-    assert.equal(a.n, b.n)
-    assert.deepEqual(la, lb)
     const still = counter()
     L.realmLife(still, ['glints', 'birds', 'gulls', 'fish'], view, 0, [])
     assert.equal(still.n, 0, 'glints, birds and fish are not drawn under reduced motion')

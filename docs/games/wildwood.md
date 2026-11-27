@@ -106,12 +106,12 @@ Hit rules: `engine/combat.ts` (`bossRules`); brains: `engine/bosses.ts`.
   set dressing); NPCs that leave or join (`hide`, `join`).
 - Old saves still load: missing inventory fields get their defaults (`parseSave`).
 
-### Checks (2026-09-24)
+### Checks
 
-`npm run test:zelda` runs `tests/wildwood.test.mjs` next to the engine and audio tests (41 green, 2026-09-24):
-the hook, Luna and her blocks, Luna waiting at her fort, the letter stones, crystal groups across floors, holes, keyrings, each
-boss's rule, an old save, and a **full scripted run** from the town's thicket to the Gate shutting
-(`tests/zelda-walk.mjs` is the shared walker). Boss fights were also played by simple scripted bots
+`npm run test:zelda` runs `tests/wildwood.test.mjs`: Luna waiting at her fort, the letter stones, the labs' keys,
+the Deep Lab's chute and ladder, and a **full scripted run** from the town's thicket to the Gate shutting
+(`tests/zelda-walk.mjs` is the shared walker). Each boss's fight and rule is `tests/zelda-gauntlet.test.mjs`, old
+saves `tests/zelda-old-saves.test.mjs`. As built (2026-09-24), boss fights were also played by simple scripted bots
 without god mode (all four won). Renders: `node scripts/zelda-lab/shot.mjs ~/zshots/<dir> w-camp,l-psi,d-gemini`
 (scenes `w-*`, `l-*`, `d-*`, `i-*`). Headless play in the dev server: into the Wildwood through the
 thicket and Mossa's waffle, no page errors. **Not yet:** a person playing it through, on a phone.

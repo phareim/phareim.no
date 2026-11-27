@@ -1,5 +1,6 @@
-// Neon Shrine terrain (engine/terrain.ts, render/iso/terrain.ts): heights and ramps in the collision, a ledge out
-// of reach, the hook reeling the hero up onto one, Lumenby's stack, and saves from the days of dig & build.
+// Neon Shrine's terrain (engine/terrain.ts): a step up stops a walker, a ramp takes it up, a chest on a ledge is out
+// of reach from below, bombs and the hook take the hero onto Lumenby's stack, and the isometric view draws a ramp on
+// its own tile only. A save from the days of dig and build is in `zelda-old-saves.test.mjs`.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -63,20 +64,10 @@ const HEIGHTS = [
 ]
 
 describe('Neon Shrine terrain', () => {
-  it('is on only where a map says so: Lumenby', () => {
-    const on = Object.entries(Z.WORLD.maps).filter(([, d]) => d.terrain).map(([id]) => id)
-    assert.deepEqual(on, ['lumenby'])
-    assert.equal(Z.WORLD.maps.quarry, undefined, 'the Old Quarry went with dig & build')
-    const s = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'lumenby', entry: 'pit' } })
-    assert.equal(s.map.terrain.g, 1)
-    assert.equal(s.map.terrain.h[37 * s.map.w + 2], 4, 'the stack')
-    const o = Z.createGame(Z.WORLD, { seed: 1, at: { map: 'overworld', entry: 'hut' } })
-    assert.equal(o.map.terrain, undefined)
-  })
-
-  it('stops a walker at a step up, lets it step down, and takes it up a ramp', () => {
-    const rows = ROWS.map((r, y) => (y === 2 ? r.slice(0, 5) + 'и' + r.slice(6) : r))
-    const { s, at, walk } = room(rows, HEIGHTS)
+  it('stops a walker at a step up, lets it step down, takes it up a ramp, and keeps a ledge chest out of reach from below', () => {
+    // A ramp at x 5 in row 2, a chest on the ledge at x 10.
+    const rows = ROWS.map((r, y) => (y === 2 ? r.slice(0, 5) + 'и' + r.slice(6, 10) + 'C' + r.slice(11) : r))
+    const { s, at, walk, go, settle } = room(rows, HEIGHTS)
     // Row 1: the terrace's face at x 6 is a wall from the ground.
     at(3.5, 1.5)
     walk(1, 0, 80)
@@ -92,41 +83,17 @@ describe('Neon Shrine terrain', () => {
     walk(-1, 0, 60)
     assert.ok(s.hero.x < 5.6, `stepped down: x ${s.hero.x}`)
     assert.equal(s.map.terrain.z, 1)
-  })
-
-  it('keeps a ledge chest out of reach until the hero stands as high', () => {
-    const rows = ROWS.map((r, y) => (y === 2 ? r.slice(0, 10) + 'C' + r.slice(11) : r))
-    const { s, go, at, settle } = room(rows, HEIGHTS)
-    // On the terrace (2), the chest on the ledge (3) east of the hero: A does not reach it.
+    // From the terrace the chest on the ledge is out of A's reach; as high as it stands, it opens.
     at(9.5, 2.5)
     go(A())
     settle()
     assert.ok(!s.flags['chest:pit.ledge'], 'opened from below')
-    // Up on the ledge's level it opens.
     s.map.terrain.h[2 * s.map.w + 9] = 3
     go(inp(), 40)
     at(9.5, 2.5)
     go(A())
     settle()
     assert.ok(s.flags['chest:pit.ledge'])
-  })
-
-  it('reels the hero up onto a ledge the hook bites into', () => {
-    const rows = ROWS.map((r, y) => (y === 2 ? r.slice(0, 11) + 'C' + r.slice(12) : r))
-    const { s, go, at, settle } = room(rows, HEIGHTS)
-    s.inv.hook = true
-    s.inv.selected = 'hook'
-    at(7.5, 2.5)
-    assert.equal(s.map.terrain.z, 2)
-    go(inp({ bPress: true }))
-    for (let i = 0; i < 200 && s.hook; i++) go()
-    assert.equal(s.hook, null)
-    assert.ok(s.hero.x > 10, `landed on the ledge: x ${s.hero.x}`)
-    assert.equal(s.map.terrain.z, 3)
-    go(inp(), 30)
-    go(A())
-    settle()
-    assert.ok(s.flags['chest:pit.ledge'], 'and opens what it bit')
   })
 
   it('takes a hero with bombs and the hook up onto the stack in Lumenby\'s pit', () => {
@@ -179,30 +146,5 @@ describe('Neon Shrine terrain', () => {
       assert.equal(R.rampSlope(m, x, y), null, `slope at ${x}, ${y}`)
       assert.deepEqual(R.rampSides(m, x, y), [], `sides at ${x}, ${y}`)
     }
-  })
-
-  it('reads a save from the days of dig & build: its tools put away, its edits and materials dropped', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'lumenby', entry: 'pit' } })
-    s.inv.sword = true
-    s.inv.hook = true
-    s.flags['item:shovel'] = true
-    const save = Z.toSave(s)
-    for (const sel of ['dig', 'build']) {
-      const old = Z.parseSave({ ...save, inv: { ...save.inv, selected: sel, mats: { stone: 5, lumen: 2 }, build: 'lamp' }, dig: { lumenby: '1аa2' } })
-      assert.ok(old, `a save with ${sel} out still loads`)
-      assert.equal(old.inv.selected, null)
-      assert.equal('mats' in old.inv, false)
-      assert.equal('build' in old.inv, false)
-      assert.equal('dig' in old, false)
-      assert.equal(old.inv.hook, true, 'the rest is kept')
-      const g = Z.createGame(Z.WORLD, { save: old })
-      assert.equal(g.map.terrain.h[37 * g.map.w + 2], 4, 'the map as authored')
-    }
-    // Something that never was an item is nothing in hand too (it used to refuse the whole save).
-    assert.equal(Z.parseSave({ ...save, inv: { ...save.inv, selected: 'spade' } }).inv.selected, null)
-    // Made down in the Old Quarry: back up in Lumenby's pit, the tools' flags kept and harmless.
-    const g = Z.createGame(Z.WORLD, { save: { ...save, map: 'quarry', entry: 'start' } })
-    assert.deepEqual([g.entry.map, g.entry.entry], ['lumenby', 'pit'])
-    assert.deepEqual(Z.useItems(g), ['hook'])
   })
 })

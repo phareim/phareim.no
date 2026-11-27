@@ -33,7 +33,8 @@
     "test:battery": "node scripts/test-affected.mjs --area battery",
     "test:miniworld": "node scripts/test-affected.mjs --area miniworld",
     "test:figur": "node scripts/test-affected.mjs --area figur",
-    "test:deploy": "node scripts/test-affected.mjs --area deploy"
+    "test:deploy": "node scripts/test-affected.mjs --area deploy",
+    "smoke:zelda": "node scripts/zelda-lab/smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",

@@ -45,25 +45,25 @@ function fakeFetch(body, calls = []) {
 }
 
 describe('parseLive', () => {
-  it('takes the studio format and drops ragged rows', () => {
+  it('takes the studio format with its views, drops ragged rows, and refuses another pack or format', () => {
     const art = m.parseLive({ format: 1, pack: 'neon-shrine', release: 3, sprites: { blob_0: ['ab', 'cd'], bad: ['ab', 'c'], empty: [] } })
     assert.equal(art.release, 3)
     assert.deepEqual(Object.keys(art.sprites), ['blob_0'])
-  })
-  it('carries the studio\'s views when the file has them, and none when it does not', () => {
-    assert.equal(m.parseLive({ format: 1, pack: 'neon-shrine', release: 3, sprites: {} }).views, null)
-    const art = m.parseLive({ format: 1, pack: 'neon-shrine', release: 4, sprites: {}, views: { iso: { params: { bloom: 0.2 } }, bad: { engine: 'x' } } })
-    assert.deepEqual(art.views, { iso: { params: { bloom: 0.2 } } })
-  })
-  it('refuses another pack or format', () => {
-    assert.equal(m.parseLive({ format: 2, pack: 'neon-shrine', sprites: {} }), null)
-    assert.equal(m.parseLive({ format: 1, pack: 'nova', sprites: {} }), null)
-    assert.equal(m.parseLive('nope'), null)
+    {
+      assert.equal(m.parseLive({ format: 1, pack: 'neon-shrine', release: 3, sprites: {} }).views, null)
+      const art = m.parseLive({ format: 1, pack: 'neon-shrine', release: 4, sprites: {}, views: { iso: { params: { bloom: 0.2 } }, bad: { engine: 'x' } } })
+      assert.deepEqual(art.views, { iso: { params: { bloom: 0.2 } } })
+    }
+    {
+      assert.equal(m.parseLive({ format: 2, pack: 'neon-shrine', sprites: {} }), null)
+      assert.equal(m.parseLive({ format: 1, pack: 'nova', sprites: {} }), null)
+      assert.equal(m.parseLive('nope'), null)
+    }
   })
 })
 
 describe('setSpriteOverrides', () => {
-  it('applies names in the registry at their drawn size only', () => {
+  it('applies names in the registry at their drawn size, and added frames as an unbroken run', () => {
     const drawn = m.SPRITES.blob_0.rows
     const w = drawn[0].length
     const h = drawn.length
@@ -74,29 +74,30 @@ describe('setSpriteOverrides', () => {
     })
     assert.deepEqual(applied, ['blob_0'])
     assert.deepEqual(m.setSpriteOverrides({}), [])
-  })
-  it('takes frames the studio added after the drawn ones, as an unbroken run, and counts them', () => {
-    const drawn = m.SPRITES.blob_0.rows
-    const w = drawn[0].length
-    const h = drawn.length
-    assert.equal(m.frameCount('blob', 2), 2)
-    const applied = m.setSpriteOverrides({
-      blob_3: blank(w, h, 'k'),
-      blob_2: blank(w, h, 'k'),
-      blob_5: blank(w, h, 'k'),
-      bat_2: blank(w + 3, h),
-      blob_9: blank(w, h, 'k'),
-    })
-    assert.deepEqual(applied.sort(), ['blob_2', 'blob_3'], 'a broken run, another size and past the limit are skipped')
-    assert.equal(m.frameCount('blob', 2), 4)
-    assert.equal(m.frameCount('bat', 2), 2)
-    m.setSpriteOverrides({})
-    assert.equal(m.frameCount('blob', 2), 2, 'gone again when the studio takes them out')
+    // Frames the studio added after the drawn ones.
+    {
+      const drawn = m.SPRITES.blob_0.rows
+      const w = drawn[0].length
+      const h = drawn.length
+      assert.equal(m.frameCount('blob', 2), 2)
+      const applied = m.setSpriteOverrides({
+        blob_3: blank(w, h, 'k'),
+        blob_2: blank(w, h, 'k'),
+        blob_5: blank(w, h, 'k'),
+        bat_2: blank(w + 3, h),
+        blob_9: blank(w, h, 'k'),
+      })
+      assert.deepEqual(applied.sort(), ['blob_2', 'blob_3'], 'a broken run, another size and past the limit are skipped')
+      assert.equal(m.frameCount('blob', 2), 4)
+      assert.equal(m.frameCount('bat', 2), 2)
+      m.setSpriteOverrides({})
+      assert.equal(m.frameCount('blob', 2), 2, 'gone again when the studio takes them out')
+    }
   })
 })
 
 describe('startLiveSprites', () => {
-  it('applies the kept copy at once, then the fetched one, and keeps that', async () => {
+  it('applies the kept copy at once, then the fetched one, keeps that, and stays quiet when the studio is down', async () => {
     const drawn = m.SPRITES.blob_0.rows
     const kept = pack(1, { blob_0: blank(drawn[0].length, drawn.length, 'k') })
     const fresh = pack(2, { blob_0: blank(drawn[0].length, drawn.length, 'p') })
@@ -112,6 +113,12 @@ describe('startLiveSprites', () => {
     assert.equal(calls[0].init.credentials, 'omit')
     stop()
     m.setSpriteOverrides({})
+    // The studio down.
+    {
+      const stop = m.startLiveSprites({ search: '', storage: null, fetcher: async () => { throw new Error('offline') } })
+      await new Promise(r => setTimeout(r, 0))
+      stop()
+    }
   })
 
   it('shows drafts with the sign-in cookie and never keeps them', async () => {
@@ -126,11 +133,5 @@ describe('startLiveSprites', () => {
     assert.equal(storage.data['studio.live.neon-shrine'], pack(1, {}))
     stop()
     m.setSpriteOverrides({})
-  })
-
-  it('stays quiet when the studio is down', async () => {
-    const stop = m.startLiveSprites({ search: '', storage: null, fetcher: async () => { throw new Error('offline') } })
-    await new Promise(r => setTimeout(r, 0))
-    stop()
   })
 })

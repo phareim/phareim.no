@@ -33,7 +33,7 @@ before(async () => {
   const esbuild = createRequire(import.meta.url)('esbuild')
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export { createTileLayer } from './render/tiles'; export { standIns, standsIn, standInOf } from './render/standIns'; export { WORLD } from './world/index'; export { createGame, mapInfo } from './engine/index'; export { sceneryAt } from './world/scenery'`,
+      contents: `export { createTileLayer } from './render/tiles'; export { standIns, standsIn } from './render/standIns'; export { WORLD } from './world/index'; export { createGame, mapInfo } from './engine/index'; export { sceneryAt } from './world/scenery'`,
       resolveDir: root, loader: 'ts',
     },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
@@ -98,12 +98,4 @@ describe('the lands\' solid scenery', () => {
     assert.ok(tiles >= 6, `${tiles} tiles`)
   })
 
-  it('stands in as what it is', () => {
-    assert.equal(R.standInOf('quarry_cart_full'), 'crate')
-    assert.equal(R.standInOf('rerun_station_wagon'), 'crate')
-    assert.equal(R.standInOf('rerun_mailbox'), 'post')
-    assert.equal(R.standInOf('quarry_headframe'), 'post')
-    assert.equal(R.standInOf('sporelight_mushroom_large_violet'), 'cap')
-    assert.equal(R.standInOf('stillsand_island_large'), 'stone')
-  })
 })
