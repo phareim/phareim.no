@@ -13,10 +13,10 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [x] Kit one: the seven Weights as items, rooms that lock until clear, the boss bar, the save cap, the B list (commit c609996, live 2026-11-27; no map uses a trap gate yet, the bars were seen in a local build).
 - [x] The view rule: square and diamond blocks, STAND CLEAR, the fallback without the isometric engine (commit 2bff6bd, live 2026-11-27).
 - [x] THE TURN ROOM in the Puzzle Lab (commit 2bff6bd; walked with real keys in a local build in both views, not walked on the live site).
-- [ ] Going on where one was: a new visit starts in town, and a reload inside a cave does too. A dungeon must be picked up again at its last stair, and a new visit should offer it.
-- [ ] The test suite pruned to end-to-end tests (Petter, 2026-11-27): three files of this work were 226 of the suite's 280 seconds.
-  - Part one is in (commit bf24202): the slow files, 370 tests to 78. Part two (the other files, the boss gauntlet, the gate walk, the old-save corpus, a shell smoke) is being built.
-- [ ] One side room as a trial, on a phone.
+- [ ] Going on where one was: a new visit starts in town. A dungeon must be picked up again at its last stair, and a new visit should offer it.
+  - A reload of the tab inside a dungeon continues there (`MapDef.resume`; the Echo Barrow, the Steamhouse, the Lighthouse). The offer on a new visit is not built.
+- [x] The test suite pruned to end-to-end tests (Petter, 2026-11-27; commits bf24202 and b78fd70): about 800 Neon Shrine tests to about 230, with a boss gauntlet, gate walks, an old-save corpus, a reach walk and a shell smoke (`npm run smoke:zelda`, by hand).
+- [x] One side room as a trial (commit ff6bb20; `engine/side.ts`, `render/side.ts`; played by script with real keys and touch at 390x844 in a local build, never on a real phone). What it decided: tall rooms, jump on B only, a narrow side cut, required jumps of 2.
 - [x] The ITEMS page as a grid, with the Weights (commit 618d02d; picked from with keys on the live site in both views, 2026-11-27).
 - [ ] Cards (intertitles, score cards, THE END).
 - [ ] Dungeon maps in a chunk of their own.
@@ -24,9 +24,12 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 
 ## Dungeons
 - [ ] 1. Seter Fell: THE ECHO BARROW. The Echo. Mixtral. THE STOCHASTIC PARROT. Weight: MEANING.
-  - Part one is live (commit 7915db1, 2026-11-27): eight rooms, the Echo, Mixtral; the door was walked on the live site in both views. The Parrot's fight and the Weight are part two.
+  - Part one is live (commit 7915db1, 2026-11-27): eight rooms, the Echo, Mixtral; the door was walked on the live site in both views.
+  - Part two is in (commit 5a0a020): the Parrot, the Weight, a reload that stays in the barrow. Played door to Weight by script in a local browser at 1280x800 and 390x844 in both views; not yet played by a person, nor past the first room on the live site.
 - [ ] 2. Yule Fjord: THE LIGHTHOUSE. The Storm Lamp. Orca. THE BLACK BOX. Weight: REASONS.
+  - Part one is in (commit 77c3c5a): eight rooms and the Storm Lamp, built without a browser; nobody has seen it drawn. Part two (Orca, the dark hound, the pictures) is being built.
 - [ ] 3. The Sporelight: THE STEAMHOUSE. The No. THE SYCOPHANT. Weight: NO.
+  - Part one is in (commit ee76f0b): the house to the stair, the attendants, the bath, THE NO, built without a browser; nobody has seen it drawn. Part two (gifts, the Sycophant to its third cut, the pictures) is being built.
 - [ ] 4. Stillsand: THE EXAMINATION. The Duck. THE BENCHMARK TITAN. Weight: SURPRISE.
 - [ ] 5. Rerun Estates: THE LATE SHOW. The Stomp. Copilot. THE UNCANNY WEAVER. Weight: FINGERS.
 - [ ] 6. Lumenby: THE HEAP under the Underglow. The Magnet. Grok, Phi. THE SCRAPE GOLEM. Weight: CREDIT.
