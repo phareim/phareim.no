@@ -3,7 +3,9 @@
 // scenery, the machines and the stalls are art packs (render/iso/artPack.ts), PNGs fetched only where they stand, and
 // only their geometry (artIndex.ts) rides in the view; this keeps it that way and keeps the view from growing back
 // silently. Measured 2026-11-25: about 1.18 MB minified, 386 KB gzip (with every
-// realm's art inside it, before, 1.98 MB and 990 KB). Raise a ceiling only on purpose, and say so in docs/site.md.
+// realm's art inside it, before, 1.98 MB and 990 KB). A dungeon's sprite rows are not in it either: they come with the
+// dungeons' maps (render/spritesDungeons.ts; zelda-world.test.mjs names one that leaks back). Raise a ceiling only on
+// purpose, and say so in docs/site.md.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -16,13 +18,11 @@ const esbuild = require('esbuild')
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 
 /**
- * The ceilings. The minified one was raised on purpose on 2026-11-27 (1.45 MB to 1.55 MB): the view's static closure
- * now holds seven dungeons' fights and painters (1.46 MB with five of them whole). They belong in a chunk loaded with
- * the dungeons' maps (`docs/worlds/sacred-weights-TASKS.md`); until then this is what they cost.
+ * The ceilings: about a tenth over what the view measured on 2026-11-27, when the dungeons' drawn bosses left for their
+ * maps' chunk (1.36 MB and 447 KB gzip, from 1.47 MB and 472 KB). The dungeons' fights and painters are still in it.
  */
-const MAX_MIN = 1_550_000
-// (Raised with it, 470 KB to 500 KB: 472 KB with six dungeons whole. The dungeons' drawn bosses are the first to go.)
-const MAX_GZIP = 500_000
+const MAX_MIN = 1_500_000
+const MAX_GZIP = 490_000
 
 let out
 before(async () => {

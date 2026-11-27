@@ -1,5 +1,5 @@
 /** The frontier's classic people. Each recipe makes the two steps for all four facings on a 16×16 grid. */
-import { grokRows } from './spritesHeap'
+import { grokRows } from './spritesGrok'
 
 type Head = 'helmet' | 'cap' | 'braids' | 'hood' | 'hair' | 'bonnet' | 'visor' | 'wood'
 type Hand = 'pick' | 'tube' | 'lever' | 'bucket' | 'crook' | 'rope' | 'broom' | 'sled' | 'water' | 'key' | 'book' | 'tail'
@@ -245,7 +245,7 @@ export const CREATURE_POSES: Partial<Record<FrontierCreature, string[]>> = {
 }
 
 function beast(name: FrontierCreature, facing: Facing, step: number, pose?: string): string[] {
-  // (GROK is drawn whole, in the Heap's sprite file.)
+  // (GROK is drawn whole, in a file of its own.)
   if (name === 'grok') return grokRows(facing, step, pose)
   const { rect, rows } = brush()
   if (name === 'nokk' && pose === 'eyes') {

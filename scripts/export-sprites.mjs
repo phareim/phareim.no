@@ -19,6 +19,8 @@ const out = esbuild.buildSync({
   stdin: {
     contents: [
       `export { SPRITES, PAL } from './render/sprites'`,
+      // The dungeons' rows join the table only with their chunk: the studio gets them all.
+      `import { addSprites } from './render/sprites'; import { DUNGEON_SPRITES } from './render/spritesDungeons'; addSprites(DUNGEON_SPRITES)`,
       `export { ENGINES } from './viewParams'`,
       `export { VIEWS, MAX_VIEWS, DEFAULT_VIEW } from './views'`,
       `export { STAGE_SCENES } from '../stage/scenes'`,

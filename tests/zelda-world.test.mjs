@@ -369,26 +369,33 @@ describe('the lands', () => {
         home: [...home], later,
         gz: keys => keys.reduce((n, k) => n + gzipSync(files.get(join(zelda, k))).length, 0),
         held: keys => new Set(keys.flatMap(k => Object.keys(outputs[k].inputs))),
+        /** The modules on `/` that import `m`. */
+        importers: m => [...home].flatMap(o => Object.keys(outputs[o].inputs)).filter(k => r.metafile.inputs[k]?.imports.some(i => i.path === m && i.kind === 'import-statement')),
       }
     }
-    // The sizes: the home page's world, and the dungeons behind an `import()`.
+    // The sizes: the home page's world; and the dungeons' chunk (maps and pictures) behind an `import()`, the sprite
+    // table it adds to being on `/` already.
     const world = split(`export * from './world/core'; export const dungeons = () => import('./world/dungeons')`)
-    const [now, chunk] = [world.gz(world.home), world.gz(world.later)]
+    const table = split(`export * from './world/core'; export * from './render/sprites'; export const dungeons = () => import('./dungeonChunk')`)
+    const [now, chunk] = [world.gz(world.home), table.gz(table.later)]
     if (process.env.WORLD_SIZE) console.log(`world on /: ${now} B gz; the dungeons' chunk: ${chunk} B gz`)
-    // No dungeon module on `/`, to the byte: each one `dungeons.ts` imports comes later and never at once, seen from
-    // the world, the shell's own loader and the painters.
-    const modules = esbuild.buildSync({ ...opts, entryPoints: ['world/dungeons.ts'] }).metafile.inputs['world/dungeons.ts'].imports.map(i => i.path)
-    assert.ok(modules.length, 'world/dungeons.ts imports no dungeon')
-    const site = split(`export * from './world/core'; export * from './dungeonLoad'; export * from './render/renderer'`)
-    for (const build of [world, site]) {
+    // No dungeon module on `/`, to the byte: each one `dungeons.ts` imports, and each file of rows `spritesDungeons.ts`
+    // spreads, comes later and never at once, seen from the world, the shell's own loader and the painters of both views.
+    const imports = file => esbuild.buildSync({ ...opts, entryPoints: [file] }).metafile.inputs[file].imports.map(i => i.path)
+    const modules = imports('world/dungeons.ts')
+    const rows = ['render/spritesDungeons.ts', ...imports('render/spritesDungeons.ts')]
+    assert.ok(modules.length && rows.length > 1, 'world/dungeons.ts imports no dungeon, or render/spritesDungeons.ts no rows')
+    const site = split(`export * from './world/core'; export * from './dungeonLoad'; export * from './render/renderer'; export { default as isoView } from './render/iso/view'`)
+    for (const build of [table, site]) {
       const [onHome, onLater] = [build.held(build.home), build.held(build.later)]
-      for (const m of modules) {
-        assert.ok(!onHome.has(m), `${m} is on /: something the home page imports statically imports it; a dungeon is registered in world/dungeons.ts only`)
+      for (const m of [...modules, ...rows]) {
+        assert.ok(!onHome.has(m), `${m} is on /: ${build.importers(m).join(', ') || 'something the home page imports'} imports it statically; a dungeon is registered in world/dungeons.ts only, its sprite rows in render/spritesDungeons.ts only`)
         assert.ok(onLater.has(m), `${m} is not in the dungeons' chunk`)
       }
     }
-    // (2026-11-27: 59,548 B on `/` and 10,057 B in the chunk. docs/site.md, "What `/` costs".)
+    // (2026-11-27: 60,510 B on `/`; 36,799 B in the chunk, the maps about 11,600 of it and their pictures the rest.
+    // docs/site.md, "What `/` costs".)
     assert.ok(now <= 62_000, `the world on / is ${now} B gzipped`)
-    assert.ok(world.later.length > 0 && chunk <= 22_000, `the dungeons' chunk is ${chunk} B gzipped, in ${world.later.length} files`)
+    assert.ok(table.later.length > 0 && chunk <= 50_000, `the dungeons' chunk is ${chunk} B gzipped, in ${table.later.length} files`)
   })
 })

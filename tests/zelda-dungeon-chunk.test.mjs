@@ -1,12 +1,14 @@
 // The dungeons' chunk (docs/games/neon-shrine.md, "The world in two parts"): the home page's world holds no dungeon;
 // a door into one waits behind the fade until `world/dungeons.ts` has come, and gives up well when it does not. The
-// engine, the loader and the real worlds, with loaders of the test's own. The size on `/` and the chunk's are in
-// `zelda-world.test.mjs`.
+// engine, the loader and the real worlds, with loaders of the test's own; and the dungeons' pictures, which come with
+// the maps, as the 8-bit painter asks for them. The size on `/` and the chunk's are in `zelda-world.test.mjs`.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -18,6 +20,7 @@ before(async () => {
       contents: `export * from './engine/index'; export * from './dungeonLoad'; export { WORLD } from './world/index'
         export { CORE, worldExits, worldStartingAt } from './world/core'; export { DUNGEONS } from './world/dungeons'
         export { DUNGEON_BITS } from './world/dungeon-bits'; export { ATLAS } from './world/atlas'
+        export { DUNGEON_SPRITES } from './render/spritesDungeons'; export { SPRITES } from './render/sprites'
         export { bitRewards } from './wallet'; export { WARP_TIME } from './types'`,
       resolveDir: zelda, loader: 'ts',
     },
@@ -207,4 +210,121 @@ describe('the dungeons\' chunk', () => {
       assert.equal(hold.failed, fails, `${where}: only the new try's own failure counts`)
     }
   })
+
+  it('the dungeons\' pictures come with their maps: none on `/` but what is carried out of them, every one there once loaded', async () => {
+    // The table takes every row the dungeons bring: it leaves out a name that is taken, and rows that are no picture.
+    assert.deepEqual(Object.entries(Z.DUNGEON_SPRITES).filter(([n, rows]) => Z.SPRITES[n]?.rows !== rows).map(([n]) => n), [],
+      'not in the table: a doubled name, ragged rows or a letter the palette lacks')
+    // The home page's modules as the site splits them: what arrives at once, and the chunk as a file of its own.
+    const dir = mkdtempSync(join(tmpdir(), 'zelda-chunk-'))
+    const had = globalThis.document
+    try {
+      writeFileSync(join(dir, 'package.json'), '{"type":"module"}')
+      esbuild.buildSync({
+        stdin: {
+          contents: `export * from './engine/index'; export { enterMap } from './engine/game'; export { mapInfo } from './engine/map'
+            export { CORE } from './world/core'; export { loadDungeons } from './dungeonLoad'; export { SPRITES } from './render/sprites'
+            export { sprite } from './render/sheet'; export { createRenderer } from './render/renderer'; export { itemSpriteName } from './render/itemIcon'
+            export { B_ITEMS } from './types'`,
+          resolveDir: zelda, loader: 'ts', sourcefile: 'home.ts',
+        },
+        bundle: true, splitting: true, format: 'esm', outdir: dir, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view'],
+      })
+      globalThis.document = { createElement: () => fakeCanvas() }
+      const H = await import(pathToFileURL(join(dir, 'stdin.js')))
+      // Every name the table is asked for and does not hold.
+      const missing = new Set()
+      Object.setPrototypeOf(H.SPRITES, new Proxy({}, { get: (_, name) => { if (typeof name === 'string') missing.add(name); return undefined } }))
+      const renderer = H.createRenderer(fakeCanvas(), H.CORE)
+      renderer.resize(1280, 800, 1)
+      const ui = { paused: false, confirmReset: false, muted: true, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null, keys: { a: 'SPACE', b: 'K', cycle: 'Q' } }
+      const draw = (s, more) => renderer.draw(s, { ...ui, ...more }, 1 / 60)
+
+      // Before: no boss, and everything a save can carry out of a dungeon.
+      // Each dungeon's boss by one of its frames.
+      const frames = { parrot: 'parrot_0', sycophant: 'syco_0', blackbox: 'box_0', golem: 'golem_m_0', weaver: 'weaver_face_0', copilot: 'copilot_side_neon', hallucinator: 'hallu_0' }
+      const bosses = Object.values(frames)
+      assert.deepEqual(bosses.filter(n => Object.hasOwn(H.SPRITES, n)), [], 'a boss is on the home page')
+      const items = ['sword', 'bombBag', 'bombs5', 'disc', 'smallKey', 'bigKey', 'heartPiece', 'heartContainer', 'heart', 'bits5', 'bits20', 'bits50', 'prism', 'hook', 'arc', 'bigBag', 'waffle', 'shroom', 'tube', 'walkie', 'hat', 'artHop', 'echo', 'no', 'lamp', 'magnet', 'stomp', 'lens', 'duck', 'weightMeaning', 'weightReasons', 'weightNo', 'weightSurprise', 'weightFingers', 'weightCredit', 'weightSources']
+      missing.clear()
+      for (const name of [...items.map(H.itemSpriteName), ...H.B_ITEMS.map(t => t.icon)]) H.sprite(name)
+      // The treasures in use in the town: the ITEMS page, the HUD, the lamp and the duck set down.
+      const town = H.createGame(H.CORE, { seed: 7 })
+      Object.assign(town.inv, { sword: true, lamp: true, magnet: true, duck: true, echo: true, no: true, stomp: true, lens: true, selected: 'lamp' })
+      for (const i of items.filter(n => n.startsWith('weight'))) town.flags[`item:${i}`] = true
+      town.dialog = null
+      town.mode = 'play'
+      const at = (dx) => ({ x: town.hero.x + dx, y: town.hero.y })
+      town.lamp = { idx: Math.floor(at(1).y) * town.map.w + Math.floor(at(1).x), dir: 'right', under: '.' }
+      town.duck = { ...town.duck, ...at(-1) }
+      draw(town)
+      draw(town, { paused: true, menu: 'items' })
+      assert.deepEqual([...missing], [], 'seen outside a dungeon, so it belongs on the home page (render/spritesCarried.ts)')
+
+      // A picture asked for too early is a blank that does no harm, and is not remembered.
+      assert.deepEqual([H.sprite('parrot_0').width, H.sprite('parrot_0', true).width], [1, 1])
+      await H.loadDungeons()
+      assert.deepEqual([H.sprite('parrot_0').width, H.sprite('parrot_0', true).width], [48, 48])
+      // (And the paper banner, which comes down only at the Sycophant's true line: no bystander gets there.)
+      assert.deepEqual([...bosses, 'banner_end', 'banner_loose'].filter(n => !Object.hasOwn(H.SPRITES, n)), [])
+
+      // (Adding the rows looked each name up first.)
+      missing.clear()
+
+      // After: every dungeon map from each of its ways in, and every boss through half a minute of its fight (the hero
+      // standing by and unharmed; the boss struck now and then, worn down, and at last felled).
+      const far = Object.keys(H.CORE.maps).filter(id => !Z.CORE.maps[id])
+      assert.deepEqual(far.sort(), Object.keys(Z.DUNGEONS).sort())
+      const seen = new Set()
+      const idle = { move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false }
+      for (const id of far) {
+        const info = H.mapInfo(H.CORE, id)
+        for (const entry of Object.keys(info.entries)) {
+          const s = H.createGame(H.CORE, { seed: 7, at: { map: id, entry } })
+          s.dialog = null
+          s.mode = 'play'
+          draw(s)
+        }
+        const there = H.createGame(H.CORE, { seed: 7, at: { map: id, entry: Object.keys(info.entries)[0] } })
+        for (const boss of there.map.enemies.filter(e => frames[e.kind])) {
+          seen.add(boss.kind)
+          const s = H.createGame(H.CORE, { seed: 7 })
+          s.inv.sword = true
+          H.enterMap(H.CORE, s, id, '', [], { x: boss.x, y: boss.y + 2 })
+          const e = s.map.enemies.find(o => o.kind === boss.kind)
+          const full = e.hp
+          for (let k = 0; k < 900; k++) {
+            s.dialog = null
+            s.mode = 'play'
+            Object.assign(s.hero, { hp: s.hero.maxHp, invuln: 1 })
+            if (k % 90 === 45) e.flash = 0.2
+            if (k === 450) e.hp = Math.max(1, Math.floor(full / 3))
+            if (k === 870) e.dead = true
+            H.stepGame(H.CORE, s, 1 / 30, idle)
+            draw(s)
+          }
+        }
+      }
+      assert.deepEqual([...seen].sort(), Object.keys(frames).sort(), 'every boss was looked at')
+      // (The bar over a foe measures both steps of a walk, whether there are two: these are no pictures anyone drew.)
+      const probes = ['copilot_side_neon_0', 'golem_m_1']
+      assert.deepEqual([...missing].filter(n => !probes.includes(n)), [], 'asked for in a dungeon and in no table: its rows are not in render/spritesDungeons.ts')
+    } finally {
+      globalThis.document = had
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })
+
+/** A canvas that takes anything drawn on it. */
+function fakeCanvas() {
+  const noop = () => {}
+  const pixels = (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })
+  const target = {
+    getImageData: (x, y, w, h) => pixels(w, h), createImageData: pixels, measureText: () => ({ width: 0 }),
+    createLinearGradient: () => ({ addColorStop: noop }), createRadialGradient: () => ({ addColorStop: noop }), createPattern: () => null,
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+  }
+  const g = new Proxy(target, { get: (t, p) => (p in t ? t[p] : noop), set: (t, p, v) => { t[p] = v; return true } })
+  return { width: 1, height: 1, style: {}, getContext: () => g }
+}
