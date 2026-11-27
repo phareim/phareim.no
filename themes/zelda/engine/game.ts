@@ -18,6 +18,7 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { stepEcho } from './echo'
+import { homeIron } from './magnet'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -28,7 +29,7 @@ import { ART_IDS, endMoves, resetMoves, stepSlow } from './moves'
 function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
-    hook: false, arc: false, echo: false, bigBag: false, shrooms: 0, keyrings: {},
+    hook: false, arc: false, echo: false, magnet: false, bigBag: false, shrooms: 0, keyrings: {},
   }
 }
 
@@ -204,6 +205,8 @@ function enterCell(c: Ctx, index: number) {
     }
   }
   resetPuzzleRoom(c, index)
+  // Iron goes home (`magnet.ts`), solved room or not.
+  homeIron(c, index)
   s.hero.safe = { x: s.hero.x, y: s.hero.y }
   placeLuna(s)
   const area = areaAt(c.w, s)
@@ -606,10 +609,10 @@ function rescueSave(world: World, v: SaveData): SaveData {
   return { ...v, map: spot.map, entry: spot.entry, ...(explored ? { explored } : {}) }
 }
 
-/** A map out past the hand-made coast (`MapDef.away`), or one a save names that the world moved out there. */
+/** A map a reload continues in (out past the coast, `MapDef.away`; or marked `resume`), or one a save names that the world moved out there. */
 export function awayMap(world: World, map: string, entry = ''): boolean {
   const def = mapDef(world, map)
-  if (def) return !!def.away
+  if (def) return !!def.away || !!def.resume
   const to = world.rescue?.(map, entry)
   return !!to && !!mapDef(world, to.map)?.away
 }

@@ -11,6 +11,7 @@ import { TILE } from '../types'
 import { cellIndex, crystalAt, has, mapInfo, raised } from '../engine/index'
 import type { GameState } from '../types'
 import { makeCanvas, sprite } from './sheet'
+import { drawMetalGlint } from './heapMarks'
 import { exitTiles } from './exits'
 import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
@@ -267,6 +268,11 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
       return
     case '#': case '%': case '^':
       return // walls paint in the object pass
+    case '▧':
+      // Under a bolt that stands out in a pit there is the pit; elsewhere the floor (a view that stands it up shows it).
+      if (overPit(at)) r(g, '#05030c', px, py, T, T)
+      else ground(kind, g, px, py, tx, ty, at)
+      return
     case 'f':
       rug(g, px, py, tx, ty, at)
       return
@@ -295,6 +301,9 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
   }
 }
 
+/** A bolt with a pit on two sides or more stands out in it (`▧`, THE HEAP). */
+const overPit = (at: At) => ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).filter(([dx, dy]) => at(dx, dy) === 'O').length >= 2
+
 /** What a tile's ground is made of, as `paintBase` paints it: the 16-bit view lays its own materials by this (`iso/materials.ts`). */
 export type GroundKind = 'grass' | 'path' | 'sand' | 'floor' | 'boards' | null
 
@@ -306,6 +315,8 @@ export function groundKindOf(kind: MapKind, t: TileChar, at: At): GroundKind {
   switch (t) {
     case '~': case '=': case '#': case '%': case '^': case 'f': case 'O':
       return null
+    case '▧':
+      return overPit(at) ? null : ground
     case ',': case 'i':
       if (t === 'i' && (kind !== 'interior' || (at(-1, 0) !== ',' && at(1, 0) !== ',' && at(-1, 0) !== 'i'))) return ground
       return kind === 'overworld' ? 'path' : kind === 'interior' ? null : 'floor'
@@ -880,6 +891,12 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case 'K': lockedDoor(g, px, py, true); break
     case 'x': spikes(g, px, py); break
     case '_': plateBase(g, px, py); break
+    // The Magnet's iron (`spritesHeap.ts`: stand-ins).
+    case '▣': g.drawImage(sprite('heap_crate'), px, py); break
+    case '▤': g.drawImage(sprite('heap_scrap'), px, py); break
+    case '▥': g.drawImage(sprite('heap_cart_striped'), px, py); break
+    case '▦': g.drawImage(sprite('heap_cart'), px, py); break
+    case '▧': g.drawImage(sprite('heap_bolt'), px, py); break
   }
 }
 
@@ -1218,6 +1235,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           else { g.fillStyle = '#5a4a9a'; g.fillRect(px + 5, py + 5, 6, 6) }
           break
         }
+        case '▣': case '▤': case '▥': case '▦': case '▧': drawMetalGlint(g, px, py, tx, ty, time, reduced); break
         case 'b': {
           if (m.moving.some(b => b.tx === tx && b.ty === ty)) break
           drawBlock(g, px, py)

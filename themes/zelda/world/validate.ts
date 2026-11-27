@@ -3,7 +3,7 @@
  * row shapes, known chars, warps that land on real entries, exits (unique
  * ids, a real target, a reachable place to stand), and that every chest,
  * item, NPC, sign and warp can be reached from an entry once every lock,
- * gate, crack and block has given way. On a map with view blocks (square,
+ * gate, crack and block has given way (by the hook, or by the Magnet's bolts, too). On a map with view blocks (square,
  * diamond: solid in one view each) the routes are walked in both states, a
  * turn allowed on any tile free in both; every entry stands on such a tile,
  * and the map allows both views. Returns human-readable problems; empty means
@@ -11,12 +11,12 @@
  */
 import type { Dir, EntDef, ExitTarget, MapDef, TileChar, ViewSide, World } from '../types'
 import { roomed } from '../types'
-import { TILE_INFO, blockUp, isTileChar, isViewBlock } from './tiles'
+import { TILE_INFO, blockUp, isBolt, isRailed, isTileChar, isViewBlock } from './tiles'
 import { puzzleMarkTile } from './puzzles'
 import { TUBE_ARMS } from './tubes'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', '□', '◇', 'Ħ', '¯', ...(Object.keys(TUBE_ARMS) as TileChar[])])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', '□', '◇', 'Ħ', '¯', '▣', '▤', '▥', '▦', ...(Object.keys(TUBE_ARMS) as TileChar[])])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */
@@ -128,6 +128,7 @@ export function validateWorld(world: World): string[] {
       if (m.ent.t === 'warp' && !landsIn(m.ent.to)?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
     }
     out.push(...reachability(id, world))
+    out.push(...ironProblems(id, world))
     out.push(...viewProblems(id, world))
     // Holes: the floor below has the same size and floor under every hole.
     if (def.below) {
@@ -252,6 +253,21 @@ function reachability(id: string, world: World): string[] {
         if (isViewBlock(t) ? blockUp(t, sides[k]!) : TILE_INFO[t].wall) break
       }
     }
+    // A bolt latches (the Magnet): along each axis, within `BOLT_REACH` tiles in the same room, nothing solid to a
+    // shot between (a wall, a shut gate), to the open floor a tile before it.
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (let a = 1; a <= BOLT_REACH; a++) {
+        const ax = x + dx * a
+        const ay = y + dy * a
+        if (ax < 0 || ay < 0 || ax >= w || ay >= h || cellOf(ax, ay) !== cellOf(x, y)) break
+        const t = tile(ax, ay)
+        if (isBolt(t)) {
+          if (a > 1 && open(ax - dx, ay - dy, k)) push((ay - dy) * w + ax - dx + k * N)
+          break
+        }
+        if (isViewBlock(t) ? blockUp(t, sides[k]!) : TILE_INFO[t].wall) break
+      }
+    }
   } }
   const reached = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && sides.some((_, k) => !!seen[y * w + x + k * N])
   const out: string[] = []
@@ -291,6 +307,40 @@ function reachability(id: string, world: World): string[] {
       }
       if (!near(x, y)) out.push(`${id}: ${m.ent.t} at ${x},${y} is unreachable`)
     }
+  })
+  return out
+}
+
+/** Tiles along an axis a bolt takes the hero from, for reachability: the engine's 7.5 less a tile of stance. */
+const BOLT_REACH = 6
+
+/**
+ * The Magnet's furniture (`engine/magnet.ts`): every tile of a rail and every pad is floor inside one room, and a
+ * cart or a striped cart is written on a rail.
+ */
+function ironProblems(id: string, world: World): string[] {
+  const def = world.maps[id]!
+  const out: string[] = []
+  const rails = new Set<string>()
+  const cw = def.cell?.w ?? def.rows[0]!.length
+  const ch = def.cell?.h ?? def.rows.length
+  def.rows.forEach((r, y) => {
+    for (let x = 0; x < r.length; x++) {
+      const e = def.marks[r[x]!]?.ent
+      if (e?.t === 'pad' && !PASSABLE.has(tileOf(def, x, y))) out.push(`${id}: the pad at ${x},${y} is not floor`)
+      if (e?.t !== 'rail') continue
+      const [dx, dy] = STEP[e.dir]
+      for (let k = 0; k < e.len; k++) {
+        const ax = x + dx * k
+        const ay = y + dy * k
+        rails.add(`${ax},${ay}`)
+        if (!PASSABLE.has(tileOf(def, ax, ay))) out.push(`${id}: the rail at ${x},${y} runs onto ${ax},${ay}, which is not floor`)
+        if (Math.floor(ax / cw) !== Math.floor(x / cw) || Math.floor(ay / ch) !== Math.floor(y / ch)) out.push(`${id}: the rail at ${x},${y} leaves its room`)
+      }
+    }
+  })
+  def.rows.forEach((r, y) => {
+    for (let x = 0; x < r.length; x++) if (isRailed(tileOf(def, x, y)) && !rails.has(`${x},${y}`)) out.push(`${id}: the cart at ${x},${y} stands on no rail`)
   })
   return out
 }

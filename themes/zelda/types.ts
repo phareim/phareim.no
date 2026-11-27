@@ -306,6 +306,12 @@ export type TileChar =
   // The side view (`engine/side.ts`; maps of kind 'side', whose rows run down the room)
   | 'Ħ' // a ladder
   | '¯' // a platform: landed on from above, passed from below, dropped through by pushing down
+  // The Magnet's iron (`engine/magnet.ts`; THE HEAP): resting iron is a tile
+  | '▣' // an iron crate: loose (the Magnet pulls it to the hero)
+  | '▤' // scrap: loose
+  | '▥' // a striped cart: railed (it moves along its rail only)
+  | '▦' // a cart: railed
+  | '▧' // a bolt: metal fixed in the stone (the Magnet takes the hero to it)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -337,6 +343,7 @@ export type ItemId =
   // The art (`engine/moves.ts`), for the B button
   | 'artHop' // the Keeper
   | 'echo' // THE ECHO, the Echo Barrow's treasure: B leaves one (`engine/echo.ts`)
+  | 'magnet' // THE MAGNET, the Heap's treasure: B latches metal (`engine/magnet.ts`)
   // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
   | WeightId
 
@@ -373,6 +380,7 @@ const B_TOOLS = [
   { id: 'disc', name: 'DISC', icon: 'item_disc', owned: (inv: Inventory) => inv.disc },
   { id: 'bombs', name: 'BOMBS', icon: 'item_bombbag', owned: (inv: Inventory) => inv.bombBag },
   { id: 'echo', name: 'ECHO', icon: 'item_echo', owned: (inv: Inventory) => !!inv.echo },
+  { id: 'magnet', name: 'MAGNET', icon: 'item_magnet', owned: (inv: Inventory) => !!inv.magnet },
 ] as const satisfies readonly BItem[]
 
 /** Everything B can hold, in the cycle's order: the things, then the arts. What `useItems`, a save and the HUD read. */
@@ -390,6 +398,7 @@ export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> &
   bombs: { name: 'BOMBS', does: 'OPEN CRACKED WALLS. MIND YOUR FEET.' },
   hop: { name: 'THE HOP', does: 'A SHORT JUMP. NOTHING LANDS ON YOU IN THE AIR.' },
   echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
+  magnet: { name: 'THE MAGNET', does: 'LATCHES METAL. LOOSE COMES TO YOU. YOU GO TO BOLTED.' },
 }
 
 /**
@@ -517,6 +526,10 @@ export type EntDef =
   | { t: 'gate'; trap: true; open?: never; latch?: never }
   /** A pot stand (tile 'o'): once its room holds no pot at all, every stand of the room gets one back (`STAND_WAIT`). */
   | { t: 'stand' }
+  /** A rail (a floor tile): this tile and the `len - 1` after it along `dir`. A cart or striped cart moves along it only. */
+  | { t: 'rail'; len: number; dir: 'right' | 'down' }
+  /** A pad (floor): the Magnet's stencil on the floor, facing `dir`. A hint for the eye; the engine never reads it. */
+  | { t: 'pad'; dir: Dir }
   | { t: 'glyph'; ch: string } // a letter stone (tile '{')
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   // Physical puzzles (`engine/puzzles/`): each also works unmarked with defaults, see world/puzzles.ts
@@ -696,6 +709,8 @@ export interface MapDef {
    * opens its areas' first-visit words on arrival.
    */
   away?: boolean
+  /** A reload of the tab continues here, at the last stair or door (`awayMap`), without anything else `away` does. */
+  resume?: true
   /**
    * The drawing engines this map may be shown in (`viewParams.ts`); absent,
    * every view. Elsewhere the shell shows the first allowed one for as long
@@ -985,6 +1000,8 @@ export interface MapState {
   scenery?: ReadonlySet<number>
   /** A map of kind 'side'. */
   side?: true
+  /** Iron in flight and off its home (`engine/magnet.ts`); absent until the Magnet or a smash needs it. */
+  iron?: IronState
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1145,6 +1162,8 @@ export interface Inventory {
   hook: boolean
   /** THE ECHO (the Echo Barrow's treasure). */
   echo: boolean
+  /** THE MAGNET (the Heap's treasure). */
+  magnet: boolean
   /** The Arc Blade (the sword, upgraded). */
   arc: boolean
   /** Bomb bag holds 20 instead of 12. */
@@ -1172,6 +1191,31 @@ export interface Hook {
   to: Vec | null
   hit: string[]
   carrying: number[]
+  /** Not the hook but the Magnet's flight to a bolt (`engine/magnet.ts`): a pull like the hook's, drawn as its own line. */
+  magnet?: true
+}
+
+/** A piece of iron on the move (`engine/magnet.ts`): loose iron through the air, or a cart along its rail. */
+export interface IronFlight {
+  ch: TileChar
+  /** Its centre now (tiles). */
+  x: number
+  y: number
+  /** The tile it left, the tile it makes for, and the tile it goes back to when it is smashed or the room is re-entered. */
+  from: number
+  to: number
+  home: number
+}
+
+/** The iron of the map on screen, over what its tiles say: never saved. */
+export interface IronState {
+  flights: IronFlight[]
+  /** Resting pieces off their homes: the tile it lies on → its home tile. */
+  away: Record<number, number>
+  /** Smashed pieces on their way home: the tile, and the seconds still to wait. */
+  smashed: Array<{ home: number; t: number }>
+  /** Seconds before the Magnet answers B again. */
+  rest: number
 }
 
 /** Luna, following the hero. */
@@ -1366,6 +1410,10 @@ export type GameEvent =
   | { type: 'echoCut'; x: number; y: number }
   /** A room's pot stands got their pots back. */
   | { type: 'restock'; x: number; y: number }
+  /** The Magnet (`engine/magnet.ts`): it latched the metal at (x, y); a tap that took nothing; iron come to rest. */
+  | { type: 'latch'; x: number; y: number }
+  | { type: 'fizzle'; x: number; y: number }
+  | { type: 'iron'; x: number; y: number }
   | { type: 'glyph'; x: number; y: number; ok: boolean }
   | { type: 'lever'; x: number; y: number }
   | { type: 'land' }

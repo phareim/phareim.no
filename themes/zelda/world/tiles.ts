@@ -105,6 +105,12 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   // The side view's (`engine/side.ts`): a ladder, and a platform solid from above only. Walked through otherwise.
   'Ħ': OPEN,
   '¯': OPEN,
+  // The Magnet's iron (`engine/magnet.ts`): loose and railed iron stand in the way of walkers alone; a bolt is stone.
+  '▣': LOW,
+  '▤': LOW,
+  '▥': LOW,
+  '▦': LOW,
+  '▧': { ...S, hook: false },
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]
@@ -116,6 +122,13 @@ export const PLATFORM = '¯' as const
 /** The square block and the diamond block: the tiles the view makes solid or floor. */
 export const SQUARE_BLOCK = '□' as const
 export const DIAMOND_BLOCK = '◇' as const
+/** Loose iron comes to the hero; railed iron moves along its rail; the hero goes to a bolt (`engine/magnet.ts`). */
+export const isLoose = (t: TileChar) => t === '▣' || t === '▤'
+export const isRailed = (t: TileChar) => t === '▥' || t === '▦'
+export const isBolt = (t: TileChar) => t === '▧'
+/** Iron that rests on the floor and may move (a bolt does not). */
+export const isIron = (t: TileChar) => isLoose(t) || isRailed(t)
+
 export const isViewBlock = (t: TileChar): t is typeof SQUARE_BLOCK | typeof DIAMOND_BLOCK => t === SQUARE_BLOCK || t === DIAMOND_BLOCK
 
 /**

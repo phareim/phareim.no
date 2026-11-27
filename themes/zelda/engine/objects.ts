@@ -6,7 +6,8 @@
 import type { Cond } from '../types'
 import { BOMB_FUSE, BOMB_RADIUS, DISC_RANGE, DISC_SPEED, HERO_R, PUSH_TIME, STAND_WAIT, THROW_RANGE } from '../types'
 import { echoOnTile } from './echo'
-import { TILE_INFO } from '../world/tiles'
+import { stepMagnet } from './magnet'
+import { TILE_INFO, isIron } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
 import { cutTile, throwLever, toggleCrystal } from './hero'
@@ -26,6 +27,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepDrops(c, dt)
   stepBlocks(c, dt)
   stepPhysics(c, dt)
+  stepMagnet(c, dt)
   stepPuzzles(c)
   stepStands(c, dt)
   stepNpcs(c, dt)
@@ -295,8 +297,8 @@ function stepPuzzles(c: Ctx) {
     const tx = idx % m.w
     const ty = Math.floor(idx / m.w)
     const moving = m.moving.some(b => b.tx === tx && b.ty === ty)
-    // (The echo holds a plain plate as a block does.)
-    if (((m.tiles[idx] === 'b' || m.tiles[idx] === 'B') && !moving) || echoOnTile(c, tx, ty)) pressed.push(id)
+    // (The echo holds a plain plate as a block does, and so does iron come to rest on it.)
+    if (((m.tiles[idx] === 'b' || m.tiles[idx] === 'B' || isIron(m.tiles[idx]!)) && !moving) || echoOnTile(c, tx, ty)) pressed.push(id)
   })
   pressed.push(...pressedWeights(c))
   for (const id of pressed) {

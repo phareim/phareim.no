@@ -26,11 +26,15 @@
  *   The bone road's block on its plate opens the shutter down to the gold vein; its foes guard the key to the Core.
  *   The Sun Below lies in the Core's floor; stepping onto it is the Geyser, which goes all the way up to Lumenby.
  *
+ * The new wing: a hollow wall at the east of the rails (a bomb) leads into THE HEAP (`world/heap.ts`: two maps on
+ * the same keyring, spread into `MAPS` here); `underglow1:heap` is the way back.
+ *
  * Entries on every floor: `up` (beside the stairs up) and `down` (beside the stairs down, or the Geyser).
  * Marker chars are listed in each floor's `marks`.
  */
 import type { EntDef, IsoLandmark, MapDef, Mark, TalkBranch } from '../types'
 import { joinCells } from './cells'
+import { HEAP_MAPS } from './heap'
 import { at, cycle, light, prop } from './scenery'
 
 type Npc = Extract<EntDef, { t: 'npc' }>
@@ -82,8 +86,8 @@ const RAILS = [
   '#..............#',
   '#.......g......#',
   '#..............#',
-  '#t..2.........t#',
-  '#######..#######',
+  '#t..2......94.t#',
+  '#######..##%####',
 ]
 
 const OLD_DRIFT = [
@@ -168,6 +172,8 @@ export const UNDERGLOW1: MapDef = {
     [SHAFT_FOOT, RAILS, OLD_DRIFT],
     [HANGING_GARDEN, GROVE, ROOT_STAIR],
   ]),
+  // The hollow wall at the east of the rails, once bombed: down into the Heap.
+  warps: [{ x: 27, y: 11, w: 1, h: 1, to: 'heap1', entry: 'door' }],
   isoLandmarks: [
     // The shaft foot: the void the lift hangs over, Rut's lift head on its north lip, the cage half way down.
     ...rim(4, 4, 4, 3),
@@ -208,10 +214,19 @@ export const UNDERGLOW1: MapDef = {
       { when: { flag: 'q.lamp.got' }, lines: ["BROR: GO ON. SHE'LL BE UNDER THE EMPTY SHIFT BOARD. SHE ALWAYS IS."] },
       { lines: ['BROR: FROM UP TOP? TELL MY SISTER GUNN THE RAILS HOLD.', "BROR: TAKE HER MY LAMP. I CAN'T CLIMB ANY MORE, AND I LIKE IT HERE. IT'S WARM."], set: 'q.lamp.got' },
     ]),
-    s: npc('d.sigge', 'kid', [{ lines: [
-      "SIGGE: I'M ONLY ALLOWED DOWN TO LAYER TWO. THIS IS LAYER TWO. I CHECKED.",
-      "SIGGE: THE HEART IN THE GARDEN, WEST? THE HOOK WON'T BITE FROM THIS SIDE.",
-    ] }]),
+    s: npc('d.sigge', 'kid', [
+      { when: { item: 'weightCredit' }, lines: [
+        'SIGGE: THE WALL ON THE RAILS IS QUIET NOW. I MISS BEING SCARED OF IT.',
+        "SIGGE: THE HEART IN THE GARDEN, WEST? THE HOOK WON'T BITE FROM THIS SIDE.",
+      ] },
+      { lines: [
+        "SIGGE: I'M ONLY ALLOWED DOWN TO LAYER TWO. THIS IS LAYER TWO. I CHECKED.",
+        "SIGGE: THE HEART IN THE GARDEN, WEST? THE HOOK WON'T BITE FROM THIS SIDE.",
+        'SIGGE: I KNOCKED ON THE WALL BY THE RAILS. IT KNOCKED BACK. I STOPPED KNOCKING.',
+      ] },
+    ]),
+    '9': { ent: { t: 'entry', id: 'heap', dir: 'up' } },
+    '4': sign("THE RAILS STOP AT THE WALL.\nSO DOES THE DELVERS' CHART.\n(B.G. DID NOT ASK WHY.)"),
     k: { ent: { t: 'chest', id: 'underglow1.key', item: 'smallKey', appear: { clear: true } } },
     h: { ent: { t: 'item', id: 'underglow1.piece', item: 'heartPiece' } },
     a: foe('bat'),
@@ -547,4 +562,4 @@ export const UNDERGLOW3: MapDef = {
 }
 
 /** The Underglow's floors by id (`lands.ts` collects them into the world). */
-export const MAPS: Record<string, MapDef> = { underglow1: UNDERGLOW1, underglow2: UNDERGLOW2, underglow3: UNDERGLOW3 }
+export const MAPS: Record<string, MapDef> = { underglow1: UNDERGLOW1, underglow2: UNDERGLOW2, underglow3: UNDERGLOW3, ...HEAP_MAPS }

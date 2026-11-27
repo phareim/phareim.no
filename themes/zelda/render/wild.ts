@@ -250,7 +250,8 @@ export function queueLuna(g: G, s: GameState, cx: number, cy: number, items: Ite
 
 export function drawHookChain(g: G, s: GameState, cx: number, cy: number, lights: Light[]) {
   const k = s.hook
-  if (!k) return
+  // (The Magnet's flight draws its own line, `heapMarks.ts`.)
+  if (!k || k.magnet) return
   const h = s.hero
   const hx = h.x * T - cx + k.dx * 4
   const hy = h.y * T - cy - 4 + k.dy * 4
