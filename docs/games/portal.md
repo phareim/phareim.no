@@ -44,7 +44,7 @@ item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
 floating stick. The world fills the whole screen and the buttons float
 half see-through over it, bottom right: round, with pictures for letters:
-A (a sword), with B (the item) and swap once there is an item; the top-right corner holds the pause chip and the turn switch, with the corner map under them between the 8-bit and the isometric view (M opens the map, P pauses; V turns the view too, the pause screen has it as a button, and the viewfinder east of the fountain turns it on A: `docs/games/neon-shrine.md`, "Views"). Any tap moves a dialog
+A (a sword), with B (the item) and swap once there is an item; the top-right corner holds the chart, in a frame that is a square in the 8-bit view and a diamond in the isometric one, and the Sun Prism on it (a tap on the chart opens the menu, a tap on the Prism turns the view; indoors a small pane with a door opens the menu; M opens the map, P pauses; V turns the view too, the pause screen has it as a button, and the viewfinder east of the fountain turns it on A: `docs/games/neon-shrine.md`, "Views"). Any tap moves a dialog
 on; a thumb that lands on the stick's side for that and stays down is the
 stick once the lines close. After lines close A rests for a third of a
 second before it talks again, and every press in that time starts the rest
@@ -335,7 +335,7 @@ else: give the exit a `url` again, delete `NewsStand.vue`, `news.ts`, `newsLinks
 `tests/portal-news.test.mjs`, and take `news` out of `PanelId` and
 `validate.ts`.
 
-**Page.** The canvas fills the locked viewport, and a visit starts in the isometric view (`docs/games/neon-shrine.md`, "Views"; the classic 8-bit one is a press on the turn switch away, or V). The hint ("ARROWS TO WALK ·
+**Page.** The canvas fills the locked viewport, and a visit starts in the isometric view (`docs/games/neon-shrine.md`, "Views"; the classic 8-bit one is a press on the Sun Prism in the corner away, or V). The hint ("ARROWS TO WALK ·
 SPACE TO TALK" / "DRAG TO WALK · TAP TO TALK") fades in and goes at the first
 step; it is skipped once `portal.return` exists. Winning shows the ending
 panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after

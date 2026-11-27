@@ -208,7 +208,7 @@ describe('the shell in the 16-bit dress', () => {
       assert.ok(at > 0, `${sel} has a rule`)
       return shell.slice(at + 2, shell.indexOf('\n}', at + 2))
     }
-    for (const sel of ['.px16 .zelda-chip', '.px16 .zelda-pad-wide', '.zelda-canvas.px16 ~ .portal-hint', '.px16.esc-hold-layer .esc-hold-pill']) {
+    for (const sel of ['.px16 .zelda-pad-wide', '.zelda-canvas.px16 ~ .portal-hint', '.px16.esc-hold-layer .esc-hold-pill']) {
       assert.match(rule(sel), /font-size: calc\(16 \* var\(--px16-u\)\);/, `${sel}: sixteen units to the em, the canvas font's size`)
       // Its letters, its padding and its frame are so many units, never a fixed number of px.
       for (const line of rule(sel).split('\n').filter(l => /^\s*(font-size|line-height|padding|gap|border|border-radius):/.test(l))) assert.doesNotMatch(line, /\dpx/, `${sel}: ${line.trim()}`)

@@ -84,7 +84,7 @@ describe('a thumb that lands while a dialog is open (2026-10-06)', () => {
   })
 })
 
-describe('a control beside the world that has the keyboard (the turn switch)', () => {
+describe('a control beside the world that has the keyboard (the corner\'s buttons)', () => {
   const button = () => { const b = { blurred: 0, blur() { b.blurred++ }, closest: sel => (sel === '[data-game-keys]' || sel.includes('button') ? b : null) }; return b }
   const key = (code, target) => { const e = { code, target, prevented: false, preventDefault() { e.prevented = true } }; on.keydown(e); return e }
   it('keeps Enter, Space and Tab for itself', () => {

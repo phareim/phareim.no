@@ -203,7 +203,7 @@ export function createInput(hooks: InputHooks): GameInput {
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey || e.altKey) return
-    // A control beside the world that was reached by Tab (`data-game-keys`: the turn switch) owns the keys
+    // A control beside the world that was reached by Tab (`data-game-keys`: the corner's buttons) owns the keys
     // that work it and no others: anything else lets go of it and is the game's, so nobody is left standing
     // with a button under their fingers.
     const own = (e.target as HTMLElement | null)?.closest?.('[data-game-keys]') as HTMLElement | null | undefined

@@ -179,7 +179,7 @@ faces and how near it lies, so the view lights it and sorts the hero against it 
 with what does not move the same, or are pixel edits of one drawing, so the animation does not shimmer.
 
 Another view draws the same state another way: an isometric one, where a visit starts, with a sun of its own and its
-own materials for the ground, the walls and the roofs. The turn switch in the corner turns between the two:
+own materials for the ground, the walls and the roofs. The Sun Prism in the corner turns between the two:
 `docs/games/neon-shrine.md`, "Views". (A third, the polygon engine with its POLYGON and THIRD PERSON looks, was archived
 on the branch `parked/polygon-engine` on 2026-11-25.)
 

@@ -1,4 +1,4 @@
-// The map (M) and the corner map: where the hero has been (engine/explore.ts), how it is kept in the save,
+// The map (M) and the chart in the corner: where the hero has been (engine/explore.ts), how it is kept in the save,
 // and how the shell reaches the menu's two pages (Zelda.vue).
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -98,13 +98,12 @@ describe('the menu: ITEMS and MAP', () => {
     assert.match(keys, /e\.code === 'KeyP'\)[^\n]*openPage\('items'\)/)
     assert.match(keys, /e\.code === 'KeyM' && !confirmReset\.value\)[^\n]*openPage\('map'\)/)
     assert.equal(keys.split("'KeyM'").length - 1, 1, 'M has one meaning')
-    // In the menu O is the sound and C the corner map (on the MAP page).
+    // In the menu O is the sound.
     assert.match(keys, /'KeyO'\) \{[^\n]*toggleSound\(\)/)
-    assert.match(keys, /'KeyC' && menuPage\.value === 'map'\) \{[^\n]*toggleCorner\(\)/)
   })
 
   it('closes on the open page\'s own key and turns the page on the other', () => {
-    const fn = shell.slice(shell.indexOf('function openPage'), shell.indexOf('function toggleCorner'))
+    const fn = shell.slice(shell.indexOf('function openPage'), shell.indexOf('function togglePause'))
     assert.match(fn, /if \(!paused\.value\) \{ togglePause\(page\); return \}/)
     assert.match(fn, /if \(menuPage\.value === page\) \{ togglePause\(\); return \}/)
     assert.match(fn, /menuPage\.value = page/)

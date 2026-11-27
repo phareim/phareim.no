@@ -99,8 +99,6 @@ export interface FrameUI {
   view?: string
   /** The menu's page while paused: ITEMS (the default), MOVES (`hud.ts` drawMoves) or MAP (`worldMap.ts`). */
   page?: MenuPage
-  /** The corner map is on (said on the MAP page). */
-  corner?: boolean
   /** The view's turn for the map (0 classic, 1 isometric): `viewState().turn`. */
   turn?: number
   /** The view strip: every view in the round and which one is on, shown for a moment after a change. */
@@ -1635,7 +1633,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         g.restore()
       }
       if (ui.paused && ui.page === 'moves' && !ui.confirmReset) drawMoves(g, s, sp.vw, sp.vh, ui.keys, skin)
-      else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, corner: ui.corner ?? true, view: ui.view ?? '' }, skin)
+      else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, view: ui.view ?? '' }, skin)
       else if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }
@@ -2374,7 +2372,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /**
    * After a set: a view that cannot draw yet is waited for from this moment, not from the next frame drawn, so
-   * whoever reads the state in between (the shell's dress, its turn switch) is never told the view is in.
+   * whoever reads the state in between (the shell's dress, its corner) is never told the view is in.
    */
   function settle() {
     const v = turn.shown ? views.get(turn.shown) : undefined

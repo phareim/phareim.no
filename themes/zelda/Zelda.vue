@@ -4,86 +4,87 @@
   <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused }" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
-  <EscHold :class="{ px16: dress16 }" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
-  <!-- The corner: pause and the turn switch, and the map under them: the three ways into the menu and the views.
-    (The map comes and goes, indoors and in a fight, with nothing under it to move: the chip stays where the thumb knows it.)
+  <EscHold :class="{ px16: dress16 }" class="zelda-esc" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
+  <!-- The corner (`render/corner.ts`): one object, painted on one canvas that takes no pointer, with three real
+    buttons laid over it from `cornerLayout`. The chart is its body and the frame's shape says the view: a square in
+    the 8-bit view, a 2:1 diamond in the isometric one, turning with the world. A press on the chart opens the menu
+    on its MAP page, as M does; its button is shaped as the frame (a clip-path), so a tap in the empty triangles
+    beside the diamond goes to the world. The Sun Prism on the frame's right corner turns the view, as V does, and
+    keeps the day's clock; where the map allows one view only it is pinned. No `.stop` on its press: a first touch
+    must still reach input.ts, which is where the touch deck is turned on. The pause chip opens the menu's ITEMS page,
+    as P and an Escape tap do: hidden but for a screen reader and Tab where there is a chart, and on screen as the
+    stub (a pane of glass with a door, the hero in it) where there is none, so the menu is always a touch away.
     All three hand the game its keys back when they have been reached by Tab (`data-game-keys`, input.ts).
     It steps away, by class and never by v-if, while something else has the screen: the menu (which has its own
-    buttons), a dialog (its box may lie across the corner), a panel, the dark of a way out.
-    The corner map (`render/worldMap.ts`) is a window round the hero that turns with the world; a press opens the
-    menu's MAP page, as M does. The pause chip opens its ITEMS page, as P and an Escape tap do.
-    The turn switch (`render/turnSwitch.ts`): 8 [ carriage ] 16. A press turns the world to the next view, as V
-    does, and the carriage rides the turn. No `.stop` on its press: a first touch must still reach input.ts, which
-    is where the touch deck is turned on. -->
+    buttons), a dialog (its box may lie across the corner), a panel, the dark of a way out. -->
   <div
     v-if="phase === 'play'"
     ref="corner"
     class="zelda-corner"
     :class="{ px16: dress16, 'zelda-corner--touch': touchUI, 'zelda-corner--away': paused || !!panel || talking || leaving, 'zelda-corner--night': turnStage === 'night', 'zelda-corner--dawn': turnStage === 'dawn' }"
   >
-    <div class="zelda-corner-row">
+    <canvas ref="cornerCanvas" class="zelda-corner-canvas" :style="cornerAt.canvas" aria-hidden="true" />
     <button
       type="button"
       class="zelda-chip"
+      :class="{ 'zelda-chip--hidden': chartShown }"
+      :style="chartShown ? undefined : cornerAt.pause"
       data-game-keys
       :disabled="paused || !!panel || talking || leaving"
       aria-label="Pause"
       aria-keyshortcuts="P"
       :title="touchUI ? undefined : 'Pause (P)'"
-      @pointerdown.prevent.stop="openPage('items')"
+      @pointerdown.prevent="pressCorner('chart', $event) && openPage('items')"
       @click="$event.detail === 0 && openPage('items')"
       @mousedown.prevent
       @contextmenu.prevent
-    >II</button>
-  <div
-    v-if="viewCount > 1"
-    ref="turnWrap"
-    class="zelda-turn-wrap"
-    :class="{ px16: dress16, 'zelda-turn-wrap--touch': touchUI }"
-  >
-    <button
-      ref="turnBtn"
-      type="button"
-      class="zelda-turn"
-      data-game-keys
-      :disabled="paused || !!panel || talking || leaving"
-      :aria-label="turnLabel"
-      aria-keyshortcuts="V"
-      :aria-busy="turnWaiting || undefined"
-      :title="touchUI ? undefined : 'View (V)'"
-      @pointerdown.prevent="turnPress"
-      @mousedown.prevent
-      @pointerup="turnRelease"
-      @pointercancel="turnRelease"
-      @click="turnClick"
-      @keydown="turnKey"
-      @contextmenu.prevent
-      @pointerenter="turnHover($event, true)"
-      @pointerleave="turnHover($event, false)"
-    ><canvas ref="turnCanvas" class="zelda-turn-canvas" aria-hidden="true" /></button>
-  </div>
+    />
+    <div
+      v-if="viewCount > 1"
+      class="zelda-turn-wrap"
+      :style="cornerAt.view"
+    >
+      <button
+        ref="turnBtn"
+        type="button"
+        class="zelda-turn"
+        data-game-keys
+        :disabled="paused || !!panel || talking || leaving"
+        :aria-label="turnLabel"
+        aria-keyshortcuts="V"
+        :aria-busy="turnWaiting || undefined"
+        :title="touchUI ? undefined : 'View (V)'"
+        @pointerdown.prevent="turnPress"
+        @mousedown.prevent
+        @pointerup="turnRelease"
+        @pointercancel="turnRelease"
+        @click="turnClick"
+        @keydown="turnKey"
+        @contextmenu.prevent
+      />
     </div>
     <button
-      v-if="miniShown"
+      v-if="chartShown"
       type="button"
       class="zelda-mini"
+      :style="cornerAt.map"
       data-game-keys
       :disabled="paused || !!panel || talking || leaving"
-      aria-label="Map"
+      :aria-label="mapLabel"
       aria-keyshortcuts="M"
       :title="touchUI ? undefined : 'Map (M)'"
-      @pointerdown.prevent.stop="openPage('map')"
+      @pointerdown.prevent="pressCorner('chart', $event) && openPage('map')"
       @click="$event.detail === 0 && openPage('map')"
       @mousedown.prevent
       @contextmenu.prevent
-    ><canvas ref="miniCanvas" class="zelda-mini-canvas" aria-hidden="true" /></button>
+    />
   </div>
   <span class="zelda-turn-said" role="status" aria-live="polite">{{ turnSaid }}</span>
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
-    the left 60 % that isn't a button. Pause, the map and the views sit apart,
-    in the top-right corner, where no thumb rests. While the game stands
+    the left 60 % that isn't a button. The menu (the chart) and the views (the
+    Sun Prism) sit apart, in the top-right corner, where no thumb rests. While the game stands
     still the deck holds the menu's buttons: its two pages, and what each
     switches, four to a page (the views are on the MAP page, and in the
     corner in play). -->
@@ -129,7 +130,6 @@
         <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
       </template>
       <template v-else>
-        <button class="zelda-pad zelda-pad-wide" :aria-pressed="cornerMap" @pointerdown.prevent.stop="toggleCorner" @contextmenu.prevent>{{ cornerMap ? 'CORNER MAP ON' : 'CORNER MAP OFF' }}</button>
         <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>VIEW: {{ viewLabel }}</button>
       </template>
     </div>
@@ -163,13 +163,15 @@
  * P or an Escape tap open the menu on its ITEMS page, N on its MOVES page, M on its MAP page
  * (`render/worldMap.ts`); there the key of the open page (or Escape) closes
  * it, another page's key turns to it. In the menu T goes to town, O turns the
- * sound on or off, C the corner map; V turns to the next view anywhere
- * (`views.ts`: the classic one a visit starts in, the 16-bit one, and the
- * studio's own); holding Escape saves and goes back to town.
+ * sound on or off; V turns to the next view anywhere (`views.ts`: the
+ * isometric one a visit starts in, the classic one, and the studio's own);
+ * holding Escape saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
  * pictures, no letters: A (the sword), and with an item B (the item) and
- * swap. The top-right corner holds the map, the pause chip and the turn
- * switch. The input itself is `input.ts`.
+ * swap. The top-right corner (`render/corner.ts`) is the chart in a frame
+ * that says the view: a press on it opens the menu, a press on the Sun Prism
+ * on its corner turns the view; indoors a small pane with a door stands in
+ * the chart's place and opens the menu. The input itself is `input.ts`.
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL. Installed as a web app, a game on another address
@@ -202,9 +204,8 @@ import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin, type MenuPage } from './render/hud'
-import { drawMiniMap, hasMiniMap, MINI_H, MINI_W } from './render/worldMap'
-import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
+import { HIRES_WINDOW_SKIN, type MenuPage } from './render/hud'
+import { CORNER_H, CORNER_W, PRESS_TIME, TAG_TIME, VIEW_NOT_LOADED, awayStep, backStep, chartNight, chromeAlpha, cornerLayout, cornerShape, cornerTargets, hasChart, oneViewWords, paintCorner, sunPhase, turnAmount, type CornerState } from './render/corner'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
 import { itemIconName } from './render/itemIcon'
@@ -253,14 +254,10 @@ const RESET_GRACE_MS = 600
 const canvas = ref<HTMLCanvasElement | null>(null)
 const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
-/** The menu's page while paused: ITEMS (P, Escape, the pause chip) or MAP (M, the corner map). */
+/** The menu's page while paused: ITEMS (P, Escape, the pause chip) or MAP (M, the chart in the corner). */
 const menuPage = ref<MenuPage>('items')
 /** The page the deck's second button turns to: ITEMS → MOVES → MAP → ITEMS. */
 const nextPage = computed<MenuPage>(() => (menuPage.value === 'items' ? 'moves' : menuPage.value === 'moves' ? 'map' : 'items'))
-/** The corner map is wanted (C on the MAP page; kept in this browser), and where the hero is it has something to show. */
-const CORNER_KEY = 'zelda.cornerMap'
-const cornerMap = ref(true)
-const miniShown = ref(false)
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
 /** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror, the newsstand's reader); the hero stands still while it is open. */
@@ -472,14 +469,12 @@ function viewFailed() {
   viewAsk++
   viewId.value = 'classic'
   viewShown = 'classic'
-  turnAt.a = 'classic'
-  // (The switch is told where it stands: the bump and NO SIGNAL are the news here, not an arrival at the classic view.)
-  sw.rest = 'classic'
-  turnSaid.value = `${sayView('classic')} view`
+  // (The corner is told where it stands: the refusal is the news here, not an arrival at the classic view.)
+  cn.rest = 'classic'
   pausedDrawn = false
   syncSound()
   syncDress()
-  turnRefuse()
+  turnRefuse(VIEW_NOT_LOADED, `View not loaded. ${sayView('classic')} view`)
 }
 
 /**
@@ -497,8 +492,6 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   // (A view that keeps throwing is not made a fourth time.)
   if ((engineFails.get(def.engine) ?? 0) >= FAILS_MAX) { turnRefuse(); return }
   viewId.value = def.id
-  if (def.engine === 'classic') turnAt.a = def.id
-  else turnAt.b = def.id
   const ask = ++viewAsk
   const load = ENGINE_LOADERS[def.engine]
   if (load && !renderer.hasView(def.engine)) {
@@ -568,13 +561,19 @@ function fitView() {
 
 function cycleView() {
   if (phase.value !== 'play') return
-  // (The visitor has found the views: the switch has nothing left to point out.)
-  sw.fresh = false
-  audio?.sfx('menu')
-  // (The pause screen names the view itself; in play the turn switch shows it, and names it when it arrives.)
+  // (The visitor has found the views: the Prism has nothing left to point out.)
+  learn('gem')
+  // (The pause screen names the view itself; in play the corner's tag names it when it arrives.)
   let next = nextView(viewId.value)
   for (let i = 0; i < viewList().length && !allows(next); i++) next = nextView(next)
-  if (next === viewId.value) { turnRefuse(); return }
+  // A map that allows one view only: the Prism is pinned, and says so.
+  if (next === viewId.value) {
+    const words = state ? oneViewWords(mapInfo(WORLD, state.map.id).def, viewList()) : null
+    if (words) turnRefuse(words.tag, words.said)
+    else audio?.sfx('error')
+    return
+  }
+  audio?.sfx('menu')
   heldView = null
   void showView(next)
 }
@@ -593,213 +592,239 @@ function applyLiveViews(live: LiveViews | null) {
   slowT = 0
 }
 
-// ---- the turn switch -------------------------------------------------------------
+// ---- the corner ---------------------------------------------------------------------
 
 /**
- * The instrument in the corner (`render/turnSwitch.ts`): a slot with the views' numerals at its ends and a
- * carriage that carries one ground tile. Everything on it is a function of the renderer's own `k`, read once
- * a frame after the dress: where the carriage stands, the tile's shape (a square, the 2:1 diamond), the seam
- * between its two dresses. So it turns with the world, and a second press in the middle of a turn takes it
- * back in the same frame as the world. It holds no motion of its own but two small ones: the tick that shows a
- * first-time visitor it can move, and the bump of a refusal.
+ * The corner (`render/corner.ts`): the chart in a frame that says the view, the Sun Prism, and where there is no
+ * chart the stub. Everything on it is a function of the game and of the renderer's own turn, read once a frame after
+ * the dress: the frame's shape follows `viewState().turn` (`turnAmount`), so it turns with the world, and a second press in the
+ * middle of a turn takes it back in the same frame as the world. Its own few moments are kept here: a press, a tag
+ * that stands 1.6 s, the steps of stepping away and back, the first visit's two lessons.
  */
-const turnWrap = ref<HTMLElement | null>(null)
+const corner = ref<HTMLElement | null>(null)
+const cornerCanvas = ref<HTMLCanvasElement | null>(null)
 const turnBtn = ref<HTMLButtonElement | null>(null)
-const turnCanvas = ref<HTMLCanvasElement | null>(null)
 const viewCount = computed(() => (void viewRound.value, viewList().length))
 /** The hero is on the way out of the map (a door, a cabinet): the canvas goes dark and hides its HUD. */
 const leaving = ref(false)
 /** A visit's first moments: nothing while the screen is dark, then up out of it with the first picture. */
 const turnStage = ref<'night' | 'dawn' | 'up'>('night')
 const turnWaiting = ref(false)
-/** What a screen reader is told when the view changes. */
+/** What a screen reader is told when the view changes, or a press of the Prism is refused. */
 const turnSaid = ref('')
+/** Where the hero is there is a chart (a charted map, not a cabinet's demo): the chart is the menu's button, else the stub is (the chip). */
+const chartShown = ref(false)
+const mapLabel = ref('Map')
+/** The map allows one view only: what a press of the Prism says (null: it turns). */
+const pinnedWords = ref<{ tag: string; said: string } | null>(null)
 const sayView = (id: ViewId) => {
   const v = viewDef(id) ?? viewDef('classic')!
   return `${v.name.charAt(0)}${v.name.slice(1).toLowerCase()}${v.tag ? ` ${v.tag.toLowerCase()}` : ''}`
 }
-const turnLabel = computed(() => (void viewRound.value, `View: ${sayView(viewId.value)}. Press for ${sayView(nextView(viewId.value))}.`))
-/** The stops the carriage runs between: the classic-engine view last asked for (k = 0) and the last of another engine (k = 1). */
-const turnAt = { a: 'classic' as ViewId, b: '' as ViewId }
+const turnLabel = computed(() => (void viewRound.value, pinnedWords.value
+  ? `View: ${sayView(viewId.value)}. ${pinnedWords.value.said}.`
+  : `View: ${sayView(viewId.value)}. Press for ${sayView(nextView(viewId.value))}.`))
+/** Where the three buttons and the canvas stand (`cornerLayout`), as styles; the chart's button shaped by its clip-path. */
+type BoxStyle = Record<string, string>
+const cornerAt = shallowRef<{ canvas: BoxStyle; map: BoxStyle; pause: BoxStyle; view: BoxStyle }>({ canvas: {}, map: {}, pause: {}, view: {} })
 const DAWN_MS = 320
-const CAPTION_MS = 1800
 const WAIT_SHOWN_MS = 150
-const sw = {
-  hover: false, down: false, downAt: -1e9, byPointer: false,
-  sig: '', chrome: 1, unit: '', width: '', firstAt: 0,
-  caption: '', captionAt: -1e9, captionHot: false, refuseAt: -1e9,
-  /** A browser that has never chosen a view: the carriage ticks once or twice, and no more. */
-  fresh: false, tickAt: -1e9, ticks: 0, tickDue: 0, sawWaiting: false,
+/** The first visit's lessons, once per browser: how far the player has come (a bit each), kept in this key. */
+const LESSON_KEY = 'zelda.cornerLessons'
+const LESSON = { chart: 1, gem: 2 } as const
+/** How long a lesson stands, and the pause before the next one. */
+const LESSON_MS = 3600
+const LESSON_GAP_MS = 1500
+const cn = {
+  sig: '', layKey: '', unit: '', chrome: 1, firstAt: 0, el: null as HTMLCanvasElement | null,
+  /** The safe area's insets, CSS px (`safeInsets`, at each resize). */
+  safe: { top: 0, right: 0 },
+  press: null as 'chart' | 'gem' | null, pressAt: -1e9, byPointer: false,
+  tag: '', tagAt: -1e9,
   /** The view at the last rest (null: no frame yet), and whether a turn has been seen since. */
-  rest: null as ViewId | null, sawTurn: false,
-  /** The canvas last painted (the ending takes the switch away and brings a new one back), and when the wait began. */
-  el: null as HTMLCanvasElement | null, waitFrom: -1,
-  scratch: null as [HTMLCanvasElement, HTMLCanvasElement] | null,
+  rest: null as ViewId | null, sawTurn: false, waitFrom: -1,
+  /** Stepping away and back: since when, and from how far gone. */
+  away: false, awayAt: -1e9, backAt: -1e9, backFrom: 0 as 0 | 1 | 2 | 3 | 4, level: 0 as 0 | 1 | 2 | 3 | 4,
+  lessons: 0, lesson: null as 'chart' | 'gem' | null, lessonAt: 0, lessonDue: Infinity,
 }
 
-function turnCaption(text: string, nowMs: number, hot = false) {
-  sw.caption = text
-  sw.captionAt = nowMs
-  sw.captionHot = hot
+function cornerTag(text: string, nowMs = performance.now()) {
+  cn.tag = text
+  cn.tagAt = nowMs
 }
 
-/** The view's code did not arrive: the carriage bumps toward it and falls back, and says so. */
-function turnRefuse() {
+/**
+ * A press of the Prism that cannot turn: it sinks a step and comes back, the tag says why for 1.6 s, the live region
+ * says it, and the refusal's sound plays. The words of a map that allows one view (`oneViewWords`), or of a view whose
+ * code did not arrive.
+ */
+function turnRefuse(tag: string = VIEW_NOT_LOADED, said = 'View not loaded') {
   const now = performance.now()
-  sw.refuseAt = now
-  turnCaption('NO SIGNAL', now, true)
+  cn.press = 'gem'
+  cn.pressAt = now
+  cornerTag(tag, now)
+  // (The live region is emptied first and the words set once the page shows it empty: a screen reader says a
+  // second refusal too, where the same words set again would change nothing.)
+  turnSaid.value = ''
+  void nextTick(() => { turnSaid.value = said })
   audio?.sfx('error')
 }
 
-/** The HUD skin a view wears on this screen (`fine`: the screen has a finer pixel than the HUD's). */
-function hudSkinOf(id: ViewId, fine: boolean): HudSkin {
-  return !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+/** A lesson learnt, for good in this browser. */
+function learn(what: 'chart' | 'gem') {
+  if (cn.lesson === what) { cn.lesson = null; cn.lessonDue = performance.now() + LESSON_GAP_MS }
+  if (cn.lessons & LESSON[what]) return
+  cn.lessons |= LESSON[what]
+  try { localStorage.setItem(LESSON_KEY, String(cn.lessons)) } catch { /* private mode: this visit only */ }
+}
+
+/** A pointer on the chart or the stub (or, for the gem, from `turnPress`): its press shows, and its lesson is learnt. False for a mouse's other buttons. */
+function pressCorner(what: 'chart' | 'gem', e?: PointerEvent): boolean {
+  if (e && e.pointerType === 'mouse' && e.button !== 0) return false
+  cn.press = what
+  cn.pressAt = performance.now()
+  if (what === 'chart') learn('chart')
+  return true
+}
+
+/**
+ * Keyboard focus on a button of the corner, read from the page each frame: the painter rings what it opens in gold.
+ * Read, never kept from focus and blur events, which do not come when a focused button is taken away (a door
+ * walked through takes the chart's), hidden or disabled (the menu): the ring cannot outlive the focus. (A pointer
+ * never focuses them.)
+ */
+function cornerFocus(): 'chart' | 'gem' | null {
+  const el = document.activeElement
+  if (!el || !el.matches('.zelda-chip:not(:disabled), .zelda-mini:not(:disabled), .zelda-turn:not(:disabled)')) return null
+  try { if (!el.matches(':focus-visible')) return null } catch { /* an old browser: any focus */ }
+  return el.matches('.zelda-turn') ? 'gem' : 'chart'
 }
 
 /** The corner's unit: one fine px of the canvas HUD, a whole number of device px and never under one CSS px. */
-function cornerUnit(): { uDev: number; css: string } {
+function cornerUnit(): { uDev: number; u: number } {
   const dpr = window.devicePixelRatio || 1
   const uDev = Math.max(Math.round((renderer?.fineUnit() ?? 1) * dpr), Math.ceil(dpr))
-  return { uDev, css: `${uDev / dpr}px` }
+  return { uDev, u: uDev / dpr }
 }
 
-const corner = ref<HTMLElement | null>(null)
-const miniCanvas = ref<HTMLCanvasElement | null>(null)
-const mini = { sig: '', unit: '', wrap: null as HTMLElement | null, cv: null as HTMLCanvasElement | null }
+const px = (v: number) => `${+v.toFixed(3)}px`
+const boxStyle = (b: { x: number; y: number; w: number; h: number } | null): BoxStyle => (b ? { left: px(b.x), top: px(b.y), width: px(b.w), height: px(b.h) } : {})
 
-/** Each frame, after the switch: the corner map round the hero, drawn when what it shows has changed. */
-function stepMiniMap(nowMs: number) {
-  if (!renderer) return
-  const shown = cornerMap.value && hasMiniMap(WORLD, state)
-  if (shown !== miniShown.value) miniShown.value = shown
-  const wrap = corner.value
-  const { uDev, css } = cornerUnit()
-  // (A corner or a canvas made anew, after the ending or a fight, has neither the unit nor the picture yet.)
-  if (wrap !== mini.wrap) { mini.wrap = wrap; mini.unit = '' }
-  if (wrap && css !== mini.unit) { mini.unit = css; wrap.style.setProperty('--zelda-turn-u', css) }
-  const cv = miniCanvas.value
-  if (cv !== mini.cv) { mini.cv = cv; mini.sig = '' }
-  if (!shown || !cv) return
-  const vs = renderer.viewState()
-  const e = Math.max(0, Math.min(1, vs.turn))
-  const reduced = reducedMotion.value
-  // The dress changes where the canvas HUD's does, half way through a turn.
-  const skin = hudSkinOf((vs.k >= 0.5 ? turnAt.b : turnAt.a) || viewId.value, renderer.fineUnit() > 0)
-  const s = state
-  const key = touchUI.value ? null : 'M'
-  const blink = reduced ? 0 : Math.floor(nowMs / 400) % 2
-  const sig = [uDev, skin === NEON_SKIN ? 0 : 3, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.round(s.hero.x * 8), Math.round(s.hero.y * 8), s.hero.dir, Math.round(e * 200), viewId.value, key, blink].join('|')
-  if (sig === mini.sig) return
-  mini.sig = sig
-  if (cv.width !== MINI_W * 2 * uDev || cv.height !== MINI_H * 2 * uDev) { cv.width = MINI_W * 2 * uDev; cv.height = MINI_H * 2 * uDev }
-  const g = cv.getContext('2d')!
-  g.setTransform(uDev * 2, 0, 0, uDev * 2, 0, 0)
-  g.imageSmoothingEnabled = false
-  drawMiniMap(g, WORLD, s, e, skin, key, nowMs / 1000, reduced)
-}
-
-/** Each frame, after the dress: the switch as the renderer's turn has it. Draws only when something changed. */
-function stepTurnSwitch(nowMs: number) {
+/** Each frame, after the dress: the corner as the game and the renderer's turn have it. Paints only when something changed. */
+function stepCorner(nowMs: number) {
   if (!renderer) return
   const vs = renderer.viewState()
   if (vs.dark) { if (turnStage.value !== 'night') turnStage.value = 'night'; return }
-  if (turnStage.value === 'night') { turnStage.value = 'dawn'; sw.firstAt = nowMs; sw.tickDue = nowMs + 1200 }
-  else if (turnStage.value === 'dawn' && nowMs - sw.firstAt > DAWN_MS) turnStage.value = 'up'
-  const e = ease(vs.k)
+  if (turnStage.value === 'night') { turnStage.value = 'dawn'; cn.firstAt = nowMs; cn.lessonDue = nowMs + 1200 }
+  else if (turnStage.value === 'dawn' && nowMs - cn.firstAt > DAWN_MS) turnStage.value = 'up'
   const fine = renderer.fineUnit() > 0
-  // What changes dress beside the canvas fades out before the flip and in after it, as the canvas HUD does.
-  const chrome = fine && (dressWanted || dress16.value) && vs.turning && !vs.waiting ? Math.round(chromeAlpha(e) * 50) / 50 : 1
-  if (chrome !== sw.chrome) { sw.chrome = chrome; canvas.value?.parentElement?.style.setProperty('--zelda-chrome-a', String(chrome)) }
-  const cv = turnCanvas.value
-  const wrap = turnWrap.value
-  if (!cv || !wrap) return
-  if (sw.el !== cv) { sw.el = cv; sw.sig = ''; sw.unit = ''; sw.width = '' }
-
+  // What changes dress beside the canvas (the page's hint, the deck's pictures) fades out before the flip and in
+  // after it, as the canvas HUD does. The corner wears one dress and does not.
+  const chrome = fine && (dressWanted || dress16.value) && vs.turning && !vs.waiting ? Math.round(chromeAlpha(ease(vs.k)) * 50) / 50 : 1
+  const host = canvas.value?.parentElement
+  if (chrome !== cn.chrome) { cn.chrome = chrome; host?.style.setProperty('--zelda-chrome-a', String(chrome)) }
+  const s = state
+  const def = mapInfo(WORLD, s.map.id).def
+  const chart = hasChart(WORLD, s)
+  if (chart !== chartShown.value) chartShown.value = chart
+  const place = (s.area || def.name || '').toLowerCase().replace(/(^|[\s-])(\S)/g, (_, a: string, b: string) => a + b.toUpperCase())
+  const label = `Map: ${place}`
+  if (label !== mapLabel.value) mapLabel.value = label
+  // Pinned exactly when the round holds a view to turn to, and only one this map allows (`pinName`); the painter
+  // takes the same round, so its plate and these words never disagree.
   const round = viewList()
-  const n = round.length
-  const skinOf = (id: ViewId) => hudSkinOf(id, fine)
-  const stops = round.map(v => ({ label: n === 2 ? shortTag(v.tag) : '', skin: skinOf(v.id) }))
-  const stopOf = (id: ViewId, classic: boolean) => {
-    let i = round.findIndex(v => v.id === id)
-    if (i < 0) i = round.findIndex(v => (v.engine === 'classic') === classic)
-    return Math.max(0, i)
-  }
-  const a = stopOf(turnAt.a, true)
-  const b = stopOf(turnAt.b, false)
+  const words = oneViewWords(def, round)
+  if (words?.tag !== pinnedWords.value?.tag) pinnedWords.value = words
+
   const waiting = vs.waiting || viewId.value !== viewShown
-  if (!waiting) sw.waitFrom = -1
-  else if (sw.waitFrom < 0) sw.waitFrom = nowMs
+  if (!waiting) cn.waitFrom = -1
+  else if (cn.waitFrom < 0) cn.waitFrom = nowMs
   // (A view that is here but paints its map first is waited for over a frame or three: too short to say so.)
-  const busy = waiting && nowMs - sw.waitFrom >= WAIT_SHOWN_MS
+  const busy = waiting && nowMs - cn.waitFrom >= WAIT_SHOWN_MS
   if (busy !== turnWaiting.value) turnWaiting.value = busy
-  // (Any wait counts as having seen the switch at work, shown or not: a view that then turns in needs no pointing out.)
-  if (waiting) sw.sawWaiting = true
   const away = paused.value || panel.value !== null || talking.value || leaving.value
   const reduced = reducedMotion.value
-  const here = Math.max(0, round.findIndex(v => v.id === viewId.value))
 
-  // Arriving: the caption names the view, once the turn has seated. A change made while the switch was away is taken in silence.
-  if (vs.turning && !vs.waiting) sw.sawTurn = true
+  // Arriving: the tag names the view, once the turn has seated. A change made while the corner was away is taken in silence.
+  if (vs.turning && !vs.waiting) cn.sawTurn = true
   if (!vs.turning && !waiting) {
-    if (sw.rest !== null && sw.rest !== viewId.value) {
+    if (cn.rest !== null && cn.rest !== viewId.value) {
       turnSaid.value = `${sayView(viewId.value)} view`
       if (!away) {
-        turnCaption(captionFor(viewName(viewId.value), here, n, skinOf(viewId.value)), nowMs)
-        if (sw.sawTurn) audio?.sfx('select')
+        cornerTag(viewName(viewId.value), nowMs)
+        if (cn.sawTurn) audio?.sfx('select')
       }
     }
-    sw.rest = viewId.value
-    sw.sawTurn = false
-  } else if (sw.rest === null) sw.rest = ''
+    cn.rest = viewId.value
+    cn.sawTurn = false
+  } else if (cn.rest === null) cn.rest = ''
 
-  // A first visit: the carriage leans toward the other end and comes back, with the view's name under it; once more a while later.
-  // (Not over a refusal: NO SIGNAL is read first, 1.6 s lit and 0.3 s fading.)
-  if (sw.fresh && sw.captionHot) sw.tickDue = Math.max(sw.tickDue, sw.captionAt + 1900)
-  if (sw.fresh && sw.ticks < 2 && !sw.sawWaiting && !away && !vs.turning && !waiting && nowMs >= sw.tickDue && n === 2) {
-    sw.ticks++
-    sw.tickAt = nowMs
-    sw.tickDue = nowMs + 6000
-    if (sw.ticks === 1) turnCaption(captionFor(viewName(viewId.value), here, n, skinOf(viewId.value)), nowMs)
-  } else if (sw.fresh && away && sw.tickDue < nowMs + 600) sw.tickDue = nowMs + 600
+  // Stepping away in three dithers and back in three (at once with reduced motion).
+  if (away !== cn.away) {
+    cn.away = away
+    if (away) cn.awayAt = nowMs
+    else { cn.backAt = nowMs; cn.backFrom = cn.level }
+  }
+  cn.level = away ? awayStep(nowMs - cn.awayAt, reduced) : backStep(nowMs - cn.backAt, cn.backFrom, reduced)
 
-  const toward = (from: number, to: number) => Math.sign(to - from)
-  const atB = e >= 0.5
-  const ticking = !reduced && nowMs - sw.tickAt < TICK_MS
-  const nudge = ticking ? toward(atB ? b : a, atB ? a : b) * tickNudge(nowMs - sw.tickAt)
-    : !reduced && nowMs - sw.refuseAt < REFUSE_MS ? toward(a, b) * refuseNudge(nowMs - sw.refuseAt) : 0
-  const age = nowMs - sw.captionAt
-  const hold = sw.captionHot ? 1600 : CAPTION_MS
-  const lit = !sw.caption ? 0 : age < hold ? 3 : reduced ? 0 : age < hold + 150 ? 2 : age < hold + 300 ? 1 : 0
-  const st: SwitchState = {
-    stops, a, b, e,
-    key: touchUI.value ? null : 'V',
-    waiting: busy,
-    hover: sw.hover,
-    down: sw.down || nowMs - sw.downAt < 90,
-    nudge,
-    flash: ticking ? (atB ? a : b) : -1,
-    caption: lit ? sw.caption : '',
-    captionLit: lit as 0 | 1 | 2 | 3,
-    captionHot: sw.captionHot,
-    time: nowMs / 1000,
-    reduced,
+  // The first visit's lessons, on touch only (beside a keyboard the key caps teach it): the chart first, a moment
+  // after the first picture where there is one; the Prism the first time the hero stands where it turns.
+  const keys = !touchUI.value
+  if (cn.lesson && (away || keys)) { cn.lesson = null; cn.lessonDue = nowMs + 1200 }
+  else if (cn.lesson && nowMs - cn.lessonAt > LESSON_MS) learn(cn.lesson)
+  else if (!cn.lesson && !keys && !away && !vs.turning && !waiting && nowMs >= cn.lessonDue && nowMs - cn.tagAt > TAG_TIME * 1000) {
+    const next = chart && !(cn.lessons & LESSON.chart) ? 'chart' : viewCount.value > 1 && !words && !(cn.lessons & LESSON.gem) ? 'gem' : null
+    if (next) { cn.lesson = next; cn.lessonAt = nowMs }
   }
 
-  // One fine px of the instrument is a whole number of device px, and never under one CSS px.
-  const dpr = window.devicePixelRatio || 1
-  const uDev = Math.max(Math.round(renderer.fineUnit() * dpr), Math.ceil(dpr))
-  const unit = `${uDev / dpr}px`
-  if (unit !== sw.unit) { sw.unit = unit; wrap.style.setProperty('--zelda-turn-u', unit) }
-  const width = String(switchLayout(st).box.w * 2)
-  if (width !== sw.width) { sw.width = width; wrap.style.setProperty('--zelda-turn-w', width) }
-  const sig = [uDev, n, a, b, Math.round(e * 400), st.key, fine, round.map(v => +wears16(v.id)).join(''), busy ? Math.floor(st.time * 6) : -1, +st.hover, +st.down, Math.round(nudge * 2), st.flash, st.caption, lit, +sw.captionHot, +reduced].join('|')
-  if (sig === sw.sig) return
-  sw.sig = sig
-  if (cv.width !== SW_W * 2 * uDev || cv.height !== SW_H * 2 * uDev) { cv.width = SW_W * 2 * uDev; cv.height = SW_H * 2 * uDev }
+  // The unit, the one writer of it: the Escape pill below the corner reads it too.
+  const { uDev, u } = cornerUnit()
+  const unit = px(u)
+  if (unit !== cn.unit) { cn.unit = unit; host?.style.setProperty('--zelda-corner-u', unit) }
+  const cv = cornerCanvas.value
+  if (!cv || !canvas.value) return
+  if (cv !== cn.el) { cn.el = cv; cn.sig = ''; cn.layKey = '' }
+  const tagOn = nowMs - cn.tagAt < TAG_TIME * 1000
+  const st: CornerState = {
+    e: turnAmount(vs.turn),
+    time: nowMs / 1000,
+    reduced,
+    pressed: nowMs - cn.pressAt < PRESS_TIME * 1000 ? cn.press : null,
+    focus: cornerFocus(),
+    keys,
+    nudge: cn.lesson,
+    tag: busy ? viewName(viewId.value) : tagOn ? cn.tag : null,
+    away: cn.level,
+    round,
+  }
+  const shape = cornerShape(WORLD, s, st)
+  const lay = cornerLayout(canvas.value.clientWidth, canvas.value.clientHeight, u, shape, cn.safe)
+  const hit = cornerTargets(lay)
+  const layKey = [lay.canvas.x, lay.canvas.y, u, lay.step, hit.clip ?? '', JSON.stringify(hit.pause), JSON.stringify(hit.view)].join('|')
+  if (layKey !== cn.layKey) {
+    cn.layKey = layKey
+    cornerAt.value = {
+      canvas: boxStyle(lay.canvas),
+      map: { ...boxStyle(hit.map), ...(hit.clip ? { clipPath: hit.clip } : {}) },
+      pause: boxStyle(hit.pause),
+      view: boxStyle(hit.view),
+    }
+  }
+  const blink = reduced ? 0 : Math.floor(nowMs / 400) % 2
+  const sig = [
+    uDev, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.floor(s.hero.x), Math.floor(s.hero.y), s.hero.dir, lay.step, blink,
+    sunPhase(s.daytime), chartNight(WORLD, s), Object.keys(s.flags).length, +s.session, +!!s.demo,
+    st.pressed, st.focus, +keys, st.nudge, st.tag, st.away, shape.pinned, +!!shape.gem, +reduced,
+  ].join('|')
+  if (sig === cn.sig) return
+  cn.sig = sig
+  const w = CORNER_W * 2 * uDev
+  const h = CORNER_H * 2 * uDev
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h }
   const g = cv.getContext('2d')!
-  g.setTransform(uDev, 0, 0, uDev, 0, 0)
-  sw.scratch ??= [document.createElement('canvas'), document.createElement('canvas')]
-  drawTurnSwitch(g, st, sw.scratch)
+  g.setTransform(2 * uDev, 0, 0, 2 * uDev, 0, 0)
+  g.imageSmoothingEnabled = false
+  paintCorner(g, WORLD, s, st)
 }
 
 /**
@@ -809,29 +834,24 @@ function stepTurnSwitch(nowMs: number) {
  */
 function turnPress(e: PointerEvent) {
   if (e.pointerType === 'mouse' && e.button !== 0) return
-  sw.byPointer = true
-  sw.down = true
-  sw.downAt = performance.now()
+  cn.byPointer = true
+  pressCorner('gem')
   try { turnBtn.value?.setPointerCapture(e.pointerId) } catch { /* the pointer is already gone */ }
   cycleView()
   turnBtn.value?.blur()
 }
 function turnRelease() {
-  sw.down = false
   // The click that follows a press is its own echo; a release off the button has none.
-  setTimeout(() => { sw.byPointer = false }, 0)
+  setTimeout(() => { cn.byPointer = false }, 0)
 }
 /** Enter or Space on the focused button, or a screen reader's own press. */
 function turnClick() {
-  if (sw.byPointer) { sw.byPointer = false; return }
-  sw.downAt = performance.now()
+  if (cn.byPointer) { cn.byPointer = false; return }
+  pressCorner('gem')
   cycleView()
 }
 function turnKey(e: KeyboardEvent) {
   if (e.repeat && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space')) e.preventDefault()
-}
-function turnHover(e: PointerEvent, on: boolean) {
-  sw.hover = on && e.pointerType === 'mouse'
 }
 
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
@@ -847,7 +867,6 @@ function shellKey(e: KeyboardEvent): boolean {
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
     } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
     else if (e.code === 'KeyO') { e.preventDefault(); toggleSound(); return true }
-    else if (e.code === 'KeyC' && menuPage.value === 'map') { e.preventDefault(); toggleCorner(); return true }
   }
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
@@ -1121,7 +1140,7 @@ function escTap() {
 }
 
 /**
- * P, M, the pause chip, the corner map: the menu on that page. The key of the page already open closes the menu;
+ * P, M, the pause chip, the chart in the corner: the menu on that page. The key of the page already open closes the menu;
  * the other one turns the page.
  */
 function openPage(page: MenuPage) {
@@ -1130,14 +1149,6 @@ function openPage(page: MenuPage) {
   if (!paused.value) { togglePause(page); return }
   if (menuPage.value === page) { togglePause(); return }
   menuPage.value = page
-  pausedDrawn = false
-  audio?.sfx('select')
-}
-
-/** The corner map on or off, kept in this browser. */
-function toggleCorner() {
-  cornerMap.value = !cornerMap.value
-  try { localStorage.setItem(CORNER_KEY, cornerMap.value ? 'on' : 'off') } catch { /* private mode: this visit only */ }
   pausedDrawn = false
   audio?.sfx('select')
 }
@@ -1312,16 +1323,16 @@ let steppedWaiting = false
 
 /**
  * Draw. A view that was waited for and took over in that draw without a turn (reduced motion, a pause, a panel,
- * the ending) is on screen now: the dress and the switch follow in the same frame, not the next one. A view that
+ * the ending) is on screen now: the dress and the corner follow in the same frame, not the next one. A view that
  * threw in that draw was put away: the shell follows to the classic view in this frame too (`viewFailed`), so
- * the dress and the switch that were stepped for it before the draw are never painted.
+ * the dress and the corner that were stepped for it before the draw are never painted.
  */
 function drawFrame(nowMs: number, dt: number) {
   if (!renderer) return
   renderer.draw(state, ui, dt)
   const vs = renderer.viewState()
-  if (vs.failed !== failedSeen) { failedSeen = vs.failed; viewFailed(); steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs); return }
-  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs) }
+  if (vs.failed !== failedSeen) { failedSeen = vs.failed; viewFailed(); steppedWaiting = false; stepDress(vs); stepCorner(nowMs); return }
+  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepDress(vs); stepCorner(nowMs) }
 }
 
 function frame(nowMs: number) {
@@ -1341,7 +1352,7 @@ function frame(nowMs: number) {
   if (renderer.viewState().dark) { renderer.draw(state, ui, 0); return }
   // A turn caught by a pause, a panel or the ending would hang half done (the world is drawn once, or five times a
   // second): finish it. The picture follows in this frame, not at the next slow tick, and a view that threw being
-  // asked is followed before the dress and the switch are stepped for it.
+  // asked is followed before the dress and the corner are stepped for it.
   if ((paused.value || panel.value || phase.value === 'won') && renderer.viewState().turning) {
     renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true)
     pausedDrawn = false
@@ -1352,13 +1363,11 @@ function frame(nowMs: number) {
   steppedWaiting = renderer.viewState().waiting
   stepDress(renderer.viewState())
   syncUnit()
-  stepTurnSwitch(nowMs)
-  stepMiniMap(nowMs)
+  stepCorner(nowMs)
 
   ui.paused = paused.value
   ui.page = menuPage.value
-  ui.corner = cornerMap.value
-  ui.turn = renderer.viewState().turn
+  ui.turn = turnAmount(renderer.viewState().turn)
   ui.confirmReset = confirmReset.value
   ui.muted = sound.muted.value
   ui.reducedMotion = reducedMotion.value
@@ -1480,6 +1489,9 @@ function resize() {
   const h = canvas.value.clientHeight
   renderer.resize(w, h, canvasPixelRatio(3), safeInsets())
   syncUnit()
+  // (The corner keeps inside the same safe area as the HUD: `cornerLayout`.)
+  const safe = safeInsets()
+  cn.safe = { top: safe.top, right: safe.right }
 }
 
 /** The screen's safe-area insets in CSS px (all 0 in an ordinary browser tab). */
@@ -1521,7 +1533,9 @@ onMounted(() => {
   // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the 16-bit one.
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
-  try { cornerMap.value = localStorage.getItem(CORNER_KEY) !== 'off' } catch { /* private mode: on */ }
+  // How far this browser has come with the corner's two lessons (`stepCorner`). (The old preference that put the
+  // corner's map away is not read: the chart can no longer be hidden.)
+  try { cn.lessons = Number(localStorage.getItem(LESSON_KEY)) || 0 } catch { cn.lessons = LESSON.chart | LESSON.gem }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
   // The dress of the view the visit starts in, before its first frame: nothing of the other look flashes by either.
   dressWanted = wears16(firstView)
@@ -1529,8 +1543,6 @@ onMounted(() => {
   viewId.value = firstView
   // The first picture comes up out of the dark, whichever view draws it.
   renderer.dawn()
-  // A browser that has never chosen a view and has not walked here before: the turn switch ticks for it.
-  try { sw.fresh = lastView === null && !new URLSearchParams(location.search).get('view') && !sessionStorage.getItem(RETURN_KEY) } catch { sw.fresh = false }
   if (firstView !== 'classic') {
     viewHold = true
     const release = () => { viewHold = false }
@@ -1580,6 +1592,7 @@ onBeforeUnmount(() => {
   canvas.value?.parentElement?.style.removeProperty('--px16-fine')
   canvas.value?.parentElement?.style.removeProperty('--zelda-chrome-a')
   canvas.value?.parentElement?.style.removeProperty('--zelda-hint-play')
+  canvas.value?.parentElement?.style.removeProperty('--zelda-corner-u')
   liveStop?.()
   liveStop = null
   cancelAnimationFrame(raf)
@@ -1649,35 +1662,27 @@ onBeforeUnmount(() => {
 }
 
 /*
- * The corner: top-right, clear of the notch and the status bar. The pause chip and the turn switch, and under
- * them, right edges in line, the map. Its unit is one fine px of the canvas HUD (`--zelda-turn-u`, written by
- * `stepMiniMap` here and by `stepTurnSwitch` on the switch), so the map's pixels and the switch's are the HUD's.
+ * The corner (`render/corner.ts`): its canvas and three buttons over it, each placed in px by `stepCorner` from
+ * `cornerLayout` (14 px from the top and the right, inside the safe area). The box itself takes up no room: what is
+ * not a button lets the pointer through to the world. The picture carries every look (edges, focus, the press); the
+ * buttons are bare.
  */
 .zelda-corner {
-  --zelda-turn-u: 1px;
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top, 0px));
-  right: calc(14px + env(safe-area-inset-right, 0px));
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
   z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  /* (Room under the switch for the name it shows after a turn.) */
-  gap: calc(16 * var(--zelda-turn-u));
-  transition: opacity 120ms steps(3), visibility 0s;
-}
-.zelda-corner-row {
-  display: flex;
-  align-items: flex-start;
-  gap: calc(6 * var(--zelda-turn-u));
-}
-/* Away (the menu, a dialog, a panel, a way out): it steps out, and is not there to be pressed or read. */
-.zelda-corner--away {
-  opacity: 0;
-  visibility: hidden;
   pointer-events: none;
-  transition: opacity 120ms steps(3), visibility 0s 120ms;
+  transition: visibility 0s;
 }
+/* Away (the menu, a dialog, a panel, a way out): the picture thins out in three steps (`awayStep`), then it is not there to be pressed or read. */
+.zelda-corner--away {
+  visibility: hidden;
+  transition: visibility 0s 120ms;
+}
+.zelda-corner--away button { pointer-events: none; }
 /* A visit's dark first moments, and the first picture coming up out of them (the renderer's dawn is the same curve). */
 .zelda-corner--night {
   opacity: 0;
@@ -1686,93 +1691,61 @@ onBeforeUnmount(() => {
 .zelda-corner--dawn {
   transition: opacity 320ms cubic-bezier(0.5, 1, 0.89, 1);
 }
-/* The corner map: a canvas in a real button, the HUD's pixels. */
-.zelda-mini {
-  position: relative;
+.zelda-corner-canvas {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+/* The chart (the map's button, shaped as the frame by its clip-path), the pause chip, the Sun Prism above both. */
+.zelda-mini,
+.zelda-chip,
+.zelda-turn {
+  position: absolute;
   display: block;
-  width: calc(112 * var(--zelda-turn-u));
-  height: calc(80 * var(--zelda-turn-u));
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: none;
+  color: transparent;
   cursor: pointer;
+  pointer-events: auto;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  opacity: var(--zelda-chrome-a, 1);
 }
-.zelda-mini:focus { outline: none; }
-.zelda-mini:focus-visible {
-  outline: calc(2 * var(--zelda-turn-u)) solid #ffd23f;
-  outline-offset: calc(2 * var(--zelda-turn-u));
-}
-.zelda-mini-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  image-rendering: pixelated;
-}
-/* Beside a keyboard the chip is the switch's height; on touch never smaller than a thumb. */
-.zelda-corner .zelda-chip {
-  min-width: calc(28 * var(--zelda-turn-u));
-  min-height: calc(28 * var(--zelda-turn-u));
-  font-size: calc(10 * var(--zelda-turn-u));
-  cursor: pointer;
-  opacity: var(--zelda-chrome-a, 1);
-}
-.zelda-corner--touch .zelda-chip {
-  min-width: max(52px, calc(40 * var(--px16-fine, 1px)));
-  min-height: max(44px, calc(28 * var(--px16-fine, 1px)));
-  font-size: 16px;
-}
-
-/*
- * The turn switch, beside the pause chip. The picture is a canvas inside a real button; it hangs out under the
- * button (the caption's line) and to its left, where nothing is pressed.
- */
+.zelda-mini { z-index: 1; }
+.zelda-chip { z-index: 2; }
 .zelda-turn-wrap {
-  position: relative;
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
 }
 .zelda-turn {
-  position: relative;
-  display: block;
-  width: calc(var(--zelda-turn-w, 102) * var(--zelda-turn-u));
-  height: max(44px, calc(40 * var(--zelda-turn-u)));
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  cursor: pointer;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
+/* (The gold ring round what is focused is painted on the canvas, round the chart or the Prism.) */
+.zelda-mini:focus,
+.zelda-chip:focus,
 .zelda-turn:focus { outline: none; }
-.zelda-turn:focus-visible {
-  outline: calc(2 * var(--zelda-turn-u)) solid #ffd23f;
-  outline-offset: calc(2 * var(--zelda-turn-u));
-  box-shadow: 0 0 0 calc(6 * var(--zelda-turn-u)) #0b0616;
+/* Where the chart is the menu's way in, the pause chip is there for Tab and a screen reader only. */
+.zelda-chip--hidden {
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
-/* A thumb's slop, down only: the pause chip stands left of it. */
-.zelda-turn-wrap--touch .zelda-turn::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 -8px 0;
-}
-.zelda-turn-canvas {
-  position: absolute;
-  right: 0;
-  top: calc((100% - 40 * var(--zelda-turn-u)) / 2);
-  width: calc(176 * var(--zelda-turn-u));
-  height: calc(60 * var(--zelda-turn-u));
-  pointer-events: none;
-  image-rendering: pixelated;
+/* The Escape pill on a narrow screen: below the corner (the frame, its plate, its key caps and its tag; `tests/zelda-corner.test.mjs` measures it), not over it. */
+@media (max-width: 640px) {
+  .zelda-esc.esc-hold-layer {
+    top: calc(max(14px, env(safe-area-inset-top, 0px)) + 140 * var(--zelda-corner-u, 1px));
+  }
 }
 .zelda-turn-said {
   position: absolute;
@@ -1785,7 +1758,7 @@ onBeforeUnmount(() => {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-/* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepTurnSwitch`). */
+/* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepCorner`). */
 .zelda-canvas ~ .portal-hint {
   filter: opacity(var(--zelda-chrome-a, 1));
   /* The hint waits for the page to know its view and its unit (set at mount): before that it would come up in a
@@ -1796,23 +1769,6 @@ onBeforeUnmount(() => {
   .zelda-corner,
   .zelda-corner--away,
   .zelda-corner--dawn { transition: none; }
-}
-
-.zelda-chip {
-  /* (One box in both dresses, so nothing beside it moves when the dress changes.) */
-  min-width: max(52px, calc(40 * var(--px16-fine, 1px)));
-  min-height: max(44px, calc(28 * var(--px16-fine, 1px)));
-  border: 0;
-  border-radius: 0;
-  background: rgba(11, 6, 22, 0.88);
-  box-shadow: 0 -2px 0 0 #b9a8d9, 0 2px 0 0 #b9a8d9, -2px 0 0 0 #b9a8d9, 2px 0 0 0 #b9a8d9;
-  color: #b9a8d9;
-  font-family: var(--font-pixel);
-  font-size: 16px;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .zelda-deck-btns {
@@ -1990,37 +1946,8 @@ onBeforeUnmount(() => {
   --px16-u: var(--px16-fine, 1px);
 }
 
-/* Pause: a plate in the sea green of the item box and the pause screen. Never smaller than a thumb. */
-.px16 .zelda-chip {
-  min-width: max(52px, calc(40 * var(--px16-u)));
-  min-height: max(44px, calc(28 * var(--px16-u)));
-  border: calc(3 * var(--px16-u)) solid transparent;
-  border-radius: calc(3 * var(--px16-u));
-  border-image: var(--px16-frame-cool) var(--px16-cut);
-  background: var(--px16-fill-cool) padding-box;
-  box-shadow: var(--px16-shade);
-  color: var(--px16-text);
-  text-shadow: var(--px16-drop);
-  font-size: calc(16 * var(--px16-u));
-  line-height: calc(16 * var(--px16-u));
-}
-/* Beside a keyboard, in either dress, the chip stays the switch's height. */
-.px16.zelda-corner:not(.zelda-corner--touch) .zelda-chip {
-  min-width: calc(28 * var(--zelda-turn-u));
-  min-height: calc(28 * var(--zelda-turn-u));
-  font-size: calc(10 * var(--zelda-turn-u));
-  line-height: calc(10 * var(--zelda-turn-u));
-}
-.px16 .zelda-chip:active {
-  border-image: var(--px16-frame-cool-in) var(--px16-cut);
-  box-shadow: var(--px16-inner);
-}
 /* The round pads keep their rings and their size; their pictures are the HUD's own, at twice the pixels: one CSS px each, two on A. */
 .px16 .zelda-pad-icon { opacity: var(--zelda-chrome-a, 1); }
-.px16.zelda-turn-wrap .zelda-turn:focus-visible {
-  outline-color: var(--px16-prize);
-  box-shadow: 0 0 0 calc(6 * var(--zelda-turn-u)) var(--px16-shadow);
-}
 .px16 .zelda-pad-icon--big {
   width: 64px;
   height: 64px;

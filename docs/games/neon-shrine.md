@@ -94,53 +94,62 @@ each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
 isometric one (a third, `poly`, is archived: below). `views.ts` holds the round: one
 built-in view per engine (CLASSIC, ISOMETRIC: named for their picture, with no tag of bits under the name since 2026-11-24; a built-in view may carry values, and the studio's lie over them), and whatever the studio published (below). Some values keep `16-bit` as a value name (`sound`, `windows`): the studio's saved values use them. A stored or published view that names an engine the game no longer has (`zelda.view` = `poly`, `/?view=poly`, a live view with `engine: 'poly'`) is dropped, and the visit starts in the first view. **A visit starts in the
-isometric view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
+isometric view** (`DEFAULT_VIEW` in `views.ts`), and the Sun Prism
 in the corner turns to the next (V goes classic → isometric → classic). A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
 classic picture. `/?view=<id>` asks for one.
 
-- **Finding them.** The **turn switch** (`render/turnSwitch.ts`, drawn into
-  a button of `Zelda.vue`) stands in the top-right corner, beside the pause
-  chip and under the corner map (see "The map"): `[ carriage ]`, with a notch for each view (a studio view whose tag is `N-BIT` puts its numeral at its end of a two-stop slot). A press turns to the next view, as V
-  does. The carriage carries one ground tile, drawn with the picture's own
-  `projection`: a square in the classic view, the 2:1 diamond in the turned
-  one. Where the carriage stands, the tile's shape and the seam between the
-  switch's two dresses are functions of the renderer's `k`, read once a
-  frame (`stepTurnSwitch`), so the switch turns with the world and a second
-  press in the middle of a turn takes both back in the same frame. When the
-  turn has seated, the view's name stands under the switch for a moment. A
-  view that is waited for longer than 150 ms shows as three dots counting
-  toward its end; a view whose code did not arrive as a bump and NO SIGNAL
-  (a press is kept as this browser's choice once its view can be shown).
-  For a browser that has never chosen a view the carriage ticks toward the
-  other end once, 1.2 s after the first picture, and once more 6 s later
-  (not where the view had to be waited for and turned in: the switch has
-  been seen at work). The switch steps away
-  (by class, never `v-if`) while the game is paused, a dialog or a panel is
-  open, or the hero is on the way out of a map, and takes a change made
-  meanwhile in silence. With three views or more the slot has a notch for
-  each and no numerals, and the name carries the view's place in the round.
-  - *Keys and focus.* A pointer press never leaves focus on the switch.
+- **Finding them.** The **Sun Prism** on the corner's frame (see "The
+  corner" under "The map") is the view switch: a press turns to the next view,
+  as V does. Its face is a square in the classic view and a diamond in the
+  isometric one, and the frame it sits on turns with the world: the frame's
+  shape is a function of the renderer's turn, read once a frame
+  (`stepCorner`, `turnAmount(viewState().turn)`), so a second press in the
+  middle of a turn takes both back in the same frame. When the turn has
+  seated, the view's name stands on the corner's tag for 1.6 s and a live
+  region says it. A view that is waited for longer than 150 ms has its name
+  on the tag while it comes; a view whose code did not arrive sinks the
+  Prism a step, says VIEW NOT LOADED on the tag and in the live region, and
+  plays the refusal's sound (a press is kept as this browser's choice once
+  its view can be shown). **Where the round holds only one view this map
+  allows** (`pinName` over its `MapDef.views` and the live round: with the
+  two built-in views, Yule Fjord, Stillsand, Lumenby, Fogstage and the
+  Underglow; a studio's second isometric view would give them a view to turn
+  to), the Prism is pinned: dull, and where it hangs free of the glass (the
+  diamond's tip, beside the stub) on a chain over a plate with the view's
+  name (ISO), its target reaching over the plate; a press bumps it and says
+  ISO ONLY HERE on the tag for 1.6 s ("Isometric only here" in the live
+  region, said again at every press, and in the Prism's own name), with the
+  refusal's sound. A round of one view (the studio may take all but one out)
+  has no Prism at all: no gem, no plate, no V, no button. The first time a touch player stands where both views
+  are allowed, the Prism wears a pink ring and the tag says TAP GEM: TURN
+  (once per browser, see "The corner").
+  - *Keys and focus.* A pointer press never leaves focus on the Prism.
     Reached by Tab, it owns Enter, Space and Tab only: `data-game-keys`
     makes `input.ts` hand every other key back to the game and blur it, so
     arrows walk and V turns at once. (Tab is the swap key once the hero has
-    an item; the switch is then reached by V and a screen reader's own
-    navigation.) Its name says which view is on and which a press gives, and
-    a live region says the view after every change.
-  - *What changes dress beside the canvas* (the pause chip, the corner map, the pad icons,
-    the page's hint) fades out before the flip at k = 0.5 and in after it
+    an item; the Prism is then reached by V and a screen reader's own
+    navigation.) Its name says which view is on and which a press gives (on
+    a pinned Prism, that this is the only one here), and a live region says
+    the view after every change. Focused, it wears a gold ring (read from
+    the page each frame, so the ring goes with the focus, whatever takes
+    it); beside a keyboard a V key cap stands under it, or under the frame
+    where the gem sits on the glass.
+  - *What changes dress beside the canvas* (the touch deck's pictures, the
+    page's hint) fades out before the flip at k = 0.5 and in after it
     (`--zelda-chrome-a`), as the canvas HUD cross-fades between its skins.
+    The corner wears one dress in both views and does not fade.
   - V turns to the next view in play and on the pause screen alike (the
     pause screen names the one that is on), and on touch the MAP page's
-    buttons have VIEW beside RESUME, ITEMS and CORNER MAP. The page's first hint names
+    buttons have VIEW beside RESUME and ITEMS. The page's first hint names
     no view key. In the world itself there is the **viewfinder** east of the
     fountain (exit `view`, look `scope`, panel `view`, which opens nothing):
     A turns to the next view. The **view strip** (`drawViewStrip` in
     `hud.ts`) is the studio's stage's only; the portal does not raise it.
-  - `node scripts/zelda-lab/turn-sheet.mjs <outDir>` draws every state of
-    the switch.
+  - The Prism and the frame in every state are drawn by the corner's lab
+    sheet: see "The corner" under "The map".
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
   part every engine has (scanlines, neon bloom, vignette; `present` takes it).
@@ -232,8 +241,8 @@ classic picture. `/?view=<id>` asks for one.
   dark and may be long, so the map's pictures are not waited for there.
   **A view that throws** (in `ready` or in `draw`) is put away and the
   classic view draws on; `viewState().failed` counts them, and the shell
-  follows to the classic view in the same frame, with a bump and NO SIGNAL
-  (`viewFailed`); one that throws on its way out ends the turn there, and
+  follows to the classic view in the same frame, with VIEW NOT LOADED on
+  the corner's tag (`viewFailed`); one that throws on its way out ends the turn there, and
   that is no refusal. A
   later press makes the view again; once a view has failed three times
   while it was the one shown, a press for it is refused for the rest of
@@ -1070,7 +1079,7 @@ classic picture. `/?view=<id>` asks for one.
   screen scale gives the hi-res HUD an even scale of its own).
   `scripts/zelda-lab/hud-sheet.mjs` renders every skin in every state.
 - **The shell's HTML in the 16-bit dress** (2026-11-12). What the shell
-  draws in the DOM (the pause chip, the touch deck's pictures, the
+  draws in the DOM (the touch deck's pictures, the
   pause buttons, the Escape pill, the three panels, and the page's first
   hint and ending panel) wears the same dress as the canvas HUD while that
   HUD is `HIRES_WINDOW_SKIN`: the class `px16` on every root of `Zelda.vue`
@@ -1262,38 +1271,99 @@ continue point is out there the shell keeps a per-tab flag (`zelda.out` in
 sessionStorage), and a reload in that tab continues at it (`loadSpot`). A new
 visit starts in town.
 
-**The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25). Every
-map but the rooms indoors is cut into squares of 8 × 8 tiles, and a square
-is seen once the hero has been within 10 tiles of it; a dungeon room is seen
-whole on walking in. What is seen is kept per map as a string of six-bit
-digits, one bit a square (`SaveData.explored`, at most 200 maps; the whole
-world seen is well under 6 KB). The map shows only that, as a plan
-in a few flat colours (floor, road, sand, water, ice, trees, walls, houses,
-pits; doors and stairs lit), and it turns with the world: north up in the
-classic view, a diamond lying as the ground does in the isometric one
-(`projection(turn)`), so up the screen is up the map. Two of it:
+**The map** (`render/worldMap.ts`, `engine/explore.ts`, 2026-11-25; the
+corner, `render/corner.ts`, 2026-11-27). Every map but the rooms indoors is
+cut into squares of 8 × 8 tiles, and a square is seen once the hero has been
+within 10 tiles of it; a dungeon room is seen whole on walking in. What is
+seen is kept per map as a string of six-bit digits, one bit a square
+(`SaveData.explored`, at most 200 maps; the whole world seen is well under
+6 KB). The map shows that as a **chart**, one ink a tile, in the land's own
+inks (`CHART_INKS`, one table per look: the coast, the Wildwood, Seter Fell,
+the snow, the dunes, the spores, the suburb, the quarry, the fog, the
+Shrine's stone, the labs, the Underglow; keyed by the map's realm, else its
+`look`, else the palette its kind is painted in): ground and its speckle,
+low ground, roads, bridges, sand, water with its coastline in a lighter
+blue, ice, two inks of trees, bushes, walls with their lit face and the dark
+mass behind, roofs (never pink: pink is the hero), fences, doors, pits. Each
+table is a step darker and flatter than the world, so the marks stand out. A
+square not seen is **fog** in the land's two darkest inks; out of doors the
+fog keeps a faint ghost of where water lies and where cliffs and pits run, so
+a land just arrived in is already a map with a shape (a dungeon's fog has no
+ghost: its plan is for finding). After the Sun Prism, a chart out of doors
+dims toward navy with the hour (`nightLevel`): a step in the blue hours, two
+at night, none by day, at dusk and dawn, and none before the Prism. The
+**marks** are drawn over the chart at screen resolution, never into it
+(`chartMarks`, `drawChartMarks`): the hero (pink, a pale nose the way they
+face, blinking in steps, steady under reduced motion); chests (gold, dim
+once opened, not at all while an appearing chest has not appeared);
+heart pieces lying about (red, dim once taken); doors, stairs and warps (a
+pale arch); the ways to other lands (a cyan gate where it lies in view, else
+a tab on the rim toward it, filled with that land's colour once it has been
+walked into, empty before); and in Lumenby the hill sign's seven sockets,
+let into the rim, gold as each letter is lit. Marks appear only on seen
+squares. Two of it:
 
-- **The corner map**: a window round the hero in the top-right corner, in
-  the view's own dress (its panel, the HUD's pixel), the hero a blinking
-  mark with a pixel the way they face; its dress changes with the canvas
-  HUD's, half way through a turn. Not indoors.
-  A press opens the MAP page, as M does. C on the MAP page (or its button
-  on touch) turns it off and on, kept in localStorage `zelda.cornerMap`.
-- **The MAP page** of the menu (M): the name of the place, what has been
-  seen of the map fitted to the panel, the names of the areas seen, the ways
-  between the coast and the lands seen (the gates, the ferry) as lit
-  squares, and once the blade is in hand THE WORLD beside it (under it on an
-  upright phone): every map of the grid where it lies, the coast and the
-  Wildwood always, a land once walked into, the map the hero is on in the
-  prize colour and the hero a hot dot. The menu's three pages
+- **The corner** (`render/corner.ts`, painted by `stepCorner` in
+  `Zelda.vue` on one canvas that takes no pointer). The chart is its body and
+  its frame says the view: a window of 40 × 40 tiles about the hero's tile (kept
+  inside the land; one smaller is centred), one corner px a tile, in a
+  square screen-aligned frame in the classic view and a 2:1 diamond with
+  stepped edges in the isometric one, turning with the world through four
+  shapes between (`frameMask`). Its edge is cyan with a ring of ink outside
+  it, so it holds on bright sand and on the neon town. The Sun Prism sits
+  on the corner that becomes the diamond's right tip: the view switch (see
+  "Views"), and the day clock: in its window the sun hangs half sunk on a
+  pink sky before the Prism is won, and after it follows the day (dawn, the
+  day's arc, dusk, night with two stars; `sunPhase`). Where there is no chart
+  (a room indoors, a cabinet's demo) a **stub** stands in its place: a small
+  pane of glass with a door and the hero in it, the Prism beside it. Under
+  the frame a **tag** stands 1.6 s: the view's name after a turn, a pinned
+  Prism's refusal, a lesson. The area's own name is not on it: the HUD's
+  banner says that. Three real buttons lie over the picture, placed from
+  `cornerLayout` 14 px from the top and the right inside the safe area: the
+  **chart** (`.zelda-mini`) opens the menu on its MAP page, as M does; its
+  hit shape is the frame (a `clip-path` from the layout's polygon for the
+  current shape), so a tap in the empty triangles beside the diamond falls
+  through to the world, where it swings. The **Prism** (`.zelda-turn`)
+  lies above the chart and wins where they overlap; its target is 44 × 44 px,
+  down over its plate when pinned. The **pause chip** (`.zelda-chip`) opens
+  the menu's ITEMS page, as P does: where there is a chart it is there for
+  Tab and a screen reader only (a gold ring round the chart while it has
+  the focus); where there is none it is the stub, on screen. So the menu is
+  always a touch away, through a target of 44 × 44 px or more (in every shape
+  of the turn; `tests/zelda-corner.test.mjs`). The chart can no longer be
+  hidden (the old corner-map key, C on the MAP page, is gone; C is the roll).
+  Beside a keyboard, key caps stand under the chart (M; P under the stub)
+  and under the Prism (V). On touch, two lessons, once per browser
+  (`zelda.cornerLessons`): about 1.2 s after the first picture in a place
+  with a chart, a pink ring round the chart and TAP MAP: MENU; later, the
+  first time the hero stands where both views are allowed, a ring on the
+  Prism and TAP GEM: TURN. Each stands 3.6 s, and a tap on what it points
+  at ends it for good; never while talking or away. A press shows: the
+  chart's edge goes white for 90 ms, the Prism sinks a step. The corner
+  steps away (by class, never `v-if`) while the menu, a dialog, a panel or
+  a way out has the screen: its picture thins out in three dither steps
+  (75, 50, 25 %) and is gone, and comes back the same way (at once under
+  reduced motion). Its unit is one fine px of the canvas HUD, whole device
+  px and never under one CSS px; `stepCorner` is its one writer
+  (`--zelda-corner-u`), and the Escape pill, on a screen 640 px wide or less,
+  stands below the corner by it (`.zelda-esc`). `node
+  scripts/zelda-lab/corner-sheet.mjs [outDir] [sheet,…]` draws the corner
+  from the real painter and the real world's data, in headless Chrome
+  without the game's page (`CHROME_BIN` for another browser): a sheet per
+  charted map (square and diamond, arrived, half and fully walked), every
+  state (the turn's six shapes, the gem's sun, pinned, the stub, press,
+  focus and key caps, the lessons, away, the tag, Lumenby's sockets, chests,
+  pass tabs), the object over real pictures of the game, and the charts
+  whole.
+- **The MAP page** of the menu (M): the name of the place, the chart of the
+  map in the same inks and fog, fitted to the panel round what has been
+  seen, the corner's marks at the page's scale, the names of the areas
+  seen, and once the blade is in hand THE WORLD beside it (under it on an
+  upright phone): every map of the grid where it lies in its own inks, the
+  coast and the Wildwood always, a land once walked into, the map the hero
+  is on in the prize colour and the hero a hot dot. The menu's three pages
   stand as tabs over it: `P ITEMS`, `N MOVES` and `M MAP`.
-
-The corner is one cluster: the pause chip and the turn switch, and under
-them, right edges in line, the map (it comes and goes with nothing under it
-to move, so the chip stays put), sized in the HUD's fine pixel
-(`--zelda-turn-u`). All three hand the game its keys back once reached by
-Tab (`data-game-keys`). It steps away while the menu, a dialog, a panel or a way
-out has the screen.
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; pressed again, the next hit of the chain;
@@ -1304,7 +1374,7 @@ Escape tap pauses on the menu's ITEMS page (items, heart pieces, the
 current quest), N on its MOVES page (the combos, their mastery, the hop), M on
 its MAP page (see "The map"); the key of the open page or Escape closes it, another
 page's key turns to it. In the menu O turns the
-sound on or off, T goes to town, C (on the MAP page) the corner map; V
+sound on or off, T goes to town; V
 turns to the next view anywhere (see "Views"). Holding Escape saves and
 goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
@@ -1316,7 +1386,7 @@ lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
 SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
 the chain and the roll); on a phone lying on its side
 they sit lower and more side by side, the roll a size smaller over B, so
-the row stays out of the stick's 60 %; the top-right corner holds the corner map, the pause chip and the turn switch (paused, the deck holds the menu's buttons, four to a page: RESUME and the next page round (ITEMS, MOVES, MAP); on ITEMS SOUND ON/OFF and TO TOWN; on MOVES ITEMS; on MAP CORNER MAP ON/OFF and VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP); on ITEMS SOUND ON/OFF and TO TOWN; on MOVES ITEMS; on MAP VIEW); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
