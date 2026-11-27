@@ -27,7 +27,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), the KODING KATA stand east of the house ("The Koding Kata stand" below), newsstand, signpost, pier (its end is the ferry to the frontier), the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood. East of the town the old coast, with four gates on foot into the lands at its edges (Whisper Woods, the Night Market, the Hollow Graves, Mirror Lake: `docs/worlds/atlas.md`) |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (fourteen cabinets: ten games and four that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no`, Solo Rescue for `nova.phareim.no` and Vector Horizon for `space.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (fifteen cabinets: ten games and five that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no`, Solo Rescue for `nova.phareim.no`, Vector Horizon for `space.phareim.no` and Etene for `game.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -109,7 +109,7 @@ page, `/?frame=<id>`, so the phone's browser bar never comes up
 It is the hall's only rust-orange machine: N and R in white either side of a
 slice of pizza on the marquee, and Nova and a Dead Paddy trading a punch and
 a kick under a striped sun on the screen (`CABS.pizzarescue` and `drawScreen`
-in `render/exits.ts`). The robot counts the hall's cabinets (fourteen since 2026-11-11), and the hidden link
+in `render/exits.ts`). The robot counts the hall's cabinets (fifteen since 2026-11-27), and the hidden link
 index lists it under Writing and projects, as it does every exit with a URL.
 
 **Solo Rescue's cabinet** (2026-10-13). Nova's Solo Rescue, the sequel, is on
@@ -145,6 +145,28 @@ above the card. The pitch says STILL BEING TESTED: EXPECT BUGS, and the
 robot points it out (THE TAPED-OFF ONE BY THE DOOR). When the game is done,
 the dressing comes off by dropping the `e.art === 'horizon'` line in
 `queueExits` (and the card's lift in `drawExitLabels`).
+
+**Etene's cabinet** (2026-11-27). Etene is a top-down shoot-'em-up drawn like
+a Mœbius album, on its own site (`~/github/game`) behind auth.phareim.no's
+sign-in. Petter wanted an artsy machine for it, so it is the hall's one cabinet
+that is drawn instead of lit: cream paper, a sepia-ink outline in place of the
+night's near-black, the shaded side and lower body hatched, coral trim, gold
+slots, and the glow a low warm gold (`CABS.etene` and `eteneInk` in
+`render/exits.ts`). The marquee is the Sirocco, her cream delta wing with
+coral tips, under a pale moon over the dunes; the screen is a page of the
+album, dune ridges sliding down on twos (12 fps, as the game's lines boil)
+under the Sirocco and her hatched shadow. In the isometric view it is a Codex
+edit of the machines' master like every cabinet (`cab_etene` in the
+`machines` pack): the same silhouette, cream paper and sepia ink, the side
+panel a margin sketch of dunes and a moon. It stands right of the door,
+Vector Horizon's mirror (tile 12,8 of `arcade`, exit id and art `etene`,
+label ETENE, used from the stool at 12,9), in front of the prize counter,
+whose vendor is still talked to from either side. The exit is `to: { url:
+'https://game.phareim.no/?from=phareim' }`; the game keeps `from` through the
+sign-in and shows "Back to the arcade" on its sign-in card, title page and
+pause veil, and in the installed app it is framed on `/?frame=etene`. The
+pitch says it is for signed-in readers, and the robot points it out (THE PALE
+ONE ON THE OTHER SIDE IS ETENE).
 
 **VIP hall** (2026-09-29). Ulrikke's games, Mini World and Lag Din Figur
 (moved out of the arcade) and Eventyrland (a cabinet that leaves for

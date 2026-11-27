@@ -366,6 +366,23 @@ CABS.horizon = {
   ),
 }
 
+// Etene (game.phareim.no, 2026-11-27): a flight in drawings after Mœbius, so the one cabinet in the hall that is not
+// neon: cream paper with sepia ink for its outline, coral trim, the shade hatched (`eteneInk` below). On the marquee the
+// Sirocco, her cream delta wing with coral tips, under a pale moon over the dunes. Its glow is a warm gold, low.
+CABS.etene = {
+  body: '#e6d2aa', bodyL: '#fbf1dc', bodyD: '#b8976a', trim: '#ef9f8f', glow: '#f1cf6b',
+  bg: ['#9cc3d6', '#a6c9d8', '#b4d0da', '#c6d8d8', '#efe2c8', '#edcc99', '#e2bd86'],
+  marquee: M(
+    '.ww.........',
+    'wwww...e....',
+    '.ww...eCe...',
+    '.....eeeee..',
+    '....jeeeeej.',
+    'NN...S.S..NN',
+    '..NNN....NN.',
+  ),
+}
+
 // Adventure, Eventyrland's open instance in the arcade: the same castle on a warmer cabinet, so the two are told apart.
 CABS.adventure = { ...CABS.eventyrland!, body: '#a8542a', bodyL: '#f0a060', bodyD: '#5e2a12', trim: '#2ff3ff' }
 
@@ -417,8 +434,28 @@ function cabinetCanvas(art?: string): Canvas {
   r(g, st.bodyD, 1, 26, 14, 1)
   // Side-art stripe down the lit side.
   r(g, st.trim, 1, 10, 1, 3)
+  if (key === 'etene') eteneInk(g, st)
   cabCache.set(key, c)
   return c
+}
+
+/**
+ * Etene's cabinet is drawn like a page of its album, not lit like the rest of the hall: the outline in sepia ink instead
+ * of the night's near-black, the shaded side and the lower body cross-hatched in ink, the stick's ball and the buttons
+ * coral and ochre, the coin slots gold, and a signature stroke under the marquee.
+ */
+function eteneInk(g: G, st: CabStyle) {
+  const ink = PAL.N!
+  r(g, ink, 1, 0, 14, 1); r(g, ink, 0, 1, 1, 26); r(g, ink, 15, 1, 1, 26); r(g, ink, 1, 27, 14, 1)
+  // hatching: every other px on the shaded right panel, diagonals on the lower body beside the coin door
+  for (let y = 10; y < 22; y += 2) r(g, ink, 14, y)
+  for (let y = 23; y < 27; y++) { r(g, ink, 1 + ((y + 1) % 3), y); r(g, ink, 12 + (y % 3), y) }
+  // the stick's ball and the buttons in the album's colours, the slots gold
+  r(g, '#ef9f8f', 3, 17, 3, 2); r(g, '#fbf1dc', 3, 17, 1, 1); r(g, '#b8695c', 5, 18, 1, 1)
+  r(g, '#f1cf6b', 11, 20, 2, 1)
+  r(g, '#f1cf6b', 6, 24, 1, 2); r(g, '#f1cf6b', 9, 24, 1, 2)
+  // a signature: a short ink stroke on the trim, right of the middle
+  r(g, ink, 10, 8, 3, 1); r(g, st.trim, 11, 8, 1, 1)
 }
 
 /** Tiny attract-mode loop on a cabinet screen. (x, y) is the glass's top-left in view px. */
@@ -666,6 +703,25 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       }
       const ex = Math.round(tri(t * 1.3 + seed, 8))
       f('#ffd23f', ex + 1, 0); f('#ffd23f', ex, 1); f('#ffd23f', ex + 2, 1); f('#ffd23f', ex + 1, 2)
+      return
+    }
+    case 'etene': {
+      // A page of the album: paper, sepia dune ridges sliding down the page on twos (12 fps, as the game's lines
+      // boil), the Sirocco drifting from side to side with her hatched shadow below and to the right, and now and then
+      // a gold glint of glass on the sand.
+      const k = Math.floor((t + seed) * 12) / 12
+      f('#efe2c8', 0, 0, W, H)
+      for (let i = 0; i < 3; i++) {
+        const ry = (Math.floor(k * 3) + i * 3) % (H + 2) - 1
+        const rx = (i * 4 + seed) % 6
+        f('#d9b47e', rx, ry, 4, 1); f('#3a2418', rx + 1, ry, 2, 1)
+      }
+      const sx = 2 + Math.round(tri(k * 1.5, 4))
+      f('#c9a77a', sx + 3, 6); f('#c9a77a', sx + 1, 7); f('#c9a77a', sx + 5, 7)
+      f('#fbf1dc', sx + 2, 2); f('#fbf1dc', sx + 1, 3, 3, 1); f('#9cc3d6', sx + 2, 3)
+      f('#fbf1dc', sx, 4, 5, 1); f('#ef9f8f', sx, 4); f('#ef9f8f', sx + 4, 4)
+      f('#3a2418', sx + 1, 5); f('#3a2418', sx + 3, 5)
+      if (Math.floor(k * 2 + seed) % 9 === 0) f('#f1cf6b', (seed * 3 + 1) % W, 1)
       return
     }
     case 'anotherworld': {

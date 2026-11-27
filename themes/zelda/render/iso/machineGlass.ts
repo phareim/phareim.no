@@ -28,6 +28,7 @@ export const MACHINE_SCREENS: Record<string, ReadonlyArray<readonly [number, num
   "cab_figur": [[10, 31, 21, 14]],
   "cab_eventyrland": [[10, 31, 21, 14]],
   "cab_maileg": [[10, 31, 21, 14]],
+  "cab_etene": [[10, 31, 21, 14]],
   "home_terminal": [[16, 14, 15, 14]],
   "login_console": [[11, 21, 20, 15], [25, 59, 3, 10]],
   // (part 26, 2026-11-26: the newsstand, NEW LOOK and KODING KATA, the `stalls` art pack)
@@ -62,4 +63,5 @@ export const MACHINE_FROM: Record<string, string> = {
   "cab_figur": "7c40035c",
   "cab_eventyrland": "dfc5c18f",
   "cab_maileg": "3a8c2c82",
+  "cab_etene": "b5a1e54a",
 }

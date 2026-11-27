@@ -608,6 +608,7 @@ switch (bossHit ? scene.slice(0, -4) : bossDown ? 'l-mistral' : scene) {
   case 'r-fighter': place('arcade', 'pizzarescue'); run(5); break
   case 'r-nova': place('arcade', 'nova'); run(5); break
   case 'r-horizon': place('arcade', 'horizon'); run(5); break
+  case 'r-etene': place('arcade', 'etene'); run(5); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
   case 'r-console': place('home', 'login'); run(5); break
@@ -800,6 +801,8 @@ const SHOTS = [
   ['r-nova-390', 'r-nova', 390, 844, 3, 0],
   ['r-horizon-1280', 'r-horizon', 1280, 800, 1, 0],
   ['r-horizon-390', 'r-horizon', 390, 844, 3, 0],
+  ['r-etene-1280', 'r-etene', 1280, 800, 1, 0],
+  ['r-etene-390', 'r-etene', 390, 844, 3, 0],
   ['r-home-1280', 'r-home', 1280, 800, 1, 0],
   ['r-home-390', 'r-home', 390, 844, 3, 0],
   ['r-console-1280', 'r-console', 1280, 800, 1, 0],
