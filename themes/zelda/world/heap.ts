@@ -14,6 +14,9 @@
  * plate; the strongroom's cart sent down its rail for the small key; back over the pit by a bolt and down to the line;
  * across the line by a bolt to the lever that lets the drawbridge down; the key's door to the pump house.
  *
+ * The pump house shuts all three of its ways while GROK lives; the dark shift shuts its one while any of five PHI
+ * does, is played on its chart that long, and gives up the Big Key when they are down (`engine/heapFoes.ts`).
+ *
  * Every room is laid so that the hook, which every hero here owns, skips none of the Magnet's crossings: no post,
  * pillar, torch or chest stands where it would carry the hero over, and the bridge's lever stands behind a stub of
  * wall, out of the hook's line and the disc's reach.
@@ -30,6 +33,9 @@ const stairs = (to: string, id: string): Mark => ({ tile: '>', ent: { t: 'warp',
 const rail = (len: number, tile?: Mark['tile']): Mark => (tile ? { tile, ent: { t: 'rail', len, dir: 'right' } } : { ent: { t: 'rail', len, dir: 'right' } })
 const pad = (dir: Dir): Mark => ({ ent: { t: 'pad', dir } })
 const bats: Mark = { ent: { t: 'enemy', kind: 'bat' } }
+/** A trap gate's mark: the first tile of its run. */
+const trap: Mark = { tile: 'X', ent: { t: 'gate', trap: true } }
+const phi = (n: 1 | 2 | 3 | 4 | 5): Mark => ({ ent: { t: 'enemy', kind: 'phi', once: `heap.phi${n}` } })
 /** Broken things in the heaps, glinting. */
 const shards = (n: 0 | 1, x: number, y: number): IsoLandmark => prop(`underglow_shards_${n}`, x + 0.5, y + 0.5)
 
@@ -98,12 +104,12 @@ const LINE = [
 const PUMP_HOUSE = [
   '################',
   '#~~~~~~~~~~#.Ev#',
+  '#...▣.......sXX#',
   '#...▣..........#',
   '#...▣..........#',
-  '#...▣..........#',
-  '................',
-  '................',
-  '#..............#',
+  'W..............e',
+  'X..............X',
+  '#..........N...#',
   '#.4............#',
   '#..............#',
   '#..............#',
@@ -113,14 +119,14 @@ const PUMP_HOUSE = [
 const DARK_SHIFT = [
   '################',
   '#..............#',
+  '#......A.....J.#',
+  '#...##.....##..#',
+  '#...##.....##..#',
+  'z............Q.#',
+  'X.......U......#',
   '#..............#',
-  '#...##.....##..#',
-  '#...##.....##..#',
-  '.............Q.#',
-  '...............#',
-  '#..............#',
-  '#...##.....##..#',
-  '#...##.....##..#',
+  '#...##.....##0.#',
+  '#...##.5...##..#',
   '#..............#',
   '################',
 ]
@@ -141,8 +147,16 @@ export const HEAP1: MapDef = {
     '1,0': { name: 'THE SORTING FLOOR' },
     '2,0': { name: 'THE STRONGROOM' },
     '1,1': { name: 'THE LINE' },
-    '2,1': { name: 'THE PUMP HOUSE' },
-    '3,1': { name: 'THE DARK SHIFT' },
+    '2,1': {
+      name: 'THE PUMP HOUSE',
+      events: [{ when: { notFlag: 'heap.grok' }, lines: ['GROK. IT KNOWS THE WAY THROUGH. IT KNOWS NOTHING ELSE.'], set: 'heap1.grok.met' }],
+    },
+    // The lamps are out: while a PHI lives, the room is played on its chart.
+    '3,1': {
+      name: 'THE DARK SHIFT',
+      chart: true,
+      events: [{ lines: ['(THE LAMPS HERE ARE OUT. SOMETHING ON THE CHART MOVES.)', 'PHI. VERY SMALL. VERY GOLD. VERY SURE OF ITS PROPORTIONS.'], set: 'heap1.phi.met' }],
+    },
   },
   rows: joinCells([
     [HOLLOW, SORTING, STRONGROOM, ROCK],
@@ -180,6 +194,18 @@ export const HEAP1: MapDef = {
     v: stairs('heap2', 'down'),
     E: entry('stair'),
     Q: { ent: { t: 'chest', id: 'heap1.bigkey', item: 'bigKey', appear: { clear: true } } },
+    // GROK, and the pump house's three trap gates: west, east and the stair's alcove.
+    N: { ent: { t: 'enemy', kind: 'grok', once: 'heap.grok', dir: 'left' } },
+    W: trap,
+    e: trap,
+    s: trap,
+    // The dark shift's one way, and the five that shut it.
+    z: trap,
+    A: phi(1),
+    J: phi(2),
+    U: phi(3),
+    '0': phi(4),
+    '5': phi(5),
   },
 }
 

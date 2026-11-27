@@ -25,6 +25,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   parrot: { hp: 16, r: 0.9, dmg: 2 },
   // It never hurts (`dmg: 0`), and its hit points are cuts (`bossSycophant.ts`).
   sycophant: { hp: 4, r: 1.0, dmg: 0, flying: true },
+  grok: { hp: 12, r: 0.5, dmg: 2 },
+  phi: { hp: 2, r: 0.4, dmg: 2 },
 }
 
 export function spawnEnemy(

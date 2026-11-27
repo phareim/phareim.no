@@ -256,7 +256,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { artRest, awayMap, aWould, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
+import { artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
 import { jumpIcon } from './render/side'
 import { A_PAD, createAPad } from './aPad'
 import { fetchSession } from './account'
@@ -1611,8 +1611,7 @@ function keepExploring() {
 
 // ---- events → sound, save, banner ----------------------------------------------
 
-const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral', 'parrot'])
-BIG_FOES.add('sycophant')
+const BIG_FOES = BIG
 
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   spin: 'spin', roll: 'roll', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
@@ -1798,7 +1797,8 @@ function frame(nowMs: number) {
   // The controls turn with the picture: up on the stick is up on the screen in every view.
   const raw = input.read()
   // Not in a dialog: there a direction picks YES or NO by its sign, whichever way the picture faces.
-  const turn = state.mode === 'dialog' ? 0 : renderer.viewState().turn
+  // (Nor on a room's chart, which lies north up in every view.)
+  const turn = state.mode === 'dialog' || renderer.charted() ? 0 : renderer.viewState().turn
   const inp = turn ? { ...raw, move: turnMove(raw.move, turn) } : raw
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   // What the screen shows, so the woods' foes come and go past its edge (the turned view shows a diamond of the ground).

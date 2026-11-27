@@ -5,6 +5,7 @@
  */
 import type { Enemy } from '../types'
 import { HERO_R, MIXTRAL } from '../types'
+import { GROK, PHI } from './heapFoes'
 import { PARROT, type ParrotMove, type Reciter } from './parrot'
 import { angleDiff } from './util'
 import { sycophantLanes } from './bossSycophant'
@@ -80,6 +81,13 @@ export function stencilsOf(e: Enemy): Stencil[] {
     const y1 = e.ai.ly as number
     const a = { left: Math.PI, right: 0, up: -Math.PI / 2, down: Math.PI / 2 }[e.dir]
     out.push({ t: 'lane', x0: e.x, y0: e.y, x1, y1, a, w: reach * 2, cap: reach, k: unit(1 - e.ai.tell / whole) })
+  }
+  // GROK's roll and PHI's dart: the lane as wide as the blow, from where it is to where it will end.
+  const run = e.ai.mode === 'tell' || e.ai.mode === (e.kind === 'grok' ? 'roll' : 'dart') || (e.kind === 'grok' && e.ai.mode === 'drill')
+  if ((e.kind === 'grok' || e.kind === 'phi') && run && e.stun <= 0) {
+    const a = { left: Math.PI, right: 0, up: -Math.PI / 2, down: Math.PI / 2 }[e.dir]
+    const whole = e.kind === 'phi' ? PHI.tell : e.ai.phase === 2 ? GROK.tell2 : GROK.tell
+    out.push({ t: 'lane', x0: e.x, y0: e.y, x1: e.ai.lx as number, y1: e.ai.ly as number, a, w: e.kind === 'phi' ? PHI.lane : GROK.lane, cap: e.r, k: unit(1 - e.ai.tell / whole) })
   }
   if (e.kind === 'parrot') {
     for (const p of ['', 'c'] as const) {

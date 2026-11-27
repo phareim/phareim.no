@@ -15,6 +15,7 @@ before(async () => { Z = await load() })
 /** Bosses whose fights are played in a test file of their own. */
 const ELSEWHERE = { mixtral: 'zelda-echo-barrow.test.mjs', parrot: 'zelda-echo-barrow.test.mjs' }
 ELSEWHERE.sycophant = 'zelda-steamhouse.test.mjs'
+ELSEWHERE.grok = 'zelda-heap.test.mjs'
 
 /**
  * Each boss: its map, the flag its fall sets, the B item the fight takes, and the states the two fights must have

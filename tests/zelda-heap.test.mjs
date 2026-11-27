@@ -15,11 +15,12 @@ before(async () => { Z = await load(); P = walker(Z) })
 /** The rooms' top-left tiles (cells of 16 × 12); a room's own coordinates are added to them. */
 const ROOMS = {
   heap1: { hollow: [0, 0], sorting: [16, 0], strongroom: [32, 0], line: [16, 12], pump: [32, 12], dark: [48, 12] },
+  heap2: { foot: [0, 0], heap: [16, 0] },
 }
 const tileAt = (s, x, y) => s.map.tiles[y * s.map.w + x]
 
 describe('the Heap', () => {
-  it('is played from the hollow wall to the Pump House, with the blade and what the Heap gives', () => {
+  it('is played from the hollow wall to the Heap\'s door, with the blade and what the Heap gives', () => {
     const log = []
     let s
     let room = 'rails'
@@ -32,7 +33,7 @@ describe('the Heap', () => {
       log.push(`${room}: ${step}: ok`)
     }
     /** Where tile (x, y) of the room is on its map. */
-    const at = (x, y) => { const [ox, oy] = ROOMS.heap1[room]; return [ox + x, oy + y] }
+    const at = (x, y) => { const [ox, oy] = ROOMS[s.map.id][room]; return [ox + x, oy + y] }
     const tile = (x, y) => tileAt(s, ...at(x, y))
     const walk = (x, y) => P.walkTo(s, ...at(x, y))
     const stands = (x, y) => {
@@ -41,7 +42,7 @@ describe('the Heap', () => {
     }
     /** Walk on through a doorway until the camera stands in the next room. */
     const cross = (to, x, y) => {
-      const [ox, oy] = ROOMS.heap1[to]
+      const [ox, oy] = ROOMS[s.map.id][to]
       P.walkTo(s, ox + x, oy + y)
       P.until(s, () => s.mode === 'play')
       room = to
@@ -194,6 +195,146 @@ describe('the Heap', () => {
       assert.equal(tile(15, 6), '.')
       assert.equal(Z.keyCount(s), 0)
       cross('pump', 1, 5)
+    })
+
+    // --- the fights: real input, no god mode ------------------------------------------------------------------------
+    const foes = kind => s.map.enemies.filter(e => e.kind === kind)
+    const far = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+    const stick = (dx, dy, k = 1) => { const d = Math.hypot(dx, dy) || 1; return { x: (dx / d) * k, y: (dy / d) * k } }
+    /** The stick toward point p, by the tiles' path where something is in the straight way. */
+    const toward = (p) => {
+      const h = s.hero
+      let to = p
+      if (!Z.lineClear(Z.WORLD, s.map, h.x, h.y, p.x, p.y)) {
+        const way = P.path(s, Math.floor(p.x), Math.floor(p.y))
+        if (way?.length > 1) to = { x: way[1][0] + 0.5, y: way[1][1] + 0.5 }
+      }
+      return stick(to.x - h.x, to.y - h.y)
+    }
+    /** The stick out of any lane painted under the hero, to the nearer side of it; null where they stand in none. */
+    const dodge = (list) => {
+      const h = s.hero
+      for (const e of list) for (const st of Z.stencilsOf(e)) {
+        if (!Z.inStencil({ ...st, w: st.w + 0.4, cap: st.cap + 0.2 }, h.x, h.y)) continue
+        const flat = Math.abs(Math.cos(st.a)) > 0.5
+        const side = [-1, 1].map(k => (flat ? { x: h.x, y: st.y0 + k * (st.w / 2 + 0.35) } : { x: st.x0 + k * (st.w / 2 + 0.35), y: h.y }))
+          .filter(p => !Z.circleBlocked(Z.WORLD, s.map, p.x, p.y, 0.34)).sort((a, b) => far(h, a) - far(h, b))[0]
+        if (side) return stick(side.x - h.x, side.y - h.y)
+      }
+      return null
+    }
+    /** One frame toward an open foe, or of the blade at it. */
+    const cut = (e) => {
+      const h = s.hero
+      const at = stick(e.x - h.x, e.y - h.y)
+      if (far(h, e) > 1.35 + e.r * 0.3) return P.step(s, P.inp({ move: toward(e) }))
+      if (!h.swing && !(h.cooldown > 0)) return P.step(s, P.inp({ move: at, a: true, aPress: true }))
+      return P.step(s, P.inp({ aPress: !!h.swing && h.swing.t > 0.1 }))
+    }
+    /** B with the stick toward `at`: a tap. */
+    const tap = at => P.step(s, P.inp({ move: stick(at.x - s.hero.x, at.y - s.hero.y, 0.2), bPress: true }))
+    const flying = () => !!s.map.iron?.flights.length || (s.map.iron?.rest ?? 0) > 0
+
+    // --- the pump house: GROK ---------------------------------------------------------------------------------------
+    const shut = tiles => tiles.every(([x, y]) => tile(x, y) === 'X')
+    const open = tiles => tiles.every(([x, y]) => tile(x, y) === '.')
+    const PUMP_WAYS = [[0, 5], [0, 6], [15, 5], [15, 6], [12, 2], [13, 2], [14, 2]]
+    check('the pump house shuts its three ways on GROK', () => {
+      P.settle(s)
+      for (let k = 0; k < 30; k++) P.step(s)
+      assert.ok(s.flags['heap1.grok.met'], 'its card was read')
+      assert.ok(shut(PUMP_WAYS))
+    })
+    check('GROK falls to two crates and the blade, one drilled through on the way', () => {
+      const [g] = foes('grok')
+      const met = new Set()
+      let iron = false
+      for (let k = 0; k < 60 * 60 && !g.dead && s.mode === 'play'; k++) {
+        if (g.ai.mode === 'dazed') iron ||= g.ai.t > 2
+        else iron = false
+        met.add(g.ai.mode)
+        // First west of the crates, which stop its roll; then under their column, with two pulled into a stack.
+        const two = g.hp <= g.maxHp / 2
+        const [hx, hy] = at(...(two ? [4, 10] : [1, 3]))
+        const home = { x: hx + 0.5, y: hy + 0.5 }
+        const stacked = [9, 8].filter(y => tile(4, y) === '▣').length
+        const out = dodge([g])
+        if (iron && Z.bossOpen(g)) cut(g)
+        else if (out) P.step(s, P.inp({ move: out }))
+        else if (far(s.hero, home) > 0.15) P.step(s, P.inp({ move: toward(home) }))
+        else if (two && stacked < 2 && !flying() && !s.hero.swing) tap({ x: s.hero.x, y: s.hero.y - 3 })
+        else P.step(s)
+      }
+      assert.ok(g.dead, `GROK stands: ${g.hp} hp, the hero ${s.hero.hp}`)
+      assert.ok(met.has('drill'), 'it drilled')
+      assert.ok(s.flags['heap.grok'])
+      P.frames(s, 10)
+      assert.ok(open(PUMP_WAYS))
+    })
+
+    // --- the dark shift: five PHI ------------------------------------------------------------------------------------
+    check('the dark shift shuts behind the hero', () => {
+      cross('dark', 1, 5)
+      P.walkTo(s, ...at(2, 5))
+      P.settle(s)
+      for (let k = 0; k < 30; k++) { s.hero.invuln = 1; P.step(s) }
+      assert.ok(s.flags['heap1.phi.met'], 'the lamps are out')
+      assert.equal(foes('phi').filter(e => !e.dead).length, 5)
+      assert.ok(shut([[0, 5], [0, 6]]))
+      assert.equal(tile(13, 5), '.', 'no chest yet')
+    })
+    check('the five come to the Magnet, one by one, and fall to the blade', () => {
+      s.hero.invuln = 0
+      let pulled = 0
+      for (let k = 0; k < 60 * 90 && foes('phi').some(e => !e.dead) && s.mode === 'play'; k++) {
+        const h = s.hero
+        const live = foes('phi').filter(e => !e.dead)
+        const ready = live.filter(e => Z.bossOpen(e)).sort((a, b) => far(h, a) - far(h, b))[0]
+        const out = dodge(live)
+        if (out) P.step(s, P.inp({ move: out }))
+        else if (ready) cut(ready)
+        else {
+          const mark = !flying() && !h.swing && !live.some(e => e.ai.mode === 'pulled')
+            && live.map(e => Z.magnetPlan(Z.WORLD, s, Math.atan2(e.y - h.y, e.x - h.x))).find(p => p?.t === 'phi')
+          const [mx, my] = at(8, 5)
+          if (mark) pulled += tap(mark).filter(e => e.type === 'latch').length
+          else P.step(s, P.inp({ move: far(h, { x: mx, y: my + 0.5 }) > 0.5 ? toward({ x: mx, y: my + 0.5 }) : { x: 0, y: 0 } }))
+        }
+      }
+      assert.deepEqual(foes('phi').filter(e => !e.dead), [], `PHI left, the hero ${s.hero.hp}`)
+      assert.ok(pulled >= 1)
+      for (let n = 1; n <= 5; n++) assert.ok(s.flags[`heap.phi${n}`])
+    })
+    check('the Big Key, in a lit room', () => {
+      P.frames(s, 20)
+      P.settle(s)
+      assert.ok(open([[0, 5], [0, 6]]))
+      assert.equal(tile(13, 5), '$')
+      walk(12, 5)
+      s.hero.dir = 'right'
+      P.pressA(s)
+      assert.equal(Z.hasBigKey(s), true)
+    })
+
+    // --- the stair, the foot and the Heap's door --------------------------------------------------------------------
+    check('back through the Pump House and down its stair', () => {
+      cross('pump', 14, 5)
+      walk(13, 1)
+      P.walkTo(s, ...at(14, 1))
+      P.until(s, () => s.map.id === 'heap2' && s.mode === 'play')
+      P.settle(s)
+      room = 'foot'
+      assert.deepEqual(s.entry, { map: 'heap2', entry: 'down' })
+    })
+    check('the Big Key opens the door at the Foot, and the Heap is through it', () => {
+      assert.equal(tile(15, 5), 'K')
+      walk(14, 5)
+      for (let k = 0; k < 90 && tile(15, 5) === 'K'; k++) P.step(s, P.inp({ move: { x: 1, y: 0 } }))
+      assert.equal(tile(15, 5), '.')
+      assert.equal(tile(15, 6), '.')
+      cross('heap', 1, 5)
+      assert.equal(s.area, 'THE FOOT OF THE HEAP')
+      assert.equal(s.zoneIndex, 1)
     })
     if (process.env.HEAP_LOG) console.log(log.join('\n'))
   })
