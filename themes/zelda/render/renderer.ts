@@ -23,6 +23,7 @@ import { dayLook, nightOf, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { CALLOUT_TIME, drawBanner, drawCallout, drawDialog, drawHud, drawMoves, drawPause, drawSlow, drawViewStrip, hudScale, NEON_SKIN, type Callout, type HudSkin, type MenuPage } from './hud'
 import { drawMapPage, targetOnScreen } from './mapPage'
+import { drawItemsPage } from './itemsPage'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -101,6 +102,8 @@ export interface FrameUI {
   turn?: number
   /** The top of the touch deck's buttons while paused, in CSS px from the canvas's top (null: no deck): the MAP page keeps above it. */
   deckTop?: number | null
+  /** The cell of the ITEMS page's grid the cursor stands on (`itemsPage.ts`). */
+  itemCursor?: number
   /** The keyboard's focus is on the MAP page's Prism button: the page rings the Prism in gold. */
   prismFocus?: boolean
   /** The view rule turning on its own (`CornerState.rule`): the MAP page's Prism names it. */
@@ -190,6 +193,8 @@ export interface Renderer {
   fineUnit(): number
   /** Where the MAP page last painted its Prism, as the box of a button over it in CSS px from the canvas's top left; null when that page was not painted, or has no Prism. */
   pagePrism(): { x: number; y: number; w: number; h: number } | null
+  /** The nine cells of the ITEMS page as last painted, in CSS px from the canvas's top left; null: the page is not up. */
+  itemCells(): Array<{ x: number; y: number; w: number; h: number }> | null
 }
 
 /**
@@ -376,6 +381,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let flashT = 0
   /** The MAP page's Prism as last painted (`Renderer.pagePrism`). */
   let prismAt: { x: number; y: number; w: number; h: number } | null = null
+  /** The ITEMS page's cells as last painted (`Renderer.itemCells`). */
+  let cellsAt: Array<{ x: number; y: number; w: number; h: number }> | null = null
   let flashColor = '#ffffff'
   const glowCache = new Map<string, HTMLCanvasElement>()
   let scan: CanvasPattern | null = null
@@ -1563,6 +1570,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (dialogRow.of !== s.dialog) dialogRow = { of: s.dialog, y: heroY }
       heroY = dialogRow.y
     } else dialogRow = { of: null, y: 0 }
+    cellsAt = null
     prismAt = null
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
@@ -1611,11 +1619,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const bottom = Math.ceil(insets.bottom * dpr / sp.scale)
       // SLIP's slow world: a cool tint and a frame round it.
       if (s.slow && !ui.paused) drawSlow(g, s.slow, sp.vw, sp.vh, skin)
-      // The menu's MAP page is the whole screen's: no hearts, counters or item box under its veil (they are back with
-      // the next paint of another page, or of play), and nothing of what would stand frozen behind it, since it has no
-      // window of its own (a label, a banner, a line).
-      const mapUp = ui.paused && ui.page === 'map' && !ui.confirmReset
-      if (hud && !mapUp) {
+      // A page of the menu is the whole screen's: no hearts, counters or item box under its veil (they are back with
+      // the next paint of play, or of the start-over question), and nothing of what would stand frozen behind it, since
+      // it has no window of its own (a label, a banner, a line).
+      const pageUp = ui.paused && !ui.confirmReset
+      if (hud && !pageUp) {
         g.save()
         g.translate(left, top)
         drawHud(g, s, sp.vw - left - right, time, ui.touch, skin, world)
@@ -1627,19 +1635,21 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         if (callout.t > CALLOUT_TIME) callout = null
         else drawCallout(g, callout, sp.vw, sp.vh, skin, heroRow - 46)
       }
-      if (!mapUp) drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
+      if (!pageUp) drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
       // The view strip has the banner's place while it is up.
-      if (ui.banner && !mapUp && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
-      if (s.dialog && !mapUp) {
+      if (ui.banner && !pageUp && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
+      if (s.dialog && !pageUp) {
         g.save()
         g.translate(0, top)
         drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin)
         g.restore()
       }
-      if (ui.paused && ui.page === 'moves' && !ui.confirmReset) drawMoves(g, s, sp.vw, sp.vh, ui.keys, skin)
+      if (ui.paused && ui.page === 'moves' && !ui.confirmReset) drawMoves(g, s, sp.vw, sp.vh, ui.keys, skin, top)
       // (The MAP page lies on this skin's grid: the deck's top comes to it from the shell's CSS px.)
       else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, rule: ui.rule, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)
-      else if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
+      else if (ui.paused && ui.confirmReset) drawPause(g, sp.vw, sp.vh, ui.keys, skin)
+      // (The ITEMS page keeps above the deck as the MAP page does, and says where its cells came to lie.)
+      else if (ui.paused) drawItemsPage(g, s, sp.vw, sp.vh, { keys: ui.keys, cursor: ui.itemCursor ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, muted: ui.muted, view: ui.view, placed: p => { cellsAt = p.cells.map(b => targetOnScreen(b, sp, dpr, { w: W / dpr, h: H / dpr })) } }, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }
     if (alpha < 1) screen.globalAlpha = alpha
@@ -2419,5 +2429,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     },
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
     pagePrism: () => prismAt,
+    itemCells: () => cellsAt,
   }
 }

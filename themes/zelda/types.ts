@@ -377,6 +377,15 @@ export const B_ITEMS: ReadonlyArray<BItem & { id: UseItem }> = [
 /** The row of `B_ITEMS` for `id`; undefined for anything else (a name a save holds and the game does not know). */
 export const bItem = (id: unknown) => B_ITEMS.find(b => b.id === id)
 
+/** What the ITEMS page says of each thing B can hold, under its grid: its name and one line of what it does. */
+export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> & Record<string, { name: string; does: string }>> = {
+  hook: { name: 'THE HOOK', does: 'PULLS YOU TO WHAT IT BITES.' },
+  disc: { name: 'THE DISC', does: 'COMES BACK. STUNS WHAT IT HITS.' },
+  bombs: { name: 'BOMBS', does: 'OPEN CRACKED WALLS. MIND YOUR FEET.' },
+  hop: { name: 'THE HOP', does: 'A SHORT JUMP. NOTHING LANDS ON YOU IN THE AIR.' },
+  echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
+}
+
 /**
  * A map whose ground has heights (`engine/terrain.ts`). Every tile gets a height 0–4: walking crosses equal
  * heights, steps down freely and goes up only by a ramp.
