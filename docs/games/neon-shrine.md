@@ -702,8 +702,8 @@ classic picture. `/?view=<id>` asks for one.
     the classic card again, pixel for pixel. The job's tools, sheets and archive are in
     `tmp/iso-figures-23/` on the Mac (`REPORT.md`).
   - *Machines drawn by hand* (`machines`, on by default, needs `things`; `iso/machines.ts`,
-    the `machines` art pack, `iso/machineGlass.ts`; part 25, 2026-11-26). The arcade cabinets (all nineteen
-    placed: fourteen in the arcade, four in the VIP hall, NEW GAME in Petter's house), Petter's three
+    the `machines` art pack, `iso/machineGlass.ts`; part 25, 2026-11-26). The arcade cabinets (all twenty
+    placed: fifteen in the arcade, four in the VIP hall, NEW GAME in Petter's house), Petter's three
     terminals and the LOGIN console stand in the round as hand-made pixel art. The NEW GAME cabinet is the
     master, drawn by Codex over a guide from solids (a tall box, a marquee hood, the screen set back between
     the side panels, the control panel jutting, the coin door) with its glass a flat key colour; every other

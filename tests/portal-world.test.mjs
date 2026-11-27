@@ -34,9 +34,10 @@ const LINK_CABINETS = {
   pizzarescue: 'https://fighter.phareim.no/?look=wasteland&from=phareim',
   nova: 'https://nova.phareim.no/?from=phareim',
   horizon: 'https://space.phareim.no/?from=phareim',
+  etene: 'https://game.phareim.no/?from=phareim',
 }
 const AWAY = LINK_CABINETS
-const ARCADE_ARTS = [...GAMES, 'adventure', 'pizzarescue', 'nova', 'horizon']
+const ARCADE_ARTS = [...GAMES, 'adventure', 'pizzarescue', 'nova', 'horizon', 'etene']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
@@ -47,6 +48,7 @@ const EXPECTED = {
   pizzarescue: { map: 'arcade', to: { url: LINK_CABINETS.pizzarescue }, look: 'cabinet' },
   nova: { map: 'arcade', to: { url: LINK_CABINETS.nova }, look: 'cabinet' },
   horizon: { map: 'arcade', to: { url: LINK_CABINETS.horizon }, look: 'cabinet' },
+  etene: { map: 'arcade', to: { url: LINK_CABINETS.etene }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   // The newsstand on the coast: A opens the shell's news panel (Sleeper's feed, read in the game).
@@ -270,9 +272,9 @@ describe('portal world', () => {
     assert.match(spot.ent.lines[0], /^NOVA & REX: THE PIZZA RESCUE\./)
     assert.match(spot.ent.lines.join(' '), /A PUNCHES, B KICKS/)
     assert.match(spot.ent.lines.join(' '), /PAUSE THERE AND PICK ARCADE/)
-    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 14)
+    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 15)
     const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
-    assert.match(robot, /FOURTEEN CABINETS/)
+    assert.match(robot, /FIFTEEN CABINETS/)
     // It stands in nobody's way: every exit in the hall, the vendor's counter, the robot, the sign and the chest can still be walked up to.
     const g = session()
     goToMap(g, 'arcade')
@@ -359,7 +361,36 @@ describe('portal world', () => {
     assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
-  it('frames the six cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
+  it('has a cabinet for ETENE right of the door, drawn in ink, that leaves for game.phareim.no and is not a theme', () => {
+    const spot = placedExits().find(e => e.id === 'etene')
+    assert.ok(spot, 'no Etene cabinet')
+    assert.equal(spot.map, 'arcade')
+    assert.equal(spot.ent.look, 'cabinet')
+    assert.equal(spot.ent.art, 'etene')
+    assert.equal(spot.ent.label, 'ETENE')
+    assert.deepEqual(spot.ent.to, { url: LINK_CABINETS.etene })
+    assert.doesNotMatch(readFileSync(new URL('../themes/index.ts', import.meta.url), 'utf8'), /etene|game\.phareim/i, 'Etene is in the theme registry')
+    const paint = readFileSync(new URL('../themes/zelda/render/exits.ts', import.meta.url), 'utf8')
+    assert.match(paint, /^CABS\.etene = \{/m, 'no cabinet style for Etene')
+    assert.match(paint, /case 'etene':/, 'no screen for Etene')
+    // The pitch says it needs a sign-in and how to come back.
+    assert.match(spot.ent.lines[0], /^ETENE\. A FLIGHT IN DRAWINGS/)
+    assert.match(spot.ent.lines.join(' '), /SIGNED-IN READERS/)
+    assert.match(spot.ent.lines.join(' '), /PICK BACK TO THE ARCADE/)
+    // Vector Horizon's mirror about the door's column, a stool in front.
+    const rows = W.maps.arcade.rows
+    const door = P.createGame(W, { at: { map: 'arcade', entry: 'door' } }).hero
+    const horizon = placedExits().find(e => e.id === 'horizon')
+    assert.equal(spot.y, horizon.y)
+    assert.equal(spot.x - Math.floor(door.x), Math.floor(door.x) - horizon.x)
+    assert.equal(rows[spot.y + 1][spot.x], 'i', 'no stool in front of it')
+    const { event } = useExit('etene')
+    assert.deepEqual(event.to, { url: LINK_CABINETS.etene })
+    const back = P.createGame(P.worldStartingAt('arcade', 'etene'), { seed: 1 })
+    assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
+  })
+
+  it('frames the seven cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
     // docs/games/frame.md: `/?frame=<id>` shows the game inside the page. The table and the town must agree.
     assert.deepEqual(Object.keys(P.FRAMED_GAMES).sort(), Object.keys(LINK_CABINETS).sort())
     for (const [id, url] of Object.entries(LINK_CABINETS)) {
@@ -397,7 +428,7 @@ describe('portal world', () => {
     assert.equal(door.dir, 'up')
     // Vector Horizon, by the door while it is being tested (2026-10-28), stands outside this rule: off the door's column
     // and the island's line, so the island is still what a visitor walks straight at.
-    const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !ISLAND.includes(e.id) && e.id !== 'horizon')
+    const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !ISLAND.includes(e.id) && e.id !== 'horizon' && e.id !== 'etene')
     assert.equal(others.length, 9)
     for (const c of others) assert.ok(c.y < adventure.y, `${c.id} stands nearer the door than the island`)
     // A pillar at each end, a stool in front of each of the four, and nothing but floor between the door and the

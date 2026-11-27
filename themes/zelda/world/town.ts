@@ -31,7 +31,9 @@ export const HIGH_SCORE_SIGN: string[] = [
  * thirteenth stands just inside the door on the left, Vector Horizon (out of
  * testing since 2026-10-30: no tape, no TEST card, no cone). The fourteenth,
  * Invasive (Invaders Mk II, 2026-11-11), took the torch's place at the left
- * end of the back wall, so five stand left of the board.
+ * end of the back wall, so five stand left of the board. The fifteenth, Etene
+ * (2026-11-27), mirrors Vector Horizon on the right of the door, by the prize
+ * counter: the hall's one machine drawn in ink on paper instead of lit.
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
  * the renderer paints on its marquee). Face it and press A: the lines are
@@ -58,8 +60,8 @@ export const ARCADE: MapDef = {
     '#.,,,,iiii,,,,,.#',
     '#Y......,..v...S#',
     '#.nn....,.nnnn..#',
-    '#Q..V...,......$#',
-    '#...i.u.@.....Y.#',
+    '#Q..V...,...K..$#',
+    '#...i.u.@...i.Y.#',
     '########d########',
   ],
   // Z: the board is five tiles wide; its wings stay solid.
@@ -158,6 +160,20 @@ export const ARCADE: MapDef = {
         ],
       },
     },
+    // Etene (2026-11-27): a shoot-'em-up drawn like a Mœbius album, on game.phareim.no behind auth.phareim.no's sign-in. The
+    // pale machine right of the door (`CABS.etene` and `eteneInk` in render/exits.ts); `from=phareim` puts "Back to the
+    // arcade" on the game's sign-in card, title page and pause veil.
+    K: {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'etene', to: { url: 'https://game.phareim.no/?from=phareim' }, look: 'cabinet', art: 'etene', label: 'ETENE', side: 'down',
+        lines: [
+          'ETENE. A FLIGHT IN DRAWINGS: A PILOT, HER DROID AND HER SAND-FOX IN A CREAM DELTA WING, OVER DESERTS, FORESTS AND SEAS. FIVE CHAPTERS, ALMOST NO WORDS.',
+          'FOR SIGNED-IN READERS. IT LIVES ON ITS OWN PAGE. PAUSE THERE AND PICK BACK TO THE ARCADE TO WALK IN HERE AGAIN.',
+          COIN,
+        ],
+      },
+    },
     B: {
       tile: 'I',
       ent: {
@@ -183,9 +199,10 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. FOURTEEN CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. FIFTEEN CABINETS. FREE PLAY. BOOP.',
               'THE FOUR IN THE MIDDLE ARE THE LONG ONES: PIZZA RESCUE, SOLO RESCUE, ADVENTURE, NIGHT OF THE DEAD BATTERY.',
               'THE TAPED-OFF ONE BY THE DOOR IS VECTOR HORIZON. STILL BEING TESTED. IF IT CRASHES, IT WAS NOT ME. BOOP.',
+              'THE PALE ONE ON THE OTHER SIDE IS ETENE. IT IS NOT LIT. IT IS DRAWN. I DO NOT UNDERSTAND ART. BEEP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',

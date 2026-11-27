@@ -1,11 +1,11 @@
 # The frame: a game on another address, inside this page
 
-Six cabinets lead to games on their own addresses: Adventure
+Seven cabinets lead to games on their own addresses: Adventure
 (`adventure.phareim.no`), Pizza Rescue (`fighter.phareim.no`), its sequel
 Solo Rescue (`nova.phareim.no`, since 2026-10-13), Eventyrland
 (`eventyrland.phareim.no`), Supermusene (`maileg.phareim.no`, since
-2026-10-21) and Vector Horizon (`space.phareim.no`, since 2026-10-28, the
-arcade's machine under test). In a browser tab the cabinet loads the address, as
+2026-10-21), Vector Horizon (`space.phareim.no`, since 2026-10-28) and
+Etene (`game.phareim.no`, since 2026-11-27, behind auth.phareim.no's sign-in). In a browser tab the cabinet loads the address, as
 before. Installed as a web app (Home Screen), leaving the app's own address
 makes the phone open its browser sheet over the game, with an address bar and
 a Done button. No manifest setting avoids that on iOS: an app's scope is one
@@ -68,6 +68,7 @@ of its own reading and the frame's.
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 | Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
 | Supermusene (`~/github/maileg`) | no header: any page may frame it | `src/game/arcade.ts`, at boot when the address says `from=phareim` | "Til arkaden" on the title and in the pause menu |
+| Etene (`~/github/game`, 2026-11-27) | no header: any page may frame it | `site/gate.js`, the one script a signed-out visitor gets: hello at boot, the four insets into `--safe-t`/`-r`/`-b`/`-l`, ready once its way back is on screen (the sign-in card or the title) | "Back to the arcade" on the sign-in card, the title and the pause veil |
 | Vector Horizon (`~/github/space`, 2026-10-28) | no header: any page may frame it | `src/main.ts`: `phareim:ready` at boot, the four insets into `--safe-top`/`-bottom`/`-left`/`-right` (left and right since 2026-10-29, for a phone on its side) | ARCADE on the title and the pause panel, through the frame when framed |
 
 ## Adding a game

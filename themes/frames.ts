@@ -20,6 +20,7 @@ export const FRAMED_GAMES: Record<string, { name: string; url: string }> = {
   eventyrland: { name: 'Eventyrland', url: 'https://eventyrland.phareim.no' },
   maileg: { name: 'Supermusene', url: 'https://maileg.phareim.no/?from=phareim' },
   horizon: { name: 'Vector Horizon', url: 'https://space.phareim.no/?from=phareim' },
+  etene: { name: 'Etene', url: 'https://game.phareim.no/?from=phareim' },
 }
 
 /** The framed game `/?frame=<id>` names, or null for anything else. */
