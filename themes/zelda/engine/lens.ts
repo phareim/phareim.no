@@ -121,7 +121,8 @@ function placeHidden(c: Ctx) {
   const h = s.hero
   for (const t of glassThings(c.info)) {
     if (isFalse(t)) continue
-    const there = !!m.lensSeen?.includes(t.i)
+    // (On a map seen from above an opened chest is a chest like any other, solid whether or not the glass shows it; on a side map it hides again with the ledges.)
+    const there = !!m.lensSeen?.includes(t.i) || (t.is === 'cache' && c.info.def.kind !== 'side' && has(s, `chest:${t.id}`))
     const want = there ? c.info.base[t.i]! : '.'
     if (m.tiles[t.i] === want) continue
     // (A chest never comes up round the hero: it waits until he is clear of its tile.)

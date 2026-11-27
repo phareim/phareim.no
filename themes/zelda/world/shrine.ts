@@ -23,7 +23,7 @@ export const SHRINE: MapDef = {
         when: { flags: ['boss'], not: ['gateShut'] },
         lines: [
           'THE STATIC KING FALLS. THE SUN PRISM FLICKERS ON ITS PEDESTAL, DARK.',
-          'THE DOOR HE CAME THROUGH IS STILL OPEN: THE DEEP LAB, WEST IN THE WILDWOOD. SHUT IT, THEN COME BACK FOR THE PRISM.',
+          'HIS DOOR IS STILL OPEN: THE DEEP LAB, WEST IN THE WILDWOOD. SHUT IT, THEN COME BACK FOR THE PRISM.',
         ],
         set: 'king.warned',
       }],

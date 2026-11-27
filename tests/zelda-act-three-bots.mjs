@@ -13,9 +13,10 @@ const jumpKeys = { bPress: true, jumpPress: true, jumpHeld: true }
 /**
  * BARD. `glass`: during a hide, stand still until the glass shows the piece, then wait where its blow will not reach
  * and its opening will be near; without it, wait in the middle and read the stencil. `react`: seconds before it acts
- * on a tell or an opening. Returns the seconds taken and the blows that landed on the hero.
+ * on a tell or an opening; `until` (a function of BARD) ends the fight early. Returns the seconds taken and the blows
+ * that landed on the hero.
  */
-export function fightBard(Z, s, P, { glass = false, max = 150, react = 0 } = {}) {
+export function fightBard(Z, s, P, { glass = false, max = 150, react = 0, until = null } = {}) {
   const e = s.map.enemies.find(v => v.kind === 'bard')
   const h = () => s.hero
   const seen = { pieces: new Set(), openings: 0, hits: 0 }
@@ -36,7 +37,7 @@ export function fightBard(Z, s, P, { glass = false, max = 150, react = 0 } = {})
     }
     return best
   }
-  while (!e.dead) {
+  while (!e.dead && !until?.(e)) {
     assert.ok(frames++ < max * 60, `BARD stands after ${max} s (hp ${e.hp}, ${e.ai.mode}): ${P.where()}`)
     if (h().hp < hp) seen.hits++
     hp = h().hp
@@ -187,9 +188,9 @@ const WEST = 2.35
  * the rail is lit. `react`: seconds before it acts on a stencil or the rail. `guess` (a function giving 0 or 1, west
  * to east) settles the blind guess; left out, it takes the nearer one. Returns the seconds, the openings and how many
  * bit, the false bodies popped, the half hearts lost, how far off each cut that bit stood (tiles) and what the bar
- * quoted at each shuffle.
+ * quoted at each shuffle. `until` (a function of the real body) ends the fight early, wherever it has got to.
  */
-export function fightHallucinator(Z, s, P, { way = 'blade', max = 400, react = 0, watch = null, guess = null } = {}) {
+export function fightHallucinator(Z, s, P, { way = 'blade', max = 400, react = 0, watch = null, guess = null, until = null } = {}) {
   const lead = () => s.map.enemies.find(v => v.kind === 'hallucinator')
   const h = () => s.hero
   const out = { seconds: 0, openings: 0, bit: 0, pops: 0, lost: 0, far: [], quoted: [] }
@@ -210,7 +211,7 @@ export function fightHallucinator(Z, s, P, { way = 'blade', max = 400, react = 0
     }
     return best ?? want
   }
-  while (!e0.dead) {
+  while (!e0.dead && !until?.(e0)) {
     assert.ok(frames++ < max * 60, `the Hallucinator stands after ${max} s (hp ${e0.hp}, ${e0.ai.mode}): ${P.where()}`)
     if (h().hp < hp) out.lost += hp - h().hp
     hp = h().hp

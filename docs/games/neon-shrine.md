@@ -387,7 +387,8 @@ classic picture. `/?view=<id>` asks for one.
   loading, and no bag falls before a whole tell. A bag moves nobody and nothing
   hurts it.
 - **A door from the side** takes a hero who stands or climbs: a jump across a
-  doorway's tile goes past it.
+  doorway's tile goes past it. A blow's shove never carries him through one: a
+  hero knocked onto a stair waits there until he has stepped off it and on again.
 - **The chase** (`MapDef.autoscroll: { vx, from, to, wait }`, `engine/chase.ts`;
   THE ROAD uses it). A side map of one wide room whose screen, 16 tiles, scrolls
   by itself: it holds `wait` seconds from the first moment of play (never under a
@@ -1165,7 +1166,7 @@ classic picture. `/?view=<id>` asks for one.
     it: behind the set it is not in the room at all. Through the glass its
     outline stands over the piece. After 5 s (4 the first time) the piece
     shudders in a pink outline for 0.9 s (1.1 the rope) with the blow
-    stencilled, and BARD steps out: the door charges 6.5 tiles along the floor
+    stencilled, and BARD steps out: the door charges 7.5 tiles along the floor
     toward the hero's side (west when the hero is within 1.5 of it); the chest
     leaps onto the hero's spot, a box 3 wide that hurts whoever stands on the
     floor in it; the rope drops three bags on columns 2 wide, 4 apart. Then it
@@ -1207,9 +1208,8 @@ classic picture. `/?view=<id>` asks for one.
       has 4 waves, each with two painted crates that fall with the real ones,
       unstencilled and harmless (outlines under the glass), and the open is 1.8 s.
     - *Falling.* All three go in a white puff; the exit gate opens and the
-      Weight SOURCES lies on the floor. A death or a way out of the room starts
-      the fight over: the arena is a map of its own, so the rule that a boss
-      keeps its wounds when the hero steps out never reaches it.
+      Weight SOURCES lies on the floor, at x 11.5. A death starts the fight
+      over; a way out of the room does not (a boss keeps its wounds, `enterMap`).
     - Its pictures (`render/spritesHallucinator.ts`) are drawn from the side,
       their pink, gold and cyan worn as lilac and teal. Its fight is played in
       `tests/zelda-act-three.test.mjs`.
@@ -1251,8 +1251,8 @@ classic picture. `/?view=<id>` asks for one.
     Snack Bar and brings up the second key's chest down the road. The screen
     scrolls on to its end either way. Its pictures are its own, from the side
     (`render/spritesCopilotSide.ts`, 48 × 16): driving, honking, rusted, struck.
-    Its road is a map of its own: a death or a way out starts the fight over
-    (hp 8), as the Hallucinator's does.
+    Its road is a map of its own: a death starts the fight over (hp 8); a way
+    out keeps its wounds, as for every boss (`enterMap`).
   - *The Usher* (the Late Show's Snack Bar): a tough sentry with a card of its
     own (THE USHER. SEATS ARE ASSIGNED. SO IS BLAME.) behind a trap gate. A
     second gate stands over the 2086 lock's alcove and opens when he falls

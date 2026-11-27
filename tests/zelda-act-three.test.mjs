@@ -120,9 +120,18 @@ describe('Act Three', () => {
 
     // The Boards: BARD holds the shaft's doorway shut until it falls, to the blade and from all three of its pieces.
     assert.equal(Z.tileAt(s.map, 13, 9), 'X')
+    // (A hero who leaves by the trapdoor stair mid-fight finds it as wounded as he left it, and starts over only by dying.)
+    fightBard(Z, s, P, { until: e => e.hp <= 6 })
+    const bardHp = s.map.enemies.find(e => e.kind === 'bard').hp
+    assert.ok(bardHp <= 6 && bardHp > 0, `BARD is hurt: ${bardHp}`)
+    P.warpBy({ x: -1, y: 0 }, 'actdoors')
+    P.warpBy({ x: 1, y: 0 }, 'actbard')
+    assert.equal(s.map.enemies.find(e => e.kind === 'bard').hp, bardHp, 'BARD keeps its wounds across the stair')
+    P.card()
+    P.settle()
     const bard = fightBard(Z, s, P)
     assert.ok(Z.has(s, 'actthree.bard') && P.heard.some(l => /EVERY PART/.test(l)), 'BARD is heard of, and falls')
-    assert.ok(bard.openings >= 3, `no opening gives more than four: ${bard.openings}`)
+    assert.ok(bard.openings >= 1, `it still has openings to give: ${bard.openings}`)
     P.idle(60)
     assert.deepEqual([Z.tileAt(s.map, 13, 8), Z.tileAt(s.map, 13, 9)], ['.', '.'], 'its fall opens the gate')
     // Up to the ledge by its ladder, through the doorway, and up.
@@ -141,6 +150,7 @@ describe('Act Three', () => {
 
     // The Flats: the painted step is air, the real one is beside it.
     P.fell(s.map.enemies.find(e => e.kind === 'sentry'), 6.4)
+    P.fell(s.map.enemies.find(e => e.kind === 'bat'), 6.4)
     P.walk(3.2)
     P.jump(4.9, 10, 'onto the painted step: down to the floor again')
     P.walk(6.3)
@@ -277,6 +287,21 @@ describe('Act Three', () => {
     assert.ok(P.heard.some(l => /QUITE SURE/.test(l)))
     assert.deepEqual([s.entry.entry, Z.tileAt(s.map, 13, 10), Z.tileAt(s.map, 13, 11), Z.halluBodies(s.map).length], ['stair', 'X', 'X', 3])
     // THE HALLUCINATOR, with the glass he climbed here with: it falls to the blade, in its openings only.
+    // Cut to half, the hero steps out by the stair and comes back: all three bodies stand as wounded as it was left, in the second half; a death starts it over.
+    fightHallucinator(Z, s, P, { way: 'glass', react: 0.4, until: e => e.hp <= 6 })
+    const hurt = Z.halluBodies(s.map)[0].hp
+    assert.ok(hurt <= 6 && hurt > 0, `the Hallucinator is hurt: ${hurt}`)
+    P.warpBy({ x: -1, y: 0 }, 'actcable')
+    P.card()
+    P.warpBy({ x: 1, y: 0 }, 'actgondola')
+    P.settle()
+    assert.deepEqual(Z.halluBodies(s.map).map(e => e.hp), [hurt, hurt, hurt], 'wounded as it was left, all three')
+    P.idle(10)
+    assert.ok(Z.halluBodies(s.map)[0].ai.phase === 2 && Z.halluBodies(s.map)[0].ai.mode !== 'idle', 'in its second half, the fight begun again')
+    Z.hurtHero(Z.ctx(Z.WORLD, s, []), 99, s.hero.x - 1, s.hero.y)
+    for (let i = 0; i < 400 && s.mode !== 'play'; i++) Z.stepGame(Z.WORLD, s, 1 / 60, Z.NO_INPUT)
+    assert.deepEqual([s.map.id, Z.halluBodies(s.map).map(e => e.hp)], ['actgondola', [10, 10, 10]], 'a death starts the fight over')
+    P.card()
     const won = fightHallucinator(Z, s, P, { way: 'glass', react: 0.4 })
     assert.ok(Z.has(s, 'hallucinator') && won.openings >= 3, `no opening gives more than four: ${won.openings}`)
     P.idle(10)
@@ -284,7 +309,9 @@ describe('Act Three', () => {
     assert.ok(P.heard.some(l => /CRATES GO FLAT/.test(l)))
     assert.ok(Z.halluBodies(s.map).every(e => e.dead), 'all three go together')
     assert.deepEqual([Z.tileAt(s.map, 13, 10), Z.tileAt(s.map, 13, 11)], ['.', '.'], 'the way out opens')
-    P.walk(5.5)
+    // (The Weight lies on the way out, at the east stair's side: a hero who walks on picks it up.)
+    assert.ok(s.map.pickups.some(p => p.item === 'weightSources' && p.x > 10 && p.x < 12), 'the Weight lies where the way out crosses it')
+    P.walk(11.5)
     P.settle()
     assert.ok(Z.has(s, 'item:weightSources') && P.heard.some(l => /STAMPED SOURCES/.test(l)), 'the Weight, in hand')
 
@@ -382,7 +409,7 @@ describe('Act Three', () => {
     assert.ok(!Z.lensUp(back) && !Z.has(back, 'item:lens'))
   })
 
-  it('holds together: the validator, its keys and doors, the stair under the stage, nothing needed hidden', () => {
+  it('holds together: the validator, its keys and doors, the stair under the stage, nothing needed hidden, the shaft, the stage floor and the doorways', () => {
     assert.deepEqual(Z.validateWorld(Z.WORLD).filter(p => /fogstage|understage|^act/.test(p)), [])
     const defs = MAPS.map(id => Z.WORLD.maps[id])
     assert.ok(defs.every(d => d.kind === 'side' && d.keyring === 'actthree' && d.resume && !d.away && d.realm === 'fogstage'))
@@ -427,5 +454,46 @@ describe('Act Three', () => {
       ? { ...d, marks: Object.fromEntries(Object.entries(d.marks).map(([ch, m]) => [ch, m.ent.t === 'veil' ? { tile: '.', ent: { t: 'lie', as: 'ledge' } } : m])) }
       : d]))
     assert.deepEqual(Z.validateWorld({ ...Z.WORLD, maps: bare }).filter(p => /^act/.test(p)), [])
+
+    // Down the Boards' shaft from the Flats: the first natural press leads down the ladder, and none sends him back up the stair.
+    const down = (move) => {
+      const g = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'actbard', entry: 'shaft' } })
+      Z.grant(g, 'sword')
+      g.flags['actthree.bard'] = true
+      g.card = null
+      g.map.enemies = []
+      for (let i = 0; i < 240; i++) Z.stepGame(Z.WORLD, g, 1 / 60, { ...Z.NO_INPUT, move })
+      return [g.map.id, g.hero.y > 8]
+    }
+    for (const move of [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0.707, y: 0.707 }, { x: 1, y: 0.6 }]) assert.deepEqual(down(move), ['actbard', true], `pressing ${JSON.stringify(move)}`)
+    assert.equal(down({ x: 1, y: 0 })[0], 'actbard', 'RIGHT alone stays in the room')
+
+    // BARD's floor has no free corner: with the hero standing at each spot, some piece's blow is stencilled on it.
+    for (let x = 1.5; x <= 14.5; x += 0.25) {
+      const g = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'actbard', entry: 'trapdoor' } })
+      g.hero.invuln = 99
+      const bard = g.map.enemies.find(e => e.kind === 'bard')
+      const hit = ['door', 'chest', 'rope'].some(piece => {
+        g.card = g.dialog = null
+        g.mode = 'play'
+        g.hero.x = x
+        g.hero.y = 11.66
+        bard.x = bard.y = -30
+        bard.ai = { mode: 'hide', t: 0, tell: 0, piece }
+        Z.stepGame(Z.WORLD, g, 1 / 60, Z.NO_INPUT)
+        return Z.bardBoxes(g.map, bard).some(b => x >= b.x0 && x <= b.x1 && g.hero.y >= b.y0 && g.hero.y <= b.y1)
+      })
+      assert.ok(hit, `no blow of BARD's reaches a hero standing at ${x}`)
+    }
+
+    // A blow in the doorway does not throw the hero out of the room by the stair he stands beside.
+    for (const [map, entry] of [['actwings', 'wings'], ['actstudy', 'studyin']]) {
+      const g = Z.createGame(Z.WORLD, { seed: 3, at: { map, entry } })
+      g.card = null
+      for (let i = 0; i < 30; i++) Z.stepGame(Z.WORLD, g, 1 / 60, Z.NO_INPUT)
+      Z.hurtHero(Z.ctx(Z.WORLD, g, []), 1, g.hero.x + 1, g.hero.y)
+      for (let i = 0; i < 120; i++) Z.stepGame(Z.WORLD, g, 1 / 60, Z.NO_INPUT)
+      assert.deepEqual([g.map.id, g.mode], [map, 'play'], `hit at the entry of ${map}`)
+    }
   })
 })

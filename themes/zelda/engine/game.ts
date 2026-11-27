@@ -6,7 +6,7 @@
  * get (item held up, then its text) / dying → respawn; won and exit (the
  * hero left through an exit, the shell navigates) are terminal.
  */
-import type { AreaIntro, ArtId, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
+import type { AreaIntro, ArtId, Dialog, Enemy, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
 import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE, START_HP, STEP, TALK_REST, TILE, WARP_TIME, bItem, roomed } from '../types'
 import { acquire, BIG, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
@@ -117,7 +117,14 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   const info = mapInfo(world, mapId)
   // The storm lamp is back in the hand (before the old map is let go: its tile gets its floor again).
   lampHome(s)
+  // A boss that has been hurt keeps its wounds when the hero leaves its map (`GameState.wounds`, by the foe's id).
+  for (const e of s.map?.enemies ?? []) {
+    if (!BIG.has(e.kind) || e.kind === 'sycophant') continue
+    if (!e.dead && e.hp > 0 && e.hp < e.maxHp) (s.wounds ??= {})[e.id] = e.hp
+    else if (s.wounds) delete s.wounds[e.id]
+  }
   s.map = loadMap(world, s, mapId)
+  for (const e of s.map.enemies) if (s.wounds?.[e.id]) wound(e, s.wounds[e.id]!)
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   delete h.side
@@ -182,6 +189,13 @@ function areaAt(world: World, s: GameState): { name: string; track: TrackId; ent
   return { name: def.name, track: (cd?.calm && has(s, cd.calm) ? undefined : cd?.track) ?? def.track }
 }
 
+/** A boss at home in its first state with the hit points it had; what follows from them is rebuilt (a file of its own does the rest). */
+function wound(e: Enemy, hp: number) {
+  e.hp = Math.min(hp, e.maxHp)
+  if (e.kind === 'blackbox') e.ai.round = boxRound(e)
+  if (e.hp <= e.maxHp / 2 && ['king', 'mistral', 'deepseek', 'mixtral', 'parrot', 'golem'].includes(e.kind)) e.ai.phase = 2
+}
+
 /** Entering a dungeon room: fresh enemies, reset blocks, clear leftovers. */
 function enterCell(c: Ctx, index: number) {
   const s = c.s
@@ -197,11 +211,7 @@ function enterCell(c: Ctx, index: number) {
     // (Not the Sycophant: its hit points are the cuts of a script that has to run from its start.)
     const wounded = !e.dead && BIG.has(e.kind) && e.kind !== 'sycophant' && e.hp > 0 && e.hp < e.maxHp ? e.hp : 0
     resetEnemy(e)
-    if (wounded) {
-      e.hp = wounded
-      if (e.kind === 'blackbox') e.ai.round = boxRound(e)
-      if (e.hp <= e.maxHp / 2 && ['king', 'mistral', 'deepseek', 'mixtral', 'parrot', 'golem'].includes(e.kind)) e.ai.phase = 2
-    }
+    if (wounded) wound(e, wounded)
   }
   m.enemies = m.enemies.filter(e => !e.id.startsWith('king.bat'))
   m.projectiles.length = 0
@@ -326,11 +336,15 @@ function play(c: Ctx, dt: number, inp: Input) {
   const exit = c.info.exits.get(Math.floor(h.y) * c.info.w + Math.floor(h.x))
   if (exit?.walk) { beginExit(c, exit); return }
   // Warps. (From the side a door takes a hero who stands or climbs: a jump past one does not go through it.)
+  // (A blow's shove never carries a hero from the side through a stair: one thrown onto it waits there until he steps off and on again.)
+  if (c.info.def.kind === 'side' && (h.knock || h.act === 'hurt')) s.map.shoved = true
+  let onStair = false
   for (const w of c.info.warps) {
     // (A warp that waits works once its condition holds and its stair has appeared: `objects.ts`.)
     if (w.when && (!condMet(s, c.w, w.when, -1) || s.map.tiles[w.y * c.info.w + w.x] !== c.info.base[w.y * c.info.w + w.x])) continue
     if (c.info.def.kind === 'side' && !sideStanding(h)) break
     if (h.x >= w.x && h.x < w.x + w.w && h.y >= w.y && h.y < w.y + w.h) {
+      if (s.map.shoved) { onStair = true; break }
       s.mode = 'warp'
       s.warp = { t: 0, to: w.to, entry: w.entry, swapped: false }
       h.act = 'walk'
@@ -338,6 +352,7 @@ function play(c: Ctx, dt: number, inp: Input) {
       return
     }
   }
+  if (s.map.shoved && !onStair && !h.knock && h.act !== 'hurt') delete s.map.shoved
   // Off the edge into the next region (the frontier).
   if (c.w.atlas?.[c.s.map.id] && edgeOut(c, inp)) return
   // Dungeon room change
@@ -635,6 +650,8 @@ export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameE
   s.hero.invuln = 1.2
   // A death starts a boss's fight over: what it kept while the hero was out is lost.
   delete s.wounds
+  // (The map the hero died in is let go with its foes: none of them writes its wounds down.)
+  s.map.enemies = []
   enterMap(world, s, s.entry.map, s.entry.entry, ev)
   ev.push({ type: 'respawn' })
   return ev

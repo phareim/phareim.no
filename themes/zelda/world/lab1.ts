@@ -220,7 +220,7 @@ export const LAB1: MapDef = {
         {
           when: { flag: 'mistral' },
           who: 'luna',
-          lines: ['LUNA: THE WIND IS GONE.', 'LUNA: NOW THE LIFT IN THE DEEP WOODS WILL RUN. PAST THE RAVINE, IN THE BUNKER. THE GATE IS DOWN THERE.'],
+          lines: ['LUNA: THE WIND IS GONE.', 'LUNA: NOW THE LIFT IN THE DEEP WOODS WILL RUN.', 'LUNA: PAST THE RAVINE, IN THE BUNKER. THE GATE IS DOWN THERE.'],
           set: 'mistral.told',
         },
       ],
