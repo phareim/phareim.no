@@ -377,6 +377,9 @@ function fall(c: Ctx, sd: SideHero, held: boolean, dt: number): boolean {
     if (room.y > 0 && h.y - HERO_R < room.y) { h.y = room.y + HERO_R; sd.vy = 0; sd.jumpT = -1 }
     return false
   }
+  // A ledge's corner the round body has slid over: set on it, and the sweep below finds its top.
+  const lip = corner(c, dy)
+  if (lip !== null) h.y = lip - HERO_R - EPS
   const f0 = h.y + HERO_R
   const f1 = f0 + dy
   for (let ty = Math.ceil(f0 - 0.02); ty <= Math.floor(f1 + 0.001) && ty < room.y + room.h; ty++) {
@@ -397,6 +400,17 @@ function fall(c: Ctx, sd: SideHero, held: boolean, dt: number): boolean {
   if (h.y + HERO_R < room.y + room.h - 0.001) return false
   fellOut(c, sd, room.y + room.h)
   return true
+}
+
+/**
+ * The round body slides over a corner the flat feet are already under: falling `dy` on, it would end inside the
+ * wall's side and stay there for good. The top of that block, to be set on instead, or null.
+ */
+export function corner(c: Ctx, dy: number): number | null {
+  const h = c.s.hero
+  if (!circleBlocked(c.w, c.s.map, h.x, h.y + dy, HERO_R)) return null
+  const top = Math.floor(h.y + HERO_R)
+  return footing(c, h.x, top, FOOT, true) === 'solid' ? top : null
 }
 
 /** The ledge marks of the room the hero stands near, and the first footing in it: where a fall puts them back. */

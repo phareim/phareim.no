@@ -52,6 +52,8 @@ export type SfxName =
   | 'lamp'
   // The Late Show: the stomp coming down
   | 'stomp'
+  // The Late Show: COPILOT's horn
+  | 'honk'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2777,6 +2779,13 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
       tone({ f: 170, to: 42, dur: 0.18, type: 'sine', vol: 0.5 })
       nz({ dur: 0.1, vol: 0.3, type: 'lowpass', f: 520 })
       tone({ f: 320, to: 960, dur: 0.13, vol: 0.09, at: 0.04 })
+    },
+    // COPILOT's horn: two blasts of a car's two-note horn.
+    honk() {
+      for (const at of [0, 0.2]) {
+        tone({ f: 349, dur: 0.14, vol: 0.13, at })
+        tone({ f: 440, dur: 0.14, vol: 0.13, at })
+      }
     },
     // An echo left: a call, and the call coming back softer.
     echo() {

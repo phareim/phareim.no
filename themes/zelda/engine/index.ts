@@ -18,6 +18,8 @@ export { SIDE, type SideHero } from './side'
 // The Stomp's numbers, what it would come down on, and the intertitle cards' timing.
 export { STOMP, stompAim, type StompAim } from './stomp'
 export { CARD } from './cards'
+export { COPILOT, copilotStill } from './bossCopilot'
+export { CHASE } from './chase'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'

@@ -244,14 +244,16 @@ classic picture. `/?view=<id>` asks for one.
     solid from above only (down drops through). The mark `ledge` is a safe ledge:
     a fall off a room's bottom costs half a heart and puts the hero on the last
     one stood by, else on their first footing in that room. A room is left upward
-    only by a ladder.
+    only by a ladder. A ledge's corner that the round body slides over, the flat
+    feet already under its top, is landed on.
   - **The blade.** The three-cut chain ahead with its step, up + A upward, each
     a narrow cut (55° either side of the way it is aimed, `SIDE.cutArc`), the
     spin all round; touch turns a cut left or right only. The roll is a ground dash and
     stops at an edge unless the stick holds on. The air's combos, the HOP, the B
     items and block pushing rest. Luna is not along.
   - **Foes** on foot fall, stand and stop at edges (a blow throws them off);
-    flyers fly. Only the blob, the sentry and the bat have been tried.
+    flyers fly. Only the blob, the sentry and the bat have been tried (COPILOT
+    keeps its own rules).
   - **Rooms.** A room to climb or fight in is 16 tiles wide and 24 tall: an
     upright phone shows it whole, its floor above the touch deck. A run of rooms
     changes screen sideways over solid floor.
@@ -264,25 +266,44 @@ classic picture. `/?view=<id>` asks for one.
   turns the blade down and dives at it (16 tiles/s down, steered at 8); with
   nothing below it is the ordinary air cut. What it takes, the nearest across
   first (a foe, then a pad, then a crack at the same distance), at most 6 down
-  with no floor between: a foe 0.9 across and 0.6 or more below the feet, once
-  the hero is falling or at the top (never a zapper, an eye or a spitter); a
-  spring pad or a cracked floor 1.1 across. A press on the way up over a pad or
-  a crack waits for the top of the jump (0.45 s), and any press counts for
-  0.12 s before something comes into reach, so B may be let go first. On keys,
+  with no floor between: a foe 0.9 across and 0.6 or more below the feet (never
+  a zapper, an eye or a spitter; COPILOT only while it stands still); a spring
+  pad or a cracked floor 1.1 across. The dive starts once the hero is falling or
+  at the top. A press on the way up that the rise will bring over any of them (the
+  path as the stick bends it) waits for the top of the jump (0.45 s), so a press
+  just after take-off is a stomp and never a cut; any press counts for 0.12 s
+  before something comes into reach, so B may be let go first. On keys,
   down + A always dives. A foe takes 2 (`HitSource` 'stomp') and, if small,
   stands stunned 1.4 s; a tough one that is not open clanks; the hero bounces a
   held jump's height. Plain ground takes the blow in a ring of 1.3 tiles that
   stuns small foes 1 s. Every impact gives 0.3 s of mercy, without the blink of
   a hurt. There is no form of it seen from above. Measured by
   `node scripts/zelda-lab/lateshow-measure.mjs`, shot in the running shell by
-  `node scripts/zelda-lab/lateshow-shot.mjs <local url> <outDir>`.
+  `node scripts/zelda-lab/lateshow-shot.mjs <local url> <outDir>`. The dungeon
+  from its door to the Screen is played in the shell one frame at a time by
+  `node scripts/zelda-lab/lateshow-reels-shot.mjs <local url> <outDir> desk|phone`
+  (`lockstep.mjs`); COPILOT is measured by `lateshow-copilot.mjs`, the keys by
+  `lateshow-keys.mjs`.
 - **Springs and cracked floor.** `▲` is a spring pad flush with the floor:
   ground to stand, walk and cut on; only a stomp springs it, to 1.6 held jumps
   (5.1 tiles), so a ledge 4 up is a pad's and no plain jump's. A cracked floor
   is the `%` of every map, here the top row of a floor: a stomp breaks what lies
   under the feet for good (the bomb's flag) and the hero drops through. A nook
   is a one-tile hollow under such a floor with solid ground below: 2 down, out
-  again by a held jump.
+  again by a held jump. Where a ledge a pad serves has floor shut off behind
+  it, a ladder goes back up.
+- **The chase** (`MapDef.autoscroll: { vx, from, to, wait }`, `engine/chase.ts`;
+  THE ROAD uses it). A side map of one wide room whose screen, 16 tiles, scrolls
+  by itself: it holds `wait` seconds from the first moment of play (never under a
+  card, a line or the menu), moves at `vx` tiles/s and holds for good at `to`, an
+  ordinary fixed screen. The camera is the screen's left edge, and nothing
+  outside the screen is drawn. The right edge is a wall (the hero goes no further
+  than 15.5 tiles in). The left edge carries the hero, kept 0.6 tiles in; one it
+  cannot carry (a wall or a wagon ahead, a pit under him) and one who falls out
+  of the bottom loses half a heart and is put on the first `ledge` mark at least
+  3 tiles into the screen (else the last), at rest. Entering the map starts it
+  over; nothing of it is saved. A phone shows the screen at the same scale as
+  any side room.
 - **Cards** (`CellDef.card`, `engine/cards.ts`, `render/card.ts`). An
   intertitle over the whole stage, under the hearts, when the hero comes into
   that room by a warp: a title of 12 letters at most at twice the size, rows of
@@ -294,8 +315,14 @@ classic picture. `/?view=<id>` asks for one.
 - **Years** (`MapDef.era`, `render/eras.ts`). A year dresses a side map's world
   only (tiles, sky, ordinary foes, the light), never the hero, the hearts, the
   HUD, the deck, a pink warning or a gold marker, and uses no pink, gold or
-  cyan. 1958 is five greys from near black to bone, with a town for its sky and
-  its foes in greys. A year not dressed wears the map's own look.
+  cyan. Each fills the whole height of a room with its set. 1958 is five greys
+  from near black to bone: a town under the studio's rig of lamps and hung
+  clouds, its foes in greys. 1986 is slate blue, olive and bone: the video
+  store's strip lights, posters and bays of tapes; a night road with mesas,
+  boards and poles. 2086 is violet and acid green under a white-lilac ringed
+  world: the drive-in screen torn and grown over, its foes in acid green.
+  `screen` is the blank screen, dark slate with pencilled hands. A map without a
+  year wears its own look. Stand-ins all, drawn in code.
 - **A reload in a dungeon's rooms** (`MapDef.resume`). A tab reloaded in such a
   map continues at its last stair or door, as out in a land, with none of the
   rest of what `away` does.
@@ -1002,7 +1029,7 @@ classic picture. `/?view=<id>` asks for one.
     - *Day and night.* It stands where it is at every hour: no rank, no twin
       (`settleFoes`).
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
-    DeepSeek, the twins, Mixtral, the Stochastic Parrot). The tough foes' bar over each of their heads, in
+    DeepSeek, the twins, Mixtral, the Stochastic Parrot, COPILOT). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
     36 for the king): what is left is pink, gold while the boss is open
     (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
@@ -1011,10 +1038,12 @@ classic picture. `/?view=<id>` asks for one.
     pink); the king down; Mistral down; DeepSeek up or hauled (under the floor
     the bar rides over the fin); a twin on its feet, so always, except while it
     lies fallen; Mixtral dazed, while that daze still has blows to give; the
-    Parrot thinking, while that thought still has blows to give; the
-    llama never, its wool turns the blade. A stunned or dazed
+    Parrot thinking, while that thought still has blows to give; COPILOT stalled,
+    while that stall still has blows to give (off its screen it wears no bar);
+    the llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
-    `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs`, which plays
+    `bossOpen` and a fight to `tests/zelda-gauntlet.test.mjs` (or names the test
+    file that holds it), which plays
     each boss (a hero who stands is hurt, one who does what it asks wins) and
     holds the bar to what the blade does all the way through.
   - *A heavy foe's fall* clears the small foes of its room with it; another
@@ -1038,6 +1067,24 @@ classic picture. `/?view=<id>` asks for one.
     the heads take turns as it walks and spin while it is dazed); the 8-bit
     view draws them at twice their size (`doubledSprite`), the isometric one
     its own art for them (`render/iso/frontierArt/`).
+  - *COPILOT* (`copilot`, the Late Show's Road; hp 8, radius 1.2, a miniboss;
+    `engine/bossCopilot.ts`, every number in `COPILOT`). Its card, after the
+    intertitle: COPILOT. ONE OF THEM IS DRIVING. A wagon that runs on the
+    screen's own coordinates and ignores the road's pits and parked wagons;
+    harmless to touch but in a pass. *Behind* (off the left edge, 3 s after the
+    screen first moves, then 2.2 s); *honk* (1.2 s: the horn, headlights at the
+    edge, a pink lane to 9 tiles in, 0.9 high, and a great `!`); *pass* (11
+    tiles/s from 4 off the screen to 9 in: 2 half hearts to a hero whose feet are
+    under 0.9 over the road within 0.6 tiles of its middle; a jump or a parked
+    wagon clears it, a roll does not); *stall* (3.6 s, open: the blade takes at
+    most 4 a stall, and a stomp takes 3); a 0.5 s tell with pink lamps, still a
+    thing to stomp; *leave* (12 tiles/s, 1 s). At every other time the blade
+    clanks. Felled (`lateshow.copilot`), it spins out; the flag opens the booth's
+    gate to the Snack Bar and brings up the second key's chest down the road. The
+    screen scrolls on to its end either way. Its pictures are the frontier
+    sprites `copilot_neon`, `_honk` and `_rust` at three times their size.
+  - *The Usher* (the Late Show's Snack Bar): a tough sentry with a card of its
+    own (THE USHER. SEATS ARE ASSIGNED. SO IS BLAME.) behind a trap gate.
   - *The Stochastic Parrot* (`parrot`, the Echo Barrow's boss; hp 16, radius
     0.9; `engine/parrot.ts`, every number in `PARROT`). Its card, the first
     time in its room: THE STOCHASTIC PARROT. IT HAS HEARD EVERYTHING. IT HAS

@@ -23,6 +23,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   gemini: { hp: 8, r: 0.62, dmg: 2, flying: true },
   mixtral: { hp: 10, r: 0.8, dmg: 2 },
   parrot: { hp: 16, r: 0.9, dmg: 2 },
+  // (It harms by its pass alone, never by touch: `engine/bossCopilot.ts`.)
+  copilot: { hp: 8, r: 1.2, dmg: 0, flying: true },
 }
 
 export function spawnEnemy(

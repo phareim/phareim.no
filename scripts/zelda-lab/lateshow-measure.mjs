@@ -1,7 +1,8 @@
 // Measures THE LATE SHOW's side rooms against the jump as built, by playing them: the held and tapped apex; the
-// stomp's three answers in a small room made here (a spring pad, a cracked floor, a foe), with B let go at once and
-// A at every moment after it; and every step, gap, ledge and hollow of the built reels, with the width of the
-// take-off ground each is cleared from. The script sets the hero down where each try starts.
+// stomp's answers in a small room made here (a spring pad, a cracked floor, a foe), with B let go at once and A at
+// every moment after it; and every step, gap, ledge, pad and hollow of the built reels, with the width of the
+// take-off ground each is cleared from, and for each pad the take-off spots and moments from which a thumb's stomp
+// lands on the ledge it serves. The script sets the hero down where each try starts.
 //   node scripts/zelda-lab/lateshow-measure.mjs
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
@@ -19,13 +20,17 @@ const R = Z.HERO_R
 const f2 = v => v.toFixed(2)
 
 /** A game on `map` of `W`, the hero standing with feet on `row` at x. */
-function at(W, map, x, row, { stomp = true } = {}) {
+function at(W, map, x, row, { stomp = true, flags = [] } = {}) {
   const entry = Object.keys(Z.mapInfo(W, map).entries)[0]
   const s = Z.createGame(W, { seed: 3, at: { map, entry } })
   s.inv.sword = true
   s.inv.stomp = stomp
+  for (const f of flags) s.flags[f] = true
   Z.enterMap(W, s, map, entry, [], { x, y: row - R - 1e-4 })
   delete s.card
+  // (The words said on entering are said; the Road's screen is held at rest, its pits and wagons where they lie.)
+  for (const cd of Object.values(Z.WORLD.maps[map]?.cells ?? {})) for (const e of cd.events ?? []) s.flags[e.set] = true
+  if (s.map.chase) { s.map.chase.wait = 1e9; s.map.chase.left = Math.max(0, Math.min(48, x - 6)) }
   const events = []
   const step = (o = {}) => events.push(...Z.stepGame(W, s, 1 / 120, { ...Z.NO_INPUT, move: { x: 0, y: 0 }, ...o }))
   for (let i = 0; i < 6; i++) step()
@@ -111,7 +116,17 @@ console.log(`  tapped, from a tile aside (x 4.4): ${window_(() => at(crack, 'r',
 // A foe on the floor, held still.
 const foe = room({ '8,20': 'f' }, { f: { ent: { t: 'enemy', kind: 'sentry' } } })
 console.log('\nFOE (a sentry held still)')
-const still = (x) => { const P = at(foe, 'r', x, 21); const e = P.s.map.enemies[0]; e.ai.mode = 'idle'; e.ai.t = 999; e.calm = true; return P }
+// (Standing where the sentry stands, the hero is struck while the room settles: he is set there again, whole.)
+const still = (x) => {
+  const P = at(foe, 'r', x, 21)
+  const e = P.s.map.enemies[0]
+  Object.assign(e, { x: 8.5, calm: true })
+  e.ai = { mode: 'idle', t: 999, tell: 0 }
+  Object.assign(P.s.hero, { x, y: 21 - R - 1e-4, knock: null, invuln: 0, hp: P.s.hero.maxHp, act: 'idle', swing: null })
+  delete P.s.hero.side
+  for (let i = 0; i < 6; i++) P.step()
+  return P
+}
 for (const x of [8.5, 7.7, 7.0]) console.log(`  tapped from x ${x} (${f2(8.5 - x)} across), stick toward it: ${window_(() => still(x), 'foe', { move: x < 8.4 ? 0.6 : 0 })}`)
 {
   const P = still(8.5)
@@ -131,11 +146,11 @@ for (const x of [8.5, 7.7, 7.0]) console.log(`  tapped from x ${x} (${f2(8.5 - x
 // -- the reels ----------------------------------------------------------------------------------------------------
 
 /** Of the take-off spots in [a, b] (every 0.05), the width from which a jump toward `to` lands on `row` past `done`. */
-function clears(map, [a, b], from, row, dir, done, hold) {
+function clears(map, [a, b], from, row, dir, done, hold, flags = []) {
   let n = 0
   let all = 0
   for (let x = a; x <= b + 1e-9; x += 0.05, all++) {
-    const P = at(Z.WORLD, map, x, from, { stomp: false })
+    const P = at(Z.WORLD, map, x, from, { stomp: false, flags })
     for (const e of P.s.map.enemies) e.dead = true
     jump(P, { hold, move: dir })
     if (Math.abs(P.feet() - row) < 0.02 && done(P.s.hero.x)) n++
@@ -158,13 +173,28 @@ const table = [
   ['the alcove ledge from P1 (gap 1, 2 up)', 'reel1958', [24.4, 26.95], 19, 17, 1, x => x > 27.9],
   ['the crate from the seam side, 1 up', 'reel1958', [25.4, 26.65], 21, 20, 1, x => x > 26.9],
   ['the broken floor going back (gap 1)', 'reel1958', [23.05, 24.4], 21, 21, -1, x => x < 21.3],
+  // The Video Store.
+  ['onto the sign from the door (1 up)', 'reel1986', [1.35, 1.65], 21, 20, 1, x => x > 1.9],
+  ['onto the sign going back (1 up)', 'reel1986', [3.35, 4.2], 21, 20, -1, x => x < 3.2],
+  // The Road.
+  ['onto a wagon from the road (1 up)', 'chase1986', [7.3, 8.65], 21, 20, 1, x => x > 8.9],
+  ['pit 1 (gap 2)', 'chase1986', [12.7, 13.95], 21, 21, 1, x => x > 15.7],
+  ['pit 2 (gap 2)', 'chase1986', [24.7, 25.95], 21, 21, 1, x => x > 27.7],
+  ['pit 3 (gap 2)', 'chase1986', [36.7, 37.95], 21, 21, 1, x => x > 39.7],
+  ['the key chest from the west, onto it (1 up)', 'chase1986', [56.9, 57.65], 21, 20, 1, x => x > 57.9],
+  // The Overgrown Lot.
+  ['onto the third key chest on the slab, from the west', 'reel2086', [10.4, 11.65], 13, 12, 1, x => x > 11.9],
+  ['over the third key chest, from the west (the way on)', 'reel2086', [10.4, 11.65], 13, 13, 1, x => x > 12.9],
+  ['over the third key chest, from the east (the way back)', 'reel2086', [13.35, 15.5], 13, 13, -1, x => x < 12.1],
 ]
 for (const [name, map, span, from, to, dir, done] of table) {
   const broken = name.includes('broken')
+  // (A chest on a Road or a slab stands only once it has appeared, or from the start: opened or not, it is a block.)
+  const flags = name.includes('key chest') && map === 'chase1986' ? ['appear:lateshow.key2'] : []
   const W = broken ? { ...Z.WORLD, maps: { ...Z.WORLD.maps, [map]: { ...Z.WORLD.maps[map], rows: Z.WORLD.maps[map].rows.map((r, y) => (y === 21 ? r.slice(0, 22) + '.' + r.slice(23) : r)) } } } : Z.WORLD
   const keep = Z.WORLD.maps
   if (broken) Z.WORLD.maps = W.maps
-  console.log(`  ${name.padEnd(46)} held ${clears(map, span, from, to, dir, done, Infinity).padEnd(14)} tapped ${clears(map, span, from, to, dir, done, 0)}`)
+  console.log(`  ${name.padEnd(52)} held ${clears(map, span, from, to, dir, done, Infinity, flags).padEnd(14)} tapped ${clears(map, span, from, to, dir, done, 0, flags)}`)
   Z.WORLD.maps = keep
 }
 console.log(`  out of reach by a jump: the shop roof, 5 up, short by ${f2(5 - J)} (its ladders); the alcove ledge from the floor, 4 up, short by ${f2(4 - J)} (P1)`)
@@ -180,4 +210,79 @@ console.log(`  out of reach by a jump: the shop roof, 5 up, short by ${f2(5 - J)
     out = P.down() && Math.abs(P.feet() - 21) < 0.02 && P.s.hero.x > 23
   }
   console.log(`  ${'out of the built nook (2 up)'.padEnd(46)} ${out ? 'out' : 'NOT OUT'}; feet rose to ${f2(23 - top)} above its floor, margin ${f2(23 - top - 2)}`)
+}
+
+// -- the pads, as a thumb meets them ----------------------------------------------------------------------------
+
+console.log(`\nTHE PADS (B tapped and let go, A after it, d ms from take-off; the stick toward the pad until it throws, then toward the ledge at once, or only once the feet are over its row)`)
+/**
+ * One try from x on `row`: did the pad throw, how high did the feet go over it, and did he come to stand on `top`?
+ * `late`: after the throw the stick waits until the feet are over the ledge's row; else it is held toward the ledge
+ * from the throw on.
+ */
+function pad(map, x, row, padX, to, top, d, late = false) {
+  const P = at(Z.WORLD, map, x, row)
+  for (const e of P.s.map.enemies) e.dead = true
+  let thrown = false
+  let apex = row
+  for (let i = 0; i < 480; i++) {
+    const t = i / 120
+    const aim = !thrown ? padX - P.s.hero.x : to - P.s.hero.x
+    const move = Math.abs(aim) < 0.25 || (thrown && late && P.feet() > top - 0.05) ? 0 : Math.sign(aim)
+    P.step({ move: { x: move, y: 0 }, autoFace: true, ...(i === 0 ? { bPress: true, jumpPress: true, jumpHeld: true } : {}), ...(Math.abs(t - d) < 1 / 240 ? { aPress: true, a: true } : {}) })
+    if (!thrown && P.events.some(e => e.type === 'stomp' && e.on === 'spring')) thrown = true
+    if (thrown) apex = Math.min(apex, P.feet())
+    if (thrown && P.down()) break
+  }
+  return { thrown, apex: row - apex, there: thrown && P.down() && Math.abs(P.feet() - top) < 0.02 }
+}
+const pads = [
+  // name, map, the pad's middle, the row it lies in, take-off spots tried, where on the ledge, the ledge's top
+  ['Video Store S1, floor to shelves', 'reel1986', 4.5, 21, [3.4, 3.6, 3.8, 4.2, 4.5], 7.5, 17],
+  ['Video Store S2, shelves to balcony (1.5 across)', 'reel1986', 9.5, 17, [8.5, 8.8, 9.2, 9.5], 12.2, 13],
+  ['Lot S1, floor to shelf', 'reel2086', 4.5, 21, [3.4, 3.6, 3.8, 4.2, 4.5], 6.6, 17],
+  ['Lot S2, shelf to slab (1.5 across)', 'reel2086', 8.5, 17, [7.5, 7.8, 8.2, 8.5, 9.0], 11, 13],
+  ['Last Reel pad, floor to block', 'reel2086', 22.5, 21, [21.4, 21.8, 22.2, 22.5], 24, 17],
+  ['Last Reel far pad, back onto the block', 'reel2086', 25.5, 21, [26.4, 26.0, 25.7, 25.5], 23.8, 17],
+]
+for (const [name, map, padX, row, spots, to, top] of pads) {
+  const rows = spots.map(x => {
+    let apex = 0
+    const style = late => {
+      const ok = []
+      let all = 0
+      for (let d = 1 / 120; d <= 0.4001; d += 1 / 120, all++) { const r = pad(map, x, row, padX, to, top, d, late); if (r.there) ok.push(d); apex = Math.max(apex, r.apex) }
+      return ok.length ? `${Math.round(ok[0] * 1000)}-${Math.round(ok.at(-1) * 1000)} ms (${ok.length}/${all})` : 'never'
+    }
+    return `x ${x}: stick from the throw ${style(false).padEnd(20)} stick once over the row ${style(true).padEnd(20)} apex ${f2(apex)}`
+  })
+  const plain = at(Z.WORLD, map, padX, row, { stomp: false })
+  const p = row - jump(plain)
+  console.log(`  ${name}: ledge ${row - top} up`)
+  for (const r of rows) console.log(`      ${r}`)
+  console.log(`      a plain held jump off the pad: ${f2(p)} up, short of ${row - top} by ${f2(row - top - p)}`)
+}
+{
+  const P = at(Z.WORLD, 'reel1986', 6.5, 17)
+  jump(P, { hold: 0, press: 0.05 })
+  for (let i = 0; i < 120; i++) P.step()
+  const down = P.feet()
+  let top = 99
+  let out = false
+  for (let i = 0; i < 480 && !out; i++) {
+    P.step({ move: { x: P.feet() < 16.98 ? 1 : 0, y: 0 }, jumpHeld: true, ...(i === 0 ? { bPress: true, jumpPress: true } : {}) })
+    top = Math.min(top, P.feet())
+    out = P.down() && Math.abs(P.feet() - 17) < 0.02
+  }
+  console.log(`\nTHE VIDEO STORE'S NOOK: stomped through to feet ${f2(down)} (its floor 19); out by a held jump: ${out ? 'out' : 'NOT OUT'}, feet ${f2(19 - top)} over its floor, margin ${f2(19 - top - 2)}; a tapped jump short by ${f2(2 - T)}`)
+}
+console.log(`out of reach by a plain jump: shelves and block 4 up, short by ${f2(4 - J)}; balcony from the ladder's top 4 up, short by ${f2(4 - J)}; the Last Reel's high slab 8 up (a way in only)`)
+console.log(`ladders up the far side of the Video Store's shelves and the Lot's shelf: 4 up, no jump asked`)
+{
+  // Off the Last Reel's slab, 8 down: a fall from a ledge costs nothing.
+  const P = at(Z.WORLD, 'reel2086', 20.3, 13)
+  for (const e of P.s.map.enemies) e.dead = true
+  const hp = P.s.hero.hp
+  for (let i = 0; i < 360; i++) P.step({ move: { x: P.s.hero.x < 21.6 ? 1 : 0, y: 0 } })
+  console.log(`off the high slab: down at x ${f2(P.s.hero.x)}, feet ${f2(P.feet())}, hearts lost ${hp - P.s.hero.hp}`)
 }

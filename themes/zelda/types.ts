@@ -464,6 +464,7 @@ export type EnemyKind =
   | 'gemini' // boss: one of the twins; both must fall close together
   | 'mixtral' // miniboss: stencils a lane and charges down it; open only while dazed against the wall
   | 'parrot' // boss: recites the hero's moves back, stencilled; open while it thinks, and to the echo at its back
+  | 'copilot' // miniboss: the Road's wagon, run on the screen's own coordinates (`engine/bossCopilot.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -746,6 +747,8 @@ export interface MapDef {
   physics?: boolean
   /** The year a film's set is dressed in (`render/eras.ts`): the world's palette only, never the hero or the HUD. */
   era?: Era
+  /** A screen that scrolls by itself (`engine/chase.ts`): tiles a second, its left edge from and to (tiles), and the still moment first (s). */
+  autoscroll?: { vx: number; from: number; to: number; wait: number }
 }
 
 export type Era = '1958' | '1986' | '2086' | 'screen'
@@ -1047,6 +1050,8 @@ export interface MapState {
   side?: true
   /** Iron in flight and off its home (`engine/magnet.ts`); absent until the Magnet or a smash needs it. */
   iron?: IronState
+  /** A screen scrolling by itself (`MapDef.autoscroll`, `engine/chase.ts`): its left edge (tiles) and the still moment left (s). */
+  chase?: { left: number; wait: number }
 }
 
 /** What the physical puzzles keep per map while it is loaded (never saved: flags carry what lasts). */
@@ -1423,6 +1428,8 @@ export type GameEvent =
   | { type: 'jump' } // side maps: off the ground
   /** The stomp's impact (`engine/stomp.ts`): on what it came down. */
   | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' }
+  /** COPILOT's horn from past the screen's left edge: a pass is coming. */
+  | { type: 'honk' }
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }
