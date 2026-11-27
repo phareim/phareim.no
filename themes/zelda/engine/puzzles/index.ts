@@ -206,10 +206,12 @@ function shove(c: Ctx, tx: number, ty: number, dx: number, dy: number): boolean 
 // Hits: mirrors turn, valves open and shut
 // ---------------------------------------------------------------------------
 
+/** Is `t` a part a hit (or A) works on this map: a mirror, a valve, a turning tube? */
+export const puzzlePart = (c: Ctx, t: TileChar) => (isMirror(t) || t === 'ξ' || turns(t)) && pz(c).on
+
 /** A blade, the disc or a blast on tile (tx, ty). True if it was a puzzle part (it answered or was resting). */
 export function hitPuzzle(c: Ctx, tx: number, ty: number, t: TileChar): boolean {
-  if (!isMirror(t) && t !== 'ξ' && !turns(t)) return false
-  if (!pz(c).on) return false
+  if (!puzzlePart(c, t)) return false
   const ph = phys(c)
   const m = c.s.map
   if (ph.cool > 0) return true

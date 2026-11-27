@@ -9,19 +9,19 @@ import {
   HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
+import { aPlan, type AThing } from './action'
 import { echoBlade, echoOnTile, setEcho } from './echo'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, stepClear, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
-import { outOfReach } from './terrain'
-import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero, tubeWords } from './puzzles/index'
+import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
 import { isMirror } from '../world/puzzles'
 import { isTube } from '../world/tubes'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 import {
-  backflipWanted, canComet, canTempest, credit, endMoves, feedArts, hopCut, isArt, mastered, springStops, startBackflip,
+  backflipWanted, canTempest, credit, endMoves, feedArts, hopCut, isArt, mastered, springStops, startBackflip,
   startComet, startFlip, startTempest, stepAfter, stepAir, stepArts, useArt, wallSpring,
 } from './moves'
 
@@ -116,18 +116,18 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
 
   // --- A button -------------------------------------------------------------
   if (inp.aPress) {
-    if (h.carry) throwCarried(c)
-    // Late in the finisher, or just after it: the TEMPEST. Just after a back flip or a wall spring: the COMET.
-    else if (s.inv.sword && !h.spin && canTempest(h) && startTempest(c, inp)) return
-    else if (s.inv.sword && !h.spin && !h.swing && canComet(h) && startComet(c, inp)) return
-    else if (!h.swing && !h.spin) {
-      // A tap too many at the end of someone's lines must not start them over:
-      // until A has rested it only swings, and each press starts the rest again.
-      const mashing = h.talkRest > 0
-      if (mashing) h.talkRest = TALK_REST
-      // A fresh press talks, reads or opens first; only what is left swings (through the buffer, below).
-      if ((mashing || !interact(c)) && s.inv.sword) h.bufA = BUFFER_A
-    } else if (s.inv.sword) h.bufA = BUFFER_A
+    // (On ice the TEMPEST cannot leave the ground, and the press still ends its window.)
+    if (!h.carry && s.inv.sword && !h.spin && iceUnder(c) && canTempest(h)) h.combo = undefined
+    // What the press does is `aPlan`'s to say (the touch deck's picture asks it too).
+    const a = aPlan(c)
+    if (a.do === 'tempest') { startTempest(c, inp); return }
+    if (a.do === 'comet') { startComet(c, inp); return }
+    // A tap too many after someone's lines: each press starts A's rest again.
+    if (a.do === 'rest') h.talkRest = TALK_REST
+    // A fresh press talks, reads or opens first; only what is left swings (through the buffer, below).
+    if (a.do === 'blade' || a.do === 'rest') { if (s.inv.sword) h.bufA = BUFFER_A }
+    else if (a.do === 'throw') throwCarried(c)
+    else useThing(c, a)
     // Talking, reading or an item-get pose freezes the rest of the step.
     if (s.mode !== 'play') { h.bufA = 0; return }
   }
@@ -358,104 +358,59 @@ function collect(c: Ctx) {
 // A: interaction
 // ---------------------------------------------------------------------------
 
-/** Talk / read / open / buy / lift in front of the hero. False = nothing there. */
-function interact(c: Ctx): boolean {
+/** Do what `aPlan` found in front of the hero (`action.ts` decides; this only acts). */
+function useThing(c: Ctx, a: AThing) {
   const s = c.s
   const h = s.hero
-  const v = dirVec(h.dir)
-  const fx = h.x + v.x * 0.8
-  const fy = h.y + v.y * 0.8
-  const tx = Math.floor(fx)
-  const ty = Math.floor(fy)
-  const t = tileAt(s.map, tx, ty)
-  // On terrain, what stands higher than the hero is out of reach (a chest on a ledge).
-  if (outOfReach(s, tx, ty)) return false
-
-  // Luna, a step behind — she talks only when nothing is attacking (in a fight, A swings).
-  const L = s.luna
-  const calm = !s.map.enemies.some(e => enemyActive(c, e) && Math.hypot(e.x - h.x, e.y - h.y) < 8)
-  if (L && calm && Math.hypot(L.x - fx, L.y - fy) < 0.75 && c.w.luna) {
-    const br = c.w.luna.find(b => condMet(s, c.w, b.when, -1))
-    if (br) {
-      openDialog(c, br.lines, 'luna', br.set ? { set: [br.set] } : null)
+  switch (a.do) {
+    case 'luna': {
+      const L = s.luna!
+      openDialog(c, a.lines, 'luna', a.set ? { set: [a.set] } : null)
       L.dir = toDir(h.x - L.x, h.y - L.y, L.dir)
       c.ev.push({ type: 'talk' })
-      return true
+      return
     }
-  }
-  // NPCs in front (also across a counter).
-  for (const n of s.map.npcs) {
-    const near = Math.hypot(n.x - fx, n.y - fy) < 0.75
-    const across = t === 'n' && Math.hypot(n.x - (h.x + v.x * 1.8), n.y - (h.y + v.y * 1.8)) < 0.8
-    if (near || across) { talkTo(c, n.id); n.dir = toDir(h.x - n.x, h.y - n.y, n.dir); return true }
-  }
-  const idx = ty * s.map.w + tx
-  const exit = c.info.exits.get(idx)
-  if (exit && !exit.walk) {
-    const lines = c.info.exitLines.get(idx)
-    if ('reset' in exit.to) {
-      // The NEW GAME machine: nothing to wipe before the blade.
-      if (!s.inv.sword) openDialog(c, [NOTHING_TO_WIPE], null)
-      else if (lines) openDialog(c, lines, null, { startOver: true })
-      else c.ev.push({ type: 'startOver' })
-    } else if ('panel' in exit.to) {
-      // The login console, the NEW LOOK stall, the newsstand: the shell opens its panel over the world, the hero stays put.
-      c.ev.push({ type: 'panel', id: exit.id, panel: exit.to.panel })
-    } else if (lines) openDialog(c, lines, null, { exit: { id: exit.id, to: exit.to } })
-    else beginExit(c, exit)
-    return true
-  }
-  if (t === 'S') {
-    const sign = c.info.signs.get(idx)
-    if (sign) { openDialog(c, sign.alt && condFor(c, sign.alt.when) ? sign.alt.lines : sign.lines, null); return true }
-  }
-  if (t === 'B') {
-    if (s.luna) psiPush(c, tx, ty, h.dir)
-    else if (has(s, 'luna.home')) openDialog(c, ['A HEAVY BLOCK WITH A MOON CARVED IN IT. IT WON\'T BUDGE.', 'LUNA COULD MOVE IT. SHE IS WAITING AT HER FORT IN THE BRAMBLES.'], null)
-    else openDialog(c, ['A HEAVY BLOCK WITH A MOON CARVED IN IT. IT WON\'T BUDGE.', 'SOMEONE WITH A STRONGER MIND MIGHT MOVE IT.'], null)
-    return true
-  }
-  if (t === '}') {
-    if (!has(s, c.info.levers.get(idx) ?? '')) { throwLever(c, tx, ty); return true }
-    return false
-  }
-  // A mirror turns, a valve opens or shuts, a lumen tube turns (`puzzles/`); a tap or a socket says what it is.
-  if (hitPuzzle(c, tx, ty, t)) return true
-  const words = tubeWords(c, idx, t)
-  if (words) { openDialog(c, words, null); return true }
-  if (t === '$') {
-    const chest = c.info.chests.get(idx)
-    if (chest && !has(s, `chest:${chest.id}`)) {
-      setFlag(s, `chest:${chest.id}`)
+    case 'npc':
+      talkTo(c, a.npc.id)
+      a.npc.dir = toDir(h.x - a.npc.x, h.y - a.npc.y, a.npc.dir)
+      return
+    case 'exit': {
+      const { exit, lines } = a
+      if ('reset' in exit.to) {
+        // The NEW GAME machine: nothing to wipe before the blade.
+        if (!s.inv.sword) openDialog(c, [NOTHING_TO_WIPE], null)
+        else if (lines) openDialog(c, lines, null, { startOver: true })
+        else c.ev.push({ type: 'startOver' })
+      } else if ('panel' in exit.to) {
+        // The login console, the NEW LOOK stall, the newsstand: the shell opens its panel over the world, the hero stays put.
+        c.ev.push({ type: 'panel', id: exit.id, panel: exit.to.panel })
+      } else if (lines) openDialog(c, lines, null, { exit: { id: exit.id, to: exit.to } })
+      else beginExit(c, exit)
+      return
+    }
+    case 'words': openDialog(c, a.lines, null); return
+    case 'psi': psiPush(c, a.tx, a.ty, h.dir); return
+    case 'lever': throwLever(c, a.tx, a.ty); return
+    case 'part': hitPuzzle(c, a.tx, a.ty, a.t); return
+    case 'chest':
+      setFlag(s, `chest:${a.id}`)
       s.map.version++
-      c.ev.push({ type: 'chest', x: tx + 0.5, y: ty + 0.5 })
-      acquire(c, chest.item)
-      return true
-    }
-    return false
+      c.ev.push({ type: 'chest', x: a.tx + 0.5, y: a.ty + 0.5 })
+      acquire(c, a.item)
+      return
+    case 'ware': buy(c, a.id); return
+    case 'lift':
+      setTile(s.map, a.tx, a.ty, '.')
+      h.carry = a.what
+      h.act = 'lift'
+      h.actT = 0
+      h.charge = -1
+      c.ev.push({ type: 'lift' })
+      return
+    case 'lock':
+      if (a.key) unlockDoor(c, a.tx, a.ty, a.t)
+      else openDialog(c, [a.t === 'L' ? 'LOCKED. A SMALL KEY WOULD OPEN IT.' : 'A GREAT LOCK. ONLY THE BIG KEY FITS.'], null)
   }
-  const shop = s.map.pickups.find(p => p.shop && Math.floor(p.x) === tx && Math.floor(p.y) === ty)
-  if (shop && shop.shop) {
-    buy(c, shop.id)
-    return true
-  }
-  const info = TILE_INFO[t]
-  if (info.lift) {
-    setTile(s.map, tx, ty, '.')
-    h.carry = info.lift
-    h.act = 'lift'
-    h.actT = 0
-    h.charge = -1
-    c.ev.push({ type: 'lift' })
-    return true
-  }
-  if (t === 'L' || t === 'K') {
-    const ok = t === 'L' ? keyCount(s) > 0 : hasBigKey(s)
-    if (ok) unlockDoor(c, tx, ty, t)
-    else openDialog(c, [t === 'L' ? 'LOCKED. A SMALL KEY WOULD OPEN IT.' : 'A GREAT LOCK. ONLY THE BIG KEY FITS.'], null)
-    return true
-  }
-  return false
 }
 
 function talkTo(c: Ctx, id: string) {

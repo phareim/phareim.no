@@ -113,9 +113,9 @@ export function terrainLoad(def: MapDef): TerrainState {
   return { h: baseHeights(def).slice(), g, z: g }
 }
 
-/** Is tile (tx, ty) above the hero's reach (a chest on a ledge)? A talks and opens only at its own level or below. */
-export function outOfReach(s: GameState, tx: number, ty: number): boolean {
+/** Is tile (tx, ty) above the reach of a hero at level `z` (a chest on a ledge)? A talks and opens only at its own level or below. */
+export function outOfReach(s: GameState, tx: number, ty: number, z = s.map.terrain?.z ?? 0): boolean {
   const m = s.map
   if (!m.terrain || tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return false
-  return m.terrain.h[ty * m.w + tx]! > m.terrain.z
+  return m.terrain.h[ty * m.w + tx]! > z
 }
