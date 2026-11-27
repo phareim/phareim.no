@@ -1,6 +1,7 @@
-// Neon Shrine, THE EXAMINATION (docs/games/neon-shrine-examination.md): the test behind the Puzzle Lab, played by a
-// scripted hero with the blade and what the dungeon gives, the Duck in a save, and the shape its maps must keep. At
-// most four tests live here. `EXAM_LOG=1`: what each round cost. `EXAM_SEED=n`: the play-through on another seed.
+// Neon Shrine, THE EXAMINATION (docs/games/neon-shrine-examination.md): the test behind the Puzzle Lab, played from
+// its stair to the Weight by a scripted hero with the blade and what the dungeon gives; a hero who only stands in the
+// Titan's hall; the Duck in a save; and the shape its maps must keep. At most four tests live here. `EXAM_LOG=1`:
+// what each round and fight cost. `EXAM_SEED=n`: the play-through on another seed.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -325,10 +326,135 @@ function fightFalcon(p) {
   return { f, openings, seen }
 }
 
+// ---------------------------------------------------------------------------
+// THE BENCHMARK TITAN, with the blade and the room's pots
+// ---------------------------------------------------------------------------
+
+/** The nearest open spot to the hero that is out of every square on the floor (and a hair more), clear of the Titan. */
+function clearOfStamp(p, t) {
+  const { s } = p
+  const h = s.hero
+  const squares = Z.stencilsOf(t)
+  let best = null
+  for (let y = 1.5; y < 11; y += 0.5) for (let x = 1.5; x < 15; x += 0.5) {
+    if (squares.some(q => Math.abs(x - q.x) <= q.w / 2 + 0.2 && Math.abs(y - q.y) <= q.h / 2 + 0.2) || Math.hypot(x - t.x, y - t.y) < 1.7) continue
+    const path = p.path(Math.floor(x), Math.floor(y))
+    if (!path) continue
+    const d = Math.hypot(x - h.x, y - h.y) + path.length * 0.05
+    if (!best || d < best.d) best = { x, y, d }
+  }
+  return best
+}
+
+/**
+ * Reads the two cards and strikes with a kind that is on neither: the cut, else the charged spin, else a pot from a
+ * stand (fetched while it walks). Out of the squares as they show; the blow while it leans.
+ */
+function fightTitan(p) {
+  const { s } = p
+  const t = s.map.enemies.find(e => e.kind === 'titan')
+  const blows = []
+  let aside = 0
+  let to = null
+  let charge = 0
+  let chain = false
+  const kind = () => ['BLADE', 'SPIN', 'POT'].find(k => k !== t.ai.picA && k !== t.ai.picB)
+  /** The spots a blade's length from it, by the way the hero would face. */
+  const beside = reach => Object.entries(DIRS).map(([dir, [dx, dy]]) => ({ dir, x: t.x - dx * reach, y: t.y - dy * reach }))
+    .filter(q => q.x > 1.3 && q.x < 14.7 && q.y > 1.3 && q.y < 10.7 && p.path(Math.floor(q.x), Math.floor(q.y)))
+    .sort((a, b) => Math.hypot(a.x - s.hero.x, a.y - s.hero.y) - Math.hypot(b.x - s.hero.x, b.y - s.hero.y))[0]
+  const near = q => Math.hypot(s.hero.x - q.x, s.hero.y - q.y) < 0.3
+  let hp = t.hp
+  const count = () => {
+    if (t.hp >= hp) return
+    blows.push(t.ai.picB)
+    assert.equal(hp - t.hp, Z.TITAN.blow, 'every kind takes the same')
+    hp = t.hp
+  }
+  for (let k = 0; k < 150 * FPS && !t.dead; k++) {
+    const h = s.hero
+    const mode = t.ai.mode
+    const open = mode === 'rest' || mode === 'look'
+    assert.equal(Z.bossOpen(t), open)
+    assert.equal(Z.stencilsOf(t).length > 0, mode === 'tell' || (mode === 'slam' && !!t.ai.pending))
+    count()
+    if (s.mode !== 'play' || h.act === 'hurt' || h.act === 'lift' || h.act === 'throw') { charge = 0; p.step(); continue }
+    if (mode === 'tell' || mode === 'slam') {
+      charge = 0
+      if (Z.stencilsOf(t).length && !to) to = clearOfStamp(p, t)
+      if (to && !near(to)) p.toward(to.x, to.y)
+      else p.step()
+      continue
+    }
+    to = null
+    const want = kind()
+    // A pot is fetched while it is shut: from the nearer stand, from its inner side.
+    if (want === 'POT' && !h.carry && !charge) {
+      const stands = [[2, 6, 'left', 3.5], [13, 6, 'right', 12.5]].filter(([x, y]) => tile(s, x, y) === 'o')
+      stands.sort((a, b) => Math.abs(a[0] - h.x) - Math.abs(b[0] - h.x))
+      const [, y, dir, from] = stands[0] ?? []
+      if (!stands.length) p.step()
+      else if (near({ x: from, y: y + 0.5 })) p.press(dir)
+      else p.toward(from, y + 0.5)
+      continue
+    }
+    if (!open) {
+      // Out of its way as it walks.
+      const dx = h.x - t.x
+      const dy = h.y - t.y
+      if (Math.hypot(dx, dy) < 2.6) p.step(inp({ move: unit(dx || 1, dy) }))
+      else p.step()
+      continue
+    }
+    if (h.carry) {
+      // In line with it, a few tiles off at most: throw.
+      const line = Object.entries(DIRS).find(([, [dx, dy]]) => {
+        const along = (t.x - h.x) * dx + (t.y - h.y) * dy
+        return along > 1.2 && along < 4 && Math.abs((t.x - h.x) * dy) + Math.abs((t.y - h.y) * dx) < 0.9
+      })
+      if (line && want === 'POT') { p.press(line[0]); p.wait(0.5); continue }
+      const q = beside(2.8)
+      p.toward(q.x, q.y)
+      continue
+    }
+    const q = beside(1.8)
+    if (!charge && !near(q)) { p.toward(q.x, q.y); continue }
+    if (want === 'BLADE') {
+      p.press(q.dir)
+      p.wait(0.16)
+      // Once: a second cut of the same chain, which is the blade again and is turned aside.
+      if (!chain && t.ai.picB === 'BLADE') {
+        chain = true
+        const was = t.hp
+        const mark = p.seen.length
+        p.press(q.dir)
+        for (let n = 0; n < 20; n++) p.step()
+        assert.ok(p.seen.slice(mark).some(e => e.type === 'clank'), 'the second cut rings off')
+        assert.deepEqual([t.hp, t.ai.turned], [was, 'BLADE'], 'the second cut of a chain is turned aside')
+        assert.ok(t.ai.turnT > 0, 'and its card flashes')
+        aside++
+      }
+      p.wait(0.2)
+      continue
+    }
+    if (want === 'SPIN') {
+      // A held, the charge fills; let go beside it.
+      if (!charge) s.hero.dir = q.dir
+      p.step(inp({ a: true, aPress: !charge }))
+      charge++
+      if (h.charge >= Z.CHARGE_TIME && !h.swing) { p.step(); charge = 0; p.wait(0.35) }
+      continue
+    }
+    p.step()
+  }
+  count()
+  return { t, blows, aside }
+}
+
 // ================================================================================================================
 
 describe('the Examination', () => {
-  it('is sat from the stair in the Puzzle Lab to the Perch\'s west door with the blade and what the dungeon gives', () => {
+  it('is sat from the stair in the Puzzle Lab to the Weight in hand with the blade and what the dungeon gives', () => {
     const lab = atTheLab(SEED)
     let p = player(lab)
     // Up the stair in the Lab's last room, and in at the Front Desk.
@@ -386,7 +512,7 @@ describe('the Examination', () => {
     p.walk('r1', 2, 5)
     p.wait(5.5)
     const lends = Z.mapInfo(Z.WORLD, 'examination').lends
-    assert.equal(lends.length, 9)
+    assert.equal(lends.length, 12, 'nine here, three in round four')
     assert.deepEqual(lends.filter(l => s.map.tiles[l.idx] !== l.tile), [])
 
     // ---- round two: PROVE YOU ARE NOT A MACHINE ----------------------------------------------------------------
@@ -572,6 +698,135 @@ describe('the Examination', () => {
     assert.ok(s.map.enemies.filter(e => e.cell === s.zoneIndex).every(e => e.dead))
     Z.respawn(Z.WORLD, s)
     assert.deepEqual([roomOf(s), Math.floor(s.hero.x), Math.floor(s.hero.y)], ['r3', ...T('r3', 7, 10)])
+
+    // ---- round four: THE WEIGH HOUSE, AS PRACTISED --------------------------------------------------------------
+    p.settle()
+    p.walk('r3', 1, 5)
+    p.leave('left')
+    p.walk('perch', 1, 5)
+    p.leave('left')
+    p.step()
+    assert.equal(s.map.exam.id, 'r4')
+    assert.deepEqual(s.entry, { map: 'examination', entry: 'r4' })
+    p.walk('r4', 14, 4)
+    p.press('right')
+    assert.equal(s.dialog.lines[0], 'ROUND FOUR. THE WEIGH HOUSE. AS PRACTISED.')
+    p.settle()
+    const t5 = p.frames
+    // The nearest pot is the hollow one: no slower to carry, and it breaks on the first weighed tile, for two marks.
+    assert.equal(tile(s, ...T('r4', 6, 4)), 'ô')
+    p.walk('r4', 7, 4)
+    p.press('left')
+    p.wait(0.4)
+    assert.ok(s.hero.carry === 'pot' && s.hero.carryHollow)
+    const x0 = s.hero.x
+    for (let k = 0; k < 30; k++) p.step(inp({ move: { x: 1, y: 0 } }))
+    assert.ok(s.hero.x - x0 > 0.5 * Z.CARRY_SPEED + 0.3, 'at full pace')
+    // (Onto the heavy plate, the one weighed tile on this way.)
+    for (let k = 0; k < 600 && s.hero.carry; k++) { const [hx, hy] = T('r4', 10, 1); p.toward(hx + 0.5, hy + 0.5) }
+    assert.deepEqual([s.hero.carry, s.map.exam.marks, s.map.plates], [null, -2, []])
+    // The block, twice south, onto the left pan.
+    p.walk('r4', 9, 5)
+    for (let k = 0; k < 180 && tile(s, ...T('r4', 9, 8)) !== 'b'; k++) p.step(inp({ move: { x: 0, y: 1 } }))
+    assert.equal(tile(s, ...T('r4', 9, 8)), 'b')
+    // A sound pot weighs the hero down to two: level with the block on the other pan, and enough for the heavy plate.
+    p.walk('r4', 3, 4)
+    p.press('right')
+    p.wait(0.4)
+    assert.ok(s.hero.carry === 'pot' && !s.hero.carryHollow)
+    p.walk('r4', 11, 8)
+    p.wait(0.2)
+    assert.ok(s.map.plates.includes('exam.r4.scale'))
+    assert.equal(s.map.exam.marks, 3)
+    p.walk('r4', 10, 1)
+    p.wait(0.2)
+    assert.equal(s.map.exam.marks, 8)
+    for (let k = 0; k < 900 && !s.map.exam.over; k++) { const [hx, hy] = T('r4', 1, 3); p.toward(hx + 0.5, hy + 0.5) }
+    LOG(`round four: ${((p.frames - t5) / FPS).toFixed(1)} s, marks ${s.map.exam.card.marks} (one hollow pot broken)`)
+    assert.ok(s.flags['exam.r4'] && !s.flags['exam.r4.full'])
+    p.wait(2.5)
+
+    // ---- the Marking Room, and the stair --------------------------------------------------------------------------
+    p.walk('r4', 1, 5)
+    p.leave('left')
+    assert.equal(roomOf(s), 'marking')
+    p.walk('marking', 10, 4)
+    p.press('up')
+    assert.equal(s.dialog.lines[0], 'MARKING ROOM. FULL MARKS GET A SMALL THING.')
+    p.settle()
+    assert.equal(tile(s, ...T('marking', 3, 3)), '.', 'no chest short of full marks')
+    p.walk('marking', 5, 10)
+    p.press('up')
+    p.wait(0.2)
+    assert.ok(s.flags['examination.back'] && tile(s, ...T('marking', 7, 11)) === '.', 'the short way down')
+    assert.equal(tile(s, ...T('marking', 7, 2)), '.', 'all four passed: the stair\'s gate is open')
+    p.walk('marking', 7, 3)
+    // (The Titan's card is up as soon as the hall is there.)
+    for (let k = 0; k < 400 && s.mode !== 'dialog'; k++) p.step(inp({ move: s.mode === 'play' ? { x: 0, y: -1 } : { x: 0, y: 0 } }))
+    assert.equal(s.map.id, 'examtop')
+    assert.equal(s.dialog.lines[0], 'THE BENCHMARK TITAN. TOP OF EVERY TABLE. IT HAS SEEN THE QUESTIONS.')
+    p.settle()
+
+    // ---- the Titan's hall: THE BENCHMARK TITAN -------------------------------------------------------------------
+    assert.deepEqual(s.entry, { map: 'examtop', entry: 'stair' })
+    assert.ok(s.flags['examination.titan.card'])
+    // The tab is reloaded here: back at the stair, the fight fresh, the gate shutting again.
+    s = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))), seed: SEED + 11 })
+    s.hero.maxHp = s.hero.hp = 30
+    p = player(s)
+    p.step()
+    assert.deepEqual([s.map.id, Math.floor(s.hero.x), Math.floor(s.hero.y)], ['examtop', 8, 9])
+    p.step()
+    assert.equal(tile(s, 8, 10), 'X', 'shut in')
+    p.settle()
+    const t6 = p.frames
+    const hurt6 = p.hurts
+    const titan = fightTitan(p)
+    LOG(`the Titan, the blade and its pots: ${((p.frames - t6) / FPS).toFixed(1)} s, ${titan.blows.join(' ')}, ${p.hurts - hurt6} blows taken`)
+    assert.ok(titan.t.dead, `the Titan stands at ${titan.t.hp} hp`)
+    assert.deepEqual(titan.blows, ['BLADE', 'SPIN', 'POT', 'BLADE', 'SPIN'])
+    assert.equal(titan.blows.length, 5, 'fifteen hit points are five hurting blows')
+    assert.equal(titan.aside, 1)
+    p.wait(0.3)
+    assert.equal(s.dialog.lines[0], '(ITS CLIPBOARD IS BLANK. IT LOOKS AT THE BRASS WEIGHT.)')
+    p.settle()
+    assert.equal(tile(s, 8, 10), '.', 'the way back is open')
+    const weight = s.map.pickups.find(q => q.id === 'examination.weight')
+    assert.ok(weight && !weight.hidden)
+    for (let k = 0; k < 900 && !s.flags['item:weightSurprise']; k++) { if (s.mode === 'play') p.toward(weight.x, weight.y); else p.step() }
+    assert.ok(s.flags['item:weightSurprise'], 'the Weight SURPRISE in hand')
+    p.settle()
+    assert.ok(!s.flags.won)
+    // And out: down to the Marking Room, and by the lever's gate straight to the desk.
+    for (let k = 0; k < 900 && s.map.id === 'examtop'; k++) {
+      if (s.mode !== 'play') p.step()
+      else if (s.hero.y > 9.6 && Math.abs(s.hero.x - 8.5) < 0.2) p.step(inp({ move: { x: 0, y: 1 } }))
+      else p.toward(8.5, 9.8)
+    }
+    for (let k = 0; k < 200 && s.mode !== 'play'; k++) p.step()
+    assert.equal(roomOf(s), 'marking')
+    p.walk('marking', 7, 10)
+    p.leave('down')
+    assert.equal(roomOf(s), 'desk')
+  })
+
+  it('beats a hero who only stands in the Titan\'s hall, by its stamps', () => {
+    const s = Z.createGame(Z.WORLD, { seed: SEED, at: { map: 'examtop', entry: 'stair' } })
+    s.inv.sword = true
+    let stamps = 0
+    let struck = 0
+    for (let k = 0; k < 90 * FPS && s.mode !== 'dying'; k++) {
+      const ev = Z.stepGame(Z.WORLD, s, 1 / FPS, inp({ aPress: s.mode === 'dialog' && k % 20 === 19 }))
+      const boom = ev.some(e => e.type === 'boom')
+      if (boom) stamps++
+      if (boom && ev.some(e => e.type === 'hurt')) struck++
+    }
+    assert.equal(s.mode, 'dying', `stood through ${stamps} stamps at ${s.hero.hp} hp`)
+    assert.equal(struck, s.hero.maxHp / 2, 'every half heart gone to a stamp')
+    // The retry: back at the stair with the Titan whole and its first two cards.
+    Z.respawn(Z.WORLD, s)
+    const t = s.map.enemies.find(e => e.kind === 'titan')
+    assert.deepEqual([s.map.id, t.hp, t.ai.picA, t.dead], ['examtop', 15, undefined, false])
   })
 
   it('never saves the Duck set down, and loads a save with the Duck in the hand', () => {

@@ -254,22 +254,6 @@ function copilot(pose: string): Thing {
   }
 }
 
-/** A cactus on two stubby feet (the next bake of the frontier's folk draws it; until then the classic one stands). */
-function cactus(pose: string, step: number): Thing {
-  return b => {
-    const lift = pose === 'popped' ? 4 : 0
-    for (const x of [-2.5, 2.5]) b.ball(x, x < 0 ? step : -step, 1.5, 2, 2.6, 1.5, 'wood')
-    b.ball(0, 0, 11, 4.2, 4.2, 10, 'moss')
-    for (const x of [-7, 7]) {
-      b.ball(x * 0.75, 0, 10 + lift, 3.2, 2, 1.8, 'moss')
-      b.ball(x, 0, 13.5 + lift, 2, 2, 4.4, 'moss')
-    }
-    for (const x of [-1.8, 1.8]) b.ball(x, 3.7, 14, 0.9, 0.8, 1, 'ink')
-    if (pose === 'popped') b.ball(0, 4, 10, 1.8, 1.2, 2, 'bandPink')
-    b.ball(0, 0, 21.5, 2, 2, 1.5, 'bandPink')
-  }
-}
-
 export function creaturePose(name: FrontierCreature, back: boolean, step: number, pose = ''): Thing {
   const frame = (() => {
     switch (name) {
@@ -285,7 +269,6 @@ export function creaturePose(name: FrontierCreature, back: boolean, step: number
       case 'mixtral': return mixtral(pose, step)
       case 'orca': return halfBoat(1.7, pose === 'row' || step === 1, pose === 'strand')
       case 'falcon': return bird(1.8, pose || 'perch', step)
-      case 'cactus': return cactus(pose, step)
       case 'bloom': return bloom(pose, step)
       case 'bard': return bard(pose, step)
       case 'copilot': return copilot(pose)

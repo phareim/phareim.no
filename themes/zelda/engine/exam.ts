@@ -8,21 +8,28 @@
  * - Passed, the room is quiet for good (its foes are not there). Not passed, the card plays and the hero is put
  *   back at the round's door with the map loaded afresh: nothing is lost.
  * - A hero who walks out of a round that is still running abandons it; coming back begins it afresh.
+ * - THE RESIT (the Invigilator, `exam.resit`): every round passed short of full marks is sat again for them
+ *   (`exam.<id>.again`). It runs as before; its result is a stamp and nothing else: no gate shuts, no walk back.
  * - TIME WAITS (`rule: 'still'`): the world's clock runs only as the hero does something (`stillK`, which `play()`
  *   multiplies into the time foes and things are stepped by). The hero, the pads and the cards keep their own.
  *
  * Also here: the pot stands that fill one at a time (`stand` marks with a `wait`).
  * Every clock here runs on the hero's `dt`. Docs: docs/games/neon-shrine-examination.md.
  */
-import type { Enemy, ExamState, GameState, Input, RoundDef, World } from '../types'
+import type { Enemy, ExamState, GameState, Input, RoundDef, RoundId, World } from '../types'
 import { EXAM, HERO_R, STILL } from '../types'
-import type { Ctx } from './combat'
+import { acquire, type Ctx } from './combat'
+import { WEIGHT_PLATES } from '../world/puzzles'
+import { titanOpen } from './bossTitan'
 import { cellDef, circleOnTile, condMet, has, mapInfo, setFlag, type MapInfo, type PadInfo } from './map'
 
 export function stepExam(c: Ctx, dt: number, inp: Input) {
   const s = c.s
   if (s.demo) return
+  hollowPot(c)
   stepStands(c, dt)
+  if (s.flags['exam.resit']) offerResit(s)
+  if (owedDuck(c)) { acquire(c, 'duck'); return }
   const m = s.map
   const card = m.exam?.card
   if (card) {
@@ -30,7 +37,7 @@ export function stepExam(c: Ctx, dt: number, inp: Input) {
     if (card.t >= EXAM.card && cardDone(c, m.exam!)) return
   }
   const round = cellDef(c.info, s.zoneIndex)?.round
-  if (round && !has(s, `exam.${round.id}`) && (!m.exam || (m.exam.over && m.exam.card?.passed !== false))) begin(c, round)
+  if (round && sitting(s, round.id) && (!m.exam || (m.exam.over && m.exam.card?.passed !== false))) begin(c, round)
   const x = m.exam
   if (!round || !x || x.over || x.cell !== s.zoneIndex) return
   if (x.rule === 'still') stepStill(c, x, inp, dt)
@@ -76,10 +83,12 @@ export function stillK(s: GameState): number {
 
 /**
  * The examination's foes in the states in which their touch does no harm (`enemies.ts` `contact`): FALCON stuck in
- * the sand, and in its dive, which hurts by its lane and ring alone (`bossFalcon.ts`).
+ * the sand, and in its dive, which hurts by its lane and ring alone (`bossFalcon.ts`); the Titan leaning on its
+ * stamp or looking at the Duck (`bossTitan.ts`).
  */
 export function examBossHarmless(e: Enemy): boolean {
-  return e.kind === 'falcon' && (e.ai.mode === 'stuck' || e.ai.mode === 'dive')
+  if (e.kind === 'falcon') return e.ai.mode === 'stuck' || e.ai.mode === 'dive'
+  return e.kind === 'titan' && titanOpen(e)
 }
 
 /** Does the hero's standing here latch pad `p` now? */
@@ -120,6 +129,7 @@ function end(c: Ctx, x: ExamState, round: RoundDef) {
   const m = s.map
   x.marks = Math.max(0, x.marks)
   const passed = x.marks >= round.pass
+  delete s.flags[`exam.${round.id}.again`]
   if (passed) setFlag(s, `exam.${round.id}`)
   if (x.marks >= round.max) setFlag(s, `exam.${round.id}.full`)
   x.over = true
@@ -144,12 +154,29 @@ function cardDone(c: Ctx, x: ExamState): boolean {
   x.card = null
   // (A passed round's card may have played on over the next round: that one goes on.)
   if (x.over) delete s.map.exam
-  if (card.passed || s.zoneIndex !== card.cell) return false
+  if (card.passed || has(s, `exam.${card.id}`) || s.zoneIndex !== card.cell) return false
   s.mode = 'warp'
   s.warp = { t: 0, to: s.map.id, entry: card.entry, swapped: false }
   s.hero.act = 'idle'
   c.ev.push({ type: 'warp' })
   return true
+}
+
+/**
+ * For some hours the Staff Room's chest held 50 bits in the Duck's place. A save that opened it then, and so has no
+ * Duck, is handed it on walking into the room (once: with the Duck owned this never holds again).
+ */
+function owedDuck(c: Ctx): boolean {
+  const s = c.s
+  return !s.inv.duck && has(s, 'chest:examination.duck') && c.info.chestList.some(ch => ch.id === 'examination.duck' && ch.cell === s.zoneIndex)
+}
+
+/** Is round `id` still to be sat: not passed, or offered again by the Invigilator? */
+const sitting = (s: GameState, id: RoundId) => !has(s, `exam.${id}`) || has(s, `exam.${id}.again`)
+
+function offerResit(s: GameState) {
+  delete s.flags['exam.resit']
+  for (const id of ['r1', 'r2', 'r3', 'r4'] as const) if (has(s, `exam.${id}`) && !has(s, `exam.${id}.full`)) setFlag(s, `exam.${id}.again`)
 }
 
 /** The room's foes are not there (they carry no `once` flag, so nothing else is touched). */
@@ -162,10 +189,10 @@ function quiet(s: GameState, cell: number) {
   }
 }
 
-/** Is the round of this room quiet: passed, or just over? */
+/** Is the round of this room quiet: passed (and not offered again), or just over? */
 function done(s: GameState, info: MapInfo, cell: number): boolean {
   const round = cellDef(info, cell)?.round
-  return !!round && (has(s, `exam.${round.id}`) || (!!s.map.exam?.over && s.map.exam.cell === cell))
+  return !!round && (!sitting(s, round.id) || (!!s.map.exam?.over && s.map.exam.cell === cell))
 }
 
 /**
@@ -185,10 +212,39 @@ export function examEnterCell(c: Ctx, index: number) {
   if (round) s.entry = { map: m.id, entry: round.entry }
 }
 
+/**
+ * Before a map is loaded: the Titan's hall keeps nothing of its two levers and stones, so each entry finds the
+ * stones at the north wall, ready to roll once.
+ */
+export function examForget(s: GameState, map: string) {
+  if (map !== 'examtop') return
+  for (const f of Object.keys(s.flags)) if (f.startsWith('examination.boulder.') || f.startsWith('boulder:examtop:')) delete s.flags[f]
+}
+
 /** A map loaded afresh: the passed rounds' rooms have no foes. */
 export function examEnterMap(world: World, s: GameState) {
   const info = mapInfo(world, s.map.id)
   for (const e of s.map.enemies) if (done(s, info, e.cell)) quiet(s, e.cell)
+}
+
+/**
+ * A hollow pot never rests on a weighed tile: carried onto one it shatters, before the weight is read (the plates are
+ * read later in the same step). In a running round it costs `penalty.shatter`, once a tile.
+ */
+function hollowPot(c: Ctx) {
+  const s = c.s
+  const h = s.hero
+  if (!h.carry) { delete h.carryHollow; return }
+  if (!h.carryHollow) return
+  const i = Math.floor(h.y) * s.map.w + Math.floor(h.x)
+  const t = s.map.tiles[i]!
+  if (WEIGHT_PLATES[t] === undefined) return
+  c.ev.push({ type: 'shatter', x: h.x, y: h.y - 0.6, kind: h.carry })
+  h.carry = null
+  delete h.carryHollow
+  if (h.act === 'carry' || h.act === 'lift') { h.act = 'idle'; h.actT = 0 }
+  const x = s.map.exam
+  if (x && !x.over && x.cell === s.zoneIndex && !x.shattered.includes(i)) x.shattered.push(i)
 }
 
 /** A stand of its own gets its pot back `wait` s after it went, as soon as nothing is on the tile. */

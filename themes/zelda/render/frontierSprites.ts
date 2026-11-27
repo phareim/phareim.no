@@ -215,14 +215,11 @@ const BEASTS = {
   phi: ['.....yy....', '..yYyyyYe..', '.yY..c..yY.', '.y..yy..yY.', '.yYywY..yY.', '..yyY...yY.', '......yYY..', '...YyyyY...', 'yyYyY......'],
   mixtral: ['...ttt.....', '.ggtTt.gg..', 'gGGcTGgGGg.', 'GGGgGGGGGG.', '.GGGGGGGG..', '.GgggGGGG..', 'GGGGGGGGGG.', 'GGG.GGG.GG.', 'GG.......G.'],
   orca: ['.....tt....', '...TTTtt...', '...TcCcT...', '...TTTTT...', '..uVVuVu...', '.nnuVVunn..', 'nnnjjnjn..n', 'njnjjnjnnnn', '.nnnnnnnnn.'],
-  cactus: ['....mpm....', '....lLL....', '.l..lLL..l.', '.lL.kLk.lL.', '.lLLlLLLLL.', '..FFlLLFF..', '....lLL....', '....lLL....', '...NFFFN...'],
   falcon: ['.......GG..', '.g...ggGy..', 'GGgggGcG...', 'GGggGGGGG..', '.GGGGGGGgg.', '..GGGgGGGGG', '...GGyGGGG.', '....GG.GG..', '....GG.G...'],
   bloom: ['...tppt....', '..tttttt...', '.tttttttt..', '.tTctTcTt..', '.tTTTTTTt..', 'TTTTpTTTTT.', 'TTTnTTTTTT.', '.TTTTTTTT..', '..TT...TT..'],
   bard: ['..yyyyyyy..', '.yRRRRRRRy.', '.yRRRRRRRy.', '.ypRRRppRy.', '.yRkyykRRy.', '.yRkkkkRRy.', '.yRRRRRRRy.', '..yyyyyyy..', '..uu...uu..'],
   copilot: ['....gggg...', '...gcccg...', '..gcggcgg..', '.grRRRRrgg.', 'rRRpppRRRRr', 'rRycCcyRRrr', 'rRRRRRRRRRr', '.kkRRRRRkk.', '.kk.....kk.'],
 } as const
-
-const CACTUS_POPPED = ['.l..ppp..l.', '.lL.lLL.lL.', '.lL.kLk.lL.', '.lLLlLLLLL.', '..FFkppkF..', '....kppk...', '....lLL....', '....lLL....', '...NFFFN...'] as const
 
 export type FrontierCreature = keyof typeof BEASTS
 export const FRONTIER_CREATURES = Object.keys(BEASTS) as FrontierCreature[]
@@ -238,7 +235,6 @@ export const CREATURE_POSES: Partial<Record<FrontierCreature, string[]>> = {
   mixtral: ['left', 'middle', 'right'],
   orca: ['row', 'strand'],
   falcon: ['perch', 'fly', 'dive', 'blind', 'quartz'],
-  cactus: ['popped'],
   bloom: ['kneel', 'ring', 'calm'],
   bard: ['sing', 'dazed'],
   copilot: ['honk', 'neon', 'rust'],
@@ -254,8 +250,7 @@ function beast(name: FrontierCreature, facing: Facing, step: number, pose?: stri
     rect(9, 11, 1, 1, 'c')
     return rows()
   }
-  // (The cactus about to spit: arms flung up, its mouth open.)
-  const mask = name === 'cactus' && pose === 'popped' ? CACTUS_POPPED : BEASTS[name]
+  const mask = BEASTS[name]
   const airborne = pose === 'fly' || pose === 'dive' || name === 'orehopper' && step === 1
   const baseY = airborne ? 3 : step ? 6 : 7
   mask.forEach((row, y) => [...row].forEach((ch, x) => {

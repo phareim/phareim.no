@@ -102,6 +102,22 @@ const KEPT = {
     assert.ok(s.daytime >= save.day && s.daytime < save.day + 2, `the hour goes on: ${s.daytime}`)
     assert.ok(again.explored.wildwood.length >= save.explored.wildwood.length, 'the chart is saved on')
   },
+  'duck-chest-paid-bits': ({ s }) => {
+    assert.ok(!s.inv.duck, 'not before the room')
+    // Into the Staff Room, by its west door: the Duck is handed over, with its words.
+    const w = walker(Z)
+    for (let k = 0; k < 900 && s.mode !== 'get'; k++) {
+      const room = s.zone.x === 48
+      Z.stepGame(Z.WORLD, s, 1 / 60, { ...Z.NO_INPUT, move: { x: room ? 0 : 1, y: !room && s.hero.x < 46 ? Math.sign(17.5 - s.hero.y) : 0 } })
+    }
+    assert.equal(s.get?.text[0], 'YOU GOT THE DUCK!')
+    w.settle(s)
+    assert.deepEqual([s.inv.duck, s.inv.selected], [true, 'duck'])
+    // Once: walking out and in again gives nothing more.
+    w.walkTo(s, 44, 17)
+    w.walkTo(s, 51, 17)
+    assert.deepEqual([s.mode, Z.parseSave(copy(Z.toSave(s))).inv.duck], ['play', true])
+  },
   'winner-without-an-hour': ({ s, save }) => {
     // The day starts at dusk, and stands still for whoever has no Prism.
     if (save.inv.prism) assert.ok(s.daytime >= 0 && s.daytime < 2, `${s.daytime}`)

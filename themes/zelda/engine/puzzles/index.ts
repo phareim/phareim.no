@@ -587,7 +587,7 @@ function crush(c: Ctx, r: PhysState['rolling'][number]) {
   const s = c.s
   for (const e of s.map.enemies) {
     if (e.dead || STATS[e.kind].flying) continue
-    if (Math.hypot(e.x - r.x, e.y - r.y) < 0.45 + e.r) hitEnemy(c, e, 4, r.x - r.dx, r.y - r.dy, 'bomb')
+    if (Math.hypot(e.x - r.x, e.y - r.y) < 0.45 + e.r) hitEnemy(c, e, 4, r.x - r.dx, r.y - r.dy, 'boulder')
   }
   const h = s.hero
   if (Math.hypot(h.x - r.x, h.y - r.y) < 0.42 + HERO_R && h.invuln <= 0) {

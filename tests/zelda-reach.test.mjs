@@ -235,8 +235,8 @@ function round(W, world, opened) {
         const cell = m.cell(cx * m.def.cell.w, cy * m.def.cell.h)
         if (!cells.has(`${m.id}|${cell}`)) continue
         for (const ev of def.events ?? []) if (holds(ev.when, m, cell)) set(ev.set)
-        // A round of the Examination is passed by whoever plays it in its room (its own test plays it).
-        if (def.round && flags['item:sword']) set(`exam.${def.round.id}`)
+        // A round of the Examination is passed, with full marks too, by whoever plays it in its room (its own test plays it).
+        if (def.round && flags['item:sword']) { set(`exam.${def.round.id}`); set(`exam.${def.round.id}.full`) }
       }
     }
     if (flags.luna) { const b = W.luna?.find(v => Z.condMet(g, W, v.when, -1)); if (b?.set) set(b.set) }
@@ -285,11 +285,6 @@ function solve(W) {
  * its line out, and a finished world has none.
  */
 const OWED = [
-  // The Examination: round four, the Marking Room's gates and the hall at the top (part three).
-  'examination: gate examination.16,5',
-  'examination: gate examination.7,11',
-  'examination: gate examination.7,2',
-  'examtop: never walked into',
   // Act Three, parts one and two: the gondola's way out waits on the boss of part three.
   'actgondola: gate actgondola.13,10',
 ]

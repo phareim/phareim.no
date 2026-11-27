@@ -1,17 +1,16 @@
 ## Neon Shrine — The Examination
 
 The test behind the Puzzle Lab in Stillsand's gold pyramid. A dungeon with no
-keys: rounds, each with a rule, a score and a pass mark, and a pass is what
-opens the way on. Its place in the larger design: `docs/worlds/sacred-weights.md`.
+keys: four rounds, each with a rule, a score and a pass mark, and a pass is
+what opens the way on. Its treasure is THE DUCK, its miniboss FALCON, its boss
+THE BENCHMARK TITAN, its Weight SURPRISE. Its place in the larger design: `docs/worlds/sacred-weights.md`.
 Code: `world/examination.ts` (the maps), `engine/exam.ts` (rounds, stands, the
-room that waits), `engine/duck.ts` (the Duck), `engine/bossFalcon.ts` (Falcon),
+room that waits, the resit), `engine/duck.ts` (the Duck),
+`engine/bossFalcon.ts` (Falcon), `engine/bossTitan.ts` (the Titan),
 `render/examination.ts` (pads, strip, card, stencil shapes, the Duck, the pale
-wash), `render/spritesExamination.ts` (pictures). Test:
+wash, the stones' lanes, the Titan's cards and fall),
+`render/spritesExamination.ts` (pictures). Test:
 `tests/zelda-examination.test.mjs`.
-
-**What is built:** from the Lab's stair to the Perch's west door: the Front Desk,
-rounds one to three, the Staff Room, the Duck and Falcon. Round four, the Marking
-Room and the Titan's hall are walled floors with their doors.
 
 ## The place
 
@@ -42,7 +41,10 @@ way the hero came is open. A round's exit is a gate on its pass flag
 (`exam.<id>`), saved as every gate is: a round is never passed twice. The
 perch's west door is a trap gate. The stair to the hall opens on all four pass
 flags; the Marking Room's south gate, down into the Desk, on its lever
-(`examination.back`).
+(`examination.back`). The hall's door leads back down to the Marking Room.
+
+The ways in and the continue points: `desk`, each round's door (`r1` to `r4`)
+and the hall's `stair`.
 
 `MapDef.resume` marks both maps: a reload of the tab continues at the last
 stair or door (`awayMap`), and nothing else of a land comes with it.
@@ -106,7 +108,7 @@ s after its pot went, a stand gets one back, as soon as nothing is on the tile
 ## The rooms
 
 **The Front Desk.** The stair back to the Lab, and the INVIGILATOR, who says
-once that rules are on the doors and is silent after.
+once that rules are on the doors, and after that offers the resit (below).
 
 **Round one: NO BLADE** (pass 6 of 10). Two blobs, a skull, a sentry, a dasher,
 2 marks each. Six pots and three stones on stands (5 s), three short pits. A
@@ -134,6 +136,43 @@ off its lane, which makes full marks easy; the blade alone passes.
 
 **The Perch.** Falcon, behind a trap gate on the west door. A death here goes
 back to round three's door (a quiet room by then).
+
+**Round four: THE WEIGH HOUSE, AS PRACTISED** (pass 8 of 10; a hollow pot broken
+on a weighed tile costs 2, once a tile). The Lab's Weigh House again: three pots
+on stands, the nearest to the door hollow; a push block; a heavy plate against
+the north wall; a scale of two pans two tiles apart. Two pads with a `when`, 5
+each: the heavy plate's and the scale's. HAND IN by the west door; no gate waits
+on a plate, so the round can always be handed in.
+
+- The practised answer fails with the hollow pot: it weighs nothing and shatters.
+- With a sound pot: push the block twice south onto the left pan, carry a pot onto
+  the right one, then onto the heavy plate.
+- With the Duck, no pot at all: stand on a pan and set it on the other; on the
+  heavy plate, facing the wall, set it at your own feet.
+
+**The Marking Room.** A sign, the stair up (its gate open on all four passes), the
+lever for the short way down to the desk, and a chest with a heart piece that
+appears once all four rounds have full marks. No foe.
+
+**The Titan's hall** (`examtop`). Open floor, rock corners, two pot stands at the
+west and east middle, and two boulders at the north wall, each with a lever on
+the side wall beside it. A cut lever sends its stone down its lane (columns 5
+and 10, faint pink dashes on the floor, bright while the stone rolls) to the
+south end, where it rests. Both stones are home and both levers unthrown on
+every entry (`examForget`). The stones hurt the hero too (2). A trap gate
+shuts the way back while the Titan stands.
+
+## The resit
+
+Talking to the INVIGILATOR (any time after the first) sets `exam.resit`, which
+`stepExam` clears: every round passed short of full marks gets
+`exam.<id>.again`. Such a round begins as it did the first time, with fresh foes
+and pads. Its result is a stamp and nothing else: the pass flag stays, no gate
+shuts, there is no walk back to the door, and the offer is used up. Full marks
+set `exam.<id>.full`.
+
+For some hours the Staff Room's chest held 50 bits in the Duck's place: a save
+with `chest:examination.duck` and no Duck is handed it on walking into the room.
 
 ## Time waits (`rule: 'still'`)
 
@@ -196,6 +235,71 @@ half its hit points the tell is 0.65 s and it dives twice, aiming again 0.5 s
 after it lands, stuck only after the second. Two openings fell it. It falls once
 (`examination.falcon`): the gate opens and a line is said.
 
+## The hollow pot (`ô`)
+
+A pot to the eye's shape, paler and greyer and cracked, on the floor and in the
+hands. It lifts and throws like a pot (`Hero.carry` stays `'pot'`, with
+`carryHollow`), but carrying it does not slow the hero, and carried onto `θ`,
+`η` or `σ` it shatters before the weight is read (`hollowPot`, `engine/exam.ts`).
+
+## The Benchmark Titan (`engine/bossTitan.ts`, `TITAN`)
+
+15 hit points, radius 1.1, walks, never leaves the hall; its home is in the north,
+eight tiles from the stair. A card on first entry. In turn:
+
+- **walk** 2.2 s at 1.5 tiles a second toward the hero, stopping 4 off. Its touch
+  costs a heart (as in the tell and the slam).
+- **tell** 0.9 s (0.7 at half): the stamp up; a 3×3 square on the hero's tile, aimed
+  once, filling from its edge.
+- **slam** 0.25 s: a heart to a hero in the square.
+- **rest** 3 s (2.6 at half): leaning on the stamp, harmless to touch, **open**
+  (gold bar).
+- At 7 hit points or fewer the tell shows **two squares**: the second 3 tiles on
+  from the first toward the Titan, along the longer of the two ways, so they make
+  a band 3 wide and 6 long. The second lands 0.35 s after the first.
+
+**The cards.** Two cards hang over it, the older left and the newer right: the
+last two kinds of blow that hurt it (`ai.picA`, `ai.picB`), SPIN and POT when
+the fight begins and again on a retry. A blow's kind is its `HitSource`:
+
+| `HitSource` | Card |
+|---|---|
+| `sword`, `echo` | BLADE |
+| `spin` | SPIN |
+| `pot` | POT |
+| `boulder` | BOULDER |
+| `bomb` | BOMB |
+| `disc` | DISC |
+| `hook` | HOOK |
+| `shot` (and `beam`) | BEAM (a brass weight) |
+| `spit`, `stomp`, any other | OTHER (a brass weight) |
+
+- Shut, every blow clanks off it, with no shove to the hero and no mercy for it.
+- Open, a kind on a card is **turned aside**: the clank, and that card flashes
+  pink. This holds within its mercy too, so a chain's second cut is seen to ring
+  off.
+- Any other kind takes **3**, whatever that blow does elsewhere (a disc or a hook,
+  which stun other foes, is a plain 3 here), takes the older card's place, and
+  the cards turn over. Mercy 0.45 s. Five blows fell it.
+- With the blade alone: BLADE, then SPIN, then a POT from a stand, BLADE, SPIN.
+  The kind to use is the one on neither card.
+- The storm lamp's beam never reaches it (the lamp burns no boss that is not
+  named for it, `LAMP_BURNS`).
+
+**The Duck.** Down within 9 tiles with a clear line, and no look in the last 8 s,
+it stops what it is about and **looks** for 3 s: open. A turned head hangs no
+card. Its next stamp is one square on the Duck's tile at the 0.9 s pace; the
+Duck hops out of any square that lands on it.
+
+It falls once (`examination.titan`): the way back opens, the Weight lies where it
+fell (`atFall`), and a line is said.
+
+**The cards on screen** are painted on the HUD's layer (`drawTitanCards`, called
+by `hudLayer`; the isometric view says where a ground point lies, `Stands`): over
+its head, 48×32 HUD px each, kept whole on the screen and clear of the hearts,
+the item box and the corner chart. With the Titan off the screen (the isometric
+camera follows the hero) they stay at the nearest edge.
+
 ## Drawing
 
 Pads and stencils lie on the floor under everything that stands
@@ -203,10 +307,17 @@ Pads and stencils lie on the floor under everything that stands
 over it (`renderer.ts`). `Stencil` (`engine/stencils.ts`) has three shapes of
 the examination's beside the lane: `disc`, `box` and `path` (any angle), each
 with a fill `k` and a `dim` copy (`drawShape`); Falcon shows a `path` and a
-`disc`. Falcon's pictures are the frontier's (`falcon_*`), at twice their size in
-8-bit as the other heavy ones; the isometric view has its own.
+`disc`, the Titan its `box`es (placed by their middle). Falcon's pictures are
+the frontier's (`falcon_*`), at twice their size in 8-bit as the other heavy
+ones; the isometric view has its own.
 
-Stand-ins until drawn: the Duck on the floor (its B icon), the five pane pictures (`pane_cactus`, `pane_palm`,
-`pane_stone`, `pane_cloud`, `pane_bones`, 32×32) and the walking cactus
-(`BEASTS.cactus` and its `popped` pose, which the isometric view shows as the
-classic sprite until the frontier's folk are baked again).
+The Titan's six frames, the five panes and the walking cactus (`cactus_walk_0/1`,
+16×24; Stillsand's skin of the spitter, with the pink mark over it as it aims)
+are drawn. The Titan's states take: walk `titan_0/1`, tell `titan_tell`, slam and
+rest `titan_slam`, look `titan_look` (flipped toward the Duck), a blow and its
+fall `titan_hurt`.
+
+Stand-ins until drawn: the hollow pot (`pot_hollow`), the SPIN and BOULDER cards
+(`card_spin`, `card_boulder`; the POT card shows the pot itself), the Duck on the
+floor (its B icon), a fallen Titan (`titan_down`) and the cactus's own pose as it
+spits.

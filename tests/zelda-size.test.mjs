@@ -19,9 +19,11 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
  * The ceilings. The minified one was raised on purpose on 2026-11-27 (1.45 MB to 1.55 MB): the view's static closure
  * now holds seven dungeons' fights and painters (1.46 MB with five of them whole). They belong in a chunk loaded with
  * the dungeons' maps (`docs/worlds/sacred-weights-TASKS.md`); until then this is what they cost.
+ * The gzip one was raised the same day (470 KB to 480 KB) for the Examination's drawn pictures: THE BENCHMARK
+ * TITAN's six frames, five panes and the walking cactus.
  */
 const MAX_MIN = 1_550_000
-const MAX_GZIP = 470_000
+const MAX_GZIP = 480_000
 
 let out
 before(async () => {

@@ -885,6 +885,7 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
       r(g, '#140a22', px, py + 15, T, 1)
       break
     case 'o': g.drawImage(sprite('pot'), px, py); break
+    case 'ô': g.drawImage(sprite('pot_hollow'), px, py); break
     case 'r': g.drawImage(sprite('rock'), px, py); break
     case 'R': boulder(g, px, py); break
     case 't': if (kind === 'overworld' && onSand(at)) tikiPost(g, px, py); else lampPost(g, px, py, kind); break

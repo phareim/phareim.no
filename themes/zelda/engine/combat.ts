@@ -3,7 +3,7 @@
  * calls into. `Ctx` bundles what a step needs.
  */
 import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, WeightId, World } from '../types'
-import { FALCON, HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ORCA, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
+import { FALCON, HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ORCA, ROLL_IFRAMES, TITAN, TOUGH, WEIGHTS } from '../types'
 import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
@@ -11,6 +11,7 @@ import { bardOpen, bardRule, bardStruck } from './bossBard'
 import { BOX } from './bossBlackBox'
 import { lampHome } from './lamp'
 import { falconStruck } from './bossFalcon'
+import { titanOpen, titanSees, titanStruck, titanTakes } from './bossTitan'
 import { duckStruck } from './duck'
 import { heapRule, phiOpen } from './heapFoes'
 import { COPILOT, copilotStill } from './bossCopilot'
@@ -106,6 +107,8 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 
 /** `echo`: a blow of the echo's blade (`engine/echo.ts`), the blade to every rule of armour. */
 export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit' | 'echo'
+  /** A rolling boulder (`puzzles/`): to every rule but the Titan's cards, an ordinary heavy blow. */
+  | 'boulder'
   /** The storm lamp's beam (`engine/lamp.ts`): a burn that leaves no mercy and no shove. */
   | 'beam'
   | 'stomp' // the hero coming down hard (`engine/stomp.ts`)
@@ -129,6 +132,8 @@ BIG.add('blackbox')
 BOSSES.add('blackbox')
 BIG.add('falcon')
 BOSSES.add('falcon')
+BIG.add('titan')
+BOSSES.add('titan')
 /** The `BIG` ones the storm lamp's beam burns and stuns (`engine/lamp.ts`): a boss is left alone unless it is named here. */
 export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 // Act Three's BARD (`bossBard.ts`): heavy, but no boss: the gate it holds shut is its reward.
@@ -194,6 +199,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'blackbox': return mode === 'open' && ((e.ai.took as number | undefined) ?? 0) < BOX.take
     // Stuck in the sand, while this opening still has blows to give.
     case 'falcon': return mode === 'stuck' && ((e.ai.took as number | undefined) ?? 0) < FALCON.take
+    // Leaning on its stamp, or looking at the Duck.
+    case 'titan': return titanOpen(e)
     default: return false
   }
 }
@@ -237,7 +244,8 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
 
 function hitEnemyAny(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
   if (src === 'beam') return burnFoe(c, e, dmg)
-  if (e.dead || (src === 'echo' ? (e.echoInvuln ?? 0) : e.invuln) > 0) return false
+  // (The Titan's mercy keeps a new kind off it, not the sight of an old one: a chain's second cut is turned aside.)
+  if (e.dead || ((src === 'echo' ? (e.echoInvuln ?? 0) : e.invuln) > 0 && !(e.kind === 'titan' && titanSees(e, src)))) return false
   if (src === 'echo') opt = { ...opt, echo: true }
   const st = STATS[e.kind]
   if (st.invulnerable) {
@@ -435,6 +443,14 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       }
       if (!damage(c, e, dmg, fromX, fromY, heavy ? opt : { ...opt, cap: left })) return false
       falconStruck(c, e)
+      return true
+    }
+    // THE BENCHMARK TITAN: open, a kind of blow that is on neither card hurts it, always the same (`bossTitan.ts`).
+    case 'titan': {
+      const kind = titanTakes(c, e, src)
+      if (!kind) return false
+      if (!damage(c, e, TITAN.blow, fromX, fromY, { ...opt, cap: TITAN.blow, knock: 0 })) return false
+      titanStruck(c, e, kind)
       return true
     }
     // GROK and PHI: their own file says what lands (`heapFoes.ts` `heapRule`).
