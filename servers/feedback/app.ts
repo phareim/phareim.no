@@ -124,17 +124,21 @@ export async function startServer(opts: Options): Promise<{ port: number; close:
 
   // Refusals: one summary line a minute, counts per class.
   const refused = { W: 0, R: 0, H: 0, other: 0 }
+  // Why, by gate step (a count per reason; never who).
+  const why: Record<string, number> = {}
   const summary = setInterval(() => {
     const total = refused.W + refused.R + refused.H + refused.other
-    if (total) log(`refused last minute: W=${refused.W} R=${refused.R} health=${refused.H} other=${refused.other}`)
+    if (total) log(`refused last minute: W=${refused.W} R=${refused.R} health=${refused.H} other=${refused.other}; why: ${Object.entries(why).map(([k, n]) => `${k}=${n}`).join(' ') || '-'}`)
     refused.W = refused.R = refused.H = refused.other = 0
+    for (const k of Object.keys(why)) delete why[k]
   }, 60_000)
   summary.unref()
   const sweeper = setInterval(() => { sweepTmp(root).catch(() => {}) }, 3_600_000)
   sweeper.unref()
 
-  function refuse(res: ServerResponse, cls: keyof typeof refused): void {
+  function refuse(res: ServerResponse, cls: keyof typeof refused, reason = 'path'): void {
     refused[cls]++
+    why[reason] = (why[reason] ?? 0) + 1
     res.writeHead(404, { 'content-type': 'text/plain', 'content-length': '0', 'cache-control': 'no-store', connection: 'close' })
     res.end()
   }
@@ -179,27 +183,27 @@ export async function startServer(opts: Options): Promise<{ port: number; close:
     const origin = req.headers.origin
     const sfs = req.headers['sec-fetch-site']
     if (r.cls === 'W') {
-      if (typeof origin !== 'string' || !W_ORIGINS.has(origin)) return refuse(res, 'W')
-      if (sfs !== undefined && sfs !== 'same-site' && sfs !== 'same-origin') return refuse(res, 'W')
+      if (typeof origin !== 'string' || !W_ORIGINS.has(origin)) return refuse(res, 'W', 'origin')
+      if (sfs !== undefined && sfs !== 'same-site' && sfs !== 'same-origin') return refuse(res, 'W', 'fetch-site')
     } else {
       const post = method === 'POST'
-      if (post ? origin !== R_ORIGIN : (origin !== undefined && origin !== R_ORIGIN)) return refuse(res, 'R')
+      if (post ? origin !== R_ORIGIN : (origin !== undefined && origin !== R_ORIGIN)) return refuse(res, 'R', 'origin')
       const okSfs = r.name === 'page' ? ['same-origin', 'none', 'same-site'] : ['same-origin', 'none']
-      if (sfs !== undefined && !okSfs.includes(sfs as string)) return refuse(res, 'R')
+      if (sfs !== undefined && !okSfs.includes(sfs as string)) return refuse(res, 'R', 'fetch-site')
     }
 
     // (3) lookup budget, (4) auth, (5) allowlist.
     const cookie = req.headers.cookie
     const token = sessionTokenFrom(cookie)
-    if (!token) return refuse(res, r.cls)
+    if (!token) return refuse(res, r.cls, 'no-cookie')
     const hash = sha(token)
     const ip = typeof req.headers['x-real-ip'] === 'string' ? req.headers['x-real-ip'].slice(0, 64) : 'local'
     const now = Date.now()
-    if (!budgetOk(hash, ip, now)) return refuse(res, r.cls)
+    if (!budgetOk(hash, ip, now)) return refuse(res, r.cls, 'budget')
     const verdict = await opts.auth.check(cookie)
-    if (verdict.state !== 'in') return refuse(res, r.cls)
+    if (verdict.state !== 'in') return refuse(res, r.cls, `session-${verdict.state}`)
     const user = verdict.user
-    if (!(emails.has(user.email.toLowerCase()) || ids.has(user.id))) return refuse(res, r.cls)
+    if (!(emails.has(user.email.toLowerCase()) || ids.has(user.id))) return refuse(res, r.cls, 'not-on-list')
     remember(hash, Date.now())
 
     // Allowed. Class W answers carry CORS; class R never.
