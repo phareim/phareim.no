@@ -50,6 +50,8 @@ export type SfxName =
   | 'refuse' | 'bath'
   // The Lighthouse: the storm lamp set down or taken up
   | 'lamp'
+  // The Late Show: the stomp coming down
+  | 'stomp'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2769,6 +2771,12 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     lamp() {
       tone({ f: 1320, to: 1760, dur: 0.09, type: 'sine', vol: 0.12, verb: true })
       tone({ f: 330, to: 440, dur: 0.16, type: 'triangle', vol: 0.12 })
+    },
+    // The stomp: a thud, and a blip rising off it.
+    stomp() {
+      tone({ f: 170, to: 42, dur: 0.18, type: 'sine', vol: 0.5 })
+      nz({ dur: 0.1, vol: 0.3, type: 'lowpass', f: 520 })
+      tone({ f: 320, to: 960, dur: 0.13, vol: 0.09, at: 0.04 })
     },
     // An echo left: a call, and the call coming back softer.
     echo() {

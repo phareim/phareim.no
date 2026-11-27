@@ -21,6 +21,7 @@ import { stepHook } from './hook'
 import { stepEcho } from './echo'
 import { lampHome } from './lamp'
 import { homeIron } from './magnet'
+import { raiseCard, stepCard } from './cards'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -32,6 +33,7 @@ function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
     hook: false, arc: false, echo: false, lamp: false, magnet: false, bigBag: false, shrooms: 0, keyrings: {},
+    stomp: false,
   }
 }
 
@@ -81,6 +83,7 @@ export function createGame(
     lamp: null,
     luna: null,
     daytime: save?.inv.prism ? (typeof save.day === 'number' ? save.day : 0) : null,
+    cardsSeen: [],
   }
   const seen = save ? cleanExplored(save.explored) : null
   if (seen) s.explored = seen
@@ -138,6 +141,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
   settleFoes(world, s)
+  raiseCard(world, s)
   const area = areaAt(world, s)
   s.area = area.name
   ev.push({ type: 'enter', map: mapId, area: area.name, track: area.track })
@@ -241,6 +245,8 @@ export function stepGame(world: World, s: GameState, dt: number, input: Input): 
 function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEvent[]) {
   const c = ctx(world, s, ev)
   if (s.shake > 0) s.shake = Math.max(0, s.shake - dt)
+  // A card up: the world holds still under it (`engine/cards.ts`).
+  if (s.card) { stepCard(s, inp, dt); return }
   switch (s.mode) {
     case 'play': return play(c, dt, inp)
     case 'scroll': return scroll(c, dt)

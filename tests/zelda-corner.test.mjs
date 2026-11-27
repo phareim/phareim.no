@@ -169,7 +169,8 @@ describe('the chart\'s data', () => {
   it('pins the gem exactly where a map allows one view of the round, and shows none in a round of one', () => {
     let pinned = 0
     for (const [id, def] of Object.entries(Z.WORLD.maps)) {
-      const only = def.views?.length === 1 ? def.views[0] : null
+      // (A side map is the 8-bit engine's whatever it says.)
+      const only = def.kind === 'side' ? 'classic' : def.views?.length === 1 ? def.views[0] : null
       const want = only === null ? null : only === 'iso' ? 'ISO' : '8-BIT'
       const s = game(id)
       assert.equal(Z.cornerShape(Z.WORLD, s, { e: 1 }).pinned, want, id)

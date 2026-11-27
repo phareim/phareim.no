@@ -28,7 +28,8 @@ import {
   startComet, startFlip, startTempest, stepAfter, stepAir, stepArts, useArt, wallSpring,
 } from './moves'
 // The side view's own movement, blade turns and roll (`side.ts`).
-import { sideAim, sideCanRoll, sideLate, sideMove, sideRoll, sideShove, sideStanding, sideStartRoll, sideTick } from './side'
+import { inSideCut, SIDE, sideAim, sideCanRoll, sideLate, sideMove, sideRoll, sideShove, sideStanding, sideStartRoll, sideTick } from './side'
+import { stompPress } from './stomp'
 
 const CORNER_ASSIST = 0.34
 /** Stepping out of a door: one tile in this long (a touch slower than a walk). */
@@ -78,6 +79,8 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   else if ((h.bufRoll ?? 0) > 0) h.bufRoll! -= dt
   const side = c.info.def.kind === 'side'
   if (side) sideTick(c, inp, dt)
+  // THE STOMP: a press in the air may be a dive instead of a cut (`stomp.ts`).
+  if (side) inp = stompPress(c, inp, dt)
   if (h.knock) {
     // A shove (a shield, a gust) brings the hero down out of the air.
     if (h.air) { endMoves(h); h.act = 'idle' }
@@ -553,6 +556,7 @@ function startSwing(c: Ctx, inp: Input) {
   const aim = aimOf(h)
   h.swing = { t: 0, dir: h.dir, a: aim, hit: [], n, side: n === 1 ? -1 : 1 }
   if (hc) Object.assign(h.swing, { t: -hc.dist / HOP.speed, spring: hc.dist, ...(hc.crit ? { crit: true } : {}) })
+  if (c.info.def.kind === 'side') h.swing.arc = SIDE.cutArc * 2
   h.combo = { n, t: 0 }
   h.act = 'swing'
   h.actT = 0
@@ -581,14 +585,14 @@ export function aimOf(h: { dir: Dir; aim?: number }): number {
  * (`n`) first draws back a touch over WINDUP, then cuts across its own arc, fast and settling, the way `side`
  * says (the second hit comes back the other way). Without `n` the sweep is the plain one, as it always was.
  */
-export function swingAngle(sw: { dir: Dir; a?: number; n?: number; side?: number }, p: number): number {
+export function swingAngle(sw: { dir: Dir; a?: number; n?: number; side?: number; arc?: number }, p: number): number {
   const base = sw.a ?? dirAngle(sw.dir)
   if (sw.n === undefined) {
     const e = 1 - (1 - Math.min(1, p)) ** 2
     return base - SWORD_ARC / 2 + SWORD_ARC * e
   }
   const side = sw.side ?? 1
-  const arc = COMBO[sw.n as 0 | 1 | 2]!.arc
+  const arc = sw.arc ?? COMBO[sw.n as 0 | 1 | 2]!.arc
   const q = Math.max(0, Math.min(1, (p - WINDUP) / (1 - WINDUP)))
   const e = p < WINDUP ? -0.12 * (Math.max(0, p) / WINDUP) : 1 - (1 - q) ** 3
   return base - (side * arc) / 2 + side * arc * e
@@ -851,6 +855,8 @@ export function bladeHits(
     const dy = e.y - h.y
     const d = Math.hypot(dx, dy)
     if (d > reach + e.r) continue
+    // From the side a cut is narrow: ahead, or overhead (the spin still goes round).
+    if (src === 'sword' && c.info.def.kind === 'side' && !inSideCut(h.dir, dx, dy, e.r)) continue
     const off = angleDiff(Math.atan2(dy, dx), a)
     // Close enemies count if the blade passes within their radius.
     const perp = Math.abs(dx * sa - dy * ca)

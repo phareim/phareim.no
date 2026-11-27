@@ -300,7 +300,8 @@ describe('the lands', () => {
         const e = def.marks[ch]?.ent
         if (e?.t !== 'enemy') return
         foes++
-        for (const d of doors) assert.ok(Math.abs(x + 0.5 - d.x) + Math.abs(y + 0.5 - d.y) >= 8, `${id}: ${e.kind} at ${x},${y} by an entry`)
+        // (A side room is one screen, entered at its edge: two tiles there, not a land's eight.)
+        for (const d of doors) assert.ok(Math.abs(x + 0.5 - d.x) + Math.abs(y + 0.5 - d.y) >= (def.kind === 'side' ? 2 : 8), `${id}: ${e.kind} at ${x},${y} by an entry`)
       }))
       assert.ok(foes <= 24, `${id}: ${foes} field foes`)
     }

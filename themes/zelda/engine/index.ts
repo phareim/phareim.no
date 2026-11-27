@@ -15,6 +15,9 @@ export { magnetPlan, magnetPreview, smashIron, MAGNET, type MagnetPlan } from '.
 export { stencilsOf, inStencil, type Stencil } from './stencils'
 // The side view's numbers (the lab measures them).
 export { SIDE, type SideHero } from './side'
+// The Stomp's numbers, what it would come down on, and the intertitle cards' timing.
+export { STOMP, stompAim, type StompAim } from './stomp'
+export { CARD } from './cards'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'

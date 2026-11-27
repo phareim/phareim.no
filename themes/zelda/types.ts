@@ -315,6 +315,7 @@ export type TileChar =
   | '▥' // a striped cart: railed (it moves along its rail only)
   | '▦' // a cart: railed
   | '▧' // a bolt: metal fixed in the stone (the Magnet takes the hero to it)
+  | '▲' // a spring pad, flush with the floor: ground to stand on; only a stomp springs it (`engine/stomp.ts`)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -351,6 +352,7 @@ export type ItemId =
   | 'magnet' // THE MAGNET, the Heap's treasure: B latches metal (`engine/magnet.ts`)
   // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
   | WeightId
+  | 'stomp' // THE STOMP, the Late Show's treasure: A in the air of a side map comes down hard (`engine/stomp.ts`)
 
 export type WeightId =
   | 'weightMeaning' | 'weightReasons' | 'weightNo' | 'weightSurprise'
@@ -650,6 +652,8 @@ export interface CellDef {
   mood?: 'static'
   /** Scripted beats: the first time the hero is in this room while `when` holds, the lines play and `set` is set. */
   events?: Array<{ when?: Cond; lines: string[]; who?: string; set: string }>
+  /** An intertitle card, shown when the hero comes into this room by a warp, once a session (`engine/cards.ts`). */
+  card?: { title: string; lines: string[] }
 }
 
 /**
@@ -740,6 +744,23 @@ export interface MapDef {
   terrain?: TerrainDef
   /** Physical combat (`engine/puzzles/`): foes knocked into pits, water or spikes fall, drown or are hurt. On by itself in a map with puzzle tiles. */
   physics?: boolean
+  /** The year a film's set is dressed in (`render/eras.ts`): the world's palette only, never the hero or the HUD. */
+  era?: Era
+}
+
+export type Era = '1958' | '1986' | '2086' | 'screen'
+
+/** An intertitle card standing over the stage (`engine/cards.ts`, `render/card.ts`). The world holds still under it. */
+export interface Card {
+  /** `<map>:<cell>`: once in the session list, never raised again. */
+  id: string
+  title: string
+  lines: string[]
+  /** Seconds it has stood. */
+  t: number
+  /** It passes by itself after this long; null: it waits for a press. */
+  auto: number | null
+  era: Era | 'stage'
 }
 
 export interface IsoLandmark {
@@ -1129,6 +1150,8 @@ export interface Hero {
    */
   swing: null | {
     t: number; dir: Dir; a?: number; hit: string[]; n: 0 | 1 | 2; side?: 1 | -1; landed?: boolean
+    /** The sweep, where it is not the chain's own (`COMBO`): the narrow cut of a side map. */
+    arc?: number
     /**
      * The HOP CUT (`engine/moves.ts`): tiles it springs back in before it cuts (its clock starts below 0 by the time
      * the spring takes), whether it was counted, and whether it is critical (a foe's blow passed under the hop).
@@ -1204,6 +1227,8 @@ export interface Inventory {
   magnet: boolean
   /** The Arc Blade (the sword, upgraded). */
   arc: boolean
+  /** THE STOMP (the Late Show's treasure): owned, never in the B slot. */
+  stomp: boolean
   /** Bomb bag holds 20 instead of 12. */
   bigBag: boolean
   /** Mossa's glowshrooms found (0..3). */
@@ -1357,6 +1382,10 @@ export interface GameState {
   exploreAt?: string
   /** SLIP: seconds left of the world running slow (the hero at full pace). Never saved. */
   slow?: number
+  /** An intertitle card up now. Never saved. */
+  card?: Card
+  /** The cards this session has shown, by id: a retry after a death does not play one again. Never saved. */
+  cardsSeen: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1375,7 +1404,7 @@ export interface Input {
   cycle: boolean
   /** The dodge roll (L, C, the roll pad): pressed this frame. */
   rollPress?: boolean
-  /** The jump of a side map (B or up on keys, the B pad on touch): pressed this frame, and held. */
+  /** The jump of a side map (B on keys, the B pad on touch; up never jumps): pressed this frame, and held. */
   jumpPress?: boolean
   jumpHeld?: boolean
   /** Touch: a swing at rest turns to the nearest enemy first. */
@@ -1392,6 +1421,8 @@ export type GameEvent =
   | { type: 'spin' }
   | { type: 'roll' }
   | { type: 'jump' } // side maps: off the ground
+  /** The stomp's impact (`engine/stomp.ts`): on what it came down. */
+  | { type: 'stomp'; x: number; y: number; on: 'foe' | 'spring' | 'crack' | 'ground' }
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }

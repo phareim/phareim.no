@@ -185,7 +185,8 @@ sentry, the warden of the chest south of it.
 One nice street, over and over, down to the sea. From the lake gate the
 avenue runs to THE CUL-DE-SAC; THE DRIVE-IN (LENNY, ROSE); RALF's TV van;
 THE HEDGE MAZE; THE PHONE BOOTH on its corner; THE MARINA on the shore.
-OTTO delivers the paper. A bomb shelter under a lawn.
+OTTO delivers the paper. A bomb shelter under a lawn. In the middle of the
+drive-in's screen there is a door (a sign below it): the Late Show.
 Fights, the lawn answering back along a line: four mailbox spitters along the
 north side of the avenue, two flamingo drones between the drive-in's lot and its
 screen, two mower hounds by the fountain on the way to the marina, the west
@@ -239,6 +240,26 @@ Its look is `wild` (the chart's inks, the fireflies); the turf is laid as tiles
 The east shutter keeps key A for the west door: spent east, it would leave key B
 behind a door with no key. The disc, the hook's owner or a bomb may cut the
 Crossing's switch from afar; the echo is needed to get there all the same.
+
+### THE LATE SHOW (`showbooth`, `reel1958`, `reel1986`)
+Under the drive-in screen, which has shown the same picture for three nights: a
+dungeon on a keyring of its own (`world/lateshow.ts`). It needs the blade and
+nothing else. A projection booth seen from above, in both views, and reels of
+film played from the side (the 8-bit picture), each opened by an intertitle card
+and dressed in its year. A reload comes back at the last door or lens.
+
+| Room (map, cell) | Year | What is there |
+|---|---|---|
+| THE SCAFFOLD (`showbooth` 0,0) | | the catwalk behind the screen over the dark; the stair back out; its line, once (`lateshow.seen`) |
+| THE BOOTH (`showbooth` 1,0) | | the hub: a lens in the north wall for each reel, its year on a sign and painted on the floor; 1986's behind a locked door; the PROJECTIONIST; pots |
+| MAIN STREET (`reel1958` 0,0) | 1958 | the porch the door opens on, a blob below it, a curb, a sentry in the gutter, a manhole, and a ladder up the shop and down its far side, with the small key on the roof |
+| THE BACKLOT (`reel1958` 1,0) | 1958 | a bat; a cracked floor over a nook with 20 bits; a platform up to the alcove ledge and THE STOMP; a blob below the ledge, to try it on |
+| THE VIDEO STORE (`reel1986` 0,0) | 1986 | its floor and its way back to the booth |
+
+The route: the screen, the Scaffold, the Booth, the 1958 lens, Main Street's key,
+the Backlot's Stomp, back to the booth, the locked lens, 1986. The booth's east
+side and south wall are solid, and its third camera room is rock. LENNY speaks of
+the door until the Scaffold has been seen.
 
 ## Rules for every land
 
