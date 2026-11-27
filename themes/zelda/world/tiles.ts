@@ -2,7 +2,7 @@
  * Tile behaviour. One table, read by the engine (collision, cutting,
  * lifting, bombing) and the validator. The look is the renderer's business.
  */
-import type { TileChar } from '../types'
+import type { TileChar, ViewSide } from '../types'
 
 export interface TileInfo {
   /** Blocks walkers. */
@@ -47,6 +47,10 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   c: LOW,
   P: LOW,
   C: LOW,
+  // The view blocks, as they stand when up: a wall. Whether one is up is the view's to say (`blockUp`); every read
+  // that can meet one asks that (`engine/map.ts` `solidTile`).
+  '□': S,
+  '◇': S,
   x: { ...OPEN, hurt: true },
   O: { ...OPEN, pit: true },
   t: { ...LOW, light: true, hook: true },
@@ -101,6 +105,19 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]
+
+/** The square block and the diamond block: the tiles the view makes solid or floor. */
+export const SQUARE_BLOCK = '□' as const
+export const DIAMOND_BLOCK = '◇' as const
+export const isViewBlock = (t: TileChar): t is typeof SQUARE_BLOCK | typeof DIAMOND_BLOCK => t === SQUARE_BLOCK || t === DIAMOND_BLOCK
+
+/**
+ * THE answer to "is this block up", for everything that moves, looks or draws: a square block is up in the 8-bit
+ * view only, a diamond block in the isometric view only. False for any other tile.
+ */
+export function blockUp(t: TileChar, view: ViewSide): boolean {
+  return view === 'flat' ? t === SQUARE_BLOCK : t === DIAMOND_BLOCK
+}
 
 export function isTileChar(ch: string): ch is TileChar {
   return Object.prototype.hasOwnProperty.call(TILE_INFO, ch)

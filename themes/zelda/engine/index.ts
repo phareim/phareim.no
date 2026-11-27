@@ -10,7 +10,9 @@ export { STATS } from './spawn'
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'
 export { isWeight, hasWeight, weightCount, clearFoes } from './map'
-export { solidTile } from './map'
+export { solidTile, circleBlocked, moveCircle, lineClear, type MoveMode } from './map'
+// The view as a rule: which view blocks are solid, and the one call that turns it.
+export { setViewRule, risesUnderHero, hasViewBlocks } from './map'
 export { DAY, DAY_LENGTH, HOURS, foeLevel, setDaytime, wayOut } from './day'
 export { terrainAbove, terrainZ, terrainRise, terrainLevel, heightAt, isRamp, RAMPS } from './terrain'
 // The physical puzzles (`puzzles/`): their state and rules for the renderer and tests, and the generator's kits.

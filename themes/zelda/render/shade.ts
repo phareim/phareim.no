@@ -18,6 +18,7 @@
 import type { GameState, MapKind, MapState, TileChar, World } from '../types'
 import { TILE } from '../types'
 import { mapInfo, raised } from '../engine/index'
+import { blockUp, isViewBlock } from '../world/tiles'
 import { atlasBeyond, beyondTile } from './beyond'
 import { exitTiles } from './exits'
 import { shapeOf } from './iso/shape'
@@ -165,7 +166,7 @@ export function createShade(world: World): Shade {
     const own = exitTiles(world, m.id)
     const near = atlasBeyond(world, m.id)
     const tile = (x: number, y: number): TileChar => x < 0 || y < 0 || x >= m.w || y >= m.h ? (kind === 'overworld' ? beyondTile(m.tiles, m.w, m.h, x, y, near) : '#') : m.tiles[y * m.w + x]!
-    // Crystal blocks count as up: which of them are is asked per frame (`raised`).
+    // Crystal and view blocks count as up: which of them are is asked per frame (`raised`, `blockUp`).
     masses = massesOf(m.w, m.h, kind, tile, (x, y) => own.has(y * m.w + x), () => true)
     massMap = m
     massVersion = m.version
@@ -290,6 +291,8 @@ export function createShade(world: World): Shade {
         if (f.kind[ty * m.w + tx] !== 2) continue
         const t = m.tiles[ty * m.w + tx]!
         if ((t === 'P' || t === 'C') && !raised(world, m, tx, ty)) continue
+        // (A view block casts only while it is up.)
+        if (isViewBlock(t!) && !blockUp(t!, m.view)) continue
         const tree = t === 'T'
         blob(g, blobOf(tx + 0.5, ty + 1 - FOOT / T, tree ? 1.4 : 0.9, tree ? 0.42 : 0.22, lights, sun, reach), cx, cy, vw, vh)
       }

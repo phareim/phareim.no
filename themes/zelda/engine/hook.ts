@@ -64,7 +64,7 @@ export function stepHook(c: Ctx, dt: number) {
       }
       if (t === '}') { throwLever(c, tx, ty); k.phase = 'back'; break }
       if (t === 'c' && !k.hit.includes(`t${tx},${ty}`)) { k.hit.push(`t${tx},${ty}`); toggleCrystal(c, tx, ty); k.phase = 'back'; break }
-      if (solidTile(c.w, m, tx, ty, 'fly')) { clank(c); break }
+      if (solidTile(c.w, m, tx, ty, 'shot')) { clank(c); break }
       for (const e of m.enemies) {
         if (!enemyActive(c, e) || k.hit.includes(e.id)) continue
         if (Math.hypot(e.x - k.x, e.y - k.y) < e.r + 0.25) {

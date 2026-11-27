@@ -4,15 +4,15 @@
  * it; `loadMap` builds the mutable MapState for the current progress.
  */
 import type {
-  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, WeightId, World, Enemy, Npc, Pickup,
+  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, ViewSide, Warp, WeightId, World, Enemy, Npc, Pickup,
 } from '../types'
-import { TOUGH, WEIGHTS } from '../types'
-import { TILE_INFO, isTileChar } from '../world/tiles'
+import { HERO_R, TOUGH, WEIGHTS } from '../types'
+import { TILE_INFO, blockUp, isTileChar, isViewBlock } from '../world/tiles'
 import { puzzleMarkTile } from '../world/puzzles'
 import { loadPuzzleTiles } from './puzzles/load'
 import { spawnEnemy } from './spawn'
 import { terrainAbove, terrainLevel, terrainLoad } from './terrain'
-import { dirVec, opposite } from './util'
+import { LUNA_GAP, dirVec, opposite, trailPoint } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
 export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; idx: number; x: number; y: number; cell: number }
@@ -302,6 +302,7 @@ export function condMet(s: GameState, world: World, c: Cond | undefined, cell: n
   if ('plates' in c) return c.plates.every(p => s.map.plates.includes(p))
   if ('item' in c) return has(s, `item:${c.item}`)
   if ('session' in c) return s.session === c.session
+  if ('view' in c) return s.view === c.view
   if ('flags' in c) return c.flags.every(f => has(s, f)) && !(c.not ?? []).some(f => has(s, f))
   // clear: the room's enemies are all dead (and it had some)
   const inCell = clearFoes(s, cell)
@@ -373,6 +374,8 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
   const terrain = info.def.terrain ? terrainLoad(info.def) : undefined
   return {
     ...(terrain ? { terrain } : {}),
+    // (Read through, so there is one truth and nothing to keep in step.)
+    get view() { return s.view },
     id, w: info.w, h: info.h, tiles, version: 1,
     enemies, projectiles: [], drops: [], bombs: [], blasts: [], thrown: [], moving: [],
     npcs, pickups, exits: [...info.exits.values()].map(x => ({ ...x })), plates: [], pending: [], crystal: {},
@@ -412,13 +415,20 @@ export function raised(world: World, m: MapState, tx: number, ty: number): boole
   return t === 'P' ? st === 'pink' : st === 'cyan'
 }
 
-/** Who is moving: the hero, a walking enemy (also avoids pits/spikes), or something flying. */
-export type MoveMode = 'hero' | 'enemy' | 'fly'
+/**
+ * Who is moving: the hero, a walking enemy (also avoids pits/spikes), a flying creature, or a shot: whatever goes
+ * through the air or looks along a line (projectiles, the disc, the hook, a thrown pot, a line of sight).
+ */
+export type MoveMode = 'hero' | 'enemy' | 'fly' | 'shot'
 
-/** Does tile (tx, ty) block this mover? */
+/**
+ * Does tile (tx, ty) block this mover? A view block is solid to every creature but the hero in both views (so nothing
+ * but the hero can be where one rises); to the hero and to a shot only while it is up (`blockUp`).
+ */
 export function solidTile(world: World, m: MapState, tx: number, ty: number, mode: MoveMode = 'hero'): boolean {
   const t = tileAt(m, tx, ty)
-  if (mode === 'fly') return TILE_INFO[t].wall
+  if (isViewBlock(t)) return mode === 'enemy' || mode === 'fly' || blockUp(t, m.view)
+  if (mode === 'fly' || mode === 'shot') return TILE_INFO[t].wall
   if (m.scenery && tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && m.scenery.has(ty * m.w + tx)) return true
   if (t === 'P' || t === 'C') return raised(world, m, tx, ty)
   if (mode === 'enemy' && (t === 'O' || t === 'x' || t === 'D' || t === '>')) return true
@@ -433,12 +443,15 @@ function circleHitsTile(x: number, y: number, r: number, tx: number, ty: number)
   return dx * dx + dy * dy < r * r - 1e-9
 }
 
+/** Over the ground: the terrain's heights do not block it. */
+const aloft = (mode: MoveMode) => mode === 'fly' || mode === 'shot'
+
 /**
  * On a map with terrain a tile higher than the mover's level blocks it too (`terrain.ts`): `lv` is that level, by
  * default the one it stands at there (the hero's, kept in `MapState.terrain.z`).
  */
 export function circleBlocked(world: World, m: MapState, x: number, y: number, r: number, mode: MoveMode = 'hero', lv?: number): boolean {
-  const z = m.terrain && mode !== 'fly' ? lv ?? (mode === 'hero' ? m.terrain.z : terrainLevel(m, x, y, r)) : -1
+  const z = m.terrain && !aloft(mode) ? lv ?? (mode === 'hero' ? m.terrain.z : terrainLevel(m, x, y, r)) : -1
   const x0 = Math.floor(x - r)
   const x1 = Math.floor(x + r)
   const y0 = Math.floor(y - r)
@@ -468,7 +481,7 @@ export function moveCircle(
 ): { x: number; y: number; hitX: boolean; hitY: boolean } {
   let hitX = false
   let hitY = false
-  const lv = m.terrain && mode !== 'fly' ? terrainLevel(m, x, y, r) : undefined
+  const lv = m.terrain && !aloft(mode) ? terrainLevel(m, x, y, r) : undefined
   if (dx !== 0) {
     if (!circleBlocked(world, m, x + dx, y, r, mode, lv)) x += dx
     else {
@@ -500,7 +513,7 @@ export function moveCircle(
   return { x, y, hitX, hitY }
 }
 
-/** Is the straight segment free of wall tiles (flying rules)? Sampled at 0.2 tiles. */
+/** Is the straight segment free of wall tiles and view blocks that are up (a shot's rules)? Sampled at 0.2 tiles. */
 export function lineClear(world: World, m: MapState, x0: number, y0: number, x1: number, y1: number): boolean {
   const d = Math.hypot(x1 - x0, y1 - y0)
   const n = Math.max(1, Math.ceil(d / 0.2))
@@ -508,7 +521,7 @@ export function lineClear(world: World, m: MapState, x0: number, y0: number, x1:
     const t = i / n
     const tx = Math.floor(x0 + (x1 - x0) * t)
     const ty = Math.floor(y0 + (y1 - y0) * t)
-    if (solidTile(world, m, tx, ty, 'fly')) return false
+    if (solidTile(world, m, tx, ty, 'shot')) return false
   }
   return true
 }
@@ -517,6 +530,96 @@ export function lineClear(world: World, m: MapState, x0: number, y0: number, x1:
 export function cellIsDark(s: GameState, info: MapInfo, i: number): boolean {
   const cd = cellDef(info, i)
   return !!cd?.dark && !(cd.lit && has(s, cd.lit))
+}
+
+// ---------------------------------------------------------------------------
+// The view as a rule
+// ---------------------------------------------------------------------------
+
+/** The map has square or diamond blocks: the view matters here. */
+export const hasViewBlocks = (m: Pick<MapState, 'tiles'>) => m.tiles.some(isViewBlock)
+
+/**
+ * Would turning to `to` raise a block under the hero: one their circle touches, or (the hook out) one the chain
+ * crosses or is about to pull them over? Such a turn is refused (STAND CLEAR).
+ */
+export function risesUnderHero(s: GameState, to: ViewSide): boolean {
+  if (to === s.view) return false
+  const m = s.map
+  const rising = (x: number, y: number, r: number) => {
+    for (let ty = Math.floor(y - r); ty <= Math.floor(y + r); ty++) {
+      for (let tx = Math.floor(x - r); tx <= Math.floor(x + r); tx++) {
+        const t = tileAt(m, tx, ty)
+        if (blockUp(t, to) && !blockUp(t, s.view) && circleHitsTile(x, y, r, tx, ty)) return true
+      }
+    }
+    return false
+  }
+  const h = s.hero
+  if (rising(h.x, h.y, HERO_R)) return true
+  const k = s.hook
+  if (!k) return false
+  const end = k.to ?? k
+  const n = Math.max(1, Math.ceil(Math.hypot(end.x - h.x, end.y - h.y) / 0.2))
+  for (let i = 1; i <= n; i++) if (rising(h.x + ((end.x - h.x) * i) / n, h.y + ((end.y - h.y) * i) / n, HERO_R)) return true
+  return false
+}
+
+/**
+ * Turn the rule to `to`: the one call every committed turn goes through. False, and nothing changes, when a block
+ * would rise under the hero. The shell lets no step run between the old rule and the new.
+ */
+export function setViewRule(s: GameState, to: ViewSide): boolean {
+  if (to === s.view) return true
+  if (risesUnderHero(s, to)) return false
+  s.view = to
+  const m = s.map
+  if (!hasViewBlocks(m)) return true
+  // The pictures and the charts are made again.
+  m.version++
+  lunaTurned(s)
+  return true
+}
+
+/**
+ * Luna has no collision: she walks straight for a point back along the hero's trail, which was open in the view it was
+ * laid in. On a turn the trail loses what now lies in a block, and where the straight way to her next point crosses
+ * one (or she stands in one) she is brought to the hero's heels, with the trail begun again there.
+ */
+function lunaTurned(s: GameState) {
+  const L = s.luna
+  if (!L) return
+  const h = s.hero
+  const shut = (x: number, y: number) => blockUp(tileAt(s.map, Math.floor(x), Math.floor(y)), s.view)
+  L.trail = L.trail.filter(p => !shut(p.x, p.y))
+  const next = trailPoint(L.trail.length ? L.trail : [h], LUNA_GAP)
+  const n = Math.max(1, Math.ceil(Math.hypot(next.x - L.x, next.y - L.y) / 0.05))
+  for (let i = 0; i <= n; i++) {
+    if (!shut(L.x + ((next.x - L.x) * i) / n, L.y + ((next.y - L.y) * i) / n)) continue
+    L.x = h.x
+    L.y = h.y
+    L.trail = [{ x: h.x, y: h.y }]
+    return
+  }
+}
+
+/** The hero stands in something solid: step to the nearest free spot within three tiles; true if moved. */
+export function stepClear(world: World, s: GameState): boolean {
+  const h = s.hero
+  if (!circleBlocked(world, s.map, h.x, h.y, HERO_R)) return false
+  for (let r = 1; r <= 3; r++) {
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+      const x = Math.floor(h.x) + dx * r + 0.5
+      const y = Math.floor(h.y) + dy * r + 0.5
+      // (Never onto a pit, a door or a warp: stepping aside must not carry the hero off the map.)
+      const tx = Math.floor(x)
+      const ty = Math.floor(y)
+      const info = mapInfo(world, s.map.id)
+      const leads = info.exits.has(ty * info.w + tx) || info.warps.some(w => tx >= w.x && tx < w.x + w.w && ty >= w.y && ty < w.y + w.h)
+      if (!circleBlocked(world, s.map, x, y, HERO_R) && tileAt(s.map, tx, ty) !== 'O' && !leads) { h.x = x; h.y = y; h.safe = { x, y }; return true }
+    }
+  }
+  return false
 }
 
 // ---------------------------------------------------------------------------

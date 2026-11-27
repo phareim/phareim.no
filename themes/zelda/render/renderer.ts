@@ -15,7 +15,7 @@
  * that glows by itself lands in `emit` and is left at full brightness by the
  * light map.
  */
-import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
+import type { Dir, Enemy, GameEvent, GameState, ViewSide, World } from '../types'
 import { BOMB_FUSE, FLIP_CHOP, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP } from '../types'
 import { airTime, BIG, bossOpen, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen } from '../engine/index'
 import { itemSpriteName } from './itemIcon'
@@ -103,6 +103,8 @@ export interface FrameUI {
   deckTop?: number | null
   /** The keyboard's focus is on the MAP page's Prism button: the page rings the Prism in gold. */
   prismFocus?: boolean
+  /** The view rule turning on its own (`CornerState.rule`): the MAP page's Prism names it. */
+  rule?: ViewSide | null
   /** The view strip: every view in the round and which one is on, shown for a moment after a change. */
   strip?: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number } | null
 }
@@ -1636,7 +1638,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       if (ui.paused && ui.page === 'moves' && !ui.confirmReset) drawMoves(g, s, sp.vw, sp.vh, ui.keys, skin)
       // (The MAP page lies on this skin's grid: the deck's top comes to it from the shell's CSS px.)
-      else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)
+      else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, rule: ui.rule, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)
       else if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }

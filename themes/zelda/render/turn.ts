@@ -1,6 +1,7 @@
 /**
  * Which view is on screen, and how far the turn between views has come.
- * Pure: the renderer feeds it the frame's dt and asks what to draw.
+ * Pure: the renderer feeds it the frame's dt and asks what to draw. (Also here:
+ * the moment of a turn for the view rule, `turnSide`, which the shell goes by.)
  *
  * The classic view is the hub: every other view turns in from it and out to
  * it (k: 0 classic … 1 the view), so going from one added view to another
@@ -11,6 +12,24 @@
  * classic picture, and comes in when it can: turned in, or at once if that
  * was what was asked for. So nothing is ever cut to that was not ready.
  */
+import type { ViewSide } from '../types'
+
+/**
+ * THE MOMENT OF A TURN. The view rule (`GameState.view`) flips once, halfway, with the HUD's dress:
+ * toward the isometric picture when `k` is past 0.5, back to the classic one when it has fallen to 0.5. `now` is the
+ * side the rule stands on; what comes back is the side it stands on at this point of the turn. `id`: the engine the
+ * renderer is heading for. A turn that is at rest (an instant one too) stands where it headed.
+ */
+export function turnSide(t: { id: string; k: number; turning: boolean }, now: ViewSide): ViewSide {
+  const to = viewSide(t.id)
+  if (!t.turning) return to
+  if (to === 'iso') return t.k > 0.5 ? 'iso' : now
+  return t.k > 0.5 ? now : 'flat'
+}
+
+/** The side of an engine (and of a turn's `id`): the isometric one, or the flat one. */
+export const viewSide = (engine: string): ViewSide => (engine === 'iso' ? 'iso' : 'flat')
+
 export interface Turn {
   /** Head for a view ('classic' or an added one; an unknown id means classic). `instant` skips the turn. */
   set(id: string, instant?: boolean): void

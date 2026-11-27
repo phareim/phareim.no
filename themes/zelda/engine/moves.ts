@@ -24,7 +24,7 @@ import {
 } from '../types'
 import { hitEnemy, type Ctx, type HitOpts } from './combat'
 import { enemyActive } from './enemies'
-import { cellIndex, lineClear, moveCircle, tileAt } from './map'
+import { cellIndex, lineClear, moveCircle, solidTile, tileAt } from './map'
 import { iceUnder } from './puzzles/index'
 import { angleDiff, toDir } from './util'
 import { TILE_INFO } from '../world/tiles'
@@ -222,7 +222,7 @@ export function wallSpring(c: Ctx, hitX: boolean, hitY: boolean): boolean {
     const tx = Math.floor(h.x + sx * (HERO_R + 0.12))
     const ty = Math.floor(h.y + sy * (HERO_R + 0.12))
     if (tx < 0 || ty < 0 || tx >= s.map.w || ty >= s.map.h) return false
-    return !!TILE_INFO[tileAt(s.map, tx, ty)]?.wall
+    return solidTile(c.w, s.map, tx, ty, 'shot')
   }
   let ok = false
   if (hitX && Math.abs(vx) > v * 0.55 && wallAt(Math.sign(vx), 0)) { vx = -vx; ok = true }

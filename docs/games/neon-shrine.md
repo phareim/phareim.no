@@ -87,8 +87,9 @@ lunge and roll. Generate a contact sheet with
 
 **Views** (2026-10-07; engines and values 2026-11-11). The game can
 be shown in more than one way, and the player can change it in the middle of
-a room. The state, the engine and the world are the same; a view is only how
-a frame is drawn. A view is a drawing **engine** with a name and its own
+a room. The state, the engine and the world are the same; a view is how
+a frame is drawn, and on a map with view blocks it is also a rule of play
+(below, "The view as a rule"). A view is a drawing **engine** with a name and its own
 values. `viewParams.ts` (pure) lists the engines and what can be turned on
 each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
@@ -151,6 +152,77 @@ classic picture. `/?view=<id>` asks for one.
     `hud.ts`) is the studio's stage's only; the portal does not raise it.
   - The Prism and the frame in every state are drawn by the corner's lab
     sheet: see "The corner" under "The map".
+- **The view as a rule.** **Square blocks (`□`) are solid only in the 8-bit
+  view, diamond blocks (`◇`) only in the isometric view.** In the other view a
+  block is an outline on the floor, so what a turn will do shows before the
+  turn.
+  - *The rule.* `GameState.view` (`'flat'` or `'iso'`, the view's **engine**,
+    never its id, so a studio's view inherits it; never saved; a game opens in
+    `'iso'`). One function says whether a block is up (`blockUp`,
+    `world/tiles.ts`), and one read takes it to everything that moves or looks
+    (`solidTile`, `engine/map.ts`): the hero (walking, rolling, the air moves,
+    ice), shots, thrown pots, the disc, the hook, beams, lines of sight and
+    foes' sight. An up block is a wall to them (a bomb's blast reaches past it,
+    as past any wall); a down one is floor. **Creatures and pushed things stand
+    on neither kind in either view**: walking and flying foes, people, push
+    blocks, mirrors, psi blocks, boulders and set bombs are refused both, so
+    nothing but the hero can be where a block rises. (Luna follows without
+    collision, on the hero's trail: a turn drops the trail's points that now
+    lie in a block, and where her straight way to her next point crosses one
+    she is brought to the hero's heels. A boss that places itself, as the King
+    does, ignores walls and these alike, so no boss room has them.)
+  - *The moment.* The rule turns once, halfway through the picture's turn,
+    with the HUD's dress (`turnSide`, `render/turn.ts`; `stepRule` in the
+    shell). The world holds still for that frame, so no step runs between the
+    old rule and the new. The stick is the picture's business, not the rule's:
+    it turns smoothly with the picture, so a held direction stays the same on
+    the screen. **The rule never runs ahead of the picture.** A visit starts
+    with the 8-bit rule, on the 8-bit picture that draws until the view asked
+    for is here, and while any view is being fetched the rule is the side the
+    picture shows. The turn a map forces on the way in goes the same way
+    (`forceView`; on a map with view blocks the picture takes the view at once,
+    behind the door's fade, so the rule is on it before the hero can leave the
+    entry). Turns of the picture, instant ones (a paused game, an open panel,
+    reduced motion), a reload and the rule turned alone all go through one call
+    (`turnRule` → `setViewRule`).
+  - **STAND CLEAR.** A turn that would raise a block under the hero (their
+    circle touches it, or the hook's chain crosses it) does not happen: the
+    tag says STAND CLEAR, the live region "Stand clear", with the refusal's
+    sound; on the pause screen the VIEW button says it for 1.6 s. It is asked
+    at the press and again until the half, so a hero who walks onto a block
+    while the picture is turning sends the picture back (the visitor's kept
+    choice with it, where the press had set it). A view that arrives late onto
+    a hero who has walked on in the meantime does not set out at all.
+  - *Without the isometric picture* (its code refused, a view that threw, or a
+    round the studio left without an isometric view): on a map with view blocks
+    V and the Prism turn **the rule alone**. The picture stays 8-bit and draws
+    both kinds in their state, a **badge** left of the corner's frame says
+    which rule is on (8-BIT or ISO; on the MAP page the Prism's plate), and the
+    Prism's name says it too. A turn back to ISO asks for the picture once
+    more, quietly. Only here does the rule turn without the picture. No room
+    can lock a player out.
+  - *A condition.* `{ view: 'flat' | 'iso' }` is a `Cond`: a gate's `open`, a
+    chest's `appear`, a person's `when`, a sign's `alt`. A gate or a chest it
+    opens stays open, as with any condition.
+  - *Pictures* (`render/viewBlocks.ts`). Up: a low block of the dungeon's wall
+    stone with a square or a diamond cut into its top in cyan. Down: the same
+    shape as a dim cyan outline on the floor. The shape is the one on screen: a
+    square looks square and a diamond a diamond in both views. The charts draw
+    an up block as wall and a down one as floor.
+  - *The validator* (`world/validate.ts`) walks a map with view blocks in both
+    states, a turn allowed on any tile free in both; wants every entry, the
+    step out of a door and every landing on such a tile; and wants both views
+    allowed (`views` unset or both).
+- **The Turn Room** (`turnroom`, `world/turnroom.ts`) teaches the rule in one
+  room of 16 × 12, through a door in the north wall of the Puzzle Lab's Weigh
+  House (`docs/games/neon-shrine-puzzles.md`). From the door northwards: a row
+  of diamond blocks (passed in the 8-bit view, so a hero who arrives in the
+  isometric one, as a game opens, turns at the door), a row of square blocks
+  (passed in the isometric view, so they turn back between the rows, and meet
+  STAND CLEAR in either row's line), then a stagger to the chest: turn, cross
+  the diamonds, turn again on the ground between them and the squares, cross
+  those. Four turns at the fewest from the isometric view, three from the
+  8-bit one. The chest holds 20 bits (`turnroom.prize`); two signs; no foes.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
   part every engine has (scanlines, neon bloom, vignette; `present` takes it).
@@ -247,7 +319,8 @@ classic picture. `/?view=<id>` asks for one.
   that is no refusal. A
   later press makes the view again; once a view has failed three times
   while it was the one shown, a press for it is refused for the rest of
-  the visit. `View.turn` is how far the picture is rotated
+  the visit. (On a map with view blocks a press then turns the rule alone:
+  "The view as a rule".) `View.turn` is how far the picture is rotated
   at k = 1; the shell turns the stick by the same angle (`turnMove`), so up
   on the stick is up on the screen in every view. A dialog gets the stick
   unturned: there a direction picks YES or NO by its sign. Reduced motion, a
@@ -1687,6 +1760,9 @@ a path-finding walker (god mode, bosses killed directly) — it proves every
 key, gate, crystal, push block and appear-chest is wired. The dungeon pieces
 (the Weights, trap gates, `bossOpen`, the B items, the save cap, key carriers)
 are `tests/zelda-kit.test.mjs`; `SAVE_SIZE=1` prints what a full save holds.
+The view rule and the Turn Room are `tests/zelda-view-rule.test.mjs` (every
+mover in both views, the refusals, a scripted solve, the validator's failures,
+the shell's wiring).
 The town's own
 checks are `test:portal`. `node scripts/zelda-lab/shot.mjs <outDir>
 [scenes]` renders the real renderer for named scenes without Nuxt (`r-*`

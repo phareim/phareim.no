@@ -3,16 +3,19 @@
  * row shapes, known chars, warps that land on real entries, exits (unique
  * ids, a real target, a reachable place to stand), and that every chest,
  * item, NPC, sign and warp can be reached from an entry once every lock,
- * gate, crack and block has given way. Returns human-readable problems;
- * empty means fine.
+ * gate, crack and block has given way. On a map with view blocks (square,
+ * diamond: solid in one view each) the routes are walked in both states, a
+ * turn allowed on any tile free in both; every entry stands on such a tile,
+ * and the map allows both views. Returns human-readable problems; empty means
+ * fine.
  */
-import type { Dir, EntDef, ExitTarget, MapDef, TileChar, World } from '../types'
-import { TILE_INFO, isTileChar } from './tiles'
+import type { Dir, EntDef, ExitTarget, MapDef, TileChar, ViewSide, World } from '../types'
+import { TILE_INFO, blockUp, isTileChar, isViewBlock } from './tiles'
 import { puzzleMarkTile } from './puzzles'
 import { TUBE_ARMS } from './tubes'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', ...(Object.keys(TUBE_ARMS) as TileChar[])])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{', '-', '¤', 'а', 'б', 'в', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'α', 'θ', 'η', 'σ', 'ψ', 'ω', 'μ', 'ν', 'κ', '□', '◇', ...(Object.keys(TUBE_ARMS) as TileChar[])])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */
@@ -116,6 +119,7 @@ export function validateWorld(world: World): string[] {
       if (m.ent.t === 'warp' && !landsIn(m.ent.to)?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
     }
     out.push(...reachability(id, world))
+    out.push(...viewProblems(id, world))
     // Holes: the floor below has the same size and floor under every hole.
     if (def.below) {
       const lo = world.maps[def.below]
@@ -168,13 +172,25 @@ function reachability(id: string, world: World): string[] {
     }
   })
   const tile = (x: number, y: number): TileChar => (filled.has(y * w + x) || trapped.has(y * w + x) ? '.' : tileOf(def, x, y))
-  const seen = new Uint8Array(w * h)
-  const stack: number[] = []
-  const seed = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x]) return
-    seen[y * w + x] = 1
-    stack.push(y * w + x)
+  // The states a route may be walked in: one, or on a map with view blocks one a view. `seen` and the stack hold
+  // tile + state × (w × h).
+  const sides: Array<ViewSide | null> = hasBlocks(def) ? ['flat', 'iso'] : [null]
+  const N = w * h
+  const open = (x: number, y: number, k: number) => {
+    const t = tile(x, y)
+    const side = sides[k]!
+    return PASSABLE.has(t) && !(side && blockUp(t, side))
   }
+  let seen = new Uint8Array(N * sides.length)
+  const stack: number[] = []
+  const push = (i: number) => { if (!seen[i]) { seen[i] = 1; stack.push(i) } }
+  const starts: Array<[number, number]> = []
+  const seed = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return
+    starts.push([x, y])
+  }
+  /** Where a route may begin: in every state (an entry on a map with view blocks is free in both: `viewProblems`). */
+  const begin = (x: number, y: number) => sides.forEach((_, k) => { if (sides.length === 1 || open(x, y, k)) push(y * w + x + k * N) })
   // From the entry markers and the authored entries (not the ones exits add:
   // the place in front of an exit has to be reachable on its own).
   def.rows.forEach((r, y) => {
@@ -198,36 +214,48 @@ function reachability(id: string, world: World): string[] {
   const cw = def.cell?.w ?? w
   const chh = def.cell?.h ?? h
   const cellOf = (x: number, y: number) => Math.floor(x / cw) * 1000 + Math.floor(y / chh)
-  while (stack.length) {
-    const i = stack.pop()!
+  const flood = () => { while (stack.length) {
+    const n = stack.pop()!
+    const k = Math.floor(n / N)
+    const i = n % N
     const x = i % w
     const y = Math.floor(i / w)
     for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
-      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
-      const j = ny * w + nx
-      if (seen[j] || !PASSABLE.has(tile(nx, ny))) continue
-      seen[j] = 1
-      stack.push(j)
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h || !open(nx, ny, k)) continue
+      push(ny * w + nx + k * N)
     }
+    // A turn: on a tile free in both states.
+    if (sides.length > 1 && !isViewBlock(tile(x, y))) for (let o = 0; o < sides.length; o++) if (o !== k) push(i + o * N)
     // The hook: along each axis, over anything low, to an anchor in the same room.
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      for (let k = 1; k <= 7; k++) {
-        const ax = x + dx * k
-        const ay = y + dy * k
+      for (let a = 1; a <= 7; a++) {
+        const ax = x + dx * a
+        const ay = y + dy * a
         if (ax < 0 || ay < 0 || ax >= w || ay >= h || cellOf(ax, ay) !== cellOf(x, y)) break
         const t = tile(ax, ay)
         if (TILE_INFO[t].hook) {
           const lx = ax - dx
           const ly = ay - dy
-          const j = ly * w + lx
-          if (k > 1 && !seen[j] && PASSABLE.has(tile(lx, ly))) { seen[j] = 1; stack.push(j) }
+          if (a > 1 && open(lx, ly, k)) push(ly * w + lx + k * N)
           break
         }
-        if (TILE_INFO[t].wall) break
+        // (A view block stops the chain only while it is up.)
+        if (isViewBlock(t) ? blockUp(t, sides[k]!) : TILE_INFO[t].wall) break
       }
     }
+  } }
+  const reached = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && sides.some((_, k) => !!seen[y * w + x + k * N])
+  const out: string[] = []
+  // On a map with view blocks the entries are one place too: each is reached from the first by walking and turning.
+  const doors = sides.length > 1 ? [...def.rows.flatMap((r, y) => [...r].flatMap((ch, x) => (def.marks[ch]?.ent.t === 'entry' ? [{ x, y }] : []))), ...Object.values(def.entries ?? {}).map(e => ({ x: Math.floor(e.x), y: Math.floor(e.y) }))] : []
+  if (doors.length > 1) {
+    begin(doors[0]!.x, doors[0]!.y)
+    flood()
+    for (const d of doors) if (!reached(d.x, d.y)) out.push(`${id}: entry at ${d.x},${d.y} is unreachable from the entry at ${doors[0]!.x},${doors[0]!.y} in either view`)
+    seen = new Uint8Array(N * sides.length)
   }
-  const reached = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && !!seen[y * w + x]
+  for (const [x, y] of starts) begin(x, y)
+  flood()
   const near = (x: number, y: number) =>
     [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
       const nx = x + dx!
@@ -237,7 +265,6 @@ function reachability(id: string, world: World): string[] {
       if (tile(nx, ny) === 'n') return reached(nx + dx!, ny + dy!)
       return false
     })
-  const out: string[] = []
   def.rows.forEach((r, y) => {
     for (let x = 0; x < w; x++) {
       const m = def.marks[r[x]!]
@@ -256,6 +283,49 @@ function reachability(id: string, world: World): string[] {
       if (!near(x, y)) out.push(`${id}: ${m.ent.t} at ${x},${y} is unreachable`)
     }
   })
+  return out
+}
+
+/** The map has square or diamond blocks, so the view is a rule on it. */
+function hasBlocks(def: MapDef): boolean {
+  return def.rows.some((r, y) => { for (let x = 0; x < r.length; x++) if (isViewBlock(tileOf(def, x, y))) return true; return false })
+}
+
+/**
+ * What a map with view blocks owes the player, whichever way the picture faces: both views allowed, and every place a
+ * hero can be put down (an entry, the step out of its door, a drop through a hole) free in both states, so a turn
+ * forced on the way in can never be refused.
+ */
+function viewProblems(id: string, world: World): string[] {
+  const def = world.maps[id]!
+  if (!hasBlocks(def)) return []
+  const out: string[] = []
+  const where = (x: number, y: number) => `${x},${y} ('${tileOf(def, x, y)}')`
+  if (def.views && !(def.views.includes('classic') && def.views.includes('iso'))) {
+    const y = def.rows.findIndex((r, j) => [...r].some((_, x) => isViewBlock(tileOf(def, x, j))))
+    const x = [...def.rows[y]!].findIndex((_, i) => isViewBlock(tileOf(def, i, y)))
+    out.push(`${id}: has a view block at ${where(x, y)} but allows only ${def.views.join(', ') || 'no view'} (a map with view blocks allows both views)`)
+  }
+  /** Free in both states: floor whichever way the view is. */
+  const free = (x: number, y: number) => { const t = tileOf(def, x, y); return PASSABLE.has(t) && !isViewBlock(t) }
+  const land = (what: string, x: number, y: number) => { if (!free(x, y)) out.push(`${id}: ${what} lands on ${where(x, y)}, which is not free in both views`) }
+  const entry = (name: string, x: number, y: number, walk?: Dir) => {
+    land(`entry ${name}`, x, y)
+    if (walk) land(`the step out of entry ${name}`, x + STEP[walk][0], y + STEP[walk][1])
+  }
+  def.rows.forEach((r, y) => {
+    for (let x = 0; x < r.length; x++) {
+      const e = def.marks[r[x]!]?.ent
+      if (e?.t === 'entry') entry(e.id, x, y)
+      // (The entry the engine adds beside an exit.)
+      else if (e?.t === 'exit') { const [dx, dy] = STEP[e.side ?? 'down']; entry(e.id, x + dx, y + dy) }
+    }
+  })
+  for (const [name, e] of Object.entries(def.entries ?? {})) entry(name, Math.floor(e.x), Math.floor(e.y), e.out ? e.dir : undefined)
+  for (const up of Object.values(world.maps)) {
+    if (up.below !== id) continue
+    up.rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (tileOf(up, x, y) === 'O') land(`the hole of ${up.id}`, x, y) })
+  }
   return out
 }
 

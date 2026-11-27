@@ -94,7 +94,9 @@ entry `ferry` (the harbour); the harbour's warp sails back to overworld
 `ferry`. The ferryman stands aside for the blade, as before.
 
 **Stairs** lead to the hand-made teaching map, a place with a reason: THE PUZZLE LAB (`puzzlelab`), inside
-Stillsand's gold pyramid.
+Stillsand's gold pyramid. A **door** in the north wall of its first room, the Weigh House, leads on to THE TURN
+ROOM (`turnroom`), a dungeon of one room off the grid that teaches the view as a rule (square blocks solid in the
+8-bit view, diamond blocks in the isometric one; `docs/games/neon-shrine.md`, "The view as a rule"), and back.
 
 ## Loops
 

@@ -14,7 +14,7 @@
  *
  * Pure but for the context `paintCorner` is handed: `renderCorner` returns the picture as colours.
  */
-import type { GameState, MapDef, World } from '../types'
+import type { GameState, MapDef, ViewSide, World } from '../types'
 import { mapDef, mapInfo } from '../engine/map'
 import { DAY, DAY_LENGTH } from '../engine/day'
 import { glyphAbove, glyphRows, textWidth } from '../../base/pixel/font'
@@ -143,6 +143,11 @@ export function oneViewWords(def: Pick<MapDef, 'views'> | undefined, round: read
 
 /** What the tag says when a view's code did not arrive (offline, a deploy in between), or a view keeps failing. */
 export const VIEW_NOT_LOADED = 'VIEW NOT LOADED'
+
+/** What the tag says when a turn would raise a block under the hero. */
+export const STAND_CLEAR = 'STAND CLEAR'
+/** The badge's words for the view rule, where there is no isometric picture to say it. */
+export const RULE_TAGS: Readonly<Record<ViewSide, string>> = { flat: '8-BIT', iso: 'ISO' }
 
 /**
  * How lit the HTML that changes dress beside the canvas is across a turn (the page's hint, the deck's pictures): it
@@ -380,6 +385,11 @@ export interface CornerState {
   away?: 0 | 1 | 2 | 3 | 4
   /** The live round of views (`viewList()`): with one view there is no gem; the gem is pinned where this map allows one of them only. None given: the two built-in views. */
   round?: readonly RoundView[]
+  /**
+   * The view rule on its own: on a map with view blocks where the isometric picture cannot be had, the Prism turns
+   * the rule alone and a badge beside the corner says which is on (`RULE_TAGS`). Null: no badge.
+   */
+  rule?: ViewSide | null
 }
 
 /** The corner's five colours: Neon Coast, which are the classic HUD skin's own, so a skin may be handed in. */
@@ -395,7 +405,8 @@ const QUIET = '#6a5aa8'
 export function cornerShape(world: World, s: GameState, st: CornerState): CornerShape {
   const chart = hasChart(world, s)
   const round = st.round ?? BUILT_IN
-  return { chart, e: st.e, gem: hasGem(round), pinned: pinName(mapDef(world, s.map.id), round), tag: st.tag ?? (st.nudge ? NUDGE_TAG[st.nudge] : null), keys: !!st.keys }
+  // (With a rule to turn there is a gem to turn it by, whatever the round holds.)
+  return { chart, e: st.e, gem: hasGem(round) || !!st.rule, pinned: pinName(mapDef(world, s.map.id), round), tag: st.tag ?? (st.nudge ? NUDGE_TAG[st.nudge] : null), keys: !!st.keys }
 }
 
 /**
@@ -818,6 +829,12 @@ export function renderCorner(world: World, s: GameState, st: CornerState, skin: 
   if (shape.pinned && parts.chain && parts.plate) {
     stampChain(B, parts.chain, skin)
     stampPlate(B, shape.pinned, parts.plate, skin)
+  }
+  if (st.rule) {
+    // The badge: beside the frame, at its top, where the corner holds nothing else.
+    const text = RULE_TAGS[st.rule]
+    const w = textWidth(text) + 6
+    B.plate({ x: parts.frame.x - w - 3, y: parts.frame.y, w, h: PLATE_H }, text, WHITE, skin.cool, skin.outline)
   }
   if (st.keys) {
     // (The stub is the pause: P. The chart opens the map: M.)

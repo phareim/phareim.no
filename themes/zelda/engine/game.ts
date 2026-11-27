@@ -11,7 +11,7 @@ import { HERO_R, MAX_HP, MOVES, NO_INPUT, SAVE_VERSION, SCROLL_TIME, SLIP_SCALE,
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
-import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapDef, mapInfo, moveCircle, tileAt } from './map'
+import { cellDef, cellIndex, cellRect, condMet, has, loadMap, mapDef, mapInfo, moveCircle, stepClear } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
@@ -55,6 +55,8 @@ export function createGame(
     inv: save ? { ...freshInv(), ...save.inv } : freshInv(),
     flags: {},
     session: !!opts.session,
+    // A game opens in the isometric view; the shell says otherwise (`setViewRule`).
+    view: 'iso',
     entry: { map, entry },
     zone: { x: 0, y: 0, w: 1, h: 1 },
     zoneIndex: 0,
@@ -724,21 +726,3 @@ function landClear(c: Ctx) {
   stepClear(c.w, c.s)
 }
 
-/** The hero stands in something solid: step to the nearest free spot within three tiles; true if moved. */
-function stepClear(world: World, s: GameState): boolean {
-  const h = s.hero
-  if (!circleBlocked(world, s.map, h.x, h.y, HERO_R)) return false
-  for (let r = 1; r <= 3; r++) {
-    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
-      const x = Math.floor(h.x) + dx * r + 0.5
-      const y = Math.floor(h.y) + dy * r + 0.5
-      // (Never onto a pit, a door or a warp: stepping aside must not carry the hero off the map.)
-      const tx = Math.floor(x)
-      const ty = Math.floor(y)
-      const info = mapInfo(world, s.map.id)
-      const leads = info.exits.has(ty * info.w + tx) || info.warps.some(w => tx >= w.x && tx < w.x + w.w && ty >= w.y && ty < w.y + w.h)
-      if (!circleBlocked(world, s.map, x, y, HERO_R) && tileAt(s.map, tx, ty) !== 'O' && !leads) { h.x = x; h.y = y; h.safe = { x, y }; return true }
-    }
-  }
-  return false
-}

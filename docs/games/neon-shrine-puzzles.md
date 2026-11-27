@@ -24,6 +24,21 @@ Demo: `world/puzzlelab.ts`. Tests: `tests/zelda-puzzles.test.mjs`.
 Lumen tubes (`╵ ─ ┌ … ╬`, the tap `Θ`, the socket `Λ`) are puzzle tiles too, with rules of their own:
 `docs/games/neon-shrine-sign.md` (Relight the Sign, Lumenby).
 
+**The view blocks** are a kit piece beside these, and not puzzle tiles (they switch no other rule on):
+
+| Tile | What | Rule |
+|---|---|---|
+| `□` | square block | Solid in the 8-bit view; in the isometric view an outline on the floor, walked over. |
+| `◇` | diamond block | Solid in the isometric view; in the 8-bit view an outline on the floor. |
+
+An up block is a wall to the hero, shots, the disc, the hook, beams and sight; foes, people and pushed things
+(blocks, mirrors, boulders, psi blocks, bombs) stand on neither kind in either view. A turn that would raise one
+under the hero is refused. Authoring: allow both views, put every entry and landing on a tile that is neither
+kind, leave two tiles of free ground wherever the player is meant to turn (the hero is 0.68 tiles wide), keep
+them out of rooms with a boss that places itself, and let `validateWorld` check the routes. The full rule:
+`docs/games/neon-shrine.md`, "The view as a rule". `Cond { view }` opens a gate or raises a chest in one view.
+Taught in the Turn Room (below). The kit solver (`solveKit`) does not know them.
+
 Beams pass over water, fences and counters, stop at anything else solid (a block pushed in their way too) and
 burn the foes they cross. Bombs shove blocks and mirrors beside them (on ice they slide). On a physical map a foe
 knocked into a pit or water is gone, onto spikes hurt.
@@ -61,5 +76,8 @@ pushed or rolled over Stillsand's sand (`-`).
 A weights (carry a pot onto the heavy plate) → B ice (slide the block onto the plate) → C beams (prism, two
 mirrors, two receivers) → D rolling stone (lever, cracked wall, pit filled) → E sluices (two valves, two basins)
 → F all together (the stone clears the beam's road, the mirror slides up the ice into it and is turned, the
-receiver opens the chest's gate). Needs no item; a blade or A works every switch. Once CORE lands `views`, it
-should say `views: ['iso', 'classic']` (both draw it).
+receiver opens the chest's gate). Needs no item; a blade or A works every switch. Both views draw it
+(`views: ['iso', 'classic']`). A door in the north wall of the Weigh House leads to **THE TURN ROOM**
+(`turnroom`, `world/turnroom.ts`), one room of 16 × 12 in the Lab's look that teaches the view blocks: from the
+door a row of diamonds, then a row of squares, then a stagger of both and a chest of 20 bits; its door leads back
+to the Weigh House (`from-turnroom`).

@@ -111,8 +111,8 @@ function stepDisc(c: Ctx, dt: number) {
   if (!d.returning) {
     d.x += d.vx * DISC_SPEED * dt
     d.y += d.vy * DISC_SPEED * dt
-    if (d.t * DISC_SPEED >= DISC_RANGE || solidTile(c.w, m, Math.floor(d.x), Math.floor(d.y), 'fly')) {
-      if (solidTile(c.w, m, Math.floor(d.x), Math.floor(d.y), 'fly')) c.ev.push({ type: 'clank', x: d.x, y: d.y })
+    if (d.t * DISC_SPEED >= DISC_RANGE || solidTile(c.w, m, Math.floor(d.x), Math.floor(d.y), 'shot')) {
+      if (solidTile(c.w, m, Math.floor(d.x), Math.floor(d.y), 'shot')) c.ev.push({ type: 'clank', x: d.x, y: d.y })
       d.returning = true
     }
   } else {
@@ -181,7 +181,7 @@ function stepThrown(c: Ctx, dt: number) {
     const p = Math.min(1, o.dist / THROW_RANGE)
     o.z = 0.9 * (1 - p * p)
     // (Come down on ice, it slides on until it hits something.)
-    let smash = (o.dist >= THROW_RANGE && !potSlides(c, o)) || solidTile(c.w, m, Math.floor(o.x), Math.floor(o.y), 'fly')
+    let smash = (o.dist >= THROW_RANGE && !potSlides(c, o)) || solidTile(c.w, m, Math.floor(o.x), Math.floor(o.y), 'shot')
     for (const e of m.enemies) {
       if (!enemyActive(c, e)) continue
       if (Math.hypot(e.x - o.x, e.y - o.y) < e.r + 0.35) {
@@ -215,7 +215,7 @@ function stepProjectiles(c: Ctx, dt: number) {
     p.t += dt
     p.x += p.vx * dt
     p.y += p.vy * dt
-    let dead = p.t > p.life || solidTile(c.w, m, Math.floor(p.x), Math.floor(p.y), 'fly')
+    let dead = p.t > p.life || solidTile(c.w, m, Math.floor(p.x), Math.floor(p.y), 'shot')
     if (p.friendly) {
       // Beams and reflected shots flip switches and throw levers on their way.
       const tx = Math.floor(p.x)

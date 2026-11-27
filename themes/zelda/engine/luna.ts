@@ -15,10 +15,8 @@ import { TILE_INFO } from '../world/tiles'
 import { condMet, has, tileAt } from './map'
 import type { MarkAt } from './map'
 import { openDialog } from './hero'
-import { dirVec, toDir } from './util'
+import { LUNA_GAP, dirVec, toDir, trailPoint } from './util'
 
-/** How far behind the hero she walks, along his trail (tiles). */
-const GAP = 1.15
 /** She sits down when the hero comes this close to her fort… */
 const HOME_NEAR = 2.2
 /** …once he has been this far from it since she joined. */
@@ -53,19 +51,8 @@ export function stepLuna(c: Ctx, dt: number) {
     L.trail.push({ x: h.x, y: h.y })
     if (L.trail.length > 60) L.trail.shift()
   }
-  // The point GAP tiles back along the trail.
-  let need = GAP
-  let tx = L.trail[L.trail.length - 1]!.x
-  let ty = L.trail[L.trail.length - 1]!.y
-  for (let i = L.trail.length - 1; i > 0; i--) {
-    const a = L.trail[i]!
-    const b = L.trail[i - 1]!
-    const len = Math.hypot(a.x - b.x, a.y - b.y)
-    if (len >= need) { tx = a.x + ((b.x - a.x) * need) / len; ty = a.y + ((b.y - a.y) * need) / len; need = 0; break }
-    need -= len
-    tx = b.x
-    ty = b.y
-  }
+  // The point LUNA_GAP tiles back along the trail.
+  const { x: tx, y: ty } = trailPoint(L.trail, LUNA_GAP)
   const dx = tx - L.x
   const dy = ty - L.y
   const d = Math.hypot(dx, dy)

@@ -29,6 +29,7 @@ import { SCROLL_TIME, TILE } from '../../types'
 import { mapInfo, raised } from '../../engine/index'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, updateTileLayer, type Light, type TileLayer } from '../tiles'
+import { blockUp, isViewBlock } from '../../world/tiles'
 import { bloomDecals, decalCover, drawDecals, lightDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
@@ -299,6 +300,7 @@ export default function isoView(kit: Kit): View {
     if (sh.k !== 'card') return sh
     const t = m.tiles[ty * m.w + tx]
     if ((t === 'P' || t === 'C') && !raised(world, m, tx, ty)) return FLAT
+    if (isViewBlock(t!) && !blockUp(t!, m.view)) return FLAT
     return sh
   }
 
@@ -407,7 +409,8 @@ export default function isoView(kit: Kit): View {
     const og = fit(objs, bw, bh)
     og.clearRect(0, 0, objs.width, objs.height)
     og.drawImage(objects.canvas, bx, by, bw, bh, 0, 0, bw, bh)
-    drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced)
+    // (An up view block stands here as a card, facing the viewer; a down one lies on the turned ground.)
+    drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced, 0, { up: 'flat', down: k > 0.5 ? 'iso' : 'flat' })
     drawDecals(og, def.decals, bx, by, bw, bh, { t: time, reduced, maxW: decalMaxW }, lights)
     kit.setAim(a => Math.atan2(Math.cos(a) * P.ex.y + Math.sin(a) * P.ey.y, Math.cos(a) * P.ex.x + Math.sin(a) * P.ey.x))
     kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))

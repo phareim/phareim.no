@@ -28,6 +28,8 @@
 import type { GameState, MapDef, MapKind, TileChar } from '../../types'
 import { ARC_REACH, ROLL_TIME, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TEMPEST, TILE } from '../../types'
 import { aimOf, airTime, has, heroZ, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
+import { blockUp, isViewBlock } from '../../world/tiles'
+import { SIDE_PATCH } from '../viewBlocks'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -72,6 +74,8 @@ const RISE = 56
 const FOOT = 3
 /** Overhang kept above a card's tile (a lamp's head, a crown's top). */
 const UP = 10
+/** A view block's height, tiles: lower than a wall (1), so what stands behind it shows. */
+const VIEW_BLOCK_H = 0.625
 
 /** The lamp post whose glass is a street lamp's colour (`tiles.ts`; a realm's are `looks.ts` `MOOD.lamp`). */
 const LAMP_PROPS: Record<string, PropKind> = { '#ff4fb8': 'lampPink', '#3ff0ff': 'lampCyan', '#ffd23f': 'lampGold', '#ffb13f': 'lampAmber', '#c87ae0': 'lampViolet' }
@@ -424,6 +428,7 @@ export default function isoView(kit: Kit): View {
     if (sh.k !== 'card') return sh
     const t = outer[ey * ew + ex]
     if ((t === 'P' || t === 'C') && !raised(world, m, tx, ty)) return FLAT
+    if (isViewBlock(t!) && !blockUp(t!, m.view)) return FLAT
     return sh
   }
 
@@ -482,6 +487,8 @@ export default function isoView(kit: Kit): View {
         const rise = sh === ROOF && pitchSent > 0 ? pitchSent * (roofSouth(ex - M, ey - M) + 0.5) : 0
         if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.min(255, Math.round(((sh.h / T + rise) / 4) * 255))) }
       }
+      // (A view block that is up casts a low mass's shadow.)
+      if (isViewBlock(t!) && blockUp(t!, m.view)) { const o = (ey * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.round((VIEW_BLOCK_H / 4) * 255)) }
       if (t === '~' || t === 'ω') data[(ey * ew + ex) * 4 + 1] = 255
       if (look === 'lab') {
         // A lab's ground is its plates wherever it is not a wall, coolant or a shaft (`paintLabBase`).
@@ -502,7 +509,7 @@ export default function isoView(kit: Kit): View {
         if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.round(((sh.d + 1) / 4) * 255)) }
       }
       // Pavement after rain, a polished floor: neon shows in them (the composite pass).
-      if (kind === 'overworld' ? t === ',' && !wild : t === '.' || t === ',' || t === 'f') data[(ey * ew + ex) * 4 + 2] = kind === 'overworld' ? 150 : kind === 'interior' ? 190 : 110
+      if (kind === 'overworld' ? t === ',' && !wild : t === '.' || t === ',' || t === 'f' || (isViewBlock(t!) && !blockUp(t!, m.view))) data[(ey * ew + ex) * 4 + 2] = kind === 'overworld' ? 150 : kind === 'interior' ? 190 : 110
       // The puzzles' ice is glazed, the drained basin still wet.
       if (t === 'α' || t === 'ψ') data[(ey * ew + ex) * 4 + 2] = t === 'α' ? 255 : 170
     }
@@ -1103,7 +1110,9 @@ export default function isoView(kit: Kit): View {
     part(gg, base.canvas, bx, by, bw, bh)
     part(og, objects.canvas, bx, by, bw, bh)
     const night = outdoors ? nightOf(kit.day('iso')) : 0
-    drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced, night)
+    // (The view blocks are drawn for the picture they will be seen in: this view's own once the turn is past its half.)
+    const blockFace = k > 0.5 ? 'iso' as const : 'flat' as const
+    drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced, night, blockFace)
     drawDecals(og, def.decals, bx, by, bw, bh, { t: time, reduced, maxW: decalMaxW }, lights)
     kit.setAim(a => Math.atan2(Math.cos(a) * P.ex.y + Math.sin(a) * P.ey.y, Math.cos(a) * P.ex.x + Math.sin(a) * P.ey.x))
     kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))
@@ -1243,6 +1252,24 @@ export default function isoView(kit: Kit): View {
           bare(sx, sy - up, T, T + up)
           continue
         }
+      }
+      if (shp.k === 'card' && isViewBlock(t)) {
+        // A view block that is up: a low block of the room's own wall materials, its shape cut into the top. It
+        // grows out of the floor over the second half of the turn; before the half its picture lies as the classic one.
+        if (blockFace === 'iso') {
+          bare(sx, sy, T, T)
+          const hz = VIEW_BLOCK_H * Math.min(1, (k - 0.5) * 2)
+          const upAt = (x: number, y: number) => inRoom(x, y) && isViewBlock(tileOf(x, y)) && shapeAt(x, y).k === 'card'
+          quad(tx, ty, hz, 0, tx + 1, ty, hz, 0, tx + 1, ty + 1, hz, 0, tx, ty + 1, hz, 0, sx, sy, sx + T, sy + T, 0, builtOf('#', true))
+          const side = builtOf('#', false)
+          const u0 = sx + SIDE_PATCH.x
+          const v0 = sy + SIDE_PATCH.y
+          const u1 = u0 + SIDE_PATCH.w
+          const v1 = v0 + SIDE_PATCH.h
+          if (!upAt(tx, ty + 1)) quad(tx, ty + 1, hz, 0, tx + 1, ty + 1, hz, 0, tx + 1, ty + 1, 0, 0, tx, ty + 1, 0, 0, u0, v0, u1, v1, 1, side, southShade, 0, 1)
+          if (!upAt(tx + 1, ty)) quad(tx + 1, ty, hz, 0, tx + 1, ty + 1, hz, 0, tx + 1, ty + 1, 0, 0, tx + 1, ty, 0, 0, u0, v0, u1, v1, 2, side, eastShade, 0, 1)
+        }
+        continue
       }
       if (green) {
         const h1 = hash2(tx, ty, 21)

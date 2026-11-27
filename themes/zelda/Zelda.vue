@@ -191,6 +191,13 @@
  * on its corner turns the view; indoors a small pane with a door stands in
  * the chart's place and opens the menu. The input itself is `input.ts`.
  *
+ * The view is also a rule (square blocks are solid only in the classic
+ * engine's views, diamond blocks only in the isometric one's): the shell turns
+ * it with the picture, at one moment halfway through a turn (`stepRule`), never
+ * ahead of it; refuses a turn that would raise a block under the hero (STAND
+ * CLEAR); and where the isometric picture cannot be had turns it alone, with a
+ * badge beside the corner.
+ *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL. Installed as a web app, a game on another address
  * is shown in a frame on this page instead (`useFrame`, docs/games/frame.md).
@@ -216,14 +223,16 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { artRest, awayMap, createGame, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
+import { artRest, awayMap, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
+import { viewSide } from './render/turn'
+import { ruleLoose, ruleMove } from './viewRule'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
 import { HIRES_WINDOW_SKIN, type MenuPage } from './render/hud'
-import { CORNER_H, CORNER_W, PRESS_TIME, TAG_TIME, VIEW_NOT_LOADED, awayStep, backStep, chartNight, chromeAlpha, cornerLayout, cornerShape, cornerTargets, hasChart, oneViewWords, paintCorner, sunPhase, turnAmount, type CornerState } from './render/corner'
+import { CORNER_H, CORNER_W, PRESS_TIME, RULE_TAGS, STAND_CLEAR, TAG_TIME, VIEW_NOT_LOADED, awayStep, backStep, chartNight, chromeAlpha, cornerLayout, cornerShape, cornerTargets, hasChart, oneViewWords, paintCorner, sunPhase, turnAmount, type CornerState } from './render/corner'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
 import { itemIconName } from './render/itemIcon'
@@ -241,7 +250,7 @@ import { HERO_LOOK_KEY, storeHeroLook, wornLook, type HeroLook } from './render/
 import { HERO_COLORS_KEY, type HeroColors } from '../miniworld/types'
 import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
-import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, World } from './types'
+import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, ViewSide, World } from './types'
 
 /** The newsstand's reader stays out of the entry (what `/` costs): nobody pays for it before using the stand. */
 const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
@@ -455,7 +464,6 @@ const input: GameInput = createInput({
 const viewId = ref<ViewId>(startView(useRoute().query.view, null))
 /** Counts the studio's changes to the round, so a renamed view shows its new name. */
 const viewRound = ref(0)
-const viewLabel = computed(() => (void viewRound.value, viewName(viewId.value)))
 let viewAsk = 0
 /** The view the renderer was last handed: where a failed switch falls back to. */
 let viewShown: ViewId = 'classic'
@@ -477,6 +485,83 @@ let failedSeen = 0
 const engineFails = new Map<string, number>()
 const FAILS_MAX = 3
 
+// ---- the view as a rule -----------------------------------------------------------
+
+/** Engines whose picture cannot be had just now: its code did not arrive, or it threw. */
+const engineLost = new Map<string, 'fetch' | 'throw'>()
+/** The rule turned since the last step: the world holds still for that frame, so no step runs between the old rule and the new. */
+let ruleTurned = false
+/** The view last at rest with the rule on its side: where a refused turn goes back to. */
+let lastSettled: ViewId = 'classic'
+/** The view last asked for was the visitor's own choice, to be kept: a turn taken back puts the kept choice back too. */
+let askKept = false
+/** The badge beside the corner: the rule, on a map with view blocks where it turns alone (`rulesAlone`). */
+const ruleBadge = ref<ViewSide | null>(null)
+/** What the pause screen's view button says for a moment after a turn refused there. */
+const pausedWords = ref<string | null>(null)
+let pausedWordsT: ReturnType<typeof setTimeout> | undefined
+/** The view's name on the pause screen; where the rule turns alone, the rule's; for a moment after a refused turn there, why. */
+const viewLabel = computed(() => {
+  void viewRound.value
+  const side = ruleBadge.value as ViewSide | null
+  return pausedWords.value ?? (side ? `${RULE_TAGS[side]} RULE` : viewName(viewId.value))
+})
+
+/** The rule is on its own (`viewRule.ts` `ruleLoose`): V and the Prism turn it alone on a map with view blocks. */
+const rulesAlone = () => ruleLoose(engineLost.has('iso'), viewList())
+
+/**
+ * THE call the rule turns by: a turn of the picture, a reload, the rule turned alone. False when a block would rise
+ * under the hero, and nothing changes.
+ */
+function turnRule(side: ViewSide): boolean {
+  if (side === state.view) return true
+  if (!setViewRule(state, side)) return false
+  ruleTurned = true
+  pausedDrawn = false
+  slowT = 0
+  return true
+}
+
+/**
+ * Each frame, with the dress: the rule follows the picture at the moment of its turn (`turnSide`: halfway; at once
+ * for an instant one), whoever began it: a press, a map on the way in, a view that arrived late. A turn that would
+ * raise a block under the hero, asked for a moment ago or only now walked into, is turned back before anything flips.
+ */
+function stepRule(vs: { id: string; k: number; turning: boolean; dark: boolean }) {
+  if (!renderer) return
+  const move = ruleMove(state, vs, rulesAlone())
+  if (move === 'back') turnBack()
+  else if (move && move !== state.view) turnRule(move)
+  else if (move && !vs.turning) lastSettled = viewShown
+}
+
+/** STAND CLEAR: the picture goes back to a view on the rule's own side, and the corner says why. */
+function turnBack() {
+  const back = [lastSettled, ...viewList().map(v => v.id)].find((id) => {
+    const def = viewDef(id)
+    return !!def && viewSide(def.engine) === state.view && allows(id)
+  })
+  if (!back) return
+  void showView(back, false, askKept)
+  turnRefuse(STAND_CLEAR, 'Stand clear')
+}
+
+/** V or the Prism where there is no isometric picture: the rule alone turns, the picture stays. */
+function flipRule() {
+  const to: ViewSide = state.view === 'iso' ? 'flat' : 'iso'
+  if (!turnRule(to)) { turnRefuse(STAND_CLEAR, 'Stand clear'); return }
+  // (A fetch still on its way is not to turn the picture, and the rule with it, behind this press.)
+  viewAsk++
+  viewId.value = viewShown
+  audio?.sfx('menu')
+  turnSaid.value = ''
+  void nextTick(() => { turnSaid.value = `${to === 'iso' ? 'Isometric' : '8-bit'} rule` })
+  // Back on the isometric rule: the picture is asked for once more, without a word if it is still not there.
+  const iso = viewList().find(v => v.engine === 'iso')
+  if (to === 'iso' && iso && engineLost.get('iso') === 'fetch') void showView(iso.id, false, false, false, true)
+}
+
 /**
  * The renderer put a view away (it threw) and draws the classic picture: the shell follows it there, as when a
  * view's code did not arrive. What the visitor chose stays chosen; the next visit tries it again.
@@ -486,6 +571,8 @@ function viewFailed() {
   // (A view that was on its way out anyway: the turn ended there, on the classic picture, and that is no refusal.)
   if (!renderer || !def || renderer.hasView(def.engine)) return
   engineFails.set(def.engine, (engineFails.get(def.engine) ?? 0) + 1)
+  // (The rule stays as it is: the classic picture draws it, and V turns it alone from here.)
+  engineLost.set(def.engine, 'throw')
   viewAsk++
   viewId.value = 'classic'
   viewShown = 'classic'
@@ -502,10 +589,11 @@ function viewFailed() {
  * `remember`: this is the visitor's own choice, kept for the next visit; the view a visit starts in is not one
  * (a browser that never chose keeps following the site's first view, and one bad fetch does not pin it to the classic one).
  * `arriving`: it is the view the visit starts in (`renderer.arrive`).
+ * `quiet`: a second try behind the rule's own turn (`flipRule`); a failure says nothing.
  * A view that is not ready when it is asked for (its shaders compile for a moment the first time) is waited for
  * on the classic picture, and turns in when it is (`render/turn.ts`).
  */
-async function showView(id: ViewId, instant = false, remember = true, arriving = false) {
+async function showView(id: ViewId, instant = false, remember = true, arriving = false, quiet = false) {
   if (!renderer) return
   // A view is an engine with its own values (`views.ts`); one the round no longer holds is the classic one.
   const def = viewDef(id) ?? viewDef('classic')!
@@ -513,6 +601,7 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   if ((engineFails.get(def.engine) ?? 0) >= FAILS_MAX) { turnRefuse(); return }
   viewId.value = def.id
   const ask = ++viewAsk
+  askKept = remember
   const load = ENGINE_LOADERS[def.engine]
   if (load && !renderer.hasView(def.engine)) {
     try {
@@ -521,14 +610,30 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
       renderer.addView(def.engine, mod.default as ViewFactory)
     } catch {
       // The code did not arrive (offline, a deploy in between): stay where we were.
-      if (ask !== viewAsk || !alive || !renderer) return
+      if (!alive || !renderer) return
+      engineLost.set(def.engine, 'fetch')
+      if (ask !== viewAsk) return
       viewId.value = viewShown
       syncDress()
-      turnRefuse()
+      if (quiet) return
+      // On a map with view blocks a press (a view the visitor chose: `remember`) still turns the rule, alone now,
+      // though the picture stays. A view the visit or a map asked for leaves it on the picture's side.
+      if (remember && hasViewBlocks(state.map) && !turnRule(viewSide(def.engine))) turnRefuse(STAND_CLEAR, 'Stand clear')
+      else turnRefuse()
       return
     }
   }
   if (ask !== viewAsk) return
+  engineLost.delete(def.engine)
+  // Arrived after the hero walked on: a view that would raise a block under them does not set out at all.
+  if (!rulesAlone() && risesUnderHero(state, viewSide(def.engine))) {
+    viewId.value = viewShown
+    // (The corner is told where it stands: the refusal is the news, not an arrival at the view still on screen.)
+    cn.rest = viewShown
+    syncDress()
+    turnRefuse(STAND_CLEAR, 'Stand clear')
+    return
+  }
   // Kept only now that it can be shown: a view whose code did not arrive is not a choice, however many presses asked for it.
   if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   renderer.setParams(def.engine, def.params)
@@ -571,18 +676,29 @@ function fitView() {
     heldView ??= viewId.value
     const round = viewList()
     const to = round.find(v => v.engine === 'iso' && allows(v.id)) ?? round.find(v => allows(v.id))
-    if (to) void showView(to.id, false, false)
+    if (to) forceView(to.id)
   } else if (heldView && heldView !== viewId.value && allows(heldView)) {
     const back = heldView
     heldView = null
-    void showView(back, false, false)
+    forceView(back)
   } else if (heldView && allows(heldView)) heldView = null
+}
+
+/**
+ * A turn the map makes on the way in. The rule goes with the picture, as ever (`stepRule`). On a map with view blocks
+ * the picture does not play the turn but takes the view at once, behind the door's fade: the rule is on it before the
+ * hero can take a step off the entry (floor in both views, `validate.ts`), so a view that is here is never refused.
+ */
+function forceView(id: ViewId) {
+  void showView(id, hasViewBlocks(state.map), false)
 }
 
 function cycleView() {
   if (phase.value !== 'play') return
   // (The visitor has found the views: the Prism has nothing left to point out.)
   learn('gem')
+  // No isometric picture, and a room that needs the rule: the rule turns alone.
+  if (hasViewBlocks(state.map) && rulesAlone()) { flipRule(); return }
   // (The pause screen names the view itself; in play the corner's tag names it when it arrives.)
   let next = nextView(viewId.value)
   for (let i = 0; i < viewList().length && !allows(next); i++) next = nextView(next)
@@ -593,6 +709,9 @@ function cycleView() {
     else audio?.sfx('error')
     return
   }
+  // A turn that would raise a block under the hero does not begin.
+  const def = viewDef(next)
+  if (def && risesUnderHero(state, viewSide(def.engine))) { turnRefuse(STAND_CLEAR, 'Stand clear'); return }
   audio?.sfx('menu')
   heldView = null
   void showView(next)
@@ -624,7 +743,8 @@ function applyLiveViews(live: LiveViews | null) {
 const corner = ref<HTMLElement | null>(null)
 const cornerCanvas = ref<HTMLCanvasElement | null>(null)
 const turnBtn = ref<HTMLButtonElement | null>(null)
-const viewCount = computed(() => (void viewRound.value, viewList().length))
+/** How many ways V and the Prism can turn: the round's views, and the rule alone where only that is left. */
+const viewCount = computed(() => (void viewRound.value, Math.max(viewList().length, ruleBadge.value ? 2 : 0)))
 /** The hero is on the way out of the map (a door, a cabinet): the canvas goes dark and hides its HUD. */
 const leaving = ref(false)
 /** A visit's first moments: nothing while the screen is dark, then up out of it with the first picture. */
@@ -646,7 +766,10 @@ const sayView = (id: ViewId) => {
 }
 const turnLabel = computed(() => (void viewRound.value, pinnedWords.value
   ? `View: ${sayView(viewId.value)}. ${pinnedWords.value.said}.`
-  : `View: ${sayView(viewId.value)}. Press for ${sayView(nextView(viewId.value))}.`))
+  : ruleBadge.value
+    ? `View: ${sayView(viewId.value)}. ${sayRule(ruleBadge.value)} rule. Press for the ${sayRule(ruleBadge.value === 'iso' ? 'flat' : 'iso').toLowerCase()} rule.`
+    : `View: ${sayView(viewId.value)}. Press for ${sayView(nextView(viewId.value))}.`))
+const sayRule = (side: ViewSide) => (side === 'iso' ? 'Isometric' : '8-bit')
 /** Where the three buttons and the canvas stand (`cornerLayout`), as styles; the chart's button shaped by its clip-path. */
 type BoxStyle = Record<string, string>
 const cornerAt = shallowRef<{ canvas: BoxStyle; map: BoxStyle; pause: BoxStyle; view: BoxStyle }>({ canvas: {}, map: {}, pause: {}, view: {} })
@@ -691,6 +814,13 @@ function turnRefuse(tag: string = VIEW_NOT_LOADED, said = 'View not loaded') {
   turnSaid.value = ''
   void nextTick(() => { turnSaid.value = said })
   audio?.sfx('error')
+  // (The corner is away on the pause screen: its view button says it there.)
+  if (paused.value && tag === STAND_CLEAR) {
+    pausedWords.value = tag
+    pausedDrawn = false
+    clearTimeout(pausedWordsT)
+    pausedWordsT = setTimeout(() => { pausedWords.value = null; pausedDrawn = false }, TAG_TIME * 1000)
+  }
 }
 
 /** A lesson learnt, for good in this browser. */
@@ -758,6 +888,8 @@ function stepCorner(nowMs: number) {
   const round = viewList()
   const words = oneViewWords(def, round)
   if (words?.tag !== pinnedWords.value?.tag) pinnedWords.value = words
+  const rule = hasViewBlocks(s.map) && rulesAlone() ? s.view : null
+  if (rule !== ruleBadge.value) ruleBadge.value = rule
 
   const waiting = vs.waiting || viewId.value !== viewShown
   if (!waiting) cn.waitFrom = -1
@@ -817,6 +949,7 @@ function stepCorner(nowMs: number) {
     keys,
     nudge: cn.lesson,
     tag: busy ? viewName(viewId.value) : tagOn ? cn.tag : null,
+    rule,
     away: cn.level,
     round,
   }
@@ -837,7 +970,7 @@ function stepCorner(nowMs: number) {
   const sig = [
     uDev, s.map.id, s.map.version, s.explored?.[s.map.id] ?? '', Math.floor(s.hero.x), Math.floor(s.hero.y), s.hero.dir, lay.step, blink,
     sunPhase(s.daytime), chartNight(WORLD, s), Object.keys(s.flags).length, +s.session, +!!s.demo,
-    st.pressed, st.focus, +keys, st.nudge, st.tag, st.away, shape.pinned, +!!shape.gem, +reduced,
+    st.pressed, st.focus, +keys, st.nudge, st.tag, st.away, shape.pinned, +!!shape.gem, +reduced, s.view, rule,
   ].join('|')
   if (sig === cn.sig) return
   cn.sig = sig
@@ -973,7 +1106,10 @@ function clearReturn() {
 function begin(save: SaveData | null, at: Spot | null, banner = false) {
   loadedSave = save
   pendingPull = null
+  // The rule in force goes over to the new state (it stands on its entry, floor in both views).
+  const side = state.view
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
+  turnRule(side)
   writeOut(state)
   // Before the prism only in development: out there it would empty the woods at noon for anyone.
   if (askedHour !== null && (import.meta.dev || state.inv.prism)) setDaytime(WORLD, state, askedHour)
@@ -1368,14 +1504,17 @@ let steppedWaiting = false
  * Draw. A view that was waited for and took over in that draw without a turn (reduced motion, a pause, a panel,
  * the ending) is on screen now: the dress and the corner follow in the same frame, not the next one. A view that
  * threw in that draw was put away: the shell follows to the classic view in this frame too (`viewFailed`), so
- * the dress and the corner that were stepped for it before the draw are never painted.
+ * the dress and the corner that were stepped for it before the draw are never painted. And the rule and the dress
+ * read the turn as it has just been drawn: a press that comes before the next frame must find them on the side the
+ * picture got to, or a turn taken back right at the half leaves them apart.
  */
 function drawFrame(nowMs: number, dt: number) {
   if (!renderer) return
   renderer.draw(state, ui, dt)
   const vs = renderer.viewState()
   if (vs.failed !== failedSeen) { failedSeen = vs.failed; viewFailed(); steppedWaiting = false; stepDress(vs); stepCorner(nowMs); return }
-  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepDress(vs); stepCorner(nowMs) }
+  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepRule(vs); stepDress(vs); stepCorner(nowMs); return }
+  if (vs.turning && !vs.waiting) { stepRule(vs); stepDress(renderer.viewState()) }
 }
 
 function frame(nowMs: number) {
@@ -1404,6 +1543,8 @@ function frame(nowMs: number) {
     if (f !== failedSeen) { failedSeen = f; viewFailed() }
   }
   steppedWaiting = renderer.viewState().waiting
+  // (The rule first: a turn it refuses is on its way back before the dress is stepped.)
+  stepRule(renderer.viewState())
   stepDress(renderer.viewState())
   syncUnit()
   stepCorner(nowMs)
@@ -1418,6 +1559,7 @@ function frame(nowMs: number) {
   ui.keys = touchUI.value ? TOUCH_KEYS : KEYBOARD_KEYS
   ui.stick = input.stick
   ui.view = viewLabel.value
+  ui.rule = ruleBadge.value
 
   // The ending: the world stays put behind the page's panel. Nothing steps, so
   // it is redrawn at a fifth of the rate rather than 60 times a second.
@@ -1442,6 +1584,8 @@ function frame(nowMs: number) {
   if (hitStopMs > 0) { hitStopMs -= dt * 1000; drawFrame(nowMs, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
+  // The rule has just turned: the world holds still for this frame (presses wait for the next).
+  if (ruleTurned) { ruleTurned = false; syncDeck(); drawFrame(nowMs, dt); return }
   // The controls turn with the picture: up on the stick is up on the screen in every view.
   const raw = input.read()
   // Not in a dialog: there a direction picks YES or NO by its sign, whichever way the picture faces.
@@ -1456,6 +1600,9 @@ function frame(nowMs: number) {
   renderer.onEvents(events)
   handleEvents(events)
   if (state.map.id !== fitMap) fitView()
+  // Asked again now the hero has moved, before the picture does: a turn they have walked into is taken back while it
+  // is still short of its half, so the dress never crosses over for a turn that will not happen.
+  stepRule(renderer.viewState())
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
   syncDeck()
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
@@ -1599,6 +1746,9 @@ onMounted(() => {
   dressWanted = wears16(firstView)
   dress16.value = dressWanted
   viewId.value = firstView
+  // The rule starts on the classic picture, which is what draws until another view is here, and follows the picture
+  // from there (`stepRule`): never ahead of it.
+  turnRule('flat')
   // The first picture comes up out of the dark, whichever view draws it.
   renderer.dawn()
   if (firstView !== 'classic') {
@@ -1654,6 +1804,7 @@ onBeforeUnmount(() => {
   liveStop?.()
   liveStop = null
   cancelAnimationFrame(raf)
+  clearTimeout(pausedWordsT)
   observer?.disconnect()
   muteStop?.()
   walletStop?.()

@@ -235,6 +235,8 @@ export type TileChar =
   | 'c' // crystal switch (solid; sword/disc/bomb toggles pink ⇄ cyan)
   | 'P' // pink crystal block (raised while crystal = pink)
   | 'C' // cyan crystal block (raised while crystal = cyan)
+  | '□' // square block: solid in the 8-bit view, an outline on the floor in the isometric one
+  | '◇' // diamond block: solid in the isometric view, an outline on the floor in the 8-bit one
   | 'x' // spikes (walkable, hurts)
   | 'O' // pit (fall → back to the room entry, half a heart)
   | 't' // torch / lamp post (solid, light)
@@ -412,6 +414,13 @@ export type EnemyKind =
   | 'deepseek' // miniboss: swims under the floor, surfaces to bite; the hook drags it up
   | 'gemini' // boss: one of the twins; both must fall close together
 
+/**
+ * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
+ * 8-bit top-down picture), 'iso' every view of the isometric one. By the engine, never by a view's id, so a
+ * studio-made view inherits the rule.
+ */
+export type ViewSide = 'flat' | 'iso'
+
 /** A condition on progress. `clear` = every enemy of the gate's room is dead. */
 export type Cond =
   | { flag: string }
@@ -421,6 +430,7 @@ export type Cond =
   | { item: ItemId }
   | { flags: string[]; not?: string[] } // all of `flags`, none of `not`
   | { session: boolean } // logged in on auth.phareim.no (true) or not (false); never saved
+  | { view: ViewSide } // the view rule in force now (`GameState.view`); never saved
 
 export interface TalkBranch {
   /** First branch whose condition holds is spoken. No condition = default. */
@@ -892,6 +902,8 @@ export interface MapState {
   tiles: TileChar[]
   /** Bumped whenever tiles change; the renderer rebuilds its cache. */
   version: number
+  /** `GameState.view`, read through (`loadMap` makes it so): what `solidTile` asks about the view blocks. */
+  readonly view: ViewSide
   enemies: Enemy[]
   projectiles: Projectile[]
   drops: Drop[]
@@ -1128,6 +1140,11 @@ export interface GameState {
   flags: Record<string, true>
   /** Logged in on auth.phareim.no right now (the shell tells the engine). Not progress: never saved. */
   session: boolean
+  /**
+   * Which view blocks are solid: the side of the view on screen. The shell says it, at the moment a turn is committed
+   * (`setViewRule`, `engine/map.ts`); a game opens in the isometric view. Tests set it by hand. Never saved.
+   */
+  view: ViewSide
   /** Where death and Continue put you. */
   entry: { map: string; entry: string }
   /** Camera room (tiles) the camera is clamped to. */

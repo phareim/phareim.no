@@ -58,3 +58,21 @@ export function pick<T>(s: GameState, arr: readonly T[]): T {
 }
 
 export const nextId = (s: GameState) => ++s.nextId
+
+/** How far behind the hero Luna walks, along their trail (tiles). */
+export const LUNA_GAP = 1.15
+
+/** The point `gap` tiles back along a trail (its newest point last): its oldest one where the trail is shorter. */
+export function trailPoint(trail: ReadonlyArray<{ x: number; y: number }>, gap: number): { x: number; y: number } {
+  let need = gap
+  let at = trail[trail.length - 1]!
+  for (let i = trail.length - 1; i > 0; i--) {
+    const a = trail[i]!
+    const b = trail[i - 1]!
+    const len = Math.hypot(a.x - b.x, a.y - b.y)
+    if (len >= need) return { x: a.x + ((b.x - a.x) * need) / len, y: a.y + ((b.y - a.y) * need) / len }
+    need -= len
+    at = b
+  }
+  return { x: at.x, y: at.y }
+}

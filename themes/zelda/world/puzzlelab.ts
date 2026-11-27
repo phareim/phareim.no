@@ -8,7 +8,8 @@
  *                           ↑
  *   A weights → B ice  → C beams
  *
- * A: a heavy plate the hero alone is too light for (carry a pot onto it).
+ * A: a heavy plate the hero alone is too light for (carry a pot onto it). A door in its north wall leads to the
+ *    Turn Room (`turnroom.ts`).
  * B: ice; slide the block onto the heavy plate across the lake.
  * C: a prism splits the beam; turn both mirrors toward the receivers.
  * D: throw the lever: the boulder rolls, breaks the cracked wall, fills the pit.
@@ -19,7 +20,7 @@ import type { MapDef } from '../types'
 import { joinCells } from './cells'
 
 const A = [
-  '################',
+  '#######7########',
   '#..............#',
   '#..............#',
   '#..............#',
@@ -125,11 +126,16 @@ export const PUZZLELAB: MapDef = {
     '1,0': { name: 'THE SLUICE HALL' },
     '0,0': { name: 'THE LAST ROOM' },
   },
+  entries: {
+    'from-turnroom': { x: 7.5, y: 13.5, dir: 'down' },
+  },
   marks: {
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
     // A: weights
     H: { ent: { t: 'plate', id: 'lab.a.heavy' }, tile: 'η' },
     '1': { ent: { t: 'gate', open: { plates: ['lab.a.heavy'] } } },
+    // The door to the Turn Room (`turnroom.ts`), in the north wall.
+    '7': { ent: { t: 'warp', to: 'turnroom', entry: 'start' }, tile: 'D' },
     // B: ice
     J: { ent: { t: 'plate', id: 'lab.b.heavy' }, tile: 'η' },
     '2': { ent: { t: 'gate', open: { plates: ['lab.b.heavy'] } } },

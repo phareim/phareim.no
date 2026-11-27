@@ -6,7 +6,7 @@
  * per frame by `drawLiveTiles`. Look: an 80s neon night — teal-indigo
  * grass, rose paths, teal canopies with magenta rim light, violet stone.
  */
-import type { MapKind, MapState, TileChar, World } from '../types'
+import type { MapKind, MapState, TileChar, ViewSide, World } from '../types'
 import { TILE } from '../types'
 import { cellIndex, crystalAt, has, mapInfo, raised } from '../engine/index'
 import type { GameState } from '../types'
@@ -19,7 +19,8 @@ import { isTerrainChar, paintTerrainTile, setTerrainPaint, terrainRaised } from 
 import { atlasBeyond, beyondTile, type Beyond } from './beyond'
 import { drawPuzzleLive, drawTube, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
 import { isTube, TUBE_TILES } from '../world/tubes'
-import { TILE_INFO } from '../world/tiles'
+import { TILE_INFO, blockUp } from '../world/tiles'
+import { BLOCK_INK, viewBlockPixels, type BlockShape } from './viewBlocks'
 import { CLASSIC, MOOD, realmLook } from './looks'
 import { standIns, standsIn, type StandIn } from './standIns'
 
@@ -1037,7 +1038,25 @@ function openBeside(m: GameState['map'], tx: number, ty: number) {
  * (cx, cy) is the camera in px; (vw, vh) the view in px. `night` (0–1): how far into the night the hour is
  * outdoors (`daylight.ts` `nightOf`): the windows burn brighter.
  */
-export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], reduced: boolean, night = 0) {
+/** The view blocks' pictures (`viewBlocks.ts`), painted once each. */
+const blockArt = new Map<string, HTMLCanvasElement>()
+function viewBlockArt(shape: BlockShape, up: boolean, face: ViewSide): HTMLCanvasElement {
+  const key = `${shape}:${+up}:${face}`
+  let c = blockArt.get(key)
+  if (!c) {
+    c = makeCanvas(T, T)
+    const g = c.getContext('2d')!
+    viewBlockPixels(shape, up, face).forEach((ink, i) => { if (ink) r(g, ink, i % T, Math.floor(i / T)) })
+    blockArt.set(key, c)
+  }
+  return c
+}
+
+/**
+ * `face`: which picture the view blocks are drawn for (`viewBlocks.ts`): 'iso' once the isometric view is past the
+ * half of its turn. A view that stands the up ones as upright cards and lays the down ones flat names the two apart.
+ */
+export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], reduced: boolean, night = 0, face: ViewSide | { up: ViewSide; down: ViewSide } = 'flat') {
   const m = s.map
   const info = mapInfo(world, m.id)
   const kind = info.def.kind
@@ -1167,6 +1186,14 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           g.fillStyle = col; g.fillRect(px + 5, py + 3 + bob, 6, 7)
           g.fillStyle = '#ffffff'; g.fillRect(px + 6, py + 4 + bob, 2, 2)
           lights.push({ x: wx, y: wy - 0.2, r: 2.4, color: col, a: 0.8 })
+          break
+        }
+        // The view blocks, as the rule has them now: up, a block with its shape cut into the top; down, the shape on the floor.
+        case '□': case '◇': {
+          const up = blockUp(t, s.view)
+          const seen = typeof face === 'string' ? face : up ? face.up : face.down
+          g.drawImage(viewBlockArt(t === '□' ? 'square' : 'diamond', up, seen), px, py)
+          lights.push({ x: wx, y: wy, r: up ? 1.5 : 1, color: BLOCK_INK.cut, a: up ? 0.4 : 0.25 })
           break
         }
         case 'P': case 'C': {

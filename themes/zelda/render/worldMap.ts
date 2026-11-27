@@ -7,11 +7,11 @@
  *
  * Pure but for the layer cache: no canvas, no DOM.
  */
-import type { GameState, MapDef, MapState, TileChar, World } from '../types'
+import type { GameState, MapDef, MapState, TileChar, ViewSide, World } from '../types'
 import { cellIndex, condMet, mapDef, mapInfo, type MapInfo } from '../engine/map'
 import { charted, seenTile } from '../engine/explore'
 import { DAY } from '../engine/day'
-import { TILE_INFO, isTileChar } from '../world/tiles'
+import { TILE_INFO, blockUp, isTileChar, isViewBlock } from '../world/tiles'
 import { lumaOf } from './looks'
 
 // ---- the corner's chart (render/corner.ts): the land's own inks, the fog, the marks ------------------------
@@ -131,10 +131,17 @@ const CORNER_KIND: Partial<Record<TileChar, Ground>> = {
   'O': 'pit', 'к': 'pit', 'F': 'fence', '¤': 'fence',
   'в': 'ground', 'д': 'sand', 'ж': 'road', 'з': 'road', 'и': 'road', 'й': 'road',
   'S': 'ground', 't': 'ground', '$': 'ground', 'Z': 'ground', '_': 'ground',
+  // The view blocks: wall while up. While down they are floor, which `chartKind` says by the view.
+  '□': 'wall', '◇': 'wall',
 }
 
 function cornerKind(ch: TileChar): Ground {
   return CORNER_KIND[ch] ?? (isTileChar(ch) && TILE_INFO[ch].solid ? 'thing' : 'ground')
+}
+
+/** A tile's ink in a view: a view block that is down there is floor. */
+function chartKind(ch: TileChar, view: ViewSide): Ground {
+  return isViewBlock(ch) && !blockUp(ch, view) ? 'ground' : cornerKind(ch)
 }
 
 /** Which tile of a block shows where the world's chart has one px for several (`mapPage.ts`): houses, roads and water before the ground they lie on. */
@@ -213,6 +220,8 @@ export interface ChartPaint {
   /** The ghost under the fog (false for the lab's comparison). */
   ghost?: boolean
   night?: 0 | 1 | 2
+  /** The view the chart is drawn in (`GameState.view`; default 'iso', as a game opens): which view blocks are wall. */
+  view?: ViewSide
 }
 
 /**
@@ -223,7 +232,7 @@ export function chartPixels(info: MapInfo, tiles: readonly TileChar[], terrain: 
   const { w, h } = info
   const c = chartInks(info.def)
   const fog = fogInks(c)
-  const kinds = tiles.map(cornerKind)
+  const kinds = tiles.map(t => chartKind(t, o.view ?? 'iso'))
   const at = (x: number, y: number): Ground | null => (x < 0 || y < 0 || x >= w || y >= h ? null : kinds[y * w + x]!)
   const wet = (k: Ground | null) => k === null || k === 'water' || k === 'ice' || k === 'bridge'
   const rise = (x: number, y: number) => (!terrain || x < 0 || y < 0 || x >= w || y >= h ? 0 : terrain.h[y * w + x]! - terrain.g)
@@ -279,16 +288,16 @@ export function chartPixels(info: MapInfo, tiles: readonly TileChar[], terrain: 
 /** Builds the chart of the current map from the live tiles and what has been seen of it, unseen in fog. Pure. `ghost`: false leaves the fog bare (for the lab's comparison). */
 export function buildChart(world: World, s: GameState, ghost = true, night: 0 | 1 | 2 = 0): ChartLayer {
   const info = mapInfo(world, s.map.id)
-  const px = chartPixels(info, s.map.tiles, s.map.terrain, (x, y) => seenTile(s, s.map.id, info.w, x, y), { fog: true, ghost, night }) as string[]
+  const px = chartPixels(info, s.map.tiles, s.map.terrain, (x, y) => seenTile(s, s.map.id, info.w, x, y), { fog: true, ghost, night, view: s.view }) as string[]
   return { w: info.w, h: info.h, inks: chartInks(info.def), px }
 }
 
 const layers = /* @__PURE__ */ new WeakMap<GameState['map'], { key: string; layer: ChartLayer }>()
 
-/** The current map's chart, made again only when its tiles, what has been seen of it or the hour's level change. */
+/** The current map's chart, made again only when its tiles, the view, what has been seen of it or the hour's level change. */
 export function chartLayer(world: World, s: GameState): ChartLayer {
   const night = chartNight(world, s)
-  const key = `${s.map.id}|${s.map.version}|${s.explored?.[s.map.id] ?? ''}|${night}`
+  const key = `${s.map.id}|${s.map.version}|${s.view}|${s.explored?.[s.map.id] ?? ''}|${night}`
   const hit = layers.get(s.map)
   if (hit?.key === key) return hit.layer
   const layer = buildChart(world, s, true, night)

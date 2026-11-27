@@ -14,7 +14,7 @@
  * `landPicture`, `worldPicture` and `worldNames` what the two charts look like. All of them are pure;
  * `drawMapPage` paints them. A paused game is painted once, so nothing here moves.
  */
-import type { GameState, MapDef, World } from '../types'
+import type { GameState, MapDef, World, ViewSide } from '../types'
 import type { HudKeys } from '../keys'
 import { mapDef, mapInfo } from '../engine/map'
 import { charted, seenTile } from '../engine/explore'
@@ -23,7 +23,7 @@ import { viewList } from '../views'
 import { drawMenuTabs, hudFont, type HudFont, type HudSkin } from './hud'
 import {
   Buf, CAP_H, CAP_W, CORNER_SKIN, GEM_H, GEM_W, PLATE_H, STUB, chartProjection, cornerParts, hasGem, pinName,
-  renderCorner, stampCap, stampChain, stampGem, stampPlate, sunPhase, TURN_STEPS, type CornerPicture, type PinName,
+  renderCorner, stampCap, stampChain, stampGem, stampPlate, sunPhase, RULE_TAGS, TURN_STEPS, type CornerPicture, type PinName,
   type RoundView,
 } from './corner'
 import {
@@ -220,6 +220,8 @@ export interface PageLayoutOpts {
   font: Pick<HudFont, 'width'>
   /** There is a Prism (`hasGem`), and the one view it is pinned to (`pinName`). */
   gem: boolean
+  /** The rule on the Prism's plate in place of the view (`MapPageOpts.rule`). */
+  rule?: ViewSide | null
   pin: PinName | null
 }
 
@@ -385,7 +387,7 @@ function chartBlock(o: PageLayoutOpts, z: number, maxRight: number): Chart & { b
   let cap: Box | null = null
   let chain: Box | null = null
   if (o.gem) {
-    const text = o.pin ? `${o.pin} ONLY` : o.iso ? 'ISO' : '8-BIT'
+    const text = o.pin ? `${o.pin} ONLY` : o.rule ? RULE_TAGS[o.rule] : o.iso ? 'ISO' : '8-BIT'
     const key = o.keys && !o.pin
     const right = Math.min(maxRight, cx + (o.iso ? 7 : 6))
     gem = { x: right - GEM_W, y: cy - Math.floor(GEM_H / 2), w: GEM_W, h: GEM_H }
@@ -1123,7 +1125,7 @@ export function worldPicture(world: World, s: GameState, o: { k: number; density
       const info = mapInfo(world, r.id)
       const live = r.id === s.map.id
       const tiles = live ? s.map.tiles : info.base
-      const px = chartPixels(info, tiles, live ? s.map.terrain : undefined, (x, y) => seenTile(s, r.id, r.w, x, y), { fog: false, night })
+      const px = chartPixels(info, tiles, live ? s.map.terrain : undefined, (x, y) => seenTile(s, r.id, r.w, x, y), { fog: false, night, view: s.view })
       const plate = dimInk(chartInks(info.def).ground, night)
       for (let y = 0; y < land.h; y++) {
         for (let x = 0; x < land.w; x++) {
@@ -1245,6 +1247,8 @@ export interface MapPageOpts {
   round?: readonly RoundView[]
   /** The keyboard's focus is on the Prism's button: the corner's gold ring round it. */
   focus?: boolean
+  /** The view rule turning on its own (no isometric picture, a map with view blocks): the Prism's plate names it. */
+  rule?: ViewSide | null
   /** Told where everything was laid, for what stands over the canvas (the Prism's button). */
   placed?: (page: PageLayout) => void
 }
@@ -1297,7 +1301,9 @@ export function mapPageFor(world: World, s: GameState, vw: number, vh: number, o
     bottom: pageBottom(vh, o, css),
     safe: o.safe,
     font: hudFont(skin),
-    gem: hasGem(round),
+    // (With a rule to turn there is a Prism to turn it by, whatever the round holds.)
+    gem: hasGem(round) || !!o.rule,
+    rule: o.rule,
     pin: pinName(def, round),
   }
   return { layout: mapPageLayout(vw, vh, opts, atlasBox(world)), opts }

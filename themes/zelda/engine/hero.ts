@@ -9,10 +9,10 @@ import {
   HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
-import { TILE_INFO } from '../world/tiles'
+import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
-import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
+import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, stepClear, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
 import { outOfReach } from './terrain'
 import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero, tubeWords } from './puzzles/index'
@@ -56,6 +56,8 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
     if (h.actT > 0.55) {
       h.x = h.safe.x
       h.y = h.safe.y
+      // (A view block may have risen on that spot since: beside it, then.)
+      stepClear(c.w, s)
       h.act = 'idle'
       h.actT = 0
       h.invuln = 0
@@ -1019,6 +1021,8 @@ function setBomb(c: Ctx) {
   let bx = h.x + v.x * 0.7
   let by = h.y + v.y * 0.7
   if (circleBlocked(c.w, s.map, bx, by, 0.2, 'enemy')) { bx = h.x; by = h.y }
+  // Not on a view block's tile, up or down: nothing but the hero may be where one rises.
+  if (isViewBlock(tileAt(s.map, Math.floor(bx), Math.floor(by)))) { c.ev.push({ type: 'error' }); return }
   s.inv.bombs--
   s.map.bombs.push({ id: nextId(s), x: bx, y: by, t: 0 })
   h.act = 'use'

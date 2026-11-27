@@ -19,6 +19,7 @@
  * for pixel, which is what lets one view turn into the other.
  */
 import type { MapKind, TileChar } from '../../types'
+import { isViewBlock } from '../../world/tiles'
 
 export type At = (dx: number, dy: number) => TileChar
 
@@ -55,7 +56,9 @@ const RUNS = new Set<TileChar>(['F', '¤', 'n', 'w', '(', '[', 'q', 'l'])
 
 /**
  * The shape of tile `t`. `own`: an exit draws this tile itself (a cabinet, a
- * kiosk), so the tile is bare ground. `raised`: a crystal block that is up.
+ * kiosk), so the tile is bare ground. `raised`: a block that goes up and down (a crystal block, a view block) is
+ * up. Which are is asked tile by tile (`raised`, `blockUp`); a view block that is up is a low block of its own
+ * (`view.ts`), its shape here a card's.
  */
 export function shapeOf(t: TileChar, kind: MapKind, at: At, own = false, raised = false): Shape {
   if (own) return FLAT
@@ -92,7 +95,7 @@ export function shapeOf(t: TileChar, kind: MapKind, at: At, own = false, raised 
     if (t === 'D') return isWall(at(-1, 0)) && isWall(at(1, 0)) && !isWall(at(0, 1)) && at(0, 1) !== 'D' ? FACE0 : FLAT
   }
   if (isTree(t)) return isTree(at(0, 1)) ? CANOPY : CARD
-  if (t === 'P' || t === 'C') return raised ? CARD : FLAT
+  if (t === 'P' || t === 'C' || isViewBlock(t)) return raised ? CARD : FLAT
   if (CARDS.has(t)) return CARD
   if (RUNS.has(t)) {
     if (at(-1, 0) === t || at(1, 0) === t) return FACE0

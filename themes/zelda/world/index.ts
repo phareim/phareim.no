@@ -14,6 +14,7 @@ import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
 import { PUZZLELAB } from './puzzlelab'
+import { TURNROOM } from './turnroom'
 import { linkBack } from './demos'
 import { ATLAS, rescueGone } from './atlas'
 import { LANDS } from './lands'
@@ -39,6 +40,8 @@ export const WORLD: World = {
     deep2: DEEP2,
     // The physical puzzles' lab (`engine/puzzles/`), inside Stillsand's gold pyramid.
     puzzlelab: linkBack(PUZZLELAB),
+    // The view as a rule, taught in one room (a door in the Puzzle Lab).
+    turnroom: TURNROOM,
     // The lands around the coast and the Wildwood (docs/worlds/atlas.md).
     ...LANDS,
   },
