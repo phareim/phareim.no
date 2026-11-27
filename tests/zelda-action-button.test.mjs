@@ -75,6 +75,14 @@ describe('the A button', () => {
     // A person.
     goTo(OX + 8, 30, 'up')
     would('talk', 'the Keeper')
+    // A foe awake within 8 tiles: A is the blade for people too, and the picture says so; the foe gone, the Keeper again.
+    s.map.enemies.push({ ...foe, x: s.hero.x + 3, y: s.hero.y })
+    would('blade', 'the Keeper, with a foe awake')
+    assert.ok(press(s).includes('swing'))
+    assert.equal(s.dialog, null)
+    s.map.enemies.pop()
+    P.frames(s, 40)
+    would('talk', 'the Keeper, the foe gone')
     assert.ok(press(s).includes('talk'))
     assert.equal(s.dialog?.who, 'keeper')
     // The lines closed and A not yet rested: a tap too many only swings, and the button says so.

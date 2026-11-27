@@ -9,6 +9,10 @@
 //   (c) a hero who says YES to everything and cuts nothing: the lobby, the robe, full hearts, nothing else touched, no
 //       heart ever lost to the Sycophant, and nothing opened;
 //   (d) THE END is never the ending, saves nothing, and locks nobody in.
+// The review's fixes (tmp/dungeons/briefs/20-steamhouse-fixes.md) are folded into these four: a tap at an offer is a NO
+// and a bath from the suite opens the lobby's gate once the hounds are down (a, c); the Laundry's baskets cannot be
+// pushed into a doorway and go home on leaving, and a gift never lands outside its paint (b); the bar is gold while the
+// banner hangs (a).
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -23,7 +27,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zeld
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './engine/index'; export { WORLD } from './world/index'; export * from './types'; export { validateWorld } from './world/validate'; export { clockOf } from './engine/attendants'; export { throwerLanes } from './engine/gifts'; export { stencilsOf } from './engine/stencils'`,
+      contents: `export * from './engine/index'; export { WORLD } from './world/index'; export * from './types'; export { validateWorld } from './world/validate'; export { clockOf } from './engine/attendants'; export { throwerLanes, flightLane } from './engine/gifts'; export { stencilsOf } from './engine/stencils'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -90,9 +94,14 @@ describe('the Steamhouse', () => {
     me.until(() => s.mode === 'dialog', 300)
     assert.deepEqual([s.entry.entry, s.dialog.ask.options, s.dialog.choice], ['door', ['NO', 'YES'], 0], 'the cursor starts on NO')
     assert.ok(!s.hero.robe)
+    // A tap on the right of the screen is no YES to an attendant: it confirms the cursor, which is on NO.
+    while (s.dialog.chars < s.dialog.lines[0].length) { me.tick({ aPress: true }); me.tick() }
+    me.tick()
+    me.tick({ aPress: true, tapSide: 1 })
+    assert.match(s.dialog.lines[0], /OF COURSE/, 'a tap on the right of the screen says NO')
     // A NO, and the hero stays in the ring: a clock turns, pink for its last stretch, and then the attendant says YES for
     // them. (The bath is the same bath as a YES's.)
-    me.read(0)
+    me.read()
     const lobbyAttendant = s.map.npcs.find(n => n.id === 'steam.lobby')
     const seen = []
     me.until(() => s.mode !== 'play', 8 * FPS, () => { const c = Z.clockOf(lobbyAttendant); if (c) seen.push(c); return {} })
@@ -164,6 +173,13 @@ describe('the Steamhouse', () => {
     me.until(() => s.mode === 'dialog', 200)
     me.read()
     assert.ok(s.flags['item:no'] && s.flags['chest:steamhouse.no'])
+    // The lever by the chest, thrown under the hounds' noses: the lobby's gate waits for them to fall.
+    me.until(() => Math.hypot(s.hero.x - 24.5, s.hero.y - 2.6) < 0.15, 900, () => ({ move: unit(24.5 - s.hero.x, 2.6 - s.hero.y) }))
+    for (let i = 0; i < 20; i++) me.tick({ move: { x: 0, y: -0.2 } })
+    me.tick({ aPress: true })
+    assert.ok(s.flags['steamhouse.back'], 'the lever is thrown')
+    for (let i = 0; i < 20; i++) me.tick()
+    assert.equal(s.map.tiles[idx(23, 11)], 'X', 'the lobby gate waits while a hound lives: nobody stands in its doorway out of reach')
 
     // The fight, THE NO in hand. The tough hound is fought by the blade alone: its strike is rolled off, and the blade
     // takes it while it stands open. The plain hound's lunge is met by a cut at its first moment (a press too late
@@ -216,14 +232,9 @@ describe('the Steamhouse', () => {
     for (let i = 0; i < 30; i++) me.tick()
     assert.ok(s.flags['gate:steamhouse.16,5'] && s.map.tiles[idx(16, 5)] === '.', 'the room is clear: the way back opens')
 
-    // The lever by the chest opens the barred gate to the lobby; the short way home is two rooms.
-    assert.equal(s.map.tiles[idx(23, 11)], 'X')
-    me.walk(24.5, 2.6)
-    for (let i = 0; i < 20; i++) me.tick({ move: { x: 0, y: -0.2 } })
-    me.tick({ aPress: true })
-    assert.ok(s.flags['steamhouse.back'], 'the lever is thrown')
-    for (let i = 0; i < 10; i++) me.tick()
+    // The lever's gate to the lobby opens with the room's clearing; the short way home is two rooms.
     assert.equal(s.map.tiles[idx(23, 11)], '.')
+    me.walk(24.5, 2.6)
     me.walk(23.5, 9.5)
     me.until(() => s.zoneIndex === 4 && s.mode === 'play', 600, () => ({ move: { x: 0, y: 1 } }))
     assert.equal(s.map.id, 'steamhouse')
@@ -253,7 +264,7 @@ describe('the Steamhouse', () => {
     let told = 0
     let refused = 0
     for (let f = 0; f < 60 * FPS && !s.flags['steamhouse.shop']; f++) {
-      told = Math.max(told, Z.throwerLanes(s).length)
+      told = Math.max(told, Z.throwerLanes({ w: Z.WORLD, s }).length)
       const flying = gifts().length
       const ev = me.tick(thumb(2.1, f))
       if (ev.some(e => e.type === 'refuse')) { assert.equal(gifts().length, 0, 'a no is a no: none is left in the air'); refused += flying }
@@ -350,7 +361,7 @@ describe('the Steamhouse', () => {
     for (let i = 0; i < 3 * FPS; i++) me.tick({ move: { x: 0, y: -1 } })
     assert.ok(s.hero.y > 4 && s.hero.y < 4.5, `the banner holds (${s.hero.y.toFixed(2)})`)
     for (let i = 0; i < FPS; i++) me.tick({ aPress: i % 8 === 0 })
-    assert.ok(boss.hp === 1 && !s.dialog && !Z.bossOpen(boss), 'a cut at its middle passes through')
+    assert.ok(boss.hp === 1 && !s.dialog && Z.bossOpen(boss), 'a cut at its middle passes through, and the bar is gold while the corner can be torn')
     me.walk(26.5, 6)
     me.until(() => boss.ai.mode !== 'hung', 3 * FPS, f => ({ move: unit(26.5 - s.hero.x, 4.3 - s.hero.y, s.hero.y > 4.5 ? 1 : 0.2), aPress: s.hero.y <= 4.6 && f % 8 === 0 }))
     assert.equal(boss.hp, 1, 'the corner takes no hit point')
@@ -424,6 +435,70 @@ describe('the Steamhouse', () => {
     held.until(() => held.s.zoneIndex === 0 && held.s.mode === 'play', 300, left)
     held.until(() => held.s.map.id === 'steamhouse' && held.s.mode === 'play', 600, left)
     assert.equal(held.s.entry.entry, 'fromstair')
+
+    // THE LAUNDRY: a basket is never pushed to a stop in a doorway, and the baskets go home when the hero comes back.
+    const wash = player({ at: { map: 'steamhouse', entry: 'baths' }, seed: 3 })
+    const ws = wash.s
+    const at = (x, y) => ws.map.tiles[idx(ws, x, y)]
+    const tele = (x, y, zone) => { ws.hero.x = x; ws.hero.y = y; wash.until(() => ws.zoneIndex === zone && ws.mode === 'play', 300) }
+    tele(7.5, 9.5, 0)
+    // Two baskets at the south doorway's mouth, pushed south: they stay where they are.
+    ws.map.tiles[idx(ws, 7, 10)] = 'b'; ws.map.tiles[idx(ws, 8, 10)] = 'b'
+    for (const x of [7.5, 8.5]) {
+      ws.hero.x = x; ws.hero.y = 9.0
+      for (let i = 0; i < 120; i++) wash.tick({ move: { x: 0, y: 1 } })
+    }
+    assert.deepEqual([at(7, 10), at(8, 10), at(7, 11), at(8, 11)], ['b', 'b', '.', '.'], 'no basket in the south doorway')
+    // The gate open, two baskets on the way east: the corridor mouth stays clear.
+    for (const x of [14, 15]) for (const y of [5, 6]) ws.map.tiles[idx(ws, x, y)] = '.'
+    ws.flags['gate:steamhouse.14,5'] = true
+    ws.map.tiles[idx(ws, 13, 5)] = 'b'; ws.map.tiles[idx(ws, 13, 6)] = 'b'
+    for (const y of [5.5, 6.5]) {
+      ws.hero.x = 12.0; ws.hero.y = y
+      for (let i = 0; i < 160; i++) wash.tick({ move: { x: 1, y: 0 } })
+    }
+    assert.deepEqual([at(14, 5), at(14, 6), at(15, 5), at(15, 6)], ['b', 'b', '.', '.'], 'no basket in the east doorway')
+    // Out by the south door and back in: the baskets are home, solved room or not.
+    tele(7.5, 14.5, 3)
+    tele(7.5, 9.5, 0)
+    assert.deepEqual([at(3, 4), at(12, 4), at(14, 5), at(7, 10)], ['b', 'b', '.', '.'], 'the baskets come home')
+
+    // The Gift Shop, many seeds, a hero put down at random places and often just outside a lane: a gift that lands on
+    // him (the bath begins) lands inside the paint, which runs from the sleeve to the wall the gift bursts on.
+    let landed = 0
+    let nearMiss = 0
+    for (let seed = 1; seed <= 10; seed++) {
+      const me = player({ at: { map: 'steamhouse', entry: 'baths' }, seed })
+      const { s } = me
+      s.hero.x = 29.5; s.hero.y = 17.5
+      me.until(() => s.zoneIndex === 4 && s.mode === 'play', 300)
+      me.leave(1, 0, () => s.zoneIndex === 5)
+      let r = seed * 7919
+      const rnd = () => { r = (r * 1103515245 + 12345) & 0x7fffffff; return r / 0x7fffffff }
+      const lw = { w: Z.WORLD, s }
+      const memory = new Map()
+      for (let f = 0; f < 50 * FPS && s.mode === 'play'; f++) {
+        const gifts = s.map.projectiles.filter(q => q.kind === 'gift')
+        for (const p of gifts) if (!memory.has(p.id)) memory.set(p.id, Z.flightLane(p, lw))
+        const lanes = [...Z.throwerLanes(lw), ...gifts.map(p => memory.get(p.id))]
+        if (f % 20 === 0) {
+          // A spot beside a lane (0.6 to 1.0 tiles off its middle) or anywhere on the floor.
+          const L = lanes[Math.floor(rnd() * lanes.length)]
+          if (L && rnd() < 0.8) {
+            const dx = L.x1 - L.x0, dy = L.y1 - L.y0, len = Math.hypot(dx, dy) || 1
+            const u = 0.5 + rnd() * (len - 0.5), lat = (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.4)
+            const x = L.x0 + (dx / len) * u - (dy / len) * lat, y = L.y0 + (dy / len) * u + (dx / len) * lat
+            if (x > 33.5 && x < 46.5 && y > 16 && y < 19.8) { s.hero.x = x; s.hero.y = y }
+          } else { s.hero.x = 33.5 + rnd() * 13; s.hero.y = 16 + rnd() * 3.8 }
+        }
+        const ev = me.tick()
+        if (ev.some(e => e.type === 'bath')) {
+          landed++
+          assert.ok(lanes.some(L => Z.inStencil(L, s.hero.x, s.hero.y)), `seed ${seed}: a gift landed on ${s.hero.x.toFixed(2)},${s.hero.y.toFixed(2)} outside every lane`)
+        } else if (lanes.some(L => !Z.inStencil(L, s.hero.x, s.hero.y) && Math.abs((s.hero.y - L.y0) * (L.x1 - L.x0) - (s.hero.x - L.x0) * (L.y1 - L.y0)) / Math.hypot(L.x1 - L.x0, L.y1 - L.y0) < 0.85)) nearMiss++
+      }
+    }
+    assert.ok(landed >= 5 && nearMiss >= 50, `the trial is not empty (${landed} landed, ${nearMiss} steps just outside a lane)`)
   })
 
   it('gives a hero who says YES to everything, and cuts nothing, a bath, a robe and full hearts, and nothing else', () => {
@@ -438,7 +513,7 @@ describe('the Steamhouse', () => {
       return me
     }
     /** What a bath may never touch, and the flags the house itself sets (a first offer, a first meeting, a first bath). */
-    const kept = s => ({ inv: JSON.stringify(s.inv), flags: Object.keys(s.flags).filter(f => !/^(steamhouse\.(visited|bathed|bathed\.said)|steamsuite\.met|gate:)/.test(f)).sort() })
+    const kept = s => ({ inv: JSON.stringify(s.inv), flags: Object.keys(s.flags).filter(f => !/^(steamhouse\.(visited|bathed|bathed\.said|back)|steamsuite\.met|gate:)/.test(f)).sort() })
     const bathed = (me, was) => {
       me.until(() => me.s.map.id === 'steamhouse' && me.s.hero.robe && me.s.mode !== 'warp', 900)
       me.tick()
@@ -483,6 +558,14 @@ describe('the Steamhouse', () => {
     assert.ok(hp > 7, 'it topped them up')
     assert.equal(s.map.tiles[1 * s.map.w + 23], 'X', 'the gate stays shut')
     bathed(still, was)
+    // A bath from the suite opens the way back to the stair: the lobby's north gate. It still waits for the boiler's
+    // hounds (they are alive here), and opens the moment they are down.
+    assert.ok(s.flags['steamhouse.back'], 'a bath from the Best Room sets the short way')
+    for (let i = 0; i < 20; i++) still.tick()
+    assert.equal(s.map.tiles[12 * s.map.w + 23], 'X', 'the gate waits for the hounds')
+    s.flags['gate:steamhouse.16,5'] = true
+    for (let i = 0; i < 20; i++) still.tick()
+    assert.equal(s.map.tiles[12 * s.map.w + 23], '.', 'and then the stair is two rooms from the pool')
     assert.ok(!still.events.some(e => e.type === 'hurt' || e.type === 'bossDown'))
     const upstairs = Z.createGame(Z.WORLD, { save: { ...Z.toSave(s), map: 'steamsuite', entry: 'stair' } })
     assert.deepEqual(upstairs.map.enemies.map(e => [e.kind, e.hp]), [['sycophant', 4]])

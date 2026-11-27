@@ -162,7 +162,7 @@ export function bossOpen(e: Enemy): boolean {
     // Thinking, while this thought still has blows to give.
     case 'parrot': return mode === 'think' && ((e.ai.took as number | undefined) ?? 0) < PARROT.take
     // Its smile slipped: a gift was refused.
-    case 'sycophant': return mode === 'slip'
+    case 'sycophant': return mode === 'slip' || mode === 'hung'
     // Dazed, while this daze still has blows to give.
     case 'grok': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
     case 'phi': return phiOpen(e)

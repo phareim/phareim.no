@@ -13,7 +13,7 @@ import type { Enemy, GameState, GiftKind, Npc, TileChar, ViewSide, World } from 
 import { TILE } from '../types'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { BANNER, CARDS, heldGifts, SYCO } from '../engine/bossSycophant'
-import { giftGold, GIFTS, laneOf, nextGift, sleeveOf, throwerLanes } from '../engine/gifts'
+import { flightLane, giftGold, GIFTS, nextGift, sleeveOf, throwerLanes } from '../engine/gifts'
 import { stencilsOf } from '../engine/stencils'
 import { sprite } from './sheet'
 import { clockOf, HOUSE } from '../engine/attendants'
@@ -103,7 +103,8 @@ export function steamLights(lights: Light[], world: World, s: GameState, time: n
     if (clockOf(n)) lights.push({ x: n.x, y: n.y - 1.25, r: 0.9, color: '#fff4ff', a: 0.85 })
   }
   // The lanes keep their pink under the dim ambient: a little of their own light along each.
-  const lanes = [...throwerLanes(s), ...s.map.enemies.flatMap(stencilsOf), ...s.map.projectiles.flatMap(p => (p.kind === 'gift' && p.to ? [laneOf(p.x, p.y, p.to, 0)] : []))]
+  const lw = { w: world, s }
+  const lanes = [...throwerLanes(lw), ...s.map.enemies.flatMap(e => stencilsOf(e, lw)), ...s.map.projectiles.flatMap(p => (p.kind === 'gift' ? [flightLane(p, lw)] : []))]
   for (const l of lanes) {
     if (l.t !== 'ray') continue
     const len = Math.hypot(l.x1 - l.x0, l.y1 - l.y0)

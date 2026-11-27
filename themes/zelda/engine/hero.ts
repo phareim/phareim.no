@@ -18,7 +18,7 @@ import { useLamp } from './lamp'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
-import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, stepClear, tileAt, cellIndex } from './map'
+import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, stepClear, tileAt, cellIndex, cellRect } from './map'
 import { fireHook } from './hook'
 import { useMagnet } from './magnet'
 import { hitPuzzle, iceUnder, pushPuzzle, puzzleFloor, slideHero } from './puzzles/index'
@@ -968,6 +968,15 @@ function throwCarried(c: Ctx) {
   c.ev.push({ type: 'throw' })
 }
 
+/** A doorway gap of the tile's camera room: on its outer ring with walkable floor just outside, or an exit or a warp. A pushed block never stops in one. */
+function inDoorway(c: Ctx, x: number, y: number): boolean {
+  const info = c.info
+  if (info.exits.has(y * info.w + x) || info.warps.some(w => x >= w.x && x < w.x + w.w && y >= w.y && y < w.y + w.h)) return true
+  const r = cellRect(info, cellIndex(info, x + 0.5, y + 0.5))
+  const open = (ox: number, oy: number) => ox >= 0 && oy >= 0 && ox < info.w && oy < info.h && !TILE_INFO[tileAt(c.s.map, ox, oy)].solid
+  return (x === r.x && open(x - 1, y)) || (x === r.x + r.w - 1 && open(x + 1, y)) || (y === r.y && open(x, y - 1)) || (y === r.y + r.h - 1 && open(x, y + 1))
+}
+
 function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
   if (pushPuzzle(c, tx, ty, d)) return
   const s = c.s
@@ -982,6 +991,7 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
   if (echoOnTile(c, nx, ny)) return
   // Stay inside the block's camera room.
   if (cellIndex(c.info, nx + 0.5, ny + 0.5) !== cellIndex(c.info, tx + 0.5, ty + 0.5)) return
+  if (inDoorway(c, nx, ny)) return
   m.tiles[ty * m.w + tx] = '.'
   m.tiles[ny * m.w + nx] = 'b'
   m.version++

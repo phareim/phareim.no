@@ -216,7 +216,7 @@ function enterCell(c: Ctx, index: number) {
   if (authored) {
     // (A trap gate beaten is a fight won, not a puzzle solved.)
     const gateSolved = c.info.gates.some(g => !g.trap && g.cell === index && has(s, `gate:${g.id}`))
-    if (!gateSolved) {
+    if (!gateSolved || cellDef(c.info, index)?.homeBlocks) {
       const r = cellRect(c.info, index)
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
         const t = m.tiles[y * m.w + x]
@@ -525,7 +525,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
       d.choice = inp.move.x < -0.5 ? 0 : inp.move.x > 0.5 ? 1 : d.choice === 1 ? 0 : 1
       c.ev.push({ type: 'choose' })
     }
-    if (inp.aPress && inp.tapSide) d.choice = inp.tapSide < 0 ? 0 : 1
+    if (inp.aPress && inp.tapSide && !d.ask?.noTapSide) d.choice = inp.tapSide < 0 ? 0 : 1
     if (d.ask && inp.aPress) {
       // The reply carries the offer's own flags, and the pick's `after` (the Steamhouse's YES starts the bath).
       const pick = d.ask.after?.[d.choice ?? 0]

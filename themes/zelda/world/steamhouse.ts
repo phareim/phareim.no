@@ -32,11 +32,12 @@ const npc = (id: string, look: Npc['look'], talk: TalkBranch[], more: Partial<Np
 
 /**
  * The offer, the same words at every attendant. NO is the first option, so the cursor starts on it and a thumb that
- * taps through a one-line offer without reading says NO. YES starts THE BATH when its reply is read.
+ * taps through a one-line offer without reading says NO (`noTapSide`: a tap confirms the cursor and picks no side; YES is the stick or the arrow, then A). YES starts THE BATH when its reply is read.
  */
 const OFFER: TalkBranch = {
   lines: ['ATTENDANT: WELCOME! A WARM TOWEL? YOU LOOK SO TIRED.'],
   ask: {
+    noTapSide: true,
     options: ['NO', 'YES'],
     replies: [['ATTENDANT: OF COURSE. OF COURSE.'], ['ATTENDANT: LOVELY. THIS WAY.']],
     after: [null, { bath: true }],
@@ -96,6 +97,7 @@ const LAUNDRY = [
   '#######..#######',
 ]
 
+// (The rocks beside the coal are boulders `R`, which cannot be lifted: a lifted rock in a fight is a hero who cannot cut.)
 // The gate in the west doorway shuts behind the hero while a hound lives (`z`). THE NO in the north-east corner of
 // the fighting floor (`1`), the lever (`7`) beside it; east of the partition the gate (`4`) opens to a hero who holds
 // THE NO, and past it the stair (`5`). The lobby's barred gate is the two `X` in the south wall.
@@ -109,8 +111,8 @@ const BOILER = [
   'X..........X...#',
   '#..u.......#...#',
   '#..........#...#',
-  '#.rr6......#####',
-  '#.r........#####',
+  '#.RR6......#####',
+  '#.R........#####',
   '#######XX#######',
 ]
 
@@ -141,7 +143,7 @@ export const STEAMHOUSE: MapDef = {
   resume: true,
   cell: { w: 16, h: 12 },
   cells: {
-    '0,0': { name: 'THE LAUNDRY' },
+    '0,0': { name: 'THE LAUNDRY', homeBlocks: true },
     '1,0': { name: 'THE BOILER ROOM' },
     '0,1': { name: 'THE BATHS' },
     '1,1': {
@@ -167,7 +169,10 @@ export const STEAMHOUSE: MapDef = {
     d: sign('PLEASE SIGN IN. SIGNING OUT IS NOT OFFERED.'),
     k: { tile: 'S', ent: { t: 'sign', lines: ['ROBES ON THE HOOKS, PLEASE. THEY WILL BE MISSED.'], robe: true } },
     s: sign('STAFF ONLY.\nOPENS FROM THE OTHER SIDE.'),
-    g: { tile: 'X', ent: { t: 'gate', open: { flag: 'steamhouse.back' } } },
+    // (Opens to the lever or a bath from the suite AND the boiler's hounds being down, the trap gate's own flag: a hero
+    // in the doorway under the lever could not be touched by the hounds. He is never locked in: the boiler's west gate
+    // is open until the hounds are, and opens for good with them.)
+    g: { tile: 'X', ent: { t: 'gate', open: { flags: ['steamhouse.back', 'gate:steamhouse.16,5'] } } },
     // The baths.
     e: attendant('steam.baths', 2.5),
     h: sign('SCREENS FOR YOUR COMFORT. THEY ARE NOT THERE IF YOU LOOK AT THE PLAN.'),
@@ -185,7 +190,7 @@ export const STEAMHOUSE: MapDef = {
     '5': { tile: '>', ent: { t: 'warp', to: 'steamsuite', entry: 'stair' } },
     '6': npc('steam.puff', 'smoker', [{ lines: ['PUFF: NOBODY ASKS HOW I AM IN HERE. IT IS A RELIEF.'] }]),
     // (Two hounds, in the west half: the tough one by the boiler, the plain one by the chest's side of the room.)
-    u: { ent: { t: 'enemy', kind: 'hound', tough: true, once: 'steamhouse.hound', dir: 'right' } },
+    u: { ent: { t: 'enemy', kind: 'hound', tough: true, first: 1.2, once: 'steamhouse.hound', dir: 'right' } },
     v: { ent: { t: 'enemy', kind: 'hound', once: 'steamhouse.pup', dir: 'right' } },
     // The gift shop: its two throwers, and the heart piece behind the gate they open.
     '8': thrower('steam.shop.long'),

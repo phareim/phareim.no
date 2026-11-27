@@ -19,7 +19,7 @@
 import type { Enemy, GameState, Vec } from '../types'
 import { HERO_R } from '../types'
 import { type Ctx, type HitSource, killEnemy } from './combat'
-import { GIFT_KINDS, GIFTS, launchGift, laneOf } from './gifts'
+import { GIFT_KINDS, GIFTS, launchGift, laneOf, type LaneWorld } from './gifts'
 import { openDialog } from './hero'
 import { cellRect } from './map'
 import type { Stencil } from './stencils'
@@ -44,6 +44,8 @@ export const SYCO = {
   apart: [0, 0.35, 0.3],
   /** How far out its side sleeves hold a gift. */
   sleeve: 1.2,
+  /** The sleeves keep this far in from the room's side walls: the corner pillars end 2 tiles in. */
+  pillarX: 2.2,
   /** Open this long; it drifts to the hero this fast and stops this far off. */
   slip: 2.8,
   approach: 1.5,
@@ -99,7 +101,9 @@ const num = (e: Enemy, k: string) => (e.ai[k] as number | undefined) ?? 0
 /** Where the volley's i-th gift of n is held: one gift on the side toward its spot, two at the sleeves, a third between. */
 export function sleevePos(e: Enemy, i: number, n: number): Vec {
   const side = n === 1 ? (num(e, 'tx') < e.x ? -1 : 1) : i === 0 ? -1 : i === 1 ? 1 : 0
-  return { x: e.x + side * SYCO.sleeve, y: e.y + (side ? 0 : 0.7) }
+  // Never inside a pillar (the room's four stand in its corners, two tiles in from the walls): clamp x clear of them.
+  const rx = Math.floor(e.x / 16) * 16
+  return { x: clamp(e.x + side * SYCO.sleeve, rx + SYCO.pillarX, rx + 16 - SYCO.pillarX), y: e.y + (side ? 0 : 0.7) }
 }
 
 /** The gifts of the volley being told or thrown that have not left a sleeve yet: where each is held, and which it is. */
@@ -111,9 +115,9 @@ export function heldGifts(e: Enemy) {
 }
 
 /** The lanes of the gifts not yet thrown, painted from the sleeves to the spot the hero stood on when the tell began. */
-export function sycophantLanes(e: Enemy): Stencil[] {
+export function sycophantLanes(e: Enemy, lw?: LaneWorld): Stencil[] {
   const k = e.ai.mode === 'offer' ? 1 - Math.max(0, e.ai.t) / SYCO.tell[turn(e)]! : 1
-  return heldGifts(e).map(g => laneOf(g.x, g.y, { x: num(e, 'tx'), y: num(e, 'ty') }, clamp(k, 0, 1)))
+  return heldGifts(e).map(g => laneOf(g.x, g.y, { x: num(e, 'tx'), y: num(e, 'ty') }, clamp(k, 0, 1), lw))
 }
 
 /**

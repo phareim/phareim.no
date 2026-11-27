@@ -581,6 +581,8 @@ export interface TalkAsk {
   replies: [string[], string[]]
   /** What closing each reply does (one per answer): the Steamhouse's YES starts the bath (`engine/attendants.ts`). */
   after?: [Dialog['after'], Dialog['after']]
+  /** A tap does not pick a side: it confirms the cursor (which starts on the first option). The attendants' offer. */
+  noTapSide?: true
 }
 
 /** Entity placed by a marker char in the rows. */
@@ -593,6 +595,8 @@ export type EntDef =
     tough?: boolean
     /** A dark hound (`DARK_HOUND`): a tough hound only (`validate.ts`). */
     dark?: boolean
+    /** Seconds before its first prowl step (default 0.4, set when its room is entered). */
+    first?: number
   }
   | {
     t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond
@@ -741,6 +745,8 @@ export interface CellDef {
   name?: string
   /** This room is this many cells high, from here down (a side map's climb). */
   tall?: number
+  /** Its push blocks go home whenever the hero comes back in, solved or not (a gate that opened stays open). */
+  homeBlocks?: true
   dark?: boolean
   /** A dark room is lit once this flag is set (the lab's power). */
   lit?: string
@@ -970,6 +976,8 @@ export interface Enemy {
   tough?: boolean
   /** A dark hound (the mark's `dark`, `DARK_HOUND`): unseen in the dark but for its eyes; it aims as its tell begins. */
   dark?: boolean
+  /** The mark's `first`: seconds to its first prowl step when its room is entered. */
+  first?: number
   /** Spawn point, for respawning on room re-entry. */
   home: Vec
   dead: boolean

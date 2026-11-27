@@ -2016,7 +2016,8 @@ and falls back to the sword at once when it is no longer true; a change pops fro
 85 % to full size in 120 ms (not with reduced motion). The picture is never
 anything but what the press does (`aWould` is `aPlan`'s picture), in a fight
 too: a pot can be lifted and a lever pulled with a foe at arm's length, and the
-button says so. Pictures:
+button says so. A person in front of the hero is skipped while a foe is awake
+within 8 tiles (as Luna is): the press swings, and the button says SWORD. Pictures:
 `render/spritesPad.ts` (coins: `item_bits`), in the 16-bit dress through EPX as
 the sword is.
 
@@ -2117,7 +2118,8 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
   walks inside the ring (default 2.5 tiles, drawn white and dashed flat on the
   floor, `render/steamPaint.ts`) in a visit, the brain opens the attendant's
   first talk branch: a two-way ask whose first answer is NO, so the cursor starts
-  on it. YES starts THE BATH when its reply is read (`TalkAsk.after`, `Dialog
+  on it; a tap confirms the cursor and picks no side (`TalkAsk.noTapSide`), so YES
+  is the stick or the arrow, then A, and a thumb that taps through says NO. YES starts THE BATH when its reply is read (`TalkAsk.after`, `Dialog
   after.bath`). After a NO, or B, a clock fills over 5.0 s while the hero stays
   in the ring (white arc over the head, pink for its last 1.5 s; outside the ring
   it drains at twice the speed, and it never runs in a dialog); full, the
@@ -2141,8 +2143,9 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
   - *A blow, anywhere in the world.* The window opens at the hit frame of the
     chain's opening swing, or with a spin, and closes 0.10 s after the swing ends
     (about 0.25 s; 0.5 s for the spin); after one has opened no other does for
-    0.9 s (`Hero.refuseCool`), so mashing A never covers a hero for more than a
-    third of the time. An ordinary or tough foe's contact or lunge at the moment
+    0.9 s (`Hero.refuseCool`), except that a spin opens its own window at once
+    and sets the cooldown, so a hero who mashes A is covered about 16 % of the
+    time, and one who spins on the beat about 44 %: never half. An ordinary or tough foe's contact or lunge at the moment
     it would have hurt (one call in `contact()`, `enemies.ts`), from a foe
     within 2.2 tiles in the front half of the swing's aim (all round for the
     spin), does nothing to the hero: no hurt, no knock, no mercy spent, a
@@ -2157,10 +2160,13 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
   - *An offer*: a gift (next).
 - *Gifts* (`engine/gifts.ts`, numbers in `GIFTS`; a projectile of kind `gift`:
   towel, tea, heart, star, flower, bell). A pink lane 1.4 tiles wide is painted
-  on the floor from the thrower to where the hero stands as the 1.2 s tell
-  begins; the gift then flies it at 2.0 tiles/s without steering, hits no foe
-  and is gone at the wall. It lands when it touches a hero neither rolling nor
-  in the air (not in its first 0.35 s), and that is a YES: THE BATH. With THE NO
+  on the floor from the thrower, through where the hero stands as the 1.2 s tell
+  begins, on to the wall the gift will burst on (`laneOf` marches the lane to
+  it); the gift then flies it at 2.0 tiles/s without steering, hits no foe
+  and is gone at the wall, the lane painted ahead of it all the way. It lands
+  when it touches a hero neither rolling nor in the air (not in its first
+  0.35 s), within `touch` + the hero's radius of its middle, which is the
+  lane's half width: the paint is exactly what lands. That is a YES: THE BATH. With THE NO
   any of the hero's swings that touches it (the blade's reach and 0.6 tiles, the
   front half of the aim; the spin all round) refuses it, with every other gift
   in the air and what was still to come of its volley. Without THE NO the blade
@@ -2169,13 +2175,20 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
 - *The Gift Shop* (optional). Two attendants in `throw` mode (`attend.stock`)
   lob a gift each every 3.0 s, 1.5 s apart. Four gifts refused in one visit set
   `steamhouse.shop`: the gate to a heart piece opens and they stand still.
-- *The other rooms.* The lobby's barred gate (`steamhouse.back`) opens only from
-  the boiler's lever. The baths' north doorway hides behind folding screens
+- *The other rooms.* The lobby's barred gate opens when the flag
+  `steamhouse.back` is set (by the boiler's lever, or by a bath taken from the
+  Best Room: the walk back from the pool is then two rooms) and the boiler's
+  hounds are down (the trap gate's own flag; a hero in the doorway under the
+  lever could not be touched by them). It cannot lock anyone in: the boiler's
+  west gate is open until the hounds are, and opens for good with them. The baths' north doorway hides behind folding screens
   (diamond blocks): in the isometric view the hero cannot pass, in the plan they
   are outlines on the floor. The laundry, hung with sheets (fence tiles), opens
-  its east gate when two baskets stand on two plates (leaving the room puts them
-  home until the gate has opened). The boiler's trap gate shuts behind the hero
-  while a hound lives; its east gate wants THE NO, so the Sycophant is never met
+  its east gate when two baskets stand on two plates (coming back into the room
+  puts them home, the gate open or not: `CellDef.homeBlocks`; a gate that has
+  opened stays open). No pushed block anywhere stops in a doorway (`inDoorway`
+  in `hero.ts`: a tile on the room's outer ring with open floor outside it, an
+  exit or a warp), so a basket can never seal a door. The boiler's trap gate shuts behind the hero
+  while a hound lives (the tough hound's first prowl step comes 1.2 s after the room is entered, the plain one's 0.4 s: `first` on its mark, so they never lunge together; the rocks by Puff are boulders, which A cannot lift); its east gate wants THE NO, so the Sycophant is never met
   without it. The house paints the sheets, the screens and the rack itself
   (`queueHouse`, `houseTile` in `render/steamPaint.ts`).
 - *THE SYCOPHANT* (boss; `sycophant`, radius 1.0, floating;
@@ -2190,7 +2203,10 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
   drifts to the hero and is open (gold; `bossOpen`), and the first blow of the
   blade takes one hit point. At any other time the blade clanks off the card, as
   everything else does at all times. A gift that lands is THE BATH, and the
-  fight starts again. The room's music is the boss's until it falls
+  fight starts again; a bath taken from the Best Room also sets the short way
+  home (`steamhouse.back`), so the stair is two rooms from the pool. Its left
+  and right sleeves are kept clear of the corner pillars (`SYCO.pillarX`).
+  While the banner hangs (`hung`) the bar is gold too: the corner takes a blow. The room's music is the boss's until it falls
   (`CellDef.calm`).
 - *THE END* (the third cut; it is a fake ending and never the game's).
   - *The beat* (2.2 s, `GameState.beat`): `play` steps nothing but the beat

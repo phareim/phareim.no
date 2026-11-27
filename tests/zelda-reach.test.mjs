@@ -199,6 +199,8 @@ function round(W, world, opened) {
     for (const m of Object.values(maps)) {
       const ring = m.def.keyring ?? 'shrine'
       for (const gate of m.info.gates) {
+        // (A trap gate is beaten by a hero with the blade who has been in its room: the Steamhouse's lobby gate waits for it.)
+        if (gate.trap && flags['item:sword'] && cells.has(`${m.id}|${gate.cell}`)) set(`gate:${gate.id}`)
         if (gate.trap || flags[`gate:${gate.id}`]) continue
         if (holds(gate.open, m, gate.cell) && gate.tiles.some(i => near(m, i % m.info.w, Math.floor(i / m.info.w)))) set(`gate:${gate.id}`)
       }
