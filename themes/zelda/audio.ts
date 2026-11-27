@@ -54,6 +54,9 @@ export type SfxName =
   | 'stomp'
   // Act Three: the glass rising (THE LENS)
   | 'lens'
+  // The Examination: the Duck, and time coming to a stand (the menu's select, lowered)
+  | 'squeak'
+  | 'hush'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2967,6 +2970,17 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     select() {
       tone({ f: 990, dur: 0.04, vol: 0.12 })
       tone({ f: 1320, dur: 0.06, vol: 0.1, at: 0.04 })
+    },
+    // Time stands: the select, an octave and more down.
+    hush() {
+      tone({ f: 396, dur: 0.07, vol: 0.14 })
+      tone({ f: 528, to: 500, dur: 0.12, vol: 0.12, at: 0.07 })
+    },
+    // THE DUCK: a rubber squeak, up and short, and a breath of air after it.
+    squeak() {
+      tone({ f: 880, to: 1560, dur: 0.08, type: 'triangle', vol: 0.18 })
+      tone({ f: 1500, to: 1180, dur: 0.07, type: 'triangle', vol: 0.12, at: 0.09 })
+      nz({ dur: 0.05, vol: 0.08, type: 'highpass', f: 4200, at: 0.09 })
     },
     error() {
       tone({ f: 110, dur: 0.18, vol: 0.2 })

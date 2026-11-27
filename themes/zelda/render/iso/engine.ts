@@ -69,6 +69,8 @@ export interface Look {
   wind: number
   /** A realm look's (`../looks.ts`): how bright its classic ground paints material slots 1–7 (0: the coast's), its open water, and its ground fog (the hero x, y, how far round them it parts, how much more ground it covers). */
   refs?: Float32Array
+  /** A sandstone room: its floor and walls are painted brown, and the materials are told by that (`shaders.ts`). */
+  sand?: boolean
   waterTint?: [number, number, number]
   fog?: [number, number, number, number]
 }
@@ -342,6 +344,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(ground.u('uWind'), look.wind)
     g.uniform1f(ground.u('uFray'), look.fray ? 1 : 0)
     g.uniform1fv(ground.u('uRefs'), look.refs ?? NO_REFS)
+    g.uniform1f(ground.u('uSand'), look.sand ? 1 : 0)
     const wt = look.waterTint ?? WATER
     g.uniform3f(ground.u('uWaterTint'), wt[0], wt[1], wt[2])
     bindTex(g, 0, flatT, ground.u('uFlat'))
@@ -378,6 +381,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
         bindTex(g, 8, propsNT, p.u('uPropsN'))
         bindTex(g, 9, folkT, p.u('uFolk'))
         g.uniform1f(p.u('uMaterials'), matT.w > 1 ? look.materials : 0)
+        g.uniform1f(p.u('uSand'), look.sand ? 1 : 0)
         // One px of a thing toward the viewer along the ground, in depth: a px is 1/32 of a tile at k = 1.
         g.uniform1f(p.u('uDeep'), ((cam.dv[0] + cam.dv[1] + cam.dv[2]) * cam.dInv) / 32)
         g.uniform1f(p.u('uGhost'), 0)

@@ -3,10 +3,12 @@
  * calls into. `Ctx` bundles what a step needs.
  */
 import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, WeightId, World } from '../types'
-import { HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ORCA, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
+import { FALCON, HERO_R, INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS, ORCA, ROLL_IFRAMES, TOUGH, WEIGHTS } from '../types'
 import { STATS } from './spawn'
 import { PARROT, parrotStruck } from './parrot'
 import { sycophantHit } from './bossSycophant'
+import { falconStruck } from './bossFalcon'
+import { duckStruck } from './duck'
 import { heapRule, phiOpen } from './heapFoes'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
@@ -113,6 +115,8 @@ BIG.add('grok')
 BOSSES.add('grok')
 BIG.add('orca')
 BOSSES.add('orca')
+BIG.add('falcon')
+BOSSES.add('falcon')
 /** The `BIG` ones the storm lamp's beam burns and stuns (`engine/lamp.ts`): a boss is left alone unless it is named here. */
 export const LAMP_BURNS = new Set<EnemyKind>(['orca'])
 
@@ -163,6 +167,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'phi': return phiOpen(e)
     // The oar planted, off balance after a sweep, or stunned by the lamp, while this opening still has blows to give.
     case 'orca': return (mode === 'planted' || mode === 'off' || e.stun > 0) && ((e.ai.took as number | undefined) ?? 0) < ORCA.take
+    // Stuck in the sand, while this opening still has blows to give.
+    case 'falcon': return mode === 'stuck' && ((e.ai.took as number | undefined) ?? 0) < FALCON.take
     default: return false
   }
 }
@@ -198,6 +204,13 @@ export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
 
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
+  const landed = hitEnemyAny(c, e, dmg, fromX, fromY, src, opt)
+  // A blow ends a foe's look at the Duck (`duck.ts`).
+  if (landed && e.ai.lure !== undefined) duckStruck(e)
+  return landed
+}
+
+function hitEnemyAny(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
   if (src === 'beam') return burnFoe(c, e, dmg)
   if (e.dead || (src === 'echo' ? (e.echoInvuln ?? 0) : e.invuln) > 0) return false
   if (src === 'echo') opt = { ...opt, echo: true }
@@ -368,6 +381,21 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       return false
     }
     case 'sycophant': return sycophantHit(c, e, fromX, fromY, src)
+    // FALCON: stone, except while stuck in the sand: then the blade (`FALCON.take` an opening at most), a thrown pot
+    // and a blast hurt it. The disc and the hook never do.
+    case 'falcon': {
+      const left = FALCON.take - ((ai.took as number | undefined) ?? 0)
+      const open = ai.mode === 'stuck'
+      const heavy = src === 'pot' || src === 'bomb'
+      if (!open || !(heavy || (blade(src) && left > 0))) {
+        c.ev.push({ type: 'clank', x: e.x, y: e.y })
+        turned(e, src, 0.2)
+        return false
+      }
+      if (!damage(c, e, dmg, fromX, fromY, heavy ? opt : { ...opt, cap: left })) return false
+      falconStruck(c, e)
+      return true
+    }
     // GROK and PHI: their own file says what lands (`heapFoes.ts` `heapRule`).
     case 'grok':
     case 'phi': {
@@ -554,6 +582,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'lamp': return ['YOU GOT THE STORM LAMP!', '{B} SETS IT DOWN WHERE YOU FACE. {B} AGAIN TAKES IT UP.']
     case 'magnet': return ['YOU GOT THE MAGNET!', '{B} LATCHES THE NEAREST METAL. LOOSE COMES TO YOU. BOLTED TAKES YOU.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'stomp': return ['YOU GOT THE STOMP!', 'IN THE AIR, {A} COMES DOWN HARD.']
+    case 'duck': return ['YOU GOT THE DUCK!', '{B} SETS IT DOWN. FOES LOOK AT IT. IT FLOATS.']
     case 'lens': return ['YOU GOT THE LENS!', 'STAND STILL A MOMENT. WHAT IS FALSE FADES.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
@@ -603,6 +632,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'echo': inv.echo = true; inv.selected = 'echo'; break
     case 'lamp': inv.lamp = true; inv.selected = 'lamp'; break
     case 'magnet': inv.magnet = true; inv.selected = 'magnet'; break
+    case 'duck': inv.duck = true; inv.selected = 'duck'; break
     case 'stomp': inv.stomp = true; break
     // THE LENS is held by its flag alone (`engine/lens.ts`).
     case 'lens': break

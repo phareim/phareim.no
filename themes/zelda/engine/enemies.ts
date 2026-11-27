@@ -13,6 +13,9 @@ import { tryRefuse } from './refuse'
 import { grok, heapTouch, phi } from './heapFoes'
 import { parrot, parrotHarmless } from './parrot'
 import { sycophant } from './bossSycophant'
+import { falcon } from './bossFalcon'
+import { lured } from './duck'
+import { examBossHarmless } from './exam'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -131,6 +134,8 @@ export function shoot(c: Ctx, e: Enemy, kind: Projectile['kind'], vx: number, vy
 }
 
 export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
+  // Time stands (the examination's third round, `exam.ts` `stillK`): nothing about a foe moves, and none decides.
+  if (dt <= 0) return
   const ai = e.ai
   if (e.flash > 0) e.flash -= dt
   if (e.invuln > 0) e.invuln -= dt
@@ -161,6 +166,8 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
   }
   if (e.trek && stepTrek(c.w, c.s, e, dt)) { contact(c, e); return }
   if (e.dead) return
+  // THE DUCK: a foe that is looking at it does nothing else, and still hurts whoever walks into it.
+  if (lured(c, e, dt)) { contact(c, e); return }
   ai.t -= dt
   if (ai.tell > 0) ai.tell = Math.max(0, ai.tell - dt)
   switch (e.kind) {
@@ -187,6 +194,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'grok': grok(c, e, dt); break
     case 'phi': phi(c, e, dt); break
     case 'orca': orca(c, e, dt); break
+    case 'falcon': falcon(c, e, dt); break
   }
   contact(c, e)
 }
@@ -201,6 +209,7 @@ function contact(c: Ctx, e: Enemy) {
     (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
     (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e) ||
     (e.kind === 'mixtral' && (e.ai.mode === 'dazed' || e.ai.mode === 'rouse')) || (e.kind === 'parrot' && parrotHarmless(e))
+    || examBossHarmless(e)
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     // THE NO: a cut at the right moment refuses the blow (`refuse.ts`).
     if (tryRefuse(c, e)) return

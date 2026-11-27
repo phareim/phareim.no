@@ -29,6 +29,7 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   phi: { hp: 2, r: 0.4, dmg: 2 },
   // (ORCA hurts with its dash and its oar, by its own file; its touch does no harm.)
   orca: { hp: 10, r: 0.9, dmg: 0 },
+  falcon: { hp: 10, r: 0.8, dmg: 2, flying: true },
 }
 
 export function spawnEnemy(

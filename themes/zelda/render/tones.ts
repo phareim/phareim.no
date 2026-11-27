@@ -22,4 +22,6 @@ export const TONES: Record<Tone, string> = {
 /** Light-map base colour of a room that names its own light level. */
 export const AMBIENCE: Record<Ambience, string> = {
   dim: '#8a76b8',
+  // A warm room of sandstone (the Examination).
+  sandstone: '#b89a8a',
 }

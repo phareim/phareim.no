@@ -12,6 +12,7 @@ import {
 import { aPlan, type AThing } from './action'
 import { puffLie } from './lens'
 import { echoBlade, echoOnTile, setEcho } from './echo'
+import { useDuck } from './duck'
 import { hangRobe, ROBE_SPEED } from './attendants'
 import { faceGift } from './gifts'
 import { useLamp } from './lamp'
@@ -1015,6 +1016,7 @@ const TOOL_USE: Record<ToolId, (c: Ctx, inp: Input) => void> = {
   echo: c => { setEcho(c) },
   lamp: c => { useLamp(c) },
   magnet: useMagnet,
+  duck: c => { useDuck(c) },
 }
 
 function useItem(c: Ctx, inp: Input) {

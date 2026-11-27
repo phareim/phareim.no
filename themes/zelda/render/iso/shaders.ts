@@ -220,12 +220,15 @@ uniform float uEmit;
 uniform vec3 uViewN;
 uniform vec3 uRight;
 uniform float uGhost;
+uniform float uSand;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
 /** Is this colour of the classic art the bare roof, wall or rock that material m replaces, and not a window, a door, a sign? */
 bool fitsBuilt(int m, vec3 c) {
   float l = luma(c);
+  // A sandstone room's walls (bricks, blocks): the classic art paints them brown (tiles.ts, DG_SAND).
+  if (uSand > 0.5 && (m == 11 || m == 12)) return c.r > c.g + 0.04 && c.g > c.b + 0.03 && l < 0.72;
   if (m == 1 || m == 6) return c.b > c.r + 0.05 && c.g > c.r + 0.03 && l < 0.78;
   if (m == 8) return c.r > c.g + 0.18 && c.b > c.g + 0.1 && c.r > c.b && c.r < 0.9 && l < 0.62;
   if (m == 12 || m == 14) return c.b > c.r + 0.05 && l < 0.22;
@@ -447,6 +450,7 @@ uniform vec4 uRooms[2];
 uniform int uRoomCount;
 /** A realm look's own (looks.ts): how bright its classic ground paints slots 1–7 (0: the coast's), and its open water. */
 uniform float uRefs[8];
+uniform float uSand;
 uniform vec3 uWaterTint;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
@@ -454,6 +458,8 @@ layout(location = 2) out vec4 o2;
 /** Is this colour of the classic ground material m's own ground, and not something drawn on it? */
 bool fits(int m, vec3 c) {
   float l = luma(c);
+  // A sandstone room's floor (flags): brown, not the Shrine's violet.
+  if (uSand > 0.5 && m == 4) return c.r > c.g + 0.04 && c.g > c.b + 0.03 && l > 0.12 && l < 0.6;
   if (m == 1 || m == 6) return c.b > c.r + 0.05 && c.g > c.r + 0.03 && l < 0.78;
   if (m == 2 || m == 7) return c.r > c.g + 0.06 && c.b > c.g + 0.05 && l > 0.2 && l < 0.75;
   if (m == 3) return c.r > c.g + 0.03 && c.r > c.b - 0.04 && l > 0.25 && l < 0.8;

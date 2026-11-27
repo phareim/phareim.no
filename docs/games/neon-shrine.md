@@ -1943,8 +1943,8 @@ moves the echo from inside is not shut in for ever). A **pot stand**
 the hero's room holds no pot at all (none standing, carried or in the air) for
 1.2 s (`STAND_WAIT`), every stand of the room that is free gets one, all
 together. (A stand with a `wait` fills on its own clock instead: THE
-EXAMINATION's, with its rounds and pads, `docs/games/neon-shrine-examination.md`;
-that dungeon's treasure is not built yet.) A **trap gate**
+EXAMINATION's, with its rounds and pads, `docs/games/neon-shrine-examination.md`.)
+A **trap gate**
 (`{ t: 'gate', trap: true }`, in a dungeon's rooms only, no condition of its
 own) is a room that locks: it is open, drawn and walked as floor, until the
 hero is in its room and clear of its tiles while a foe that counts for
@@ -2080,8 +2080,10 @@ secret, door, gate, boss, respawn, exit, TO TOWN and when the tab is
 hidden. The server takes up to 32 KB of JSON (`SAVE_GAMES`; a bigger write is
 refused and the client says nothing): a save with everything in the world done
 is about 9 KB. What B holds is one of `B_ITEMS` (`types.ts`: the hook, the
-disc, bombs, the echo, the lamp, the arts); a save naming anything else loads with nothing in
-hand. On load the shell starts on the local copy and pulls the slot in
+disc, bombs, the echo, the lamp, the magnet, **THE DUCK**, the arts; the Duck,
+the Examination's treasure, is a decoy that B sets down:
+`docs/games/neon-shrine-examination.md`); a save naming anything else loads with
+nothing in hand. On load the shell starts on the local copy and pulls the slot in
 the background; `reconcile` in `progress.ts` keeps the newer write, and a
 newer profile save replaces the run at the next calm frame only if this
 session has not saved yet. A new game (a cleared slot, remembered locally

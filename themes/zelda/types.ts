@@ -355,6 +355,7 @@ export type ItemId =
   | WeightId
   | 'stomp' // THE STOMP, the Late Show's treasure: A in the air of a side map comes down hard (`engine/stomp.ts`)
   | 'lens' // THE LENS, Act Three's treasure: standing still shows what is false (`engine/lens.ts`); no slot, held by its flag
+  | 'duck' // THE DUCK, the Examination's treasure: B sets it down (`engine/duck.ts`)
 
 export type WeightId =
   | 'weightMeaning' | 'weightReasons' | 'weightNo' | 'weightSurprise'
@@ -391,6 +392,7 @@ const B_TOOLS = [
   { id: 'echo', name: 'ECHO', icon: 'item_echo', owned: (inv: Inventory) => !!inv.echo },
   { id: 'lamp', name: 'LAMP', icon: 'item_lamp', owned: (inv: Inventory) => !!inv.lamp },
   { id: 'magnet', name: 'MAGNET', icon: 'item_magnet', owned: (inv: Inventory) => !!inv.magnet },
+  { id: 'duck', name: 'DUCK', icon: 'item_duck', owned: (inv: Inventory) => !!inv.duck },
 ] as const satisfies readonly BItem[]
 
 /** Everything B can hold, in the cycle's order: the things, then the arts. What `useItems`, a save and the HUD read. */
@@ -410,6 +412,7 @@ export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> &
   echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
   lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. FEEDS WHAT WANTS LIGHT.' },
   magnet: { name: 'THE MAGNET', does: 'LATCHES METAL. LOOSE COMES TO YOU. YOU GO TO BOLTED.' },
+  duck: { name: 'THE DUCK', does: 'FOES LOOK AT IT. IT WEIGHS ONE. IT FLOATS.' },
 }
 
 /**
@@ -461,6 +464,26 @@ export const DARK_HOUND = { tell: 0.7, w: 2, near: 0.9 } as const
  * latches; the score card plays `card` s.
  */
 export const EXAM = { hold: 0.35, still: 1, card: 2.2 } as const
+/**
+ * TIME WAITS (`CellDef.round.rule` 'still', `engine/exam.ts`): the world's share of the hero's clock eases to 1 at
+ * `up` a second while the hero does something (the stick past `on`, and still so until it falls under `off`; or a
+ * move under way) and to 0 at `down` a second while the hero does not. Under `pale` the room shows that it waits.
+ */
+export const STILL = { up: 20, down: 12, on: 0.2, off: 0.1, pale: 0.5 } as const
+/**
+ * THE DUCK (`engine/duck.ts`): B within `take` tiles of it takes it up. A foe within `sight` tiles with a clear line
+ * walks up to `near` of it at `speed` tiles/s and looks for `look` s, then is bored of it for `bored` s; a blow ends
+ * the look, and it has `struck` s before it may look again.
+ */
+export const DUCK = { take: 1.2, sight: 7, near: 1.4, speed: 2.2, look: 8, bored: 4, struck: 3 } as const
+/**
+ * FALCON (`engine/bossFalcon.ts`). It rests on its perch `perch` s, circles `fly` s at `flySpeed` tiles/s, hovers
+ * `tell` s (`tell2` with half its hit points gone) while its dive is stencilled, a lane `lane` wide to a ring of `ring`
+ * tiles, dives it at `dive` tiles/s, and is stuck `stuck` s (`stare` s if it dived at the Duck). With half gone it
+ * dives twice, the second aim taken `again` s after the first lands. Only stuck is it open: the blade takes `take` hit
+ * points an opening at most. `dmg`: half hearts for its touch, its lane and its ring.
+ */
+export const FALCON = { perch: 1.6, fly: 2.4, flySpeed: 4, tell: 0.9, tell2: 0.65, lane: 0.5, ring: 1.1, dive: 12, stuck: 2.4, stare: 3.6, again: 0.5, take: 6, blind: 0.3, dmg: 2 } as const
 export type RoundId = 'r1' | 'r2' | 'r3' | 'r4'
 /** What a pane on the floor shows. A cactus is worth marks; any other picture takes them. */
 export type PadPic = 'cactus' | 'palm' | 'stone' | 'cloud' | 'bones'
@@ -498,6 +521,9 @@ export interface ExamState {
   over: boolean
   /** How fast the world runs, 0 to 1 (a room where time waits). */
   k: number
+  /** Time waits: is the stick held (with its two thresholds), and the seconds the world has stood quite still. */
+  moving?: boolean
+  stood?: number
   /** The hero's hit points at the last step. */
   hp: number
 }
@@ -539,6 +565,7 @@ export type EnemyKind =
   | 'grok' // miniboss: rolls down a stencilled lane; open only while a wall or iron has it dazed
   | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
   | 'orca' // miniboss (the Lighthouse): drags and sweeps behind a stencil; open while its oar is planted, or stunned by the lamp
+  | 'falcon' // miniboss (the Examination): circles, stencils a dive and takes it; open only while stuck in the sand
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -647,7 +674,9 @@ export type EntDef =
   | { t: 'emitter'; dir: Dir; when?: Cond } // a beam emitter (tile 'β'), shining along `dir` while `when` holds
   | { t: 'receiver'; flag: string } // a beam receiver (tile 'ρ'): lit, it sets `flag` for good
   | { t: 'boulder'; dir: Dir; flag?: string } // a boulder (tile 'κ') that rolls along `dir` once `flag` is set
-  | { t: 'sluice'; flag: string; invert?: boolean } // sluice tiles ('ω' / 'ψ'): full while `flag` is unset (set, with `invert`)
+  // sluice tiles ('ω' / 'ψ'): full while `flag` is unset (set, with `invert`). `float`: a plate of that id on the
+  // water, held while it is full by what floats there (the Duck: `engine/duck.ts`).
+  | { t: 'sluice'; flag: string; invert?: boolean; float?: string }
   | { t: 'valve'; flag: string } // a valve wheel (tile 'ξ'): a hit sets or clears `flag`
   | { t: 'socket'; flag: string; letter?: string } // a tube socket (tile 'Λ'): fed, it sets `flag` for good; `letter` it lights
   | ExitDef
@@ -704,7 +733,7 @@ export interface ExitDef {
 export type Tone = 'pink' | 'cyan' | 'violet' | 'gold' | 'rose' | 'teal' | 'lilac' | 'amber' | 'fire' | 'cream' | 'ice' | 'red'
 
 /** A named light level for a room, instead of its kind's default. 'dim': a lounge whose lamps show. */
-export type Ambience = 'dim'
+export type Ambience = 'dim' | 'sandstone'
 
 /** Neon lettering painted into the world (Petter's name over the town). */
 export interface Decal {
@@ -1342,6 +1371,8 @@ export interface Inventory {
   lamp: boolean
   /** THE MAGNET (the Heap's treasure). */
   magnet: boolean
+  /** THE DUCK (the Examination's treasure): owned. Where it sits is never saved (`GameState.duck`). */
+  duck: boolean
   /** The Arc Blade (the sword, upgraded). */
   arc: boolean
   /** THE STOMP (the Late Show's treasure): owned, never in the B slot. */
@@ -1476,6 +1507,8 @@ export interface GameState {
   echo: Echo | null
   /** The storm lamp set down: its tile, the way it shines, the floor under it (`engine/lamp.ts`). Never saved. */
   lamp: LampDown | null
+  /** The Duck set down (`engine/duck.ts`): the middle of its tile. Never saved; gone with the room. */
+  duck?: Vec
   luna: Follower | null
   /**
    * Seconds into the day (`engine/day.ts`, 0 … 720), or null while the sun is
@@ -1601,6 +1634,10 @@ export type GameEvent =
   | { type: 'psi'; x: number; y: number }
   /** An echo left on the floor, and the echo cutting with the hero. */
   | { type: 'echo'; x: number; y: number }
+  /** The Duck set down (`down`) or taken up (`engine/duck.ts`). */
+  | { type: 'duck'; x: number; y: number; down: boolean }
+  /** A room where time waits has just come to a stand (`engine/exam.ts`). */
+  | { type: 'still' }
   | { type: 'echoCut'; x: number; y: number }
   /** The storm lamp set down (`up` false) or taken up (`engine/lamp.ts`). */
   | { type: 'lamp'; x: number; y: number; up: boolean }

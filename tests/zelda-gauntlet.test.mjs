@@ -17,6 +17,7 @@ const ELSEWHERE = { mixtral: 'zelda-echo-barrow.test.mjs', parrot: 'zelda-echo-b
 ELSEWHERE.sycophant = 'zelda-steamhouse.test.mjs'
 ELSEWHERE.grok = 'zelda-heap.test.mjs'
 ELSEWHERE.orca = 'zelda-lighthouse.test.mjs'
+ELSEWHERE.falcon = 'zelda-examination.test.mjs'
 
 /**
  * Each boss: its map, the flag its fall sets, the B item the fight takes, and the states the two fights must have

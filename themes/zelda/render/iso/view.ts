@@ -439,9 +439,10 @@ export default function isoView(kit: Kit): View {
    * on it, so the view closes it with a cap and an east side of its own. A fence or a counter along x is a
    * face too, and no mass. Nor is a face between two rock tops: those stand a row further south, so it is the
    * north wall of a gap in them, and a cap on it would hang over the ground in front.
+   * `strips`: a room whose walls stand in aisles one tile deep (a sandstone dungeon), closed the same way.
    */
-  function loneFace(tx: number, ty: number, kind: MapKind): boolean {
-    if (kind !== 'overworld' || ty - 1 < -M) return false
+  function loneFace(tx: number, ty: number, kind: MapKind, strips = false): boolean {
+    if ((kind !== 'overworld' && !strips) || ty - 1 < -M) return false
     if (shapeAt(tx, ty).k !== 'face') return false
     const rock = (x: number): boolean => {
       if (x + M < 0 || x + M >= ew) return false
@@ -506,7 +507,7 @@ export default function isoView(kit: Kit): View {
         if (laidKeep && t === 'n' && sh.k !== 'face') gk = null
         data[(ey * ew + ex) * 4 + 3] = gk ? materialId(own[gk]!) : 0
       }
-      if (loneFace(ex - M, ey - M, kind)) {
+      if (loneFace(ex - M, ey - M, kind, look === 'dune')) {
         const fy = ey + sh.d
         if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.round(((sh.d + 1) / 4) * 255)) }
       }
@@ -1393,7 +1394,7 @@ export default function isoView(kit: Kit): View {
         const y = ty + 1 + shp.d
         const side = builtOf(t, false)
         quad(tx, y, shp.d + sunk, 0, tx + 1, y, shp.d + sunk, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + Math.round(T * sunk), 1, side)
-        if (loneFace(tx, ty, kind)) {
+        if (loneFace(tx, ty, kind, def.look === 'dune')) {
           // Closed on top with a plain patch of its own picture, and on its east end with the picture again.
           const hz = shp.d + 1
           quad(tx, y - 1, hz, 0, tx + 1, y - 1, hz, 0, tx + 1, y, hz, 0, tx, y, hz, 0, sx + 6, sy + 12, sx + 7, sy + 13, 0, side)
@@ -1420,7 +1421,7 @@ export default function isoView(kit: Kit): View {
         else if (t === 'r') prop = 'rock'
         else if (t === 'R') prop = 'boulder'
         else if (t === 'S' && outdoors && !signExits(m.id).has(ty * m.w + tx)) prop = 'sign'
-        else if (t === 'I' && def.look !== 'lab') prop = outdoors ? 'pillarStone' : 'pillarShrine'
+        else if (t === 'I' && def.look !== 'lab') prop = outdoors || def.look === 'dune' ? 'pillarStone' : 'pillarShrine'
         else if (t === 'P') prop = 'blockPink'
         else if (t === 'C') prop = 'blockCyan'
         else if (t === '$') {
@@ -2048,6 +2049,7 @@ export default function isoView(kit: Kit): View {
     const look: Look = {
       soft: (par.smoothing as number) * Math.min(1, k * 2),
       materials: quality === 0 ? 0 : (par.materials as number) * Math.max(0, Math.min(1, k * 2 - 0.6)),
+      sand: def.look === 'dune' && !outdoors,
       fray: quality >= 2,
       bump: (par.relief as number) * k,
       round: (par.roundness as number) * k,

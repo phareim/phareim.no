@@ -291,9 +291,9 @@ function sand(seed: number, colors: Rgb[] = ramp('#876652', '#a47f66', '#bd9877'
 // Flagstones and floorboards
 // ---------------------------------------------------------------------------
 
-function flags(seed: number): Sheet {
+function flags(seed: number, colors: Rgb[] = ramp('#17122f', '#242049', '#2c2657', '#352e66', '#4c4288')): Sheet {
   const s = new Sheet()
-  const [grout, dark, mid, light, edge] = ramp('#17122f', '#242049', '#2c2657', '#352e66', '#4c4288') as [Rgb, Rgb, Rgb, Rgb, Rgb]
+  const [grout, dark, mid, light, edge] = colors as [Rgb, Rgb, Rgb, Rgb, Rgb]
   const tiles = MAT / MAT_PER_TILE
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
     const lu = u % MAT_PER_TILE
@@ -405,9 +405,9 @@ function shingles(seed: number, colors: Rgb[] = ramp('#421338', '#74265e', '#8a2
 }
 
 /** Bricks in a wall's face (a along it, b up): courses eight texels high, lit along their top edge. */
-function bricks(seed: number): Sheet {
+function bricks(seed: number, colors: Rgb[] = ramp('#1c153c', '#2e255e', '#382e6c', '#44387e', '#584a9a')): Sheet {
   const s = new Sheet()
-  const [mortar, dark, mid, light, hi] = ramp('#1c153c', '#2e255e', '#382e6c', '#44387e', '#584a9a') as [Rgb, Rgb, Rgb, Rgb, Rgb]
+  const [mortar, dark, mid, light, hi] = colors as [Rgb, Rgb, Rgb, Rgb, Rgb]
   for (let b = 0; b < MAT; b++) for (let a = 0; a < MAT; a++) {
     const course = Math.floor(b / 8)
     const lb = b % 8
@@ -655,6 +655,11 @@ export const LOOK_SHEETS: Record<RealmLook, Partial<Record<Material, () => Sheet
     sand: () => dunes(163),
     lane: () => paving({ ramp: ramp('#5a4a7a', '#8a7aa8', '#9a8ab8', '#ac9cc8', '#c8bce0'), across: 8, moss: ramp('#c88a7c', '#e4a890'), seed: 167 }),
     rockface: () => paving({ ramp: ramp('#3a2e5a', '#5e5088', '#6e6098', '#8070aa', '#a092c8'), across: 8, moss: null, light: { x: -0.45, y: 0.89 }, seed: 173 }),
+    // Indoors (the Examination, in the gold pyramid): the same slabs, bricks and blocks in warm sandstone. Only a
+    // room lays these three; the desert outside has none of them.
+    flags: () => flags(41, ramp('#5a3a26', '#966c42', '#a87c4c', '#bc8e58', '#dcb47a')),
+    bricks: () => bricks(101, ramp('#4a2c1e', '#8a5c36', '#9c6c40', '#b0804c', '#d4a464')),
+    blocks: () => blocks(103, ramp('#2e1c16', '#543826', '#64442c', '#765234', '#966c42')),
   },
   spore: {
     // Moss full of small lights.

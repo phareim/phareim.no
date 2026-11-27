@@ -7,7 +7,8 @@
  *      ↓                    ↑
  *   desk   → r1 → r2   → staff
  *
- * Built so far: the Front Desk, rounds one and two and the Staff Room; the others are walled floors with their doors.
+ * Built so far: from the Front Desk to the Perch; round four and the Marking Room are walled floors with their doors,
+ * and so is the hall.
  */
 import type { Cond, EntDef, MapDef, Mark, PadPic, TalkBranch } from '../types'
 import { joinCells } from './cells'
@@ -74,22 +75,22 @@ const STAFF = [
 
 const ROUND3 = [
   '################',
-  '#..............#',
-  '#..............#',
-  '#..............#',
-  '#..............#',
-  '8..............#',
+  '#.g..........g.#',
+  '##..e......e...#',
+  '#h..###..###...#',
+  '#n..........y..#',
+  '8..y...g.......#',
   'X..............#',
+  '#...###..###...#',
+  '#.g.........g..#',
   '#..............#',
-  '#..............#',
-  '#..............#',
-  '#......3.......#',
+  '#......3.].....#',
   '#######..#######',
 ]
 
 const PERCH = [
   '################',
-  '#..............#',
+  '##....IwI.....##',
   '#..............#',
   '#..............#',
   '#..............#',
@@ -98,7 +99,7 @@ const PERCH = [
   '#..............#',
   '#..............#',
   '#..............#',
-  '#..............#',
+  '##............##',
   '################',
 ]
 
@@ -155,6 +156,8 @@ const foe = (kind: Extract<EntDef, { t: 'enemy' }>['kind']): Mark => ({ ent: { t
 const pane = (pic: PadPic): Mark => ({ ent: { t: 'pad', pic, size: 2 } })
 /** A pond tile: full of water (nothing in the world drains it). */
 const water: Mark = { tile: 'ω', ent: { t: 'sluice', flag: 'examination.pond' } }
+/** The pond's middle: a float plate, held by what floats on it. */
+const middle: Mark = { tile: 'ω', ent: { t: 'sluice', flag: 'examination.pond', float: 'exam.pond' } }
 
 const INVIGILATOR: TalkBranch[] = [
   { when: { flags: [], not: ['exam.met'] }, lines: ['INVIGILATOR: RULES ARE ON THE DOORS. I DO NOT REPEAT THEM.'], set: 'exam.met' },
@@ -166,6 +169,7 @@ export const EXAMINATION: MapDef = {
   kind: 'dungeon',
   track: 'dungeon',
   look: 'dune',
+  ambient: 'sandstone',
   realm: 'stillsand',
   views: ['iso'],
   keyring: 'examination',
@@ -178,8 +182,14 @@ export const EXAMINATION: MapDef = {
     '1,1': { name: 'ROUND ONE', round: { id: 'r1', entry: 'r1', pass: 6, max: 10, rule: 'noBlade', foeWorth: 2 } },
     '2,1': { name: 'ROUND TWO', round: { id: 'r2', entry: 'r2', pass: 10, max: 12, foeWorth: 2 } },
     '3,1': { name: 'THE STAFF ROOM' },
-    '3,0': { name: 'ROUND THREE' },
-    '2,0': { name: 'THE PERCH' },
+    '3,0': { name: 'ROUND THREE', round: { id: 'r3', entry: 'r3', pass: 6, max: 10, rule: 'still', penalty: { hurt: 2 } } },
+    '2,0': {
+      name: 'THE PERCH',
+      events: [
+        { when: { flags: [], not: ['examination.falcon'] }, set: 'examination.falcon.card', lines: ['FALCON. SLIGHTLY DEAF. NEVER WRONG.'] },
+        { when: { flag: 'examination.falcon' }, set: 'examination.falcon.down', lines: ['(THE FALCON SITS IN THE SAND. IT STILL THINKS IT WAS RIGHT.)'] },
+      ],
+    },
     '1,0': { name: 'ROUND FOUR' },
     '0,0': { name: 'THE MARKING ROOM' },
   },
@@ -210,13 +220,18 @@ export const EXAMINATION: MapDef = {
     f: foe('spitter'),
     '6': gate({ flag: 'exam.r2' }),
     // The Staff Room: the chest, the pond and the gate north.
-    // (A STAND-IN: the chest holds bits until the Duck is built.)
-    Q: { ent: { t: 'chest', id: 'examination.duck', item: 'bits50', big: true, appear: { flag: 'exam.r2' } } },
+    Q: { ent: { t: 'chest', id: 'examination.duck', item: 'duck', big: true, appear: { flag: 'exam.r2' } } },
     c: sign('STAFF ROOM. THE POND IS DECORATIVE. THE DUCK IS ON STAFF.'),
     v: water,
-    j: { ...water },
+    j: middle,
     '7': gate({ plates: ['exam.pond'] }),
-    // Round three, the Perch, round four: their doors and entries.
+    // Round three: five mark pads, two drones and two sentries, in a room where time waits.
+    ']': sign('ROUND THREE. TIME MOVES WHEN YOU DO.'),
+    g: { ent: { t: 'pad', worth: 2, hold: 0 } },
+    e: foe('drone'),
+    // The Perch.
+    w: { ent: { t: 'enemy', kind: 'falcon', once: 'examination.falcon' } },
+    // Their doors and entries, and round four's.
     '3': entry('r3', 'up'),
     '8': gate({ flag: 'exam.r3' }),
     '0': { ent: { t: 'gate', trap: true } },
@@ -237,6 +252,7 @@ export const EXAMTOP: MapDef = {
   kind: 'dungeon',
   track: 'dungeon',
   look: 'dune',
+  ambient: 'sandstone',
   realm: 'stillsand',
   views: ['iso'],
   keyring: 'examination',
