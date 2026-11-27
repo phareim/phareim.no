@@ -1,8 +1,8 @@
-// The Wildwood and Project Horizon's labs: the new rules one by one (the
-// hook, Luna and her psi blocks, letter stones, crystal groups across
-// floors, holes, keyrings, the bosses' rules, old saves), then a full
-// scripted run from the town's west road to the Gate shutting, with a
-// path-finding walker (god mode, bosses killed directly).
+// The Wildwood and Project Horizon's labs: what the long run does not walk
+// (Luna left at her fort, the letter stones, every dungeon's keys, the way back
+// up the chute), then a full scripted run from the town's west road to the Gate
+// shutting, with a path-finding walker (god mode, bosses killed directly; their
+// fights are `zelda-gauntlet.test.mjs`).
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -23,72 +23,7 @@ function at(map, entry, inv = {}, flags = []) {
   return s
 }
 
-describe('the hook', () => {
-  it('reels the hero over water to a post, and never ends in the water', () => {
-    const s = at('lab1', 'start', { hook: true })
-    // The vault: from the south shore to the island post.
-    Z.enterMap(Z.WORLD, s, 'lab1', 'start', [], { x: 7.5, y: 8.5 })
-    P.useB(s, 'hook', 'up')
-    assert.deepEqual([s.hero.x, s.hero.y], [7.5, 5.5])
-    assert.equal(s.hook, null)
-    assert.equal(s.hero.act, 'idle')
-  })
-
-  it('bounces off a wall and stuns a foe', () => {
-    const s = at('lab1', 'start', { hook: true })
-    const ev = []
-    s.inv.selected = 'hook'
-    P.face(s, 'up')
-    ev.push(...P.step(s, P.inp({ bPress: true })))
-    for (let k = 0; k < 120 && s.hook; k++) ev.push(...P.step(s))
-    assert.ok(ev.some(e => e.type === 'hook'))
-    assert.equal(s.hook, null)
-    assert.equal(s.hero.y, 34.5, 'did not move')
-  })
-})
-
-describe('Radio Hill', () => {
-  it('keeps its glowshroom behind cracked rock that a bomb opens', () => {
-    const s = at('wildwood', 'radioHill', { bombBag: true, bombs: 8 })
-    assert.equal(tile(s, 58, 9), '%')
-    P.walkTo(s, 57, 9)
-    P.useB(s, 'bombs', 'right')
-    assert.equal(tile(s, 58, 9), '.')
-    P.walkTo(s, 59, 9)
-    P.settle(s)
-    assert.equal(s.inv.shrooms, 1)
-  })
-})
-
 describe('Luna', () => {
-  it('joins after a waffle, follows, and slides a psi block until it stops', () => {
-    const s = at('wildwood', 'brambles', { bombBag: true }, [])
-    s.hero.x = 37.5; s.hero.y = 32.5
-    P.face(s, 'up')
-    P.pressA(s)
-    assert.ok(!s.flags.luna, 'no waffle, no Luna')
-    s.flags['item:waffle'] = true
-    P.pressA(s)
-    assert.ok(s.flags.luna)
-    assert.ok(s.luna)
-    assert.equal(s.map.npcs.some(n => n.id === 'luna'), false)
-    // She follows a step behind.
-    P.walkTo(s, 37, 36 - 2)
-    assert.ok(Math.hypot(s.luna.x - s.hero.x, s.luna.y - s.hero.y) < 2)
-    // The lab door's block: pushed east from the west, it slides to the fence.
-    s.hero.x = 51.5; s.hero.y = 21.5
-    P.face(s, 'right')
-    P.pressA(s)
-    P.frames(s, 60)
-    assert.equal(tile(s, 52, 21), '.')
-    assert.equal(tile(s, 59, 21), 'B')
-    // …and stays moved when the map loads again.
-    Z.enterMap(Z.WORLD, s, 'wildwood', 'lab', [])
-    assert.equal(tile(s, 52, 21), '.')
-    assert.equal(tile(s, 59, 21), 'B')
-    assert.ok(s.luna, 'Luna came along')
-  })
-
   it('waits at her fort when walked back to it, and comes along again when fetched', () => {
     const s = at('wildwood', 'brambles', {}, ['item:waffle'])
     s.hero.x = 37.5; s.hero.y = 32.5
@@ -136,16 +71,6 @@ describe('Luna', () => {
     P.walkTo(s, 37, 36)
     assert.ok(s.luna, 'still following')
   })
-
-  it('without Luna the block will not budge', () => {
-    const s = at('wildwood', 'compound')
-    s.hero.x = 51.5; s.hero.y = 21.5
-    P.face(s, 'right')
-    P.step(s, P.inp({ aPress: true, a: true }))
-    assert.equal(s.mode, 'dialog')
-    P.settle(s)
-    assert.equal(tile(s, 52, 21), 'B')
-  })
 })
 
 describe('letter stones', () => {
@@ -165,42 +90,6 @@ describe('letter stones', () => {
 })
 
 describe('the labs', () => {
-  it('one crystal switch changes every floor', () => {
-    const s = at('lab1', 'down')
-    assert.equal(s.map.crystalAll, 'pink')
-    s.hero.x = 38.5; s.hero.y = 27.5
-    P.swing(s, 'up')
-    assert.equal(s.map.crystalAll, 'cyan')
-    assert.ok(s.flags['crystal:lab1'])
-    Z.enterMap(Z.WORLD, s, 'lab1b', 'up', [])
-    assert.equal(s.map.crystalAll, 'cyan')
-    assert.equal(Z.raised(Z.WORLD, s.map, 33, 29), false, 'the pink blocks on B1 dropped')
-  })
-
-  it('a hole drops the hero to the same spot on the floor below', () => {
-    const s = at('lab1', 'start', {}, ['lab1.power'])
-    Z.enterMap(Z.WORLD, s, 'lab1', 'start', [], { x: 21.5, y: 17.5 })
-    P.until(s, () => s.map.id === 'lab1b', P.inp({ move: { x: 1, y: 0 } }))
-    P.frames(s, 40)
-    assert.equal(s.mode, 'play')
-    assert.ok(Math.floor(s.hero.x) >= 22 && Math.floor(s.hero.x) <= 25 && Math.floor(s.hero.y) === 17, `landed at ${s.hero.x},${s.hero.y}`)
-    assert.deepEqual(s.entry, { map: 'lab1', entry: 'start' }, 'the continue point stays upstairs')
-  })
-
-  it('keys belong to their dungeon', () => {
-    const s = at('lab1', 'start')
-    s.inv.keys = 2
-    assert.equal(Z.keyCount(s), 0)
-    Z.addKeys(s, 1)
-    assert.equal(Z.keyCount(s), 1)
-    assert.equal(s.inv.keys, 2)
-    s.flags['bigkey:lab1'] = true
-    assert.equal(Z.hasBigKey(s), true)
-    Z.enterMap(Z.WORLD, s, 'shrine', 'start', [])
-    assert.equal(Z.keyCount(s), 2)
-    assert.equal(Z.hasBigKey(s), false)
-  })
-
   it('every dungeon holds as many small keys as locked doors, and one big key per great lock', () => {
     const rings = {}
     for (const def of Object.values(Z.WORLD.maps)) {
@@ -249,82 +138,6 @@ describe('the labs', () => {
     P.frames(s, 40)
     assert.deepEqual([Math.floor(s.hero.x), Math.floor(s.hero.y)], [12, 13], 'back in the chute room')
     P.walkTo(s, 20, 18) // and out through the open door to the hall
-  })
-})
-
-describe('the bosses', () => {
-  const boss = (map, entry, kind, flags = [], pos = null) => {
-    const s = at(map, entry, { hook: true, arc: false }, flags)
-    if (pos) Z.enterMap(Z.WORLD, s, map, entry, [], pos)
-    const e = s.map.enemies.find(o => o.kind === kind)
-    return { s, e, c: Z.ctx(Z.WORLD, s, []) }
-  }
-
-  it('LLAMA: the blade bounces off the wool; its own spit hurts it', () => {
-    const { e, c } = boss('lab1', 'start', 'llama')
-    assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'sword'), false)
-    assert.equal(e.hp, 10)
-    e.invuln = 0
-    assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'spit'), true)
-    assert.equal(e.hp, 8)
-  })
-
-  it('MISTRAL: untouchable in the air until the hook pulls it down', () => {
-    const { e, c } = boss('lab1', 'start', 'mistral')
-    assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'sword'), false)
-    e.invuln = 0
-    assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'hook'), false, 'not while it drifts')
-    e.invuln = 0
-    e.ai.mode = 'inhale'
-    assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'hook'), true)
-    assert.equal(e.ai.mode, 'down')
-    e.invuln = 0
-    assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'sword'), true)
-    assert.equal(e.hp, 10)
-  })
-
-  it('DEEPSEEK: under the floor only the hook reaches it', () => {
-    const { e, c } = boss('deep1', 'start', 'deepseek')
-    e.ai.mode = 'under'
-    assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'sword'), false)
-    e.invuln = 0
-    assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'hook'), true)
-    assert.equal(e.ai.mode, 'hauled')
-    e.invuln = 0
-    assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'sword'), true)
-  })
-
-  it('GEMINI: a twin at zero gets up again unless the other falls too', () => {
-    const { s, c } = boss('deep2', 'down', 'gemini', ['gemini.met'], { x: 23.5, y: 10.5 })
-    const [a, b] = s.map.enemies.filter(o => o.kind === 'gemini')
-    a.invuln = 0
-    Z.hitEnemy(c, a, 8, a.x, a.y + 1, 'sword')
-    assert.equal(a.dead, false)
-    assert.equal(a.ai.mode, 'down')
-    // Left alone it gets up.
-    P.frames(s, 60 * 5)
-    assert.equal(a.ai.mode, 'orbit')
-    assert.equal(a.hp, 4)
-    // Both down together: both gone, the flag set.
-    a.invuln = 0; b.invuln = 0
-    Z.hitEnemy(c, a, 8, a.x, a.y + 1, 'sword')
-    Z.hitEnemy(c, b, 8, b.x, b.y + 1, 'sword')
-    assert.ok(a.dead && b.dead)
-    assert.ok(s.flags.gemini)
-  })
-})
-
-describe('saves', () => {
-  it('a save from before the Wildwood loads, with the new things at their defaults', () => {
-    const s = at('overworld', 'hut')
-    const old = JSON.parse(JSON.stringify(Z.toSave(s)))
-    for (const k of ['hook', 'arc', 'bigBag', 'shrooms', 'keyrings']) delete old.inv[k]
-    const back = Z.parseSave(old)
-    assert.ok(back)
-    assert.equal(back.inv.hook, false)
-    assert.deepEqual(back.inv.keyrings, {})
-    const s2 = Z.createGame(Z.WORLD, { save: back })
-    assert.equal(s2.inv.shrooms, 0)
   })
 })
 
@@ -399,6 +212,7 @@ describe('full run through the Wildwood', () => {
     P.walkTo(s, 7, 30)
     P.face(s, 'up'); P.pressA(s)
     assert.equal(Z.keyCount(s), 1)
+    assert.equal(s.inv.keys, 0, 'a lab\'s key is not the Shrine\'s')
     // Stairwell: the switch to cyan, then down.
     P.walkTo(s, 38, 27)
     P.swing(s, 'up')
@@ -443,6 +257,7 @@ describe('full run through the Wildwood', () => {
     P.walkTo(s, 21, 17)
     P.until(s, () => s.map.id === 'lab1b', P.inp({ move: { x: 1, y: 0 } }))
     P.frames(s, 40)
+    assert.deepEqual([s.entry.map, Math.floor(s.hero.y)], ['lab1', 17], 'dropped to the same spot below, the continue point still upstairs')
     P.killCell(s)
     P.frames(s, 20)
     P.walkTo(s, 23, 21)
@@ -492,6 +307,8 @@ describe('full run through the Wildwood', () => {
     P.walkTo(s, 23, 35)
     P.until(s, () => s.map.id === 'wildwood')
     P.frames(s, 30)
+    assert.deepEqual([tile(s, 52, 21), tile(s, 59, 21)], ['.', 'B'], 'the block Luna slid is still where she left it')
+    assert.equal(Z.keyCount(s), 0, 'the lab\'s keys stayed in the lab')
     P.walkTo(s, 48, 37)
     P.face(s, 'up'); P.pressA(s)
     assert.ok(s.flags['got:toby:bits50'])

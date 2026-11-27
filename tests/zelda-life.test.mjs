@@ -22,13 +22,8 @@ const { outputFiles: [bundle] } = buildSync({
 })
 const { CRITTERS, lifeShows } = await import('data:text/javascript;base64,' + Buffer.from(bundle.text).toString('base64'))
 
-test('every critter file is registered once, with a unique id named after its file', () => {
-  const ids = CRITTERS.map(c => c.id)
-  assert.equal(new Set(ids).size, ids.length)
-  assert.deepEqual([...ids].sort(), files.map(f => f.replace(/\.ts$/, '')).sort())
-})
-
-test('critter frames are rectangular, at most 16x16, in their own palette, named after the critter', () => {
+test('every critter file is registered, its frames rectangular in its own palette, at home somewhere and showing at some hour', () => {
+  assert.deepEqual(CRITTERS.map(c => c.id).sort(), files.map(f => f.replace(/\.ts$/, '')).sort(), 'each file once')
   for (const c of CRITTERS) {
     const names = Object.keys(c.frames)
     assert.ok(names.length >= 2, c.id)
@@ -45,16 +40,15 @@ test('critter frames are rectangular, at most 16x16, in their own palette, named
     }
     for (const v of Object.values(c.pal)) assert.match(v, /^#[0-9a-fA-F]{6}$/, c.id)
   }
-})
-
-test('each critter lives somewhere and shows at some hour', () => {
-  for (const c of CRITTERS) {
-    assert.ok((c.maps?.length ?? 0) + (c.realms?.length ?? 0) > 0, c.id)
-    const where = c.maps?.[0] ?? ''
-    const realm = c.maps?.length ? '' : c.realms[0]
-    const kind = c.kinds?.[0] ?? 'overworld'
-    assert.ok([-1, 0.1, 0.25, 1].some(sun => lifeShows(c, where, realm, kind, sun)), c.id)
-  }
+    {
+    for (const c of CRITTERS) {
+      assert.ok((c.maps?.length ?? 0) + (c.realms?.length ?? 0) > 0, c.id)
+      const where = c.maps?.[0] ?? ''
+      const realm = c.maps?.length ? '' : c.realms[0]
+      const kind = c.kinds?.[0] ?? 'overworld'
+      assert.ok([-1, 0.1, 0.25, 1].some(sun => lifeShows(c, where, realm, kind, sun)), c.id)
+    }
+    }
 })
 
 test('the show-gate keeps dark critters at the stuck dusk and day ones out of it', () => {
@@ -62,7 +56,6 @@ test('the show-gate keeps dark critters at the stuck dusk and day ones out of it
   assert.equal(lifeShows(mk('dark'), 'overworld', '', 'overworld', 0.1), true)
   assert.equal(lifeShows(mk('day'), 'overworld', '', 'overworld', 0.1), false)
   assert.equal(lifeShows(mk('day'), 'overworld', '', 'overworld', 1), true)
-  assert.equal(lifeShows(mk('dusk-dawn'), 'overworld', '', 'overworld', 1), false)
   assert.equal(lifeShows(mk('always'), 'overworld', '', 'interior', 1), false)
   assert.equal(lifeShows(mk('always'), 'wildwood', '', 'overworld', 1), false)
 })

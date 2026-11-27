@@ -1,6 +1,6 @@
 // A scripted player for Neon Shrine tests: step, press A, walk a
 // path-finding route (god mode: full hearts, always invulnerable), use the
-// B item, clear a room. `Z` is the bundled engine (zelda-load.mjs).
+// B item, clear a room, walk up to a person and talk to them. `Z` is the bundled engine (zelda-load.mjs).
 import assert from 'node:assert/strict'
 
 export function walker(Z, W = Z.WORLD) {
@@ -104,5 +104,49 @@ export function walker(Z, W = Z.WORLD) {
     frames(s, 5)
   }
 
-  return { inp, step, frames, settle, path, walkTo, route, until, face, pressA, swing, useB, killCell }
+  /** Where an NPC is written: its map and tile. */
+  function whereIs(id) {
+    for (const [map, def] of Object.entries(W.maps)) {
+      for (let y = 0; y < def.rows.length; y++) {
+        const row = [...def.rows[y]]
+        for (let x = 0; x < row.length; x++) {
+          const e = def.marks[row[x]]?.ent
+          if (e?.t === 'npc' && e.id === id) return { map, x, y }
+        }
+      }
+    }
+    return null
+  }
+
+  /** Walk up to `id` (entering its map at the entry nearest to it, the foes cleared), talk to it and return the lines. */
+  function talkTo(s, id) {
+    const at = whereIs(id)
+    assert.ok(at, `${id} stands somewhere`)
+    const entries = Z.mapInfo(W, at.map).entries
+    const entry = Object.entries(entries).sort(([, a], [, b]) => Math.abs(a.x - at.x) + Math.abs(a.y - at.y) - (Math.abs(b.x - at.x) + Math.abs(b.y - at.y)))[0][0]
+    Z.enterMap(W, s, at.map, entry, [])
+    s.mode = 'play'
+    s.dialog = null
+    for (let i = 0; i < 30; i++) { s.map.enemies = []; step(s); if (s.mode === 'dialog') settle(s) }
+    const n = s.map.npcs.find(x => x.id === id)
+    assert.ok(n, `${id} is there in ${at.map}`)
+    const nx = Math.floor(n.x)
+    const ny = Math.floor(n.y)
+    const spots = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
+    const spot = spots.find(([dx, dy]) => path(s, nx + dx, ny + dy))
+    assert.ok(spot, `a way to ${id} in ${at.map}`)
+    s.map.enemies = []
+    walkTo(s, nx + spot[0], ny + spot[1])
+    // (Someone who wanders may have stepped on; face them where they are now.)
+    const m = s.map.npcs.find(x => x.id === id)
+    const dx = m.x - s.hero.x
+    const dy = m.y - s.hero.y
+    face(s, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'))
+    step(s, inp({ aPress: true, a: true }))
+    const said = s.dialog?.lines
+    settle(s)
+    return said
+  }
+
+  return { inp, step, frames, settle, path, walkTo, route, until, face, pressA, swing, useB, killCell, whereIs, talkTo }
 }

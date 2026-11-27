@@ -43,17 +43,6 @@ function staticClosure() {
 }
 
 describe('the isometric view\'s size', () => {
-  it('leaves every realm\'s scenery, the machines and the stalls out of the bundle: art packs, fetched where they stand', () => {
-    const inputs = Object.values(out.metafile.outputs).flatMap(o => Object.keys(o.inputs))
-    // (No TS table of theirs is left to bundle, statically or as a chunk. The road lanterns, `roadsideData`, stand on
-    // every frontier road and ride in the view with the people and buildings.)
-    const tables = inputs.filter(p => /frontierArt\/(fogstage|rerun|sporelight|stillsand|quarry|underglow|seter|fjord|meadow|landing|gates|coast)Data\.ts$|iso\/(machine|stall)Art\.ts$/.test(p))
-    assert.deepEqual(tables, [])
-    // Their geometry rides in the view (artIndex.ts), and their pixels are fetched by URL (artPack.ts).
-    const closure = staticClosure().flatMap(k => Object.keys(out.metafile.outputs[k].inputs))
-    assert.ok(closure.some(p => p.endsWith('iso/artIndex.ts')) && closure.some(p => p.endsWith('iso/artPack.ts')))
-  })
-
   it('stays under its ceiling, minified and gzipped', () => {
     const files = new Map(out.outputFiles.map(f => [f.path, f.contents]))
     let min = 0

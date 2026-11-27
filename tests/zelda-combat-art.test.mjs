@@ -35,22 +35,18 @@ test('a swing selects sixteen blade orientations, with matching classic and iso 
   }
 })
 
-test('combat marks and small animals arrive in the classic sprite registry', () => {
-  for (const [id, n, w, h] of [
-    ['hitfx', 4, 16, 16], ['hitfx_gold', 4, 16, 16], ['slash', 3, 24, 8],
-    ['wild_fish', 4, 9, 6], ['wild_gull', 2, 11, 6], ['wild_crow', 2, 11, 6],
-    ['wild_moth', 2, 5, 5], ['wild_butterfly', 2, 5, 5], ['wild_frog', 2, 8, 7],
-  ]) {
-    const seen = new Set()
-    for (let i = 0; i < n; i++) {
-      const { rows } = SPRITES[`${id}_${i}`]
-      assert.equal(rows.length, h, id)
-      for (const row of rows) {
-        assert.equal(row.length, w, id)
-        assert.ok([...row].every(ch => ch === '.' || PAL[ch]), id)
-      }
-      seen.add(rows.join('\n'))
-    }
-    assert.equal(seen.size, n, id)
+test('every sprite is a rectangle of palette letters, and the frames of an animation differ', () => {
+  const strips = new Map()
+  for (const [name, { rows }] of Object.entries(SPRITES)) {
+    assert.ok(rows.length > 0 && rows.every(row => row.length === rows[0].length), `${name}: ragged`)
+    for (const row of rows) for (const ch of row) if (ch !== '.' && !PAL[ch]) assert.fail(`${name}: '${ch}' is not a palette letter`)
+    const stem = name.match(/^(hitfx|hitfx_gold|slash|wild_[a-z]+)_\d+$/)?.[1]
+    if (stem) strips.set(stem, [...(strips.get(stem) ?? []), rows.join('\n')])
+  }
+  // The combat marks and the small animals are drawn as strips: each frame its own picture, all one size.
+  assert.ok(strips.size >= 9, `${strips.size} strips`)
+  for (const [stem, frames] of strips) {
+    assert.equal(new Set(frames).size, frames.length, `${stem}: two frames alike`)
+    assert.equal(new Set(frames.map(f => f.split('\n').map(r => r.length).join())).size, 1, `${stem}: frames of two sizes`)
   }
 })

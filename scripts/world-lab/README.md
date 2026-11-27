@@ -12,4 +12,5 @@ These are the tools for laying one out and looking at it.
 Looking at a land in the game: the lab's `life` scene puts the hero anywhere,
 `heavy -x chrome -- env LIFE=<map>,<x>,<y> VIEW=iso TAG=<name> node scripts/zelda-lab/shot.mjs <dir> life`
 (add `DAY=noon` or `DAY=night`; it writes a desktop and a phone picture). `tests/zelda-world.test.mjs` checks the grid,
-the seams, the gates, reaching every map, saves, the dialogue's font and box, chest ids and landmark art.
+the seams, the gates, reaching every map, the dialogue's font and box and chest ids; landmark art is
+`tests/zelda-things.test.mjs`'s.

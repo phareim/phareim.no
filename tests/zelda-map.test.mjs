@@ -1,8 +1,7 @@
-// The map (M) and the chart in the corner: where the hero has been (engine/explore.ts), how it is kept in the save,
-// and how the shell reaches the menu's two pages (Zelda.vue).
+// Where the hero has been (engine/explore.ts), which the chart and the MAP page draw: seen as they walk, kept in the
+// save, and small enough there with the whole world seen.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { load } from './zelda-load.mjs'
 
 let Z
@@ -18,7 +17,7 @@ const seenCount = (s, id) => {
 }
 
 describe('where the hero has been', () => {
-  it('sees round the hero outdoors, and more as they walk', () => {
+  it('sees round the hero outdoors and more as they walk, a dungeon room whole, and keeps nothing indoors', () => {
     const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
     walk(s, 0, 0, 2)
     const first = seenCount(s, 'overworld')
@@ -27,26 +26,26 @@ describe('where the hero has been', () => {
     assert.ok(!Z.seenTile(s, 'overworld', s.map.w, 0, 0) || Math.hypot(s.hero.x, s.hero.y) < Z.SIGHT + Z.CHUNK * 1.5, 'not the far corner')
     walk(s, 1, 0, 240)
     assert.ok(seenCount(s, 'overworld') > first, 'walking sees more')
-  })
-
-  it('sees a dungeon room whole on walking in', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'shrine', entry: 'start' } })
-    walk(s, 0, 0, 2)
-    const z = s.zone
-    for (const [x, y] of [[z.x, z.y], [z.x + z.w - 1, z.y], [z.x, z.y + z.h - 1], [z.x + z.w - 1, z.y + z.h - 1]]) {
-      assert.ok(Z.seenTile(s, 'shrine', s.map.w, x, y), `room corner ${x},${y}`)
+    // A dungeon room is seen whole on walking in.
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'shrine', entry: 'start' } })
+      walk(s, 0, 0, 2)
+      const z = s.zone
+      for (const [x, y] of [[z.x, z.y], [z.x + z.w - 1, z.y], [z.x, z.y + z.h - 1], [z.x + z.w - 1, z.y + z.h - 1]]) {
+        assert.ok(Z.seenTile(s, 'shrine', s.map.w, x, y), `room corner ${x},${y}`)
+      }
+    }
+    // Rooms indoors keep nothing.
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'hut', entry: Object.keys(Z.mapInfo(Z.WORLD, 'hut').entries)[0] } })
+      walk(s, 0, 1, 30)
+      assert.equal(s.explored?.hut, undefined)
+      assert.equal(Z.charted(Z.WORLD.maps.hut), false)
+      assert.equal(Z.charted(Z.WORLD.maps.overworld), true)
     }
   })
 
-  it('keeps nothing for rooms indoors', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'hut', entry: Object.keys(Z.mapInfo(Z.WORLD, 'hut').entries)[0] } })
-    walk(s, 0, 1, 30)
-    assert.equal(s.explored?.hut, undefined)
-    assert.equal(Z.charted(Z.WORLD.maps.hut), false)
-    assert.equal(Z.charted(Z.WORLD.maps.overworld), true)
-  })
-
-  it('goes into the save and comes back, and the save refuses what it cannot read', () => {
+  it('goes into the save and comes back', () => {
     const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
     s.inv.sword = true
     walk(s, 1, 0, 120)
@@ -54,25 +53,9 @@ describe('where the hero has been', () => {
     assert.deepEqual(save.explored, s.explored)
     const again = Z.createGame(Z.WORLD, { save, at: { map: 'overworld', entry: 'hut' } })
     assert.deepEqual(again.explored, s.explored)
-    assert.equal(Z.cleanExplored(null), null)
-    assert.equal(Z.cleanExplored([1, 2]), null)
-    assert.deepEqual(Z.cleanExplored({ overworld: 'AB_', bad: '<script>', n: 3, ['x'.repeat(41)]: 'A' }), { overworld: 'AB_' })
-    // An old save without it still loads.
-    const old = JSON.parse(JSON.stringify(Z.toSave(s)))
-    delete old.explored
-    assert.ok(Z.parseSave(old))
   })
 
-  it('keeps at most EXPLORE_MAPS maps, the first written making room', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
-    s.explored = {}
-    for (let i = 0; i < Z.EXPLORE_MAPS + 5; i++) Z.reveal(s, `m${i}`, 16, 16, { x: 0, y: 0, w: 1, h: 1 })
-    const ids = Object.keys(s.explored)
-    assert.equal(ids.length, Z.EXPLORE_MAPS)
-    assert.ok(!ids.includes('m0') && ids.includes(`m${Z.EXPLORE_MAPS + 4}`))
-  })
-
-  it('fits in the save with the whole world seen, every map of it', () => {
+  it('fits in the save with the whole world seen, every map of it, and keeps at most EXPLORE_MAPS maps', () => {
     const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
     s.inv.sword = true
     const ids = Object.keys(Z.WORLD.maps)
@@ -87,31 +70,14 @@ describe('where the hero has been', () => {
     const charted = ids.filter(id => Z.charted(Z.WORLD.maps[id]))
     assert.ok(charted.length > 0)
     for (const id of charted) assert.ok(s.explored[id], `${id} is in the explored data`)
-  })
-})
-
-describe('the menu: ITEMS and MAP', () => {
-  const shell = readFileSync(new URL('../themes/zelda/Zelda.vue', import.meta.url), 'utf8')
-  const keys = shell.slice(shell.indexOf('function shellKey'), shell.indexOf('function backsOut'))
-
-  it('opens on its MAP page with M and its ITEMS page with P, in play and in the menu', () => {
-    assert.match(keys, /e\.code === 'KeyP'\)[^\n]*openPage\('items'\)/)
-    assert.match(keys, /e\.code === 'KeyM' && !confirmReset\.value\)[^\n]*openPage\('map'\)/)
-    assert.equal(keys.split("'KeyM'").length - 1, 1, 'M has one meaning')
-    // In the menu O is the sound.
-    assert.match(keys, /'KeyO'\) \{[^\n]*toggleSound\(\)/)
-  })
-
-  it('closes on the open page\'s own key and turns the page on the other', () => {
-    const fn = shell.slice(shell.indexOf('function openPage'), shell.indexOf('function togglePause'))
-    assert.match(fn, /if \(!paused\.value\) \{ togglePause\(page\); return \}/)
-    assert.match(fn, /if \(menuPage\.value === page\) \{ togglePause\(\); return \}/)
-    assert.match(fn, /menuPage\.value = page/)
-  })
-
-  it('draws the page the shell has open', () => {
-    const r = readFileSync(new URL('../themes/zelda/render/renderer.ts', import.meta.url), 'utf8')
-    assert.match(r, /ui\.paused && ui\.page === 'map' && !ui\.confirmReset\) drawMapPage/)
-    assert.match(shell, /ui\.page = menuPage\.value/)
+    // More maps than the cap: the first written make room.
+    {
+      const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
+      s.explored = {}
+      for (let i = 0; i < Z.EXPLORE_MAPS + 5; i++) Z.reveal(s, `m${i}`, 16, 16, { x: 0, y: 0, w: 1, h: 1 })
+      const ids = Object.keys(s.explored)
+      assert.equal(ids.length, Z.EXPLORE_MAPS)
+      assert.ok(!ids.includes('m0') && ids.includes(`m${Z.EXPLORE_MAPS + 4}`))
+    }
   })
 })

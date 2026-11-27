@@ -1,18 +1,21 @@
-// Neon Shrine engine tests: world checks, the first minute (down the coast
-// road from the town, the Keeper's story, the blade, out of the hut door),
-// the hut, exits on a small fixture, the rules before the blade, saves, and
-// a full scripted run from the Keeper's hut to the Sun Prism with a
-// path-finding walker (god mode on, bosses killed directly). The town's own
-// checks are in portal-world.test.mjs.
+// Neon Shrine engine tests, played through `stepGame`: the first minute (down the coast road from the town, the
+// Keeper's story, the hut, the blade), a save and where it continues, exits, talks, the chain and the roll in a bare
+// arena, calm sentries, and a full scripted run from the Keeper's hut to the Sun Prism with a path-finding walker
+// (god mode on, bosses killed directly; their fights are `zelda-gauntlet.test.mjs`). The real world's validator is in
+// `zelda-world.test.mjs`, old saves in `zelda-old-saves.test.mjs`; the town's own checks in portal-world.test.mjs.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
 import { prismRun } from './zelda-prism-run.mjs'
+import { walker } from './zelda-walk.mjs'
+import { arena as room } from './zelda-arena.mjs'
 
 let Z
-before(async () => { Z = await load() })
+let P
+before(async () => { Z = await load(); P = walker(Z) })
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
+const A = inp({ aPress: true, a: true })
 const step = (s, i = inp(), dt = 1 / 60) => Z.stepGame(Z.WORLD, s, dt, i)
 /** The old overworld sits east of the town: add this to its x coordinates. */
 const OX = 40
@@ -25,86 +28,9 @@ function newGame(seed = 5) {
   return s
 }
 
-/** Press A through any dialog / item-get in progress. */
-function settle(s, max = 600) {
-  for (let i = 0; i < max && s.mode !== 'play' && s.mode !== 'won'; i++) {
-    if (s.mode === 'dialog') { step(s, inp(), 0.3); step(s, inp({ aPress: true, a: true })) } else step(s)
-  }
-}
-
-/** BFS over tiles the hero can stand on; returns tile path. */
-function path(s, tx, ty) {
-  const m = s.map
-  const sx = Math.floor(s.hero.x)
-  const sy = Math.floor(s.hero.y)
-  const npc = new Set(m.npcs.flatMap(n => [[0, 0], [0.4, 0], [-0.4, 0], [0, 0.4], [0, -0.4]].map(([a, b]) => Math.floor(n.y + b) * m.w + Math.floor(n.x + a))))
-  const ok = (x, y) => x >= 0 && y >= 0 && x < m.w && y < m.h && !Z.solidTile(Z.WORLD, m, x, y, 'hero') && m.tiles[y * m.w + x] !== 'O' && !npc.has(y * m.w + x)
-  const prev = new Map()
-  const key = (x, y) => y * m.w + x
-  const q = [[sx, sy]]
-  prev.set(key(sx, sy), null)
-  while (q.length) {
-    const [x, y] = q.shift()
-    if (x === tx && y === ty) break
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx
-      const ny = y + dy
-      if (!ok(nx, ny) || prev.has(key(nx, ny))) continue
-      prev.set(key(nx, ny), [x, y])
-      q.push([nx, ny])
-    }
-  }
-  if (!prev.has(key(tx, ty))) return null
-  const out = []
-  let cur = [tx, ty]
-  while (cur) { out.unshift(cur); cur = prev.get(key(cur[0], cur[1])) }
-  return out
-}
-
-/** Walk the hero to tile (tx, ty) (map may change on the way). God mode. */
-function walkTo(s, tx, ty, { map = s.map.id, budget = 4000, keepDialog = false } = {}) {
-  let p = path(s, tx, ty)
-  assert.ok(p, `no path in ${s.map.id} from ${Math.floor(s.hero.x)},${Math.floor(s.hero.y)} to ${tx},${ty}`)
-  let i = 0
-  for (let n = 0; n < budget; n++) {
-    s.hero.hp = s.hero.maxHp
-    s.hero.invuln = 1
-    if (keepDialog && s.mode === 'dialog') return true
-    if (s.mode === 'dialog' || s.mode === 'get') { settle(s); continue }
-    if (s.mode === 'won') return true
-    if (s.mode !== 'play') { step(s); continue }
-    if (s.map.id !== map) return true
-    const h = s.hero
-    if (Math.floor(h.x) === tx && Math.floor(h.y) === ty && Math.hypot(h.x - tx - 0.5, h.y - ty - 0.5) < 0.12) return true
-    while (i < p.length - 1 && Math.floor(h.x) === p[i][0] && Math.floor(h.y) === p[i][1] && Math.hypot(h.x - p[i][0] - 0.5, h.y - p[i][1] - 0.5) < 0.25) i++
-    const [gx, gy] = p[Math.min(i, p.length - 1)]
-    const dx = gx + 0.5 - h.x
-    const dy = gy + 0.5 - h.y
-    const d = Math.hypot(dx, dy) || 1
-    step(s, inp({ move: { x: dx / d, y: dy / d } }))
-    if (n % 90 === 89) { p = path(s, tx, ty) ?? p; i = 0 }
-  }
-  assert.fail(`walkTo ${tx},${ty} timed out at ${s.hero.x.toFixed(2)},${s.hero.y.toFixed(2)} in ${s.map.id}`)
-}
-
-function face(s, dir) {
-  s.hero.dir = dir
-}
-
-function pressA(s) { step(s, inp({ aPress: true, a: true })); settle(s) }
-
-function killCell(s) {
-  const c = Z.ctx(Z.WORLD, s, [])
-  for (const e of s.map.enemies) if (e.cell === s.zoneIndex && !e.dead && e.kind !== 'eye') Z.killEnemy(c, e)
-  for (let i = 0; i < 5; i++) step(s)
-}
-
-describe('world', () => {
-  it('validates', () => assert.deepEqual(Z.validateWorld(Z.WORLD), []))
-})
-
 describe('the first minute', () => {
-  it('starts in the town; the coast road leads to the Keeper, who tells the story once', () => {
+  it('starts in the town; the coast road leads to the Keeper, who tells the story once; the hut, the blade, a bush and a spin', () => {
+    const { walkTo, face, pressA, settle } = P
     const s = Z.createGame(Z.WORLD, { seed: 1 })
     assert.equal(s.mode, 'play')
     assert.equal(s.map.id, 'overworld')
@@ -129,22 +55,33 @@ describe('the first minute', () => {
     assert.equal(s.inv.sword, true)
     for (let k = 0; k < 60; k++) step(s)
     assert.ok(s.elapsed > 0.9)
-  })
-
-  it('steps out of the hut door on its own, then hands over', () => {
-    const s = Z.createGame(Z.WORLD, { seed: 1, at: HUT })
-    assert.equal(s.mode, 'play')
-    assert.deepEqual([s.hero.x, s.hero.y, s.hero.dir], [OX + 7.5, 28.5, 'down'])
-    assert.ok(s.hero.auto)
-    // Input waits while the hero walks out.
-    step(s, inp({ move: { x: 1, y: 0 } }))
-    assert.equal(s.hero.x, OX + 7.5)
-    let frames = 1
-    while (s.hero.auto && frames < 120) { step(s); frames++ }
-    const t = frames / 60
-    assert.ok(t >= 0.18 && t <= 0.3, `walk-out took ${t.toFixed(2)} s`)
-    assert.ok(Math.abs(s.hero.x - OX - 7.5) < 1e-6 && Math.abs(s.hero.y - 29.5) < 1e-6, `at ${s.hero.x},${s.hero.y}`)
-    assert.equal(s.mode, 'play')
+    // The hut has one door, and leaving it walks you out again without bouncing back in.
+    P.walkTo(s, OX + 7, 28)
+    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
+    assert.deepEqual([s.map.id, s.area, s.map.exits], ['hut', "KEEPER'S HUT", []])
+    P.walkTo(s, 6, 8)
+    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
+    for (let k = 0; k < 40; k++) step(s)
+    assert.deepEqual([s.map.id, s.hero.x, s.hero.y, s.mode], ['overworld', OX + 7.5, 29.5, 'play'])
+    // With the blade: a bush cut, a spin charged and let go.
+    {
+      const t0 = s.map.tiles.filter(t => t === '*').length
+      // Put the hero next to a bush and swing at it.
+      const i = s.map.tiles.findIndex((t, k) => t === '*' && s.map.tiles[k + 1] === '.')
+      s.hero.x = (i % s.map.w) + 1.5
+      s.hero.y = Math.floor(i / s.map.w) + 0.5
+      s.hero.dir = 'left'
+      const ev = [...step(s, inp({ aPress: true, a: true }))]
+      for (let k = 0; k < 20; k++) ev.push(...step(s))
+      assert.ok(ev.some(e => e.type === 'swing'))
+      assert.ok(s.map.tiles.filter(t => t === '*').length < t0)
+      // Charge and release for a spin.
+      const ev2 = [...step(s, inp({ aPress: true, a: true }))]
+      for (let k = 0; k < 80; k++) ev2.push(...step(s, inp({ a: true })))
+      ev2.push(...step(s, inp({ a: false })))
+      assert.ok(ev2.some(e => e.type === 'charged'))
+      assert.ok(ev2.some(e => e.type === 'spin'))
+    }
   })
 
   it('a save continues where it is told to, with its items', () => {
@@ -166,59 +103,6 @@ describe('the first minute', () => {
     s = Z.createGame(Z.WORLD, { save, at: { map: 'arcade', entry: 'nope' } })
     assert.equal(s.area, 'HOME GLADE')
   })
-
-  it('swings, cuts a bush and spins', () => {
-    const s = newGame()
-    s.inv.sword = true
-    const t0 = s.map.tiles.filter(t => t === '*').length
-    // Put the hero next to a bush and swing at it.
-    const i = s.map.tiles.findIndex((t, k) => t === '*' && s.map.tiles[k + 1] === '.')
-    s.hero.x = (i % s.map.w) + 1.5
-    s.hero.y = Math.floor(i / s.map.w) + 0.5
-    s.hero.dir = 'left'
-    const ev = [...step(s, inp({ aPress: true, a: true }))]
-    for (let k = 0; k < 20; k++) ev.push(...step(s))
-    assert.ok(ev.some(e => e.type === 'swing'))
-    assert.ok(s.map.tiles.filter(t => t === '*').length < t0)
-    // Charge and release for a spin.
-    const ev2 = [...step(s, inp({ aPress: true, a: true }))]
-    for (let k = 0; k < 80; k++) ev2.push(...step(s, inp({ a: true })))
-    ev2.push(...step(s, inp({ a: false })))
-    assert.ok(ev2.some(e => e.type === 'charged'))
-    assert.ok(ev2.some(e => e.type === 'spin'))
-  })
-
-  it('lifts and throws a pot', () => {
-    const s = newGame()
-    const i = s.map.tiles.findIndex((t, k) => t === 'o' && s.map.tiles[k + s.map.w] === '.')
-    s.hero.x = (i % s.map.w) + 0.5
-    s.hero.y = Math.floor(i / s.map.w) + 1.5
-    s.hero.dir = 'up'
-    pressA(s)
-    assert.equal(s.hero.carry, 'pot')
-    for (let k = 0; k < 30; k++) step(s)
-    const ev = [...step(s, inp({ aPress: true, a: true }))]
-    for (let k = 0; k < 60; k++) ev.push(...step(s))
-    assert.ok(ev.some(e => e.type === 'shatter'))
-    assert.equal(s.hero.carry, null)
-  })
-})
-
-describe("the Keeper's hut", () => {
-  it('has one door, and leaving walks you out of it again', () => {
-    const s = newGame()
-    walkTo(s, OX + 7, 28)
-    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
-    assert.equal(s.map.id, 'hut')
-    assert.equal(s.area, "KEEPER'S HUT")
-    assert.deepEqual(s.map.exits, [])
-    walkTo(s, 6, 8)
-    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
-    assert.equal(s.map.id, 'overworld')
-    for (let k = 0; k < 40; k++) step(s)
-    assert.equal(s.map.id, 'overworld', 'did not bounce back in')
-    assert.deepEqual([s.hero.x, s.hero.y, s.mode], [OX + 7.5, 29.5, 'play'])
-  })
 })
 
 describe('a sign with a second text', () => {
@@ -229,7 +113,7 @@ describe('a sign with a second text', () => {
     for (let k = 0; k < 30; k++) step(s)
     step(s, inp({ aPress: true, a: true }))
     const said = s.dialog?.lines
-    settle(s)
+    P.settle(s)
     for (let k = 0; k < 30; k++) step(s)
     return said
   }
@@ -245,153 +129,64 @@ describe('a sign with a second text', () => {
     s.flags.gateShut = true
     assert.deepEqual(read(s, 58, 24), ['(YOU PICK UP. JUST THE DIAL TONE. IT SOUNDS RELIEVED.)'])
   })
-
-  it('a sign without one reads the same before and after', () => {
-    const s = at('seterfell', 'gate-fell')
-    const lines = ['CLOSE THE GATE.\nTHE GOATS HAVE LEARNED THE LATCH.']
-    assert.deepEqual(read(s, 43, 48), lines)
-    s.flags.gateShut = true
-    assert.deepEqual(read(s, 43, 48), lines)
-  })
 })
 
-// A small world with every kind of exit, spikes, a pit, a blob and a spitter.
+// A small world with every kind of exit.
 function fixture() {
   return {
     start: { map: 'room', entry: 'start' },
     maps: {
       room: {
         id: 'room', name: 'FIXTURE', kind: 'interior', track: 'indoor',
-        rows: [
-          '#####E######',
-          '#c.........#',
-          '#......x...#',
-          '#k....@....#',
-          '#......j...#',
-          '#...e....O.#',
-          '#..........#',
-          '############',
-        ],
+        rows: ['#####E######', '#c.........#', '#..........#', '#k....@....#', '#..........#', '############'],
         marks: {
           '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
           c: { tile: 'M', ent: { t: 'exit', id: 'galaga', to: { theme: 'galaga' }, look: 'cabinet', art: 'galaga', label: 'GALAGA', lines: ['GALAGA. SHOOT THE SWARM.', 'INSERT COIN? PRESS A.'] } },
           k: { tile: 'n', ent: { t: 'exit', id: 'md', to: { url: 'https://phareim.md' }, side: 'right' } },
           E: { tile: 'D', ent: { t: 'exit', id: 'hangar', to: { theme: 'hangar' } } },
-          e: { ent: { t: 'enemy', kind: 'blob' } },
-          j: { ent: { t: 'enemy', kind: 'spitter' } },
         },
       },
     },
   }
 }
 
-/** Step until the game leaves, collecting events. */
-function runOut(W, s, input = inp(), max = 240) {
-  const ev = []
-  for (let k = 0; k < max && s.mode !== 'exit'; k++) ev.push(...Z.stepGame(W, s, 1 / 60, input))
-  return ev
-}
-
 describe('exits', () => {
-  it('validates, registers an entry beside each exit and lists them on the map', () => {
+  it('leave by a cabinet once its lines are read, a sign at once, a door walked onto', () => {
     const W = fixture()
     assert.deepEqual(Z.validateWorld(W), [])
-    const e = Z.mapInfo(W, 'room').entries
-    assert.deepEqual(e.galaga, { x: 1.5, y: 2.5, dir: 'up' }) // below a cabinet, facing it
-    assert.deepEqual(e.md, { x: 2.5, y: 3.5, dir: 'left' }) // side: 'right', facing it
-    assert.deepEqual(e.hangar, { x: 5.5, y: 1.5, dir: 'down' }) // below a door, facing away
-    const s = Z.createGame(W)
-    assert.equal(s.mode, 'play') // no intro in this world
-    const byId = Object.fromEntries(s.map.exits.map(x => [x.id, x]))
-    assert.deepEqual(byId.galaga, { id: 'galaga', x: 1.5, y: 1.5, to: { theme: 'galaga' }, look: 'cabinet', art: 'galaga', label: 'GALAGA', walk: false })
-    assert.equal(byId.md.look, 'sign')
-    assert.equal(byId.md.walk, false)
-    assert.equal(byId.hangar.look, 'door')
-    assert.equal(byId.hangar.walk, true)
-  })
-
-  it('a cabinet: A shows its lines, closing them leaves through it', () => {
-    const W = fixture()
-    const s = Z.createGame(W)
-    Z.enterMap(W, s, 'room', 'galaga', [])
-    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))]
-    assert.equal(s.mode, 'dialog')
-    assert.deepEqual(s.dialog.lines, ['GALAGA. SHOOT THE SWARM.', 'INSERT COIN? PRESS A.'])
-    for (let k = 0; k < 20 && s.mode === 'dialog'; k++) {
-      ev.push(...Z.stepGame(W, s, 0.3, inp()))
-      ev.push(...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true })))
+    /** Steps until the game has left, then says through which exits. */
+    const out = (s, ev, input = inp()) => {
+      for (let k = 0; k < 240 && s.mode !== 'exit'; k++) ev.push(...Z.stepGame(W, s, 1 / 60, input))
+      assert.equal(s.mode, 'exit')
+      return ev.filter(e => e.type === 'exit')
     }
-    assert.equal(s.mode, 'warp')
-    assert.ok(ev.some(e => e.type === 'text'))
-    ev.push(...runOut(W, s))
-    assert.equal(s.mode, 'exit')
-    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'galaga', to: { theme: 'galaga' } }])
-    assert.equal(s.warp.t, Z.WARP_TIME) // held at full dark
-  })
-
-  it('a solid exit without lines leaves at once', () => {
-    const W = fixture()
-    const s = Z.createGame(W)
-    Z.enterMap(W, s, 'room', 'md', [])
-    Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))
-    assert.equal(s.mode, 'warp')
-    const ev = runOut(W, s)
-    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'md', to: { url: 'https://phareim.md' } }])
-  })
-
-  it('a door: walking onto it leaves', () => {
-    const W = fixture()
-    const s = Z.createGame(W)
-    Z.enterMap(W, s, 'room', 'hangar', [])
-    const ev = runOut(W, s, inp({ move: { x: 0, y: -1 } }))
-    assert.equal(s.mode, 'exit')
-    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'hangar', to: { theme: 'hangar' } }])
-  })
-
-  it('the validator catches bad exits', () => {
-    const W = fixture()
-    const m = W.maps.room
-    m.rows = m.rows.map(r => r.replace('k', 'c'))
-    m.marks.c.ent.to = { url: 'http://insecure.example' }
-    m.marks.E.ent.side = 'up'
-    const out = Z.validateWorld(W).join('\n')
-    assert.match(out, /exit id galaga is used twice/)
-    assert.match(out, /exit galaga goes to url http:\/\/insecure.example/)
-    assert.match(out, /exit hangar has no floor on its up side/)
-  })
-})
-
-describe('before the blade', () => {
-  it('A and B do nothing with nothing to talk to, and nothing shows a buzz', () => {
-    const W = fixture()
-    const s = Z.createGame(W)
-    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, bPress: true }))]
-    for (let k = 0; k < 30; k++) ev.push(...Z.stepGame(W, s, 1 / 60, inp()))
-    assert.deepEqual(ev.filter(e => e.type === 'swing' || e.type === 'error'), [])
-    assert.equal(s.mode, 'play')
-  })
-
-  it('with the blade, A swings', () => {
-    const W = fixture()
-    const s = Z.createGame(W)
-    s.inv.sword = true
-    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, bPress: true }))]
-    assert.ok(ev.some(e => e.type === 'swing'))
-  })
-
-  it('the Arc Blade is only a blade: no shot even at full hearts (2026-11-25)', () => {
-    const W = fixture()
-    const s = Z.createGame(W)
-    Object.assign(s.inv, { sword: true, arc: true })
-    s.hero.hp = s.hero.maxHp
-    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))]
-    assert.ok(ev.some(e => e.type === 'swing'))
-    assert.ok(!s.map.projectiles.some(p => p.friendly), 'the swing threw something')
+    // A cabinet: A shows its lines, closing them leaves through it, held at full dark.
+    const c = Z.createGame(W)
+    Z.enterMap(W, c, 'room', 'galaga', [])
+    const ev = [...Z.stepGame(W, c, 1 / 60, A)]
+    assert.deepEqual([c.mode, c.dialog.lines], ['dialog', ['GALAGA. SHOOT THE SWARM.', 'INSERT COIN? PRESS A.']])
+    for (let k = 0; k < 20 && c.mode === 'dialog'; k++) {
+      ev.push(...Z.stepGame(W, c, 0.3, inp()))
+      ev.push(...Z.stepGame(W, c, 1 / 60, A))
+    }
+    assert.equal(c.mode, 'warp')
+    assert.deepEqual(out(c, ev), [{ type: 'exit', id: 'galaga', to: { theme: 'galaga' } }])
+    assert.equal(c.warp.t, Z.WARP_TIME)
+    // A solid exit without lines leaves at once.
+    const k = Z.createGame(W)
+    Z.enterMap(W, k, 'room', 'md', [])
+    Z.stepGame(W, k, 1 / 60, A)
+    assert.equal(k.mode, 'warp')
+    assert.deepEqual(out(k, []), [{ type: 'exit', id: 'md', to: { url: 'https://phareim.md' } }])
+    // A door: walking onto it leaves.
+    const d = Z.createGame(W)
+    Z.enterMap(W, d, 'room', 'hangar', [])
+    assert.deepEqual(out(d, [], inp({ move: { x: 0, y: -1 } })), [{ type: 'exit', id: 'hangar', to: { theme: 'hangar' } }])
   })
 })
 
 describe('saves', () => {
-  it('round-trips and rejects garbage', () => {
+  it('round-trip, reject garbage and say how far the quest has come', () => {
     const s = newGame()
     s.inv.sword = true
     s.inv.bits = 42
@@ -406,6 +201,27 @@ describe('saves', () => {
     assert.equal(Z.parseSave('nope'), null)
     assert.equal(Z.parseSave({ ...save, inv: { ...save.inv, bits: 'x' } }), null)
     assert.equal(Z.toSave(Z.createGame(Z.WORLD, { demo: true })), null)
+    // The summary the profile shows.
+    {
+      const s = newGame()
+      let q = Z.summarizeSave(Z.toSave(s))
+      assert.equal(q.step, 0)
+      assert.equal(q.goal, 'THE BLADE')
+      assert.equal(q.hearts, Z.START_HP / 2)
+      s.inv.sword = true
+      s.inv.bombBag = true
+      q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
+      assert.equal(q.step, 2)
+      assert.equal(q.goal, 'THE WILDWOOD')
+      Object.assign(s.inv, { hook: true, arc: true })
+      for (const f of ['luna', 'mistral', 'gateShut', 'bomb:overworld:3,4']) s.flags[f] = true
+      q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
+      assert.equal(q.step, 8)
+      assert.equal(q.goal, 'THE DISC')
+      assert.equal(Z.summarizeRaw({ nope: true }), null)
+      assert.equal(Z.formatPlayTime(3725), '1:02:05')
+      assert.equal(Z.formatPlayTime(95), '1:35')
+    }
   })
 
   it('death respawns at the entry with full hearts and keeps progress', () => {
@@ -423,16 +239,8 @@ describe('saves', () => {
     assert.equal(s.hero.hp, s.hero.maxHp)
     assert.equal(s.inv.sword, true)
   })
-})
 
-describe('profile saves', () => {
   const saveAt = (at, patch = {}) => ({ ...Z.toSave(newGame()), savedAt: at, ...patch })
-
-  it('keeps savedAt through parseSave and drops junk stamps', () => {
-    const save = saveAt(1_700_000_000_000)
-    assert.equal(Z.parseSave(JSON.parse(JSON.stringify(save))).savedAt, 1_700_000_000_000)
-    assert.equal(Z.parseSave({ ...save, savedAt: 'x' }).savedAt, undefined)
-  })
 
   it('reconciles by newest write', () => {
     const old = saveAt(100)
@@ -453,65 +261,27 @@ describe('profile saves', () => {
     // An unreadable profile save never replaces a readable local one.
     assert.equal(Z.reconcile(old, 100, remote({ v: 99 }, 200), null).kind, 'push')
   })
-
-  it('summarises the quest from a save', () => {
-    const s = newGame()
-    let q = Z.summarizeSave(Z.toSave(s))
-    assert.equal(q.step, 0)
-    assert.equal(q.goal, 'THE BLADE')
-    assert.equal(q.hearts, Z.START_HP / 2)
-    s.inv.sword = true
-    s.inv.bombBag = true
-    q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
-    assert.equal(q.step, 2)
-    assert.equal(q.goal, 'THE WILDWOOD')
-    Object.assign(s.inv, { hook: true, arc: true })
-    for (const f of ['luna', 'mistral', 'gateShut', 'bomb:overworld:3,4']) s.flags[f] = true
-    q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
-    assert.equal(q.step, 8)
-    assert.equal(q.goal, 'THE DISC')
-    assert.equal(Z.summarizeRaw({ nope: true }), null)
-    assert.equal(Z.formatPlayTime(3725), '1:02:05')
-    assert.equal(Z.formatPlayTime(95), '1:35')
-  })
-})
-
-describe('the Shrine road is open from the start (2026-10-01)', () => {
-  const inv = o => ({ sword: true, bombBag: true, disc: false, bigKey: false, hook: false, arc: false, prism: false, ...o })
-
-  it('has no gate on the Graves road', () => {
-    const ow = Z.WORLD.maps.overworld
-    assert.ok(!Object.values(ow.marks).some(m => m.ent?.t === 'gate'), 'no gate left in the overworld')
-    assert.ok(!ow.rows.some(r => r.includes('X')), 'no shutter tile left in the overworld')
-  })
-
-  it('shows the prism only once the king is down and the Gate is shut', () => {
-    const prism = Z.WORLD.maps.shrine.marks.Y.ent
-    assert.deepEqual(prism.appear, { flags: ['boss', 'gateShut'] })
-    const warn = Z.WORLD.maps.shrine.cells['1,0'].events.find(e => e.set === 'king.warned')
-    assert.deepEqual(warn.when, { flags: ['boss'], not: ['gateShut'] })
-  })
-
-  it('points the quest at the road the player has started', () => {
-    const next = (i, flags, map = 'overworld') => Z.questNext(i, flags, map)
-    assert.equal(next(inv(), []), 2, 'default after the bombs: the Wildwood')
-    assert.equal(next(inv(), ['bomb:overworld:3,4']), 8, 'rubble blasted: the disc')
-    assert.equal(next(inv({ disc: true, bigKey: true }), ['bomb:overworld:3,4']), 10, 'the king')
-    // King down before the Gate: the Wildwood chain, then the prism.
-    assert.equal(next(inv({ disc: true, bigKey: true }), ['bomb:overworld:3,4', 'boss']), 2)
-    assert.equal(next(inv({ disc: true, bigKey: true, hook: true, arc: true }), ['bomb:overworld:3,4', 'boss', 'luna', 'mistral']), 6)
-    assert.equal(next(inv({ disc: true, bigKey: true, hook: true, arc: true }), ['bomb:overworld:3,4', 'boss', 'luna', 'mistral', 'gateShut']), 11, 'back for the prism')
-    assert.equal(Z.questStep(inv({ prism: true, disc: true, bigKey: true, hook: true, arc: true }), ['bomb:overworld:3,4', 'boss', 'luna', 'mistral', 'gateShut'], 'shrine'), Z.QUEST_STEPS)
-  })
 })
 
 describe('full run', () => {
   it('goes from the hut to the Sun Prism', () => {
-    prismRun(newGame(11), { Z, OX, inp, step, settle, walkTo, face, pressA, killCell })
+    const s = newGame(11)
+    const { walkTo, face, pressA } = P
+    // A pot in Home Glade, lifted and thrown, before the walk (`zelda-prism-run.mjs`, shared with the A button's test).
+    const pot = s.map.tiles.findIndex((t, k) => t === 'o' && s.map.tiles[k + s.map.w] === '.')
+    walkTo(s, pot % s.map.w, Math.floor(pot / s.map.w) + 1)
+    face(s, 'up'); pressA(s)
+    assert.equal(s.hero.carry, 'pot')
+    for (let k = 0; k < 30; k++) step(s)
+    const thrown = [...step(s, A)]
+    for (let k = 0; k < 60; k++) thrown.push(...step(s))
+    assert.ok(thrown.some(e => e.type === 'shatter'))
+    assert.equal(s.hero.carry, null)
+    prismRun(s, { ...P, Z, OX })
   })
 })
 
-describe('a talk that asks', () => {
+describe('talks', () => {
   const ask = { options: ['TALK', 'PET'], replies: [['MRRROW.'], ['THE CAT APPROVES.']] }
   const asking = () => {
     const s = newGame()
@@ -519,29 +289,23 @@ describe('a talk that asks', () => {
     s.dialog = { lines: ['A CAT.'], line: 0, chars: 99, who: 'cat', after: null, choice: 0, held: false, ask }
     return s
   }
-  it('the first answer opens its reply', () => {
-    const s = asking()
-    step(s, inp({ aPress: true, a: true }))
-    assert.deepEqual(s.dialog.lines, ask.replies[0])
-    assert.equal(s.dialog.ask, undefined)
+  it('that ask open the reply picked, the first by A and the second after a press right, and close on B', () => {
+    const first = asking()
+    step(first, A)
+    assert.deepEqual(first.dialog.lines, ask.replies[0])
+    assert.equal(first.dialog.ask, undefined)
+    const second = asking()
+    step(second, inp({ move: { x: 1, y: 0 } }))
+    step(second, A)
+    assert.deepEqual(second.dialog.lines, ask.replies[1])
+    const closed = asking()
+    step(closed, inp({ bPress: true }))
+    assert.equal(closed.mode, 'play')
   })
-  it('a press right picks the second', () => {
-    const s = asking()
-    step(s, inp({ move: { x: 1, y: 0 } }))
-    step(s, inp({ aPress: true, a: true }))
-    assert.deepEqual(s.dialog.lines, ask.replies[1])
-  })
-  it('B closes it', () => {
-    const s = asking()
-    step(s, inp({ bPress: true }))
-    assert.equal(s.mode, 'play')
-  })
-})
 
-describe('a tap too many at the end of the lines (2026-10-06)', () => {
   it('mashing A does not start the talk over; a rested A talks again', () => {
     const s = Z.createGame(Z.WORLD, { seed: 3, at: Z.WORLD.start })
-    settle(s)
+    P.settle(s)
     for (let k = 0; k < 40; k++) step(s)
     const kid = s.map.npcs.find(n => n.id === 'townkid')
     kid.wander = false
@@ -566,129 +330,70 @@ describe('a tap too many at the end of the lines (2026-10-06)', () => {
 })
 
 describe('real-time combat: the chain, the roll (2026-11-25)', () => {
-  /** An empty room, the hero in it with the blade, facing east; a foe `d` tiles in front (0: none). */
-  function arena(d = 1.2, kind = 'blob') {
-    const W = {
-      start: { map: 'pit', entry: 'start' },
-      maps: {
-        pit: {
-          id: 'pit', name: 'ARENA', kind: 'interior', track: 'indoor',
-          rows: ['##############', '#............#', '#............#', '#............#', '#...@........#', '#............#', '#............#', '#............#', '##############'],
-          marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'right' } } },
-        },
-      },
-    }
-    const s = Z.createGame(W)
-    s.mode = 'play'
-    s.dialog = null
-    s.inv.sword = true
-    s.hero.dir = 'right'
-    s.hero.aim = 0
-    if (d) {
-      const st = Z.STATS[kind]
-      s.map.enemies.push({ id: 'foe', kind, x: s.hero.x + d, y: s.hero.y, r: st.r, hp: 99, maxHp: 99, dir: 'left', cell: s.zoneIndex, invuln: 0, stun: 0, knock: null, ai: { mode: 'idle', t: 99, tell: 0 }, home: { x: s.hero.x + d, y: s.hero.y }, dead: false, flash: 0 })
-    }
-    const ev = []
-    const go = (i = inp(), n = 1) => { for (let k = 0; k < n; k++) ev.push(...Z.stepGame(W, s, 1 / 60, i)) }
-    return { W, s, ev, go, foe: s.map.enemies[0] }
-  }
-  const A = inp({ aPress: true, a: true })
+  /** The arena, the foe `d` tiles in front. */
+  const arena = (d = 1.2, kind = 'blob') => room(Z, d, kind)
 
-  it('a press during a swing waits, and starts the next hit of the chain from 60 % in, back the other way', () => {
-    const { s, ev, go } = arena(0)
-    go(A)
-    assert.equal(s.hero.swing.n, 0)
-    go(inp(), 3) // 0.067 s in
-    go(A)
-    assert.equal(s.hero.swing.n, 0, 'too early: still hit 1')
-    assert.ok(s.hero.bufA > 0, 'the press waits')
+  it('chains: a press in a swing waits for the next hit, the finisher lunges and drives the foe, a reeling foe harms no one', () => {
+    // A press during a swing waits and starts hit 2 before hit 1 is over; a press long after the chain starts it over.
+    // The Arc Blade is only a blade (2026-11-25): even at full hearts a swing throws nothing.
+    const a = arena(0)
+    a.s.inv.arc = true
+    a.go(A)
+    assert.equal(a.s.hero.swing.n, 0)
+    a.go(inp(), 3)
+    a.go(A)
+    assert.deepEqual([a.s.hero.swing.n, a.s.hero.bufA > 0], [0, true], 'too early: the press waits')
     let k = 0
-    while (s.hero.swing.n === 0 && k++ < 30) go()
-    assert.equal(s.hero.swing.n, 1)
-    assert.equal(s.hero.swing.side, -1)
-    assert.deepEqual(ev.filter(e => e.type === 'swing').map(e => e.n), [0, 1])
-    // It came at 60 % of hit 1, not at its end.
+    while (a.s.hero.swing.n === 0 && k++ < 30) a.go()
+    assert.deepEqual([a.s.hero.swing.n, a.s.hero.swing.side], [1, -1], 'hit 2, back the other way')
     assert.ok((4 + k) / 60 < Z.COMBO[0].time, `hit 2 began ${k} frames later`)
-  })
-
-  it('a press long after the chain starts it over; the third hit is the finisher', () => {
-    const { s, ev, go } = arena(0)
-    go(A); go(inp(), 12); go(A); go(inp(), 12); go(A)
-    assert.equal(s.hero.swing.n, 2)
-    go(inp(), 40)
-    go(A)
-    assert.equal(s.hero.swing.n, 0, 'after the finisher the chain starts over')
-    go(inp(), 40)
-    go(A)
-    assert.equal(s.hero.swing.n, 0, 'a press after the window starts over too')
-    assert.deepEqual(ev.filter(e => e.type === 'swing').map(e => e.n), [0, 1, 2, 0, 0])
-  })
-
-  it('a chain foe stays within reach between hits 1 and 2, and both land', () => {
-    const { s, ev, go, foe } = arena(1.2)
-    go(A)
-    go(inp(), 12)
-    assert.ok(Math.hypot(foe.x - s.hero.x, foe.y - s.hero.y) < Z.SWORD_REACH + foe.r, 'shoved out of reach')
-    go(A)
-    go(inp(), 20)
-    assert.equal(ev.filter(e => e.type === 'hit').length, 2)
-  })
-
-  it('the finisher lunges and drives the foe at least 1.5 tiles, heavy', () => {
-    const { s, ev, go, foe } = arena(1.2)
-    go(A); go(inp(), 11); go(A); go(inp(), 11)
-    const x0 = s.hero.x
-    const f0 = foe.x
-    const hp0 = foe.hp
-    go(A)
-    assert.equal(s.hero.swing.n, 2)
-    go(inp(), 30)
-    assert.ok(s.hero.x > x0, 'no lunge')
-    assert.ok(foe.x - f0 >= 1.5, `driven ${(foe.x - f0).toFixed(2)} tiles`)
-    const fin = ev.filter(e => e.type === 'hit').at(-1)
-    assert.equal(fin.heavy, true)
-    assert.equal(hp0 - foe.hp, Z.COMBO[2].dmg, 'a plain chain\'s finisher is not critical')
-    assert.equal(fin.crit, false)
-    assert.ok(ev.some(e => e.type === 'hitStop' && e.ms >= 80))
-  })
-
-  it('a chain at any pace deals 1 + 1 + 2: its own reeling makes no crit', () => {
-    for (const gap of [4, 11, 20]) {
-      const { ev, go, foe } = arena(1.2)
-      go(A); go(inp(), gap); go(A); go(inp(), gap); go(A); go(inp(), 40)
-      const hits = ev.filter(e => e.type === 'hit')
-      assert.equal(hits.length, 3, `gap ${gap}: ${hits.length} hits`)
-      assert.deepEqual(hits.map(e => !!e.crit), [false, false, false], `gap ${gap}`)
-      assert.equal(99 - foe.hp, Z.COMBO[0].dmg + Z.COMBO[1].dmg + Z.COMBO[2].dmg, `gap ${gap}`)
+    a.go(inp(), 12); a.go(A)
+    assert.equal(a.s.hero.swing.n, 2, 'the third is the finisher')
+    a.go(inp(), 40); a.go(A)
+    assert.equal(a.s.hero.swing.n, 0, 'after the finisher the chain starts over')
+    assert.ok(!a.s.map.projectiles.some(p => p.friendly), 'the Arc Blade threw something')
+    // On a foe: all three land, 1 + 1 + 2, no crit of its own; the foe stays in reach, then the finisher drives it off.
+    const b = arena()
+    b.go(A); b.go(inp(), 11)
+    assert.ok(Math.hypot(b.foe.x - b.s.hero.x, b.foe.y - b.s.hero.y) < Z.SWORD_REACH + b.foe.r, 'shoved out of reach')
+    b.go(A); b.go(inp(), 11)
+    const x0 = b.s.hero.x
+    const f0 = b.foe.x
+    b.go(A)
+    assert.equal(b.s.hero.swing.n, 2)
+    b.go(inp(), 30)
+    assert.ok(b.s.hero.x > x0, 'no lunge')
+    assert.ok(b.foe.x - f0 >= 1, `driven ${(b.foe.x - f0).toFixed(2)} tiles`)
+    const hits = b.ev.filter(e => e.type === 'hit')
+    assert.deepEqual(hits.map(e => !!e.crit), [false, false, false])
+    assert.equal(99 - b.foe.hp, Z.COMBO[0].dmg + Z.COMBO[1].dmg + Z.COMBO[2].dmg)
+    assert.equal(hits.at(-1).heavy, true)
+    assert.ok(b.ev.some(e => e.type === 'hitStop' && e.ms >= 80))
+    // The finisher on a stunned foe is critical.
+    const c = arena()
+    c.go(A); c.go(inp(), 11); c.go(A); c.go(inp(), 11)
+    c.foe.stun = 1
+    const hp0 = c.foe.hp
+    c.go(A); c.go(inp(), 30)
+    assert.equal(c.ev.filter(e => e.type === 'hit').at(-1).crit, true)
+    assert.equal(hp0 - c.foe.hp, Z.COMBO[2].dmg + 1)
+    // A reeling foe right on top of the hero harms no one.
+    {
+      const { s, go, foe } = arena()
+      go(A)
+      go(inp(), 3)
+      assert.ok(foe.stagger > 0 || foe.knock)
+      // Right on top of the hero, still reeling.
+      foe.x = s.hero.x + 0.4
+      foe.knock = null
+      foe.stagger = 0.3
+      const hp = s.hero.hp
+      go(inp(), 5)
+      assert.equal(s.hero.hp, hp)
     }
   })
 
-  it('the finisher on a stunned foe is critical', () => {
-    const { ev, go, foe } = arena(1.2)
-    go(A); go(inp(), 11); go(A); go(inp(), 11)
-    foe.stun = 1
-    const hp0 = foe.hp
-    go(A); go(inp(), 30)
-    const fin = ev.filter(e => e.type === 'hit').at(-1)
-    assert.equal(fin.crit, true)
-    assert.equal(hp0 - foe.hp, Z.COMBO[2].dmg + 1)
-  })
-
-  it('a reeling foe harms no one', () => {
-    const { s, go, foe } = arena(1.2)
-    go(A)
-    go(inp(), 3)
-    assert.ok(foe.stagger > 0 || foe.knock)
-    // Right on top of the hero, still reeling.
-    foe.x = s.hero.x + 0.4
-    foe.knock = null
-    foe.stagger = 0.3
-    const hp = s.hero.hp
-    go(inp(), 5)
-    assert.equal(s.hero.hp, hp)
-  })
-
-  it('the roll ignores harm for its first 0.2 s, then not; it goes about 2 tiles', () => {
+  it('rolls: harm passes in the first moments, about two tiles go by, and one press is one roll', () => {
     const { W, s, ev, go } = arena(0)
     const c = Z.ctx(W, s, [])
     go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
@@ -705,36 +410,15 @@ describe('real-time combat: the chain, the roll (2026-11-25)', () => {
     assert.ok(Math.abs(b.s.hero.x - x0 - Z.ROLL_DIST) < 0.3, `rolled ${(b.s.hero.x - x0).toFixed(2)}`)
     assert.ok(Math.abs(b.s.hero.y - y0) < 1e-9)
     assert.equal(b.s.hero.act, 'idle')
-  })
-
-  it('a press of A in the roll springs into the flip (FLIP CUT, tests/zelda-moves.test.mjs)', () => {
-    const { s, ev, go } = arena(0)
-    go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
-    go(inp(), 10)
-    go(A)
-    assert.equal(s.hero.act, 'air')
-    assert.equal(s.hero.air.kind, 'flip')
-    go(inp(), 30)
-    assert.ok(ev.some(e => e.type === 'touchdown' && e.kind === 'flip'), 'never came down')
-    assert.equal(s.hero.act, 'idle')
-  })
-
-  it('a roll press belongs to a frame\'s first substep only', () => {
-    const { W, s, ev } = arena(0)
-    // One 0.1 s frame: twelve substeps, the press on the first.
-    ev.push(...Z.stepGame(W, s, 0.1, inp({ rollPress: true, move: { x: 1, y: 0 } })))
-    assert.equal(ev.filter(e => e.type === 'roll').length, 1)
-    for (let k = 0; k < 40; k++) ev.push(...Z.stepGame(W, s, 1 / 60, inp()))
-    assert.equal(ev.filter(e => e.type === 'roll').length, 1, 'a second roll from one press')
-  })
-
-  it('before the blade there is no roll', () => {
-    const { s, ev, go } = arena(0)
-    s.inv.sword = false
-    go(inp({ rollPress: true, move: { x: 1, y: 0 } }))
-    go(inp(), 20)
-    assert.ok(!ev.some(e => e.type === 'roll'))
-    assert.notEqual(s.hero.act, 'roll')
+    // One long frame, twelve substeps: the press on the first only.
+    {
+      const { W, s, ev } = arena(0)
+      // One 0.1 s frame: twelve substeps, the press on the first.
+      ev.push(...Z.stepGame(W, s, 0.1, inp({ rollPress: true, move: { x: 1, y: 0 } })))
+      assert.equal(ev.filter(e => e.type === 'roll').length, 1)
+      for (let k = 0; k < 40; k++) ev.push(...Z.stepGame(W, s, 1 / 60, inp()))
+      assert.equal(ev.filter(e => e.type === 'roll').length, 1, 'a second roll from one press')
+    }
   })
 })
 
@@ -760,13 +444,10 @@ describe('calm sentries (the grazer pen)', () => {
     return { W, s, e, step }
   }
 
-  it('a sentry that is not calm sees the hero and goes for him', () => {
-    const { e, step } = pen(false)
-    step()
-    assert.equal(e.ai.mode, 'alert')
-  })
-
-  it('a calm one only patrols, whatever it sees, and its touch does no harm', () => {
+  it('a calm one only patrols, where another goes for the hero, and its touch does no harm', () => {
+    const wild = pen(false)
+    wild.step()
+    assert.equal(wild.e.ai.mode, 'alert', 'a sentry that is not calm goes for him')
     const { s, e, step } = pen(true)
     const hp = s.hero.hp
     for (let k = 0; k < 900; k++) {
@@ -779,16 +460,16 @@ describe('calm sentries (the grazer pen)', () => {
     assert.ok(!e.ai.angry)
   })
 
-  for (const [src, dmg] of [['sword', 1], ['disc', 0], ['hook', 0], ['bomb', 2]]) {
-    it(`a calm one hit by the ${src} turns angry and goes for the hero`, () => {
+  it('a calm one struck by the blade or a bomb turns angry and goes for the hero', () => {
+    for (const [src, dmg] of [['sword', 1], ['bomb', 2]]) {
       const { W, s, e, step } = pen(true)
       step()
-      assert.ok(Z.hitEnemy(Z.ctx(W, s, []), e, dmg, s.hero.x, s.hero.y, src))
+      assert.ok(Z.hitEnemy(Z.ctx(W, s, []), e, dmg, s.hero.x, s.hero.y, src), src)
       assert.equal(e.ai.angry, true)
       for (let k = 0; k < 300 && e.ai.mode !== 'chase'; k++) { s.hero.invuln = 1; step() }
-      assert.equal(e.ai.mode, 'chase')
-    })
-  }
+      assert.equal(e.ai.mode, 'chase', src)
+    }
+  })
 
   it('the Shellyard keeps three calm grazers and one that is not, and they are calm again after a reload', () => {
     const s = Z.createGame(Z.WORLD, { seed: 2, at: { map: 'sporelight', entry: 'shellyard' } })

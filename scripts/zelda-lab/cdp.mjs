@@ -24,6 +24,7 @@ const KEYS = {
   Home: { key: 'Home', code: 'Home', keyCode: 36 },
   End: { key: 'End', code: 'End', keyCode: 35 },
   KeyK: { key: 'k', code: 'KeyK', keyCode: 75 },
+  KeyM: { key: 'm', code: 'KeyM', keyCode: 77 },
   KeyQ: { key: 'q', code: 'KeyQ', keyCode: 81 },
   KeyP: { key: 'p', code: 'KeyP', keyCode: 80 },
   KeyN: { key: 'n', code: 'KeyN', keyCode: 78 },

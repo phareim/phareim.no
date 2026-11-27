@@ -235,11 +235,7 @@ describe('the layout matrix', () => {
             for (const b of boxes) {
               assert.ok(within(b, 0, scr.safe?.top ?? 0, scr.w - (scr.safe?.right ?? 0), g.deckTop ?? scr.h), `${where}: the corner paints at ${show(b)}`)
               for (const h of hud.hearts) assert.ok(gap(b, h) >= CLEAR - EPS, `${where}: the corner at ${show(b)}, ${gap(b, h).toFixed(1)} px from a heart`)
-              // Known (2026-11-27): in a room's 8-bit view, drawn at a larger scale, full counters reach under the
-              // corner's plate on an upright phone while its widest words show (VIEW NOT LOADED). Only the plate,
-              // and only there.
-              const plate = lay.tag && view.engine === 'classic' && Z.WORLD.maps[id].kind === 'interior' && within(b, lay.tag.x, lay.tag.y, lay.tag.x + lay.tag.w, lay.tag.y + lay.tag.h)
-              if (!plate) for (const c of hud.counters) assert.ok(!meets(b, c), `${where}: the corner at ${show(b)} over a counter or the item box at ${show(c)}`)
+              for (const c of hud.counters) assert.ok(!meets(b, c), `${where}: the corner at ${show(b)} over a counter or the item box at ${show(c)}`)
             }
             // The buttons: the menu's (the chart, or the stub indoors) and the gem's, which lies on top.
             const t = Z.cornerTargets(lay)

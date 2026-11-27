@@ -1,7 +1,7 @@
-// The dungeon kit (docs/games/neon-shrine.md): the Sacred Weights as items, trap gates, the bosses' bars (what counts
-// as open), the big key's words per dungeon, the B items a save may hold, the room left under the profile's save cap,
-// the key-carrier that must fall for good, and the sprites' data gate. Pure: fixtures are built here, no map of the
-// world is added.
+// The dungeon kit (docs/games/neon-shrine.md): the Sacred Weights as items, trap gates, the big key's words per
+// dungeon, the B items in hand, the room left under the profile's save cap and the key-carrier that must fall for
+// good. When a boss's bar says it is open is held by the fights in `zelda-gauntlet.test.mjs`; saves from earlier
+// builds are in `zelda-old-saves.test.mjs`. Pure: fixtures are built here, no map of the world is added.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -21,7 +21,7 @@ before(async () => {
   const out = esbuild.buildSync({
     stdin: {
       contents: `export { wrapText } from '../base/pixel/font'; export { subst, TOUCH_KEYS } from './keys';
-        export { itemSpriteName } from './render/itemIcon'; export { SPRITES, PAL } from './render/sprites';
+        export { itemSpriteName } from './render/itemIcon'; export { SPRITES } from './render/sprites';
         export { saveGameById } from '../leaderboard/games'`,
       resolveDir: resolve(repo, 'themes/zelda'), loader: 'ts',
     },
@@ -45,7 +45,7 @@ function fits(line) {
 const roundTrip = s => Z.parseSave(JSON.parse(JSON.stringify({ ...Z.toSave(s), savedAt: 1 })))
 
 // ---------------------------------------------------------------------------
-// The Sacred Weights, and the sprites
+// The Sacred Weights, and the items' pictures
 // ---------------------------------------------------------------------------
 
 describe('the Sacred Weights', () => {
@@ -77,16 +77,13 @@ describe('the Sacred Weights', () => {
     assert.equal(Z.condMet(back, Z.WORLD, { item: 'weightCredit' }, -1), true)
   })
 
-  it('every item the world hands out has a picture, and every sprite is drawn in the palette\'s letters', () => {
+  it('every item the world hands out has a picture', () => {
     const items = new Set(['artHop', ...Z.WEIGHTS.map(w => w.id)])
     for (const def of Object.values(Z.WORLD.maps)) for (const m of Object.values(def.marks)) {
       if (m.ent.item) items.add(m.ent.item)
       for (const b of m.ent.talk ?? []) if (b.give) items.add(b.give)
     }
     for (const item of items) assert.ok(X.SPRITES[X.itemSpriteName(item)], `${item}: ${X.itemSpriteName(item)}`)
-    for (const [name, { rows }] of Object.entries(X.SPRITES)) {
-      for (const row of rows) for (const ch of row) if (ch !== '.' && !X.PAL[ch]) assert.fail(`${name}: '${ch}' is not a palette letter`)
-    }
   })
 })
 
@@ -361,58 +358,6 @@ describe('a shut trap gate is a wall', () => {
 })
 
 // ---------------------------------------------------------------------------
-// The bosses' bars: what counts as open
-// ---------------------------------------------------------------------------
-
-describe('bossOpen', () => {
-  /** A lone foe in a room, a tile east of the hero, facing them. */
-  function boss(kind) {
-    const def = {
-      id: 'room', name: 'ROOM', kind: 'interior', track: 'boss', rows: ['##########', '#........#', '#........#', '#..@..z..#', '#........#', '#........#', '##########'],
-      marks: { '@': { ent: { t: 'entry', id: 'start', dir: 'right' } }, z: { ent: { t: 'enemy', kind, dir: 'left' } } },
-    }
-    const W = { maps: { room: def }, start: { map: 'room', entry: 'start' } }
-    const s = Z.createGame(W, { seed: 3 })
-    s.mode = 'play'
-    s.dialog = null
-    const e = s.map.enemies[0]
-    return { W, s, e }
-  }
-  /** Does a blow of the blade from the front take hit points off it in this state? */
-  function bites(kind, mode, stun = 0) {
-    const { W, s, e } = boss(kind)
-    Object.assign(e.ai, { mode, t: 1 })
-    e.stun = stun
-    e.invuln = 0
-    const hp = e.hp
-    Z.hitEnemy(Z.ctx(W, s, []), e, 1, e.x - 2, e.y, 'sword')
-    return e.hp < hp
-  }
-  /** [state, stun, open] */
-  const CASES = {
-    knight: [['walk', 0, false], ['tell', 0, false], ['charge', 0, false], ['dazed', 0, true], ['walk', 1, true]],
-    king: [['float', 0, false], ['rise', 0, false], ['down', 0, true]],
-    llama: [['walk', 0, false], ['aim', 0, false], ['rear', 0, false], ['charge', 0, false], ['dazed', 0, false], ['walk', 1, false]],
-    mistral: [['float', 0, false], ['inhale', 0, false], ['blow', 0, false], ['spin', 0, false], ['rise', 0, false], ['down', 0, true]],
-    deepseek: [['under', 0, false], ['rise', 0, false], ['up', 0, true], ['hauled', 0, true]],
-    gemini: [['orbit', 0, true], ['orbit', 0.5, true], ['down', 0, false]],
-    mixtral: [['stalk', 0, false], ['tell', 0, false], ['charge', 0, false], ['dazed', 0, true], ['rouse', 0, false]],
-  }
-
-  it('gold exactly when the blade bites, for each of the six bosses in each of its states', () => {
-    for (const [kind, cases] of Object.entries(CASES)) {
-      for (const [mode, stun, open] of cases) {
-        const { e } = boss(kind)
-        e.ai.mode = mode
-        e.stun = stun
-        assert.equal(Z.bossOpen(e), open, `${kind} ${mode} stun ${stun}`)
-        assert.equal(bites(kind, mode, stun), open, `the blade on a ${kind} ${mode} stun ${stun}`)
-      }
-    }
-  })
-})
-
-// ---------------------------------------------------------------------------
 // The big key's words
 // ---------------------------------------------------------------------------
 
@@ -445,23 +390,9 @@ describe('the B items', () => {
     return roundTrip(s)
   }
 
-  it('a save keeps the item in hand; one holding a name the game does not know loads with nothing, the rest kept', () => {
+  it('a save keeps the item in hand, each of them and none', () => {
     const raw = save()
-    // Each item in hand, and nothing, come back as they were.
     for (const selected of [...Z.B_ITEMS.map(b => b.id), null]) assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, selected } })?.inv.selected, selected)
-    for (const selected of ['something-new', 'spade', '', 'toString', '__proto__', 7, {}, undefined]) {
-      const back = Z.parseSave({ ...raw, inv: { ...raw.inv, selected } })
-      assert.ok(back, `${String(selected)} loads`)
-      assert.equal(back.inv.selected, null)
-      assert.equal(back.inv.hook, true)
-      assert.deepEqual(back.flags, raw.flags)
-    }
-    const g = Z.createGame(Z.WORLD, { save: Z.parseSave({ ...raw, inv: { ...raw.inv, selected: 'something-new' } }) })
-    g.mode = 'play'
-    g.dialog = null
-    g.hero.auto = null
-    const ev = Z.stepGame(Z.WORLD, g, 1 / 60, B)
-    assert.ok(ev.some(e => e.type === 'error'), 'B with nothing in hand buzzes')
   })
 
   it('each does its own thing on B', () => {

@@ -1,0 +1,616 @@
+[
+ {
+  "id": "before-the-wildwood",
+  "from": "before the Wildwood, the hook and the key rings; no chart yet",
+  "save": {
+   "v": 2,
+   "map": "overworld",
+   "entry": "hut",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 12,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": false
+   },
+   "flags": [
+    "item:sword",
+    "intro",
+    "chest:ow.sword"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  }
+ },
+ {
+  "id": "arena",
+  "from": "the glade under the Sporelight, which became the root hollow; tonics still in the pack",
+  "save": {
+   "v": 2,
+   "map": "arena",
+   "entry": "start",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": true,
+    "bombs": 4,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {},
+    "tonics": 3
+   },
+   "flags": [
+    "item:sword"
+   ],
+   "rng": 7,
+   "elapsed": 912.5,
+   "explored": {
+    "arena": "1",
+    "overworld": "1"
+   }
+  }
+ },
+ {
+  "id": "four-arts",
+  "from": "the days of PULSE, FLASH STEP, STARFALL and HALO (until 2026-11-26)",
+  "save": {
+   "v": 2,
+   "map": "overworld",
+   "entry": "hut",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": "pulse",
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {},
+    "arts": [
+     "pulse",
+     "pulse",
+     "bogus"
+    ],
+    "moves": {
+     "flip": 3,
+     "nonsense": 4
+    }
+   },
+   "flags": [
+    "item:sword",
+    "item:artPulse"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  },
+  "variants": [
+   {
+    "inv": {
+     "arts": [
+      "pulse",
+      "flash",
+      "bogus"
+     ],
+     "selected": "flash"
+    }
+   },
+   {
+    "inv": {
+     "arts": [
+      "pulse",
+      "star"
+     ],
+     "selected": "star"
+    }
+   },
+   {
+    "inv": {
+     "arts": [
+      "pulse",
+      "halo"
+     ],
+     "selected": "halo"
+    }
+   },
+   {
+    "name": "an art in hand the save never knew",
+    "inv": {
+     "arts": null,
+     "selected": "halo",
+     "moves": null
+    }
+   },
+   {
+    "name": "a name that never was an art",
+    "inv": {
+     "arts": null,
+     "selected": "nova",
+     "moves": null
+    }
+   }
+  ]
+ },
+ {
+  "id": "hop",
+  "from": "the HOP in hand",
+  "save": {
+   "v": 2,
+   "map": "overworld",
+   "entry": "hut",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": "hop",
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {},
+    "arts": [
+     "hop"
+    ]
+   },
+   "flags": [
+    "item:sword",
+    "item:artHop"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  }
+ },
+ {
+  "id": "frontier",
+  "from": "the generated frontier the hand-made lands replaced",
+  "save": {
+   "v": 2,
+   "map": "fr:4,1",
+   "entry": "gate-fell",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword",
+    "chest:fr:7,2.c0",
+    "q.seed.heard"
+   ],
+   "rng": 7,
+   "elapsed": 912.5,
+   "dig": {
+    "fr:4,1": "x",
+    "overworld": ""
+   },
+   "explored": {
+    "fr:4,1": "1",
+    "overworld": "1"
+   }
+  },
+  "variants": [
+   {
+    "map": "fr:4,1",
+    "entry": "gate-fell",
+    "want": [
+     "seterfell",
+     "gate-fell"
+    ]
+   },
+   {
+    "map": "fr:4,1",
+    "entry": "camp",
+    "want": [
+     "seterfell",
+     "camp"
+    ]
+   },
+   {
+    "map": "fr:2,2",
+    "entry": "from-quarry",
+    "want": [
+     "lumenby",
+     "camp"
+    ]
+   },
+   {
+    "map": "fr:8,2:cave0",
+    "entry": "in",
+    "want": [
+     "sporelight",
+     "camp"
+    ]
+   },
+   {
+    "map": "fr:0,3:deep4",
+    "entry": "up",
+    "want": [
+     "lumenby",
+     "deep"
+    ]
+   },
+   {
+    "map": "fr:6,7",
+    "entry": "camp",
+    "want": [
+     "overworld",
+     "crossroads"
+    ]
+   },
+   {
+    "map": "fr:6,8",
+    "entry": "camp",
+    "want": [
+     "overworld",
+     "ferry"
+    ]
+   },
+   {
+    "map": "fr:99,99",
+    "entry": "camp",
+    "want": [
+     "overworld",
+     "start"
+    ]
+   },
+   {
+    "map": "quarry",
+    "entry": "start",
+    "want": [
+     "lumenby",
+     "pit"
+    ]
+   },
+   {
+    "map": "nowhere",
+    "entry": "door",
+    "want": [
+     "overworld",
+     "start"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "dig-and-build",
+  "from": "the days of dig and build (until 2026-11-26): tools in hand, materials, the edits",
+  "save": {
+   "v": 2,
+   "map": "lumenby",
+   "entry": "pit",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": "dig",
+    "prism": false,
+    "hook": true,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {},
+    "mats": {
+     "stone": 5,
+     "lumen": 2
+    },
+    "build": "lamp"
+   },
+   "flags": [
+    "item:sword",
+    "item:hook",
+    "item:shovel"
+   ],
+   "rng": 7,
+   "elapsed": 912.5,
+   "dig": {
+    "lumenby": "1аa2"
+   }
+  },
+  "variants": [
+   {
+    "inv": {
+     "selected": "build"
+    }
+   },
+   {
+    "name": "a name that never was an item",
+    "inv": {
+     "selected": "spade"
+    }
+   },
+   {
+    "name": "made down in the Old Quarry",
+    "map": "quarry",
+    "entry": "start"
+   }
+  ]
+ },
+ {
+  "id": "heart-piece-key",
+  "from": "a lamp's heart piece taken before a step of Gunn's had its own key",
+  "save": {
+   "v": 2,
+   "map": "unionhall",
+   "entry": "door",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword",
+    "intro",
+    "q.lamp.done",
+    "got:q.gunn:heartPiece",
+    "q.lumenby.sign1",
+    "q.lumenby.sign2",
+    "q.lumenby.sign3",
+    "q.lumenby.sign4",
+    "q.lumenby.sign5",
+    "q.lumenby.sign6",
+    "q.lumenby.sign7"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  }
+ },
+ {
+  "id": "bits-in-the-save",
+  "from": "bits kept in the save, before they were the site's wallet",
+  "save": {
+   "v": 2,
+   "map": "overworld",
+   "entry": "hut",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 123,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": false,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  }
+ },
+ {
+  "id": "unknown-item",
+  "from": "a B item this build does not know",
+  "save": {
+   "v": 2,
+   "map": "overworld",
+   "entry": "hut",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": true,
+    "bombs": 4,
+    "disc": true,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": "something-new",
+    "prism": false,
+    "hook": true,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword",
+    "item:hook",
+    "item:disc"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  },
+  "variants": [
+   {
+    "inv": {
+     "selected": "spade"
+    }
+   },
+   {
+    "inv": {
+     "selected": ""
+    }
+   },
+   {
+    "inv": {
+     "selected": "toString"
+    }
+   },
+   {
+    "inv": {
+     "selected": "__proto__"
+    }
+   },
+   {
+    "inv": {
+     "selected": 7
+    }
+   },
+   {
+    "inv": {
+     "selected": {}
+    }
+   },
+   {
+    "name": "no B item written at all",
+    "inv": {
+     "selected": null
+    },
+    "drop": [
+     "selected"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "winner-without-an-hour",
+  "from": "the Sun Prism taken before the day had a clock",
+  "save": {
+   "v": 2,
+   "map": "overworld",
+   "entry": "hut",
+   "hp": 6,
+   "maxHp": 6,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 0,
+    "selected": null,
+    "prism": true,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword",
+    "item:prism"
+   ],
+   "rng": 7,
+   "elapsed": 912.5
+  },
+  "variants": [
+   {
+    "name": "an hour saved without the Prism",
+    "inv": {
+     "prism": false
+    },
+    "day": 300
+   }
+  ]
+ },
+ {
+  "id": "chart-and-clock",
+  "from": "the shape written when this corpus was made: a chart of where the hero has been, the hour, the write's stamp",
+  "save": {
+   "v": 2,
+   "map": "wildwood",
+   "entry": "camp",
+   "hp": 5,
+   "maxHp": 8,
+   "inv": {
+    "sword": true,
+    "bombBag": false,
+    "bombs": 0,
+    "disc": false,
+    "bits": 0,
+    "keys": 0,
+    "bigKey": false,
+    "pieces": 2,
+    "selected": null,
+    "prism": true,
+    "hook": false,
+    "arc": false,
+    "bigBag": false,
+    "shrooms": 0,
+    "keyrings": {}
+   },
+   "flags": [
+    "item:sword",
+    "item:prism"
+   ],
+   "rng": 7,
+   "elapsed": 1500.5,
+   "day": 101.5,
+   "explored": {
+    "wildwood": "AAAAAAcAOAHgB"
+   },
+   "savedAt": 1790000000000
+  }
+ }
+]

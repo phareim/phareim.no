@@ -51,6 +51,7 @@ export const PATHS = [
 
   // The tests themselves: a test file runs itself; anything else in tests/ (the loaders, the walker, this table) is shared.
   ['tests/zelda-hero-drawn.json', ['zelda']],
+  ['tests/zelda-old-saves.json', ['zelda']],
   ['tests/helpers/art.mjs', ['zelda']],
   ['tests/*.test.mjs', SELF],
   ['tests/', ALL],
