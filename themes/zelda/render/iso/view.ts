@@ -28,7 +28,7 @@
 import type { GameState, MapDef, MapKind, TileChar } from '../../types'
 import { ARC_REACH, ROLL_TIME, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWORD_REACH, TEMPEST, TILE, roomed } from '../../types'
 import { aimOf, airTime, has, heroZ, mapInfo, raised, swingAngle, swingDur } from '../../engine/index'
-import { blockUp, isViewBlock } from '../../world/tiles'
+import { blockUp, isRailed, isViewBlock } from '../../world/tiles'
 import { SIDE_PATCH } from '../viewBlocks'
 import { dirAngle } from '../../engine/util'
 import { sycophantFocus, sycophantFrame } from '../../engine/bossSycophant'
@@ -1486,7 +1486,8 @@ export default function isoView(kit: Kit): View {
       const fy0 = ty + 1 - FOOT / T
       const rows = Math.round((T + up) * sunk)
       if (rows <= 0) continue
-      const foot = -FOOT / T + terrainLift(m, tx, ty)
+      // (A cart stands on the floor, not sunk in it as other cards are: its wheels are its picture's lowest rows.)
+      const foot = (isRailed(t!) ? 0 : -FOOT / T) + terrainLift(m, tx, ty)
       const top = foot + rows / T
       const half = (T / 2) * zoom
       quad(fx0, fy0, top, -half, fx0, fy0, top, half, fx0, fy0, foot, half, fx0, fy0, foot, -half, sx, sy - up, sx + T, sy - up + rows, 3, 0)

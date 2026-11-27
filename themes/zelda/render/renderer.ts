@@ -65,7 +65,7 @@ import { BARD_SCALE, drawBard, drawHallucinator, hallucinatorMarks } from './act
 import { bardOut } from '../engine/bossBard'
 import { eraFoes, eraLight, toneSprite } from './eras'
 import { drawCard } from './card'
-import { queueScreenDoor } from './lateshowPaint'
+import { queueLenses, queueScreenDoor } from './lateshowPaint'
 import { copilotRoad } from '../engine/bossCopilot'
 import { CHASE } from '../engine/chase'
 import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
@@ -1213,7 +1213,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         lights.push({ x: (e.x + other.x) / 2, y: (e.y + other.y) / 2 - 0.6, r: 3, color: '#ff2fa0', a: 0.6 })
       }
     }
-    if (e.kind === 'golem') { drawGolem(g, e, golemStand(e, span), cx, cy, time, frameReduced, flashing(e), lights); return }
+    if (e.kind === 'golem') { drawGolem(g, e, golemStand(e, span), cx, cy, time, frameReduced, flashing(e), lights, span); return }
     const { name, flip } = enemySprite(e, mapInfo(world, s.map.id).def.realm)
     const flying = e.kind === 'bat' || e.kind === 'king' || e.kind === 'drone' || (e.kind === 'mistral' && e.ai.mode !== 'down') || (e.kind === 'gemini' && e.ai.mode !== 'down')
     if (e.kind === 'mistral') lights.push({ x: e.x, y: e.y - 1, r: 4, color: '#9ff6ff', a: e.ai.mode === 'down' ? 1 : 0.6 })
@@ -1574,6 +1574,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const it of items) it.big = true
     // The door in the drive-in screen (THE LATE SHOW).
     if (s.map.id === 'rerun') queueScreenDoor(g, cx, cy, flat !== g, items, lights)
+    if (s.map.id === 'showbooth') queueLenses(g, world, s.map.id, cx, cy, items)
     if (!ui.attract && kind === 'overworld') {
       queueWildlife(g, s, cx, cy, time, ui.reducedMotion, (dayOf(drawing)?.sun ?? 0.12) <= 0.12, items, def.isoLandmarks)
     }

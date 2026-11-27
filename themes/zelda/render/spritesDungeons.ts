@@ -16,6 +16,7 @@ import { GOLEM_RAW } from './spritesGolem'
 import { WEAVER_RAW } from './spritesWeaver'
 import { COPILOT_SIDE_RAW } from './spritesCopilotSide'
 import { HALLUCINATOR_SPRITES } from './spritesHallucinator'
+import { LATE_SHOW_RAW } from './spritesLateShow'
 
 export const DUNGEON_SPRITES: Record<string, string[]> = {
   ...DUNGEON_BOSSES,
@@ -30,4 +31,5 @@ export const DUNGEON_SPRITES: Record<string, string[]> = {
   ...WEAVER_RAW,
   ...COPILOT_SIDE_RAW,
   ...HALLUCINATOR_SPRITES,
+  ...LATE_SHOW_RAW,
 }

@@ -160,10 +160,14 @@ WAS SOMEBODY'S. It never leaves the middle of its room, the room-local point (8,
   finds it with the hit points it had (game-wide, a boss keeps its wounds, `enterCell`) and its four scraps and both
   carts at home.
 
-**Pictures** (`render/spritesGolem.ts`, `render/golemPaint.ts`): `golem_m_*` 48 x 48 and `golem_l_*` 64 x 64, four a
-size (rest, pull, choke, fallen), the same pictures in both views. A tell shudders the rest frame, growing shakes it and
-swaps it at the half behind a white flash, the fallen frame is shifted to sit where the standing ones do. The isometric
-view stands it on a floor point a little toward the eye from its middle (`golemStand`), so that it lies on its ring; the
+**Pictures** (`render/spritesGolem.ts`, `render/golemPaint.ts`): `golem_m_*` 48 x 48 and `golem_l_*` 64 x 64, seven a
+size, the same pictures in both views: rest (`_0`), the pull's tell (eyes wide), the pull (mouth open), the spit's tell
+(cheeks full, a lump under the lip), the spit (a larger, higher mouth, for as long as the piece is in the air), the
+choke (the gold core, through the ease) and fallen. A tell and the ease shudder their frame, growing shakes the rest
+frame and swaps it at the half behind a white flash, the fallen frame is shifted to sit where the standing ones do. The
+painter lights what a frame shows (`SPOTS`): cyan and pink at the wide eyes, pink at a mouth, at the lip and round the
+body while it pulls; gold only on the core of an open choke, so no mouth is ever lit gold. The isometric view stands
+the picture on a floor point a little toward the eye from its middle (`golemStand`), so that it lies on its ring; the
 camera leans halfway to it, 3 tiles at most, where the room is wider than the screen (`golemFocus`). The ring, the lanes
 and the blast's circle are floor stencils (`golemStencils`, `floorMarks.ts`), the flying piece `heapMarks.ts`'s.
 
@@ -172,11 +176,14 @@ and the blast's circle are floor stencils (`golemStencils`, `floorMarks.ts`), th
 `MapDef.resume`: a tab reloaded here goes on at the last stair or door used (`awayMap`), with doors, gates, the bridge
 and chests as saved and the iron at home. Nothing else of `away` comes with it.
 
-## Stand-in art
+## Art
 
-The five iron tiles (`heap_crate`, `heap_scrap`, `heap_cart`, `heap_cart_striped`, `heap_bolt`, in
-`render/spritesHeap.ts`: the classic tile and the isometric card alike) are stand-ins drawn in code, and so is the rail
-strip (`heapMarks.ts`). The Golem has no isometric family of its own and no frames for a tell, growing or spitting.
+The iron tiles and the rails are 16 x 16 rows in `render/spritesHeap.ts`, one picture for the classic tile and the
+isometric card alike. The two carts (`heap_cart`, `heap_cart_striped`: ore in a hopper on wheels, the striped one in
+violet and cream) and the rail's two tiles (`heap_rail_h`, `heap_rail_v`, laid by `heapMarks.ts` with a stop across each
+end) are drawn art. A cart's card stands on the isometric floor where other cards sink 3 px into it, so that its wheels
+show. `heap_crate`, `heap_scrap` and `heap_bolt` are stand-ins drawn in code. The Golem has no isometric family of its
+own and no frame for growing.
 
 ## Tests
 

@@ -431,7 +431,10 @@ classic picture. `/?view=<id>` asks for one.
   boards and poles. 2086 is violet and acid green under a white-lilac ringed
   world: the drive-in screen torn and grown over, its foes in acid green.
   `screen` is the blank screen, dark slate with pencilled hands. A map without a
-  year wears its own look. Stand-ins all, drawn in code. **The film's look**
+  year wears its own look. Stand-ins all, drawn in code, as are the spring pad
+  and the cracked floor in every year. The booth, seen from above, has a
+  projector's lens standing on each reel's stair in that year's colours
+  (`render/spritesLateShow.ts`, drawn art; no gold and no pink). **The film's look**
   (`eraFilm`) lies over a year's sky and tiles and under every warning, gold
   mark, foe and hero: 1958 has grain at twelve pictures a second, a scratch now
   and then and a dark rim; 1986 a tracking band that rolls down every seven
