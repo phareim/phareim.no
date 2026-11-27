@@ -19,21 +19,26 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [x] One side room as a trial (commit ff6bb20; `engine/side.ts`, `render/side.ts`; played by script with real keys and touch at 390x844 in a local build, never on a real phone). What it decided: tall rooms, jump on B only, a narrow side cut, required jumps of 2.
 - [x] The ITEMS page as a grid, with the Weights (commit 618d02d; picked from with keys on the live site in both views, 2026-11-27).
 - [ ] Cards (intertitles, score cards, THE END).
-- [ ] Dungeon maps in a chunk of their own.
+- [ ] Dungeon maps in a chunk of their own. The world's data is 68,648 B gzip of a 72,000 B ceiling (2026-11-27) with a third of the dungeon parts to land; the build brief is being written.
 - [ ] The side engine in a chunk of its own.
 
 ## Dungeons
 - [ ] 1. Seter Fell: THE ECHO BARROW. The Echo. Mixtral. THE STOCHASTIC PARROT. Weight: MEANING.
   - Part one is live (commit 7915db1, 2026-11-27): eight rooms, the Echo, Mixtral; the door was walked on the live site in both views.
   - Part two is in (commit 5a0a020): the Parrot, the Weight, a reload that stays in the barrow. Played door to Weight by script in a local browser at 1280x800 and 390x844 in both views; not yet played by a person, nor past the first room on the live site.
+  - Reviewed (2026-11-27): twelve findings held and are being fixed (`tmp/dungeons/briefs/19-barrow-fixes.md`): none locks a player in.
 - [ ] 2. Yule Fjord: THE LIGHTHOUSE. The Storm Lamp. Orca. THE BLACK BOX. Weight: REASONS.
-  - Part one is in (commit 77c3c5a): eight rooms and the Storm Lamp, built without a browser; nobody has seen it drawn. Part two (Orca, the dark hound, the pictures) is being built.
+  - Parts one and two are in (commits 77c3c5a, 75b5ce0): eight rooms, the Storm Lamp, ORCA and the dark hound, seen in a local browser. Part three (the Black Box, the Weight) is being built.
 - [ ] 3. The Sporelight: THE STEAMHOUSE. The No. THE SYCOPHANT. Weight: NO.
-  - Part one is in (commit ee76f0b): the house to the stair, the attendants, the bath, THE NO, built without a browser; nobody has seen it drawn. Part two (gifts, the Sycophant to its third cut, the pictures) is being built.
+  - Whole in three parts (commits ee76f0b, 458f645, 047ddde): the house, the attendants and the bath, THE NO, the gifts and the Gift Shop, the Sycophant, THE END and its corner, the Weight. Played door to Weight by script in a local browser at 1280x800 and 390x844 in both views; not by a person, not on the live site. Its review is running; the banner and the pile of paper are drawn by code.
 - [ ] 4. Stillsand: THE EXAMINATION. The Duck. THE BENCHMARK TITAN. Weight: SURPRISE.
+  - Part one is in (commit c2694b7): the Front Desk, rounds one and two with their marks, the Staff Room. Part two (the Duck, round three, Falcon) is being built.
 - [ ] 5. Rerun Estates: THE LATE SHOW. The Stomp. Copilot. THE UNCANNY WEAVER. Weight: FINGERS.
+  - Parts one and two are in (commits 1274b3d, 752714e): three reels seen from the side, the Stomp, the Road and COPILOT. Part three (the Weaver, the Weight, COPILOT drawn from the side) is being built.
 - [ ] 6. Lumenby: THE HEAP under the Underglow. The Magnet. Grok, Phi. THE SCRAPE GOLEM. Weight: CREDIT.
+  - Parts one and two are in (commits ed347e9, 7718b1d): the Magnet, GROK, the chart room and PHI. Part three (the Scrape Golem, the Weight) is being built.
 - [ ] 7. Fogstage: ACT THREE. The Lens. Bard. THE HALLUCINATOR. Weight: SOURCES.
+  - Part one is in (commit 46c9e60): the climb seen from the side and the Lens. Part two (BARD, the Fly Loft) is being built.
 
 ## The end
 - [ ] THE BALANCE under the Shrine's pedestal.
