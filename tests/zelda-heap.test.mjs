@@ -538,8 +538,10 @@ describe('the Heap', () => {
       assert.ok(s.lamp, 'the lamp is down')
       const stand = (e, x, y) => { Object.assign(e, { x, y }); e.ai.mode = 'wander'; e.ai.cool = 5; e.stun = 0 }
       stand(a, s.hero.x + 2.5, s.hero.y)
-      for (let k = 0; k < 90; k++) { s.hero.invuln = 1; stand(a, s.hero.x + 2.5, s.hero.y); P.step(s) }
+      let rings = 0
+      for (let k = 0; k < 90; k++) { s.hero.invuln = 1; stand(a, s.hero.x + 2.5, s.hero.y); rings += P.step(s).filter(v => v.type === 'clank' && Math.hypot(v.x - a.x, v.y - a.y) < 0.1).length }
       assert.deepEqual([a.hp, a.dead, a.stun > 0], [2, false, false], 'the beam does not burn a shut PHI')
+      assert.equal(rings, 2, 'it rings on it, once as it touches and once a second after')
       stand(b, s.hero.x + 3, s.hero.y + 3)
       s.map.bombs.push({ id: 'b1', x: b.x, y: b.y, t: 1.69 })
       for (let k = 0; k < 20; k++) { s.hero.invuln = 1; P.step(s) }

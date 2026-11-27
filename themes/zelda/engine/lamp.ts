@@ -171,7 +171,18 @@ export function stepLamp(c: Ctx, dt: number) {
     if (shrug > 0) ai.lampShrug = Math.max(0, shrug - dt)
     const burn = ai.lampBurn as number | undefined
     const inBeam = !STATS[e.kind].invulnerable && (!BIG.has(e.kind) || LAMP_BURNS.has(e.kind)) && !(e.kind === 'phi' && !phiOpen(e)) && inLampBeam(s, e)
-    if (!inBeam) { if (burn !== undefined) delete ai.lampBurn; continue }
+    if (!inBeam) {
+      if (burn !== undefined) delete ai.lampBurn
+      // A shut PHI only rings (`burnFoe` clanks and takes nothing): as the beam touches it, and once a second after.
+      if (e.kind !== 'phi' || e.dead || !inLampBeam(s, e)) delete ai.lampRing
+      else {
+        const t = ((ai.lampRing as number | undefined) ?? 1) + dt
+        if (t >= 1) burnFoe(c, e, 1)
+        ai.lampRing = t >= 1 ? t - 1 : t
+      }
+      continue
+    }
+    delete ai.lampRing
     // The first touch stuns, unless it shrugs the stun off still (its own clock, or the tough foe's).
     if (burn === undefined && e.stun <= 0 && shrug <= 0 && ((ai.shrug as number | undefined) ?? 0) <= 0) {
       e.stun = TOUGH.stunHook

@@ -263,6 +263,9 @@ function ring(g: G, c: string, x: number, y: number, rad: number, w: number) {
   capsule(g, c, x, y, x, y, rad + w / 2, rad - w / 2)
 }
 
+/** How far under the struck circle's middle the finger's gold ring is painted, classic px. */
+const SIT = 6
+
 /** The gold chevron, two tiles wide, its point at (x, y). */
 function chevron(g: G, x: number, y: number) {
   for (const [c, grow] of [[OUT, 2], [GOLD, 0]] as const) {
@@ -390,13 +393,15 @@ function screen(k: SideKit, s: GameState) {
   const f = weaverFinger(info, e)
   if (f) {
     const x = Math.round(f.x * T) - cx
-    const y = Math.round(f.y * T) - cy
+    // (Painted `SIT` px under the middle of what a stomp strikes, so that it sits on the hand's gold fingertip and
+    // does not float: the struck circle, `WEAVER.finger` round, holds the painted middle well inside it.)
+    const y = Math.round(f.y * T) - cy + SIT
     const pulse = reduced ? 0 : Math.round(Math.sin(time * 7) * 1.5)
     const rad = Math.round(WEAVER.finger * T) - 2 + pulse
     ring(g, OUT, x, y, rad, 5)
     ring(g, GOLD, x, y, rad, 2)
     chevron(g, x, y - Math.round(WEAVER.finger * T) - 4 - (reduced ? 0 : Math.round(Math.abs(Math.sin(time * 4)) * 4)))
-    lights.push({ x: f.x, y: f.y, r: 2.4, color: GOLD, a: 0.9 })
+    lights.push({ x: f.x, y: f.y + SIT / T, r: 2.4, color: GOLD, a: 0.9 })
   }
 }
 
