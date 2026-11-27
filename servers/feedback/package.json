@@ -1,0 +1,13 @@
+{
+  "name": "phareim-feedback",
+  "private": true,
+  "description": "In-game feedback box on Sleeper (port 3057, PM2 phareim-feedback).",
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "start": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON server.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

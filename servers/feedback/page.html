@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>FEEDBACK</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0d0f14; color: #dfe3ea; font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; padding: 12px 16px; background: #0d0f14; border-bottom: 1px solid #262b36; font-weight: 700; letter-spacing: .12em; }
+  main { max-width: 640px; margin: 0 auto; padding: 12px; }
+  .card { margin: 0 0 14px; background: #161a22; border: 1px solid #262b36; border-radius: 8px; overflow: hidden; }
+  .card.done { opacity: .5; }
+  .card img { display: block; width: 100%; height: auto; background: #000; }
+  .body { padding: 10px 12px 12px; }
+  .when { font-size: 12px; color: #8d96a6; letter-spacing: .04em; }
+  .where { margin-top: 4px; font-weight: 600; word-break: break-word; }
+  .text { margin-top: 8px; white-space: pre-wrap; word-break: break-word; }
+  button { min-height: 44px; padding: 0 18px; margin-top: 10px; background: #2b6cff; color: #fff; border: 0; border-radius: 6px; font: inherit; font-weight: 700; letter-spacing: .08em; cursor: pointer; }
+  button[disabled] { opacity: .5; cursor: default; }
+  .tick { margin-top: 10px; color: #5bd68a; font-weight: 700; }
+  .empty, .err { padding: 40px 0; text-align: center; color: #8d96a6; letter-spacing: .08em; }
+  #more { display: block; width: 100%; background: #262b36; }
+</style>
+</head>
+<body>
+<header>FEEDBACK</header>
+<main id="list"></main>
+<script>
+(function () {
+  'use strict';
+  var ID = /^\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ-[a-z0-9]{4}$/;
+  var list = document.getElementById('list');
+  var next = null, loaded = 0, moreBtn = null;
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.setAttribute('class', cls);
+    if (text !== undefined && text !== null) e.textContent = String(text);
+    return e;
+  }
+  function when(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? '?' : d.toLocaleString();
+  }
+  function where(w) {
+    w = w || {};
+    var t = w.tile && typeof w.tile.x === 'number' && typeof w.tile.y === 'number' ? w.tile.x + ',' + w.tile.y : '?';
+    return (w.map || '?') + ' · ' + (w.area || '?') + ' · TILE ' + t;
+  }
+  function markDone(card, btn, whenLine) {
+    card.setAttribute('class', 'card done');
+    if (btn.parentNode) btn.parentNode.replaceChild(el('div', 'tick', '✓ DONE'), btn);
+    whenLine.textContent = whenLine.textContent.replace(/open$/, 'done');
+  }
+  function card(item) {
+    if (!item || typeof item.id !== 'string' || !ID.test(item.id)) return null;
+    var c = el('div', 'card' + (item.status === 'done' ? ' done' : ''));
+    if (item.shot) {
+      var img = el('img');
+      img.setAttribute('loading', 'lazy');
+      img.setAttribute('alt', '');
+      img.setAttribute('src', 'entry/' + item.id + '/shot.jpg');
+      c.appendChild(img);
+    }
+    var b = el('div', 'body');
+    var w = el('div', 'when', when(item.createdAt) + ' · ' + (item.status === 'done' ? 'done' : 'open'));
+    b.appendChild(w);
+    b.appendChild(el('div', 'where', where(item.where)));
+    if (item.text) b.appendChild(el('div', 'text', item.text));
+    if (item.status === 'done') {
+      b.appendChild(el('div', 'tick', '✓ DONE'));
+    } else {
+      var btn = el('button', null, 'DONE');
+      btn.setAttribute('type', 'button');
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        fetch('entry/' + item.id + '/done', { method: 'POST' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { if (j && j.ok) markDone(c, btn, w); else btn.disabled = false; })
+          .catch(function () { btn.disabled = false; });
+      });
+      b.appendChild(btn);
+    }
+    c.appendChild(b);
+    return c;
+  }
+  function render(items) {
+    for (var i = 0; i < items.length; i++) {
+      var c = card(items[i]);
+      if (c) { if (moreBtn) list.insertBefore(c, moreBtn); else list.appendChild(c); loaded++; }
+    }
+    if (moreBtn) { list.removeChild(moreBtn); moreBtn = null; }
+    if (next) {
+      moreBtn = el('button', null, 'MORE');
+      moreBtn.setAttribute('id', 'more');
+      moreBtn.setAttribute('type', 'button');
+      moreBtn.addEventListener('click', load);
+      list.appendChild(moreBtn);
+    }
+    if (!loaded && !list.querySelector('.empty')) list.appendChild(el('div', 'empty', 'NOTHING YET.'));
+  }
+  function load() {
+    var url = 'entries';
+    if (next && ID.test(next)) url += '?before=' + next;
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        next = j && typeof j.next === 'string' && ID.test(j.next) ? j.next : null;
+        render(j && Array.isArray(j.items) ? j.items : []);
+      })
+      .catch(function () { list.appendChild(el('div', 'err', 'COULD NOT LOAD.')); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

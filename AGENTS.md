@@ -27,7 +27,7 @@ Nuxt 4 + Vue 3 + TypeScript, source at the repo root; Cloudflare Pages project `
 
 `app.vue` (root shell), `pages/index.vue` (active theme's Landing), `error.vue`, `plugins/`, `components/` (HomeChip, GameFrame), `server/` (the profile API: Hall of Fame, saves, wallet, Mini World, sign-in gate), `migrations/`, `composables/`, `themes/<id>/` (registry in `themes/index.ts`; see the phareim-theme skill). The file-by-file map: `docs/site.md` → "Source layout".
 
-There is no menu and no page route but `/`. `servers/mw-world/` is not part of the site build: it runs on Sleeper under PM2 (see its README).
+There is no menu and no page route but `/`. `servers/mw-world/` is not part of the site build: it runs on Sleeper under PM2 (see its README). So does `servers/feedback/`, Petter's in-game feedback box (port 3057, PM2 `phareim-feedback`; allowlisted account only; see its README).
 
 ## Theme System (short version — the skill has the rest)
 
