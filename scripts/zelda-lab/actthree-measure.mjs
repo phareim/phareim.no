@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { reelPlayer } from '../../tests/zelda-reel.mjs'
-import { fightBard, fightUnderstudy } from '../../tests/zelda-act-three-bots.mjs'
+import { fightBard, fightHallucinator, fightUnderstudy } from '../../tests/zelda-act-three-bots.mjs'
 
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
@@ -107,8 +107,8 @@ const MOVES = [
   ['actwings', 'first → second hidden ledge', 8, [4.0, 6.0], 6, [1, 3], 2, 1, 'prize'],
   ['actwings', 'second → third hidden ledge (chest on it)', 6, [1.35, 3.3], 4, [4, 6], 2, 1, 'prize'],
   ['actloft', 'floor → first catwalk (A), in the gap of its bags', 22, [7.35, 8.65], 20, [7, 9], 2, 0, 'way'],
-  ['actloft', 'A → west step', 20, [4.35, 5.3], 18, [1, 3], 2, 1, 'way'],
-  ['actloft', 'west step → second catwalk', 18, [1.35, 3.3], 16, [4, 7], 2, 1, 'way'],
+  ['actloft', 'A → west step', 20, [4.0, 7.6], 18, [1, 4], 2, 0, 'way'],
+  ['actloft', 'west step → second catwalk', 18, [1.35, 4.0], 16, [4, 7], 2, 0, 'way'],
   ['actloft', 'second catwalk → east step', 16, [9.0, 11.3], 14, [12, 15], 2, 1, 'way'],
   ['actloft', 'east step → third catwalk', 14, [11.7, 14.6], 12, [8, 11], 2, 1, 'way'],
   ['actloft', 'over the Leg\'s sign, east', 8, [7.4, 9.6], 8, [11, 13], 1, 1, 'way'],
@@ -118,12 +118,12 @@ const MOVES = [
   ['actcable', 'foot → clamp 1', 22, [5.4, 9.6], 20, [8, 11], 2, 0, 'way'],
   ['actcable', 'clamp 1 → 2', 20, [8.0, 10.6], 18, [4, 7], 2, 1, 'way'],
   ['actcable', 'clamp 2 → 3 (real, right)', 18, [4.35, 7.0], 16, [8, 11], 2, 1, 'way'],
-  ['actcable', 'clamp 3 → 4', 16, [8.0, 10.6], 14, [3, 6], 2, 2, 'way'],
-  ['actcable', 'clamp 4 → 5', 14, [3.35, 6.0], 12, [7, 10], 2, 1, 'way'],
-  ['actcable', 'clamp 5 → 6 (real, left)', 12, [7.0, 9.6], 10, [2, 5], 2, 2, 'way'],
-  ['actcable', 'clamp 6 → 7', 10, [2.35, 5.0], 8, [7, 10], 2, 2, 'way'],
-  ['actcable', 'clamp 7 → 8 (real, left)', 8, [7.0, 9.6], 6, [2, 5], 2, 2, 'way'],
-  ['actcable', 'clamp 8 → the top', 6, [3.35, 5.0], 4, [3, 7], 2, 0, 'way'],
+  ['actcable', 'clamp 3 → 4', 16, [8.0, 10.6], 14, [4, 7], 2, 1, 'way'],
+  ['actcable', 'clamp 4 → 5', 14, [4.35, 7.0], 12, [8, 11], 2, 1, 'way'],
+  ['actcable', 'clamp 5 → 6 (real, left)', 12, [8.0, 10.6], 10, [4, 7], 2, 1, 'way'],
+  ['actcable', 'clamp 6 → 7', 10, [4.35, 7.0], 8, [8, 11], 2, 1, 'way'],
+  ['actcable', 'clamp 7 → 8 (real, left)', 8, [8.0, 10.6], 6, [4, 7], 2, 1, 'way'],
+  ['actcable', 'clamp 8 → the top', 6, [4.35, 7.0], 4, [3, 7], 2, 0, 'way'],
   ['actcable', 'over the top\'s sign', 4, [4.4, 6.6], 4, [8, 11], 1, 1, 'way'],
 ]
 console.log('| Room | Jump | Needs | Held margin | Tapped margin | Ground held / tapped, of tried |')
@@ -151,8 +151,9 @@ for (const [map, what, from, a, to, span] of [
   ['actloft', 'third catwalk → the Leg without the ladder (4 up)', 12, [4.35, 10.6], 8, [3, 13]],
   ['actcable', 'foot → clamp 2', 22, [5.4, 9.6], 18, [4, 7]],
   ['actcable', 'clamp 2 → 4 (4 up)', 18, [4.35, 6.6], 14, [3, 6]],
-  ['actcable', 'clamp 5 → 7 (4 up)', 12, [7.4, 9.6], 8, [7, 10]],
-  ['actcable', 'clamp 7 → the top (4 up)', 8, [7.4, 9.6], 4, [3, 13]],
+  ['actcable', 'clamp 4 → 6 (4 up)', 14, [4.35, 7.0], 10, [4, 7]],
+  ['actcable', 'clamp 5 → 7 (4 up)', 12, [8.0, 10.6], 8, [8, 11]],
+  ['actcable', 'clamp 7 → the top (4 up)', 8, [8.0, 10.6], 4, [3, 13]],
 ]) {
   const g = ground(map, from, a, to, span)
   if (g.held > 0.001) bad++
@@ -381,4 +382,133 @@ console.log('\nThe glass: seconds of stillness to the ring, the glass and the wh
   while (!Q.down() && air < 2) { Q.step({ move: { x: Q.s.hero.x < 12.2 ? 1 : 0, y: 0 }, jumpHeld: true }); air += DT }
   console.log(`  a jump of ${f2(air)} s after a look leaves the outlines at ${f2(Q.s.lens.k)} of full; gone after ${Z.LENS.back} s`)
 }
+// -- THE HALLUCINATOR -------------------------------------------------------------------------------------------
+
+const deg = a => a * 180 / Math.PI
+console.log(`\nThe standing cut at each slot (one A from a stand on the floor, the real body set there, open): how far from the body's middle, in x, it bites. The body's middle at y ${Z.HALLU.y} (and, for the record, at the brief's 10.5); its picture is 2.5 wide, so a hero touching it stands ${f2(1.25 + R)} off.`)
+for (const y of [10.5, Z.HALLU.y]) {
+  console.log(`| middle at y | Slot x | from the west: bites between | from the east: between | margin past touching, west / east | straight-line margin |`)
+  console.log('|---|---|---|---|---|---|')
+  for (const slot of Z.HALLU.slots) {
+    const side = way => {
+      const hits = []
+      for (let off = 0; off <= 2.6; off += 0.02) {
+        const x = slot - way * off
+        // (West of 2 is the stair: a hero there is out of the room.)
+        if (x < 2.0 || x > 13 - R) continue
+        const s = Z.createGame(W, { seed: 1, at: { map: 'actgondola', entry: 'stair' } })
+        s.inv.sword = true
+        const step = (o = {}) => Z.stepGame(W, s, 1 / 60, { ...Z.NO_INPUT, move: { x: 0, y: 0 }, ...o })
+        step(); s.mode = 'play'; s.dialog = null
+        Object.assign(s.hero, { x, y: Z.HALLU.floor - R - 1e-4 })
+        for (let i = 0; i < 3; i++) step()
+        const [lead, ...others] = s.map.enemies
+        for (const o of others) { o.x = -30 }
+        Object.assign(lead, { x: slot, y, invuln: 0 })
+        Object.assign(lead.ai, { mode: 'open', t: 5, took: 0 })
+        s.hero.x = x
+        step({ move: { x: 0.4 * way, y: 0 }, aPress: true, a: true })
+        for (let i = 0; i < 20; i++) step()
+        if (lead.hp < lead.maxHp) hits.push(off)
+      }
+      return hits.length ? [Math.min(...hits), Math.max(...hits)] : null
+    }
+    const w = side(1)
+    const e = side(-1)
+    const touch = 1.25 + R
+    const say = v => (v ? `${f2(v[0])}–${f2(v[1])}` : 'never')
+    const margin = v => (v ? f2(v[1] - touch) : '–')
+    const straight = 1.2 + 1.0 - Math.hypot(touch, Z.HALLU.floor - R - y)
+    console.log(`| ${y} | ${slot} | ${say(w)} | ${say(e)} | ${margin(w)} / ${margin(e)} | ${f2(straight)} |`)
+  }
+}
+
+console.log('\nTHE HALLUCINATOR\'s round, by script (seed 4; a hero who walks out of every stencil, no blade used until half is forced):')
+{
+  const { s, P } = fight('actgondola', 'stair', 4, false, 400)
+  const bodies = () => Z.halluBodies(s.map)
+  const lead = bodies()[0]
+  let was = ''
+  let t = 0
+  let wave = 0
+  let rounds = 0
+  for (let i = 0; i < 60 * 80 && rounds < 3; i++) {
+    const mode = lead.ai.mode
+    if (mode !== was) {
+      if (mode === 'shuffle') { rounds++; if (rounds < 3) console.log(`  round ${rounds}${rounds === 2 ? ' (from half: hit points set to 6 in the opening before it)' : ''}`); else break }
+      // (Half is set before the second round begins, as the first opening's cuts would.)
+      if (mode === 'open' && rounds === 1) lead.hp = 6
+      console.log(`    ${f2(t)} s  ${mode}${mode === 'claim' ? '' : ''}  bodies x ${bodies().map(b => b.x.toFixed(1)).join(' ')}, bar ${(Z.halluShown(lead) * 12).toFixed(0)}/12${mode === 'blows' ? `, claimed body ${lead.ai.claimed} (the real one is 0), ${lead.ai.waves} waves` : ''}`)
+      was = mode
+      wave = 0
+    }
+    if (mode === 'blows' && lead.ai.wave !== wave) {
+      wave = lead.ai.wave
+      console.log(`    ${f2(t)} s    wave ${wave}: stencils ${Z.halluAims(lead).map(x => `${f2(x - 1)}–${f2(x + 1)}`).join(', ')}${Z.halluPaint(lead).length ? `; painted crates (no stencil) at ${Z.halluPaint(lead).map(f2).join(', ')}` : ''}; hero at ${f2(s.hero.x)}`)
+    }
+    const boxes = Z.halluBoxes(lead)
+    const inside = x => boxes.some(b => x >= b.x0 - 0.25 && x <= b.x1 + 0.25)
+    let to = s.hero.x
+    if (inside(to)) for (let d = 0.2; d < 9; d += 0.2) { const c = [s.hero.x + d, s.hero.x - d].find(x => x > 2.35 && x < 12.6 && !inside(x)); if (c) { to = c; break } }
+    P.step(s.mode === 'dialog' && i % 12 === 0 ? { aPress: true } : { move: { x: Math.abs(to - s.hero.x) < 0.1 || s.mode !== 'play' ? 0 : Math.sign(to - s.hero.x), y: 0 } })
+    if (s.mode === 'play') t += 1 / 60
+  }
+  console.log(`  half hearts lost walking out of the stencils: ${400 - s.hero.hp}`)
+}
+
+console.log('\nA hero who only stands in the gondola, with THE LENS (the glass comes up) and without; seconds from the stair to the fall:')
+for (const hearts of [3, 6, 10]) {
+  for (const lens of [false, true]) {
+    const t = []
+    let glass = 0
+    for (let seed = 1; seed <= 10; seed++) {
+      const { s, P } = fight('actgondola', 'stair', seed, lens, hearts * 2)
+      let i = 0
+      while (s.mode !== 'dying' && i++ < 60 * 200) { P.step(); if (Z.lensUp(s)) glass++ }
+      t.push(i / 60)
+    }
+    console.log(`  ${hearts} hearts, ${lens ? 'with the lens' : 'without      '}: ${spread(t)} s${lens ? ` (the glass up ${f2(glass / 600)} s of a fight)` : ''}`)
+  }
+}
+
+console.log('\nTHE HALLUCINATOR, 60 seeds each, by the controller (blade only; it steps out of every stencil), fewest / middle / most:')
+console.log('| How it finds the body | Reaction | Fight, s | Openings | Openings that bit | False bodies popped | Half hearts lost |')
+console.log('|---|---|---|---|---|---|---|')
+for (const react of [0, 0.4, 0.7]) {
+  for (const way of ['blade', 'glass', 'plate']) {
+    const out = []
+    for (let seed = 1; seed <= 60; seed++) {
+      const { s, P } = fight('actgondola', 'stair', seed, way === 'glass')
+      let n = seed * 7919
+      out.push(fightHallucinator(Z, s, P, { way, react, max: 600, guess: way === 'blade' ? () => { n = (n * 48271) % 2147483647; return (n >> 8) % 2 } : null }))
+    }
+    const all = k => spread(out.map(o => o[k]))
+    const mean = k => f2(out.reduce((a, o) => a + o[k], 0) / out.length)
+    console.log(`| ${way === 'blade' ? 'guessing (no lens, no plate)' : way === 'glass' ? 'the lens, standing still' : 'the plate, no lens'} | ${react} s | ${all('seconds')} | ${all('openings')} (mean ${mean('openings')}) | ${all('bit')} | ${all('pops')} | ${mean('lost')} |`)
+  }
+}
+
+console.log('\nA retry: a fall, then the stair again:')
+{
+  const { s, P } = fight('actgondola', 'stair', 2, false, 6)
+  let i = 0
+  while (s.mode !== 'dying' && i++ < 60 * 200) P.step()
+  Z.halluBodies(s.map)[0].hp = 6
+  for (let k = 0; k < 600 && s.mode !== 'play'; k++) Z.stepGame(W, s, 1 / 60, Z.NO_INPUT)
+  console.log(`  back in ${s.map.id} at entry ${s.entry.entry}, ${s.hero.hp} half hearts of ${s.hero.maxHp}, bodies ${Z.halluBodies(s.map).length}, hit points ${Z.halluBodies(s.map)[0].hp}, gate ${Z.tileAt(s.map, 13, 10)}`)
+}
+
+console.log('\nVega\'s and Birger\'s lines in each state (the flags a save can hold; the first line of what is said):')
+{
+  const say = (mark, flags) => {
+    const e = W.maps.fogstage.marks[mark].ent
+    const s = { flags: Object.fromEntries(flags.map(f => [f, true])), session: false, view: 'iso', map: { plates: [], enemies: [] } }
+    const line = e.talk.find(l => Z.condMet(s, W, l.when, -1))
+    return `${line.lines.join(' / ')}${line.give ? ` [gives ${line.give}]` : ''}${line.set ? ` [sets ${line.set}]` : ''}`
+  }
+  const states = [['nobody met', []], ['the tape only', ['q.act.tape']], ['the Weight only', ['item:weightSources']], ['both, before done', ['q.act.tape', 'item:weightSources']], ['done only', ['q.act.done', 'q.act.tape']], ['done and the Weight', ['q.act.done', 'q.act.tape', 'item:weightSources']]]
+  for (const [what, flags] of states) console.log(`  Vega, ${what}: ${say('b', flags)}`)
+  for (const [what, flags] of [['nobody met', []], ['the Weight only', ['item:weightSources']], ['met', ['q.act.trap']], ['met and the Weight', ['q.act.trap', 'item:weightSources']]]) console.log(`  Birger, ${what}: ${say('a', flags)}`)
+}
+
 if (bad) { console.error(`\n${bad} things are not as meant`); process.exit(1) }

@@ -571,6 +571,7 @@ export type EnemyKind =
   | 'weaver' // boss (the Late Show): draws hands; a stomp on a gold finger puts one right (`engine/bossWeaver.ts`)
   | 'blackbox' // boss (the Lighthouse): never moves; a lamp's beam comes out of another face, and its three receivers open it
   | 'falcon' // miniboss (the Examination): circles, stencils a dive and takes it; open only while stuck in the sand
+  | 'hallucinator' // boss, side maps: three bodies, one real; open at the bow's gold rail (`engine/bossHallucinator.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -1627,7 +1628,8 @@ export type GameEvent =
   | { type: 'charged' }
   /** `dx`, `dy`: the way the blow drove the foe (unit); `heavy`: the finisher or a spin; `crit`: a finisher on a reeling foe. */
   | { type: 'hit'; x: number; y: number; kind: EnemyKind; killed: boolean; dx?: number; dy?: number; heavy?: boolean; crit?: boolean }
-  | { type: 'clank'; x: number; y: number }
+  /** `white`: a spark of no colour (the Hallucinator's false bodies: nothing false is ever gold). */
+  | { type: 'clank'; x: number; y: number; white?: true }
   | { type: 'hurt'; x: number; y: number }
   | { type: 'shock'; x: number; y: number }
   | { type: 'died' }

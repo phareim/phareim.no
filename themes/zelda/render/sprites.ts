@@ -29,6 +29,7 @@ import { EXAM_RAW } from './spritesExamination'
 import { WEAVER_RAW } from './spritesWeaver'
 import { COPILOT_SIDE_RAW } from './spritesCopilotSide'
 import { FRONTIER_RAW } from './frontierSprites'
+import { HALLUCINATOR_SPRITES } from './spritesHallucinator'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
 
@@ -1629,6 +1630,7 @@ const RAW: Record<string, Rows> = {
   ...GOLEM_RAW,
   ...WEAVER_RAW,
   ...COPILOT_SIDE_RAW,
+  ...HALLUCINATOR_SPRITES,
 }
 
 

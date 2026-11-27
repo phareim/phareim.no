@@ -290,8 +290,6 @@ const OWED = [
   'examination: gate examination.7,11',
   'examination: gate examination.7,2',
   'examtop: never walked into',
-  // Act Three, parts one and two: the gondola's way out waits on the boss of part three.
-  'actgondola: gate actgondola.13,10',
 ]
 
 describe('the whole world can be opened', () => {

@@ -31,6 +31,8 @@ export { WEAVER, handsRight, weaverSlot, weaverFinger, weaverFootprint, weaverSt
 export { CHASE } from './chase'
 // Act Three's BARD and the fly loft's sandbags: their numbers and what their blows cover.
 export { BARD, BARD_SET, bardPiece, bardOpen, bardBoxes, type BardPiece } from './bossBard'
+// Act Three's boss: its numbers, its bodies, what its crates cover and what its bar shows.
+export { HALLU, halluBodies, halluBoxes, halluPopped, halluShown, halluAims, halluPaint } from './bossHallucinator'
 export { BAG, bagsOf, bagAt, column, type Box } from './sandbag'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'

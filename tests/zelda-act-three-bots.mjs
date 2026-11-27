@@ -175,3 +175,100 @@ export function awaitBags(Z, s, P, x, dur, row) {
   for (let i = 0; i < 600 && !safe(); i++) P.step()
   assert.ok(safe(), `the bags never leave a way to ${x}: ${P.where()}`)
 }
+
+/** The west end of the gondola's floor a player means to use: further on is the stair, which leaves the fight. */
+const WEST = 2.35
+
+/**
+ * THE HALLUCINATOR, from the floor, with the blade. It reads what a player sees: where the bodies are, which one the
+ * arrow is over, which have popped, the stencils and the rail; and, only while the glass is up, which one stays solid.
+ * `way`: 'blade' guesses (never the claimed body; then one of the two; after a pop, the other), 'glass' stands still
+ * through the claim until the glass is up, 'plate' walks onto the plate. It steps out of every stencil and cuts while
+ * the rail is lit. `react`: seconds before it acts on a stencil or the rail. `guess` (a function giving 0 or 1, west
+ * to east) settles the blind guess; left out, it takes the nearer one. Returns the seconds, the openings and how many
+ * bit, the false bodies popped, the half hearts lost, how far off each cut that bit stood (tiles) and what the bar
+ * quoted at each shuffle.
+ */
+export function fightHallucinator(Z, s, P, { way = 'blade', max = 400, react = 0, watch = null, guess = null } = {}) {
+  const lead = () => s.map.enemies.find(v => v.kind === 'hallucinator')
+  const h = () => s.hero
+  const out = { seconds: 0, openings: 0, bit: 0, pops: 0, lost: 0, far: [], quoted: [] }
+  let frames = 0
+  let was = ''
+  let changed = 0
+  let hp = h().hp
+  let known = null
+  let target = null
+  let bitThis = false
+  const e0 = lead()
+  const popped = new Set()
+  const safe = (boxes, want) => {
+    let best = null
+    for (let x = WEST; x <= 12.6; x += 0.2) {
+      if ([x - 0.25, x, x + 0.25].some(at => boxes.some(b => at >= b.x0 && at <= b.x1))) continue
+      if (best === null || Math.abs(x - want) + Math.abs(x - h().x) < Math.abs(best - want) + Math.abs(best - h().x)) best = x
+    }
+    return best ?? want
+  }
+  while (!e0.dead) {
+    assert.ok(frames++ < max * 60, `the Hallucinator stands after ${max} s (hp ${e0.hp}, ${e0.ai.mode}): ${P.where()}`)
+    if (h().hp < hp) out.lost += hp - h().hp
+    hp = h().hp
+    if (s.mode !== 'play') { P.step(s.mode === 'dialog' && frames % 12 === 0 ? { aPress: true } : {}); continue }
+    const bodies = Z.halluBodies(s.map)
+    const mode = e0.ai.mode
+    watch?.(bodies, frames * DT)
+    if (mode !== was) {
+      changed = frames
+      if (mode === 'shuffle') { known = null; target = null; popped.clear(); out.quoted.push(Z.halluShown(e0)) }
+      if (mode === 'open') { out.openings++; bitThis = false }
+      was = mode
+    }
+    const claimed = mode === 'claim' || mode === 'blows' || mode === 'bow' || mode === 'open' ? bodies[e0.ai.claimed] : null
+    // What the glass shows: only one body stays solid.
+    const seeing = (way === 'glass' && s.lens?.up && s.lens.k === 1) || (way === 'plate' && e0.ai.glass === 1)
+    if (seeing && claimed) known = bodies[0]
+    // A cut that showed a hurt found it; one that popped a body did not.
+    for (const b of bodies) if (Z.halluPopped(b) && !popped.has(b)) { popped.add(b); out.pops++; if (target === b) target = null }
+    if (claimed && (mode === 'blows' || mode === 'bow' || mode === 'open') && !target) {
+      const left = bodies.filter(b => b !== claimed && !popped.has(b))
+      const at = b => Z.HALLU.slots[b.ai.slot]
+      if (known) target = known
+      else if (left.length) {
+        // (By where they stand, never by which they are.)
+        const by = [...left].sort((a, b) => at(a) - at(b))
+        target = guess ? by[Math.min(by.length - 1, guess())] : by.sort((a, b) => Math.abs(at(a) - h().x) - Math.abs(at(b) - h().x))[0]
+      }
+    }
+    if (known && target !== known) target = known
+    const onFloor = !!h().side?.ground
+    if (mode === 'open' && target && frames - changed >= react * 60) {
+      const x = target.x
+      const near = h().x < x ? -1 : 1
+      let spot = x + near * 1.3
+      if (spot < WEST || spot > 12.6) spot = x - near * 1.3
+      if (Math.abs(h().x - spot) > 0.55 && !h().swing) { P.step({ move: toward(h(), spot) }); continue }
+      const face = Math.sign(x - h().x) || 1
+      const off = Math.abs(h().x - x)
+      const before = e0.hp
+      // (The cut goes where the stick points as it starts.)
+      P.step(frames % 9 === 0 ? { move: { x: 0.4 * face, y: 0 }, aPress: true, a: true } : {})
+      if (e0.hp < before) { out.far.push(off); if (!bitThis) { bitThis = true; out.bit++ } }
+      continue
+    }
+    if (mode === 'blows' && e0.ai.wt < Z.HALLU.tell + Z.HALLU.fall && e0.ai.wt >= react) {
+      const want = target ? Z.HALLU.slots[target.ai.slot] : h().x
+      const to = safe(Z.halluBoxes(e0), want)
+      P.step({ move: toward(h(), to) })
+      continue
+    }
+    if (way === 'plate' && (mode === 'shuffle' || mode === 'claim') && onFloor && !known) { P.step({ move: toward(h(), 7.5) }); continue }
+    // Standing still for the glass: through the claim.
+    if (way === 'glass' && !known && (mode === 'shuffle' || mode === 'claim')) { P.step(); continue }
+    if (target && mode !== 'blows') { P.step({ move: toward(h(), Z.HALLU.slots[target.ai.slot], 1.3) }); continue }
+    if (mode === 'blows' && target) { P.step({ move: toward(h(), Z.HALLU.slots[target.ai.slot], 1.3) }); continue }
+    P.step()
+  }
+  out.seconds = frames * DT
+  return out
+}

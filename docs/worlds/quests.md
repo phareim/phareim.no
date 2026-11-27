@@ -54,6 +54,13 @@ something came up the stage trap and stole act three, and the act went out on th
 | 2 | Fogstage, BIRGER'S BUCKET (the stage trap) | BIRGER `q.act.prompter` | `trap` | |
 | 3 | Rerun Estates, RALF'S TV VAN | RALF `q.act.repairman` | `tape` | |
 | 4 | Fogstage, THE RAINCHECK'S MAST | VEGA `q.act.director` (FINGERS `q.act.cast` beside her) | `done` | heartPiece |
+| 5 | [Act Three](act-three.md), from the stair in UNDER THE STAGE to the gondola; then VEGA again | THE HALLUCINATOR, then VEGA | (none: the flag `item:weightSources`) | the Weight SOURCES, VEGA's finale |
+
+The fifth beat is the dungeon: the original of act three comes home as a brass Weight stamped SOURCES, and VEGA, who
+has the TV man's copy, takes it as the thing it is. It sets no `q.act.*` flag, and the dungeon is open to a hero who
+has met nobody. What VEGA says, first match wins: done and the Weight (the finale); done; the tape (the heart piece,
+once); the Weight alone; else the first-time lines. BIRGER, once asked, points at the stair; with the Weight home he
+says it is quiet up there.
 
 ## 4. The clean seed (`q.seed.*`)
 

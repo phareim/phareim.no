@@ -21,7 +21,7 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [ ] Cards (intertitles, score cards, THE END).
 - [x] Dungeon maps in a chunk of their own (commit e4008c7, 2026-11-27): `world/dungeons.ts` is the one place a dungeon is added; the home page's world is 59.5 KB gzip (ceiling 62 KB), the dungeons' chunk 10 KB (ceiling 22 KB).
 - [ ] The side engine in a chunk of its own.
-- [ ] The dungeons' fights and painters in the dungeons' chunk: they ride in the isometric view's closure and pushed it past its ceiling (raised from 1.45 MB to 1.55 MB minified on 2026-11-27, `tests/zelda-size.test.mjs`).
+- [ ] The dungeons' fights and painters in the dungeons' chunk: they ride in the isometric view's closure and pushed it past its ceiling (raised from 1.45 MB to 1.55 MB minified and from 470 KB to 500 KB gzip on 2026-11-27, `tests/zelda-size.test.mjs`). The drawn bosses' sprite rows go first (`tmp/dungeons/briefs/22-dungeon-art-chunk.md`).
 
 ## Dungeons
 - [ ] 1. Seter Fell: THE ECHO BARROW. The Echo. Mixtral. THE STOCHASTIC PARROT. Weight: MEANING.

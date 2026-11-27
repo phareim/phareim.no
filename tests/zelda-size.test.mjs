@@ -21,7 +21,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
  * the dungeons' maps (`docs/worlds/sacred-weights-TASKS.md`); until then this is what they cost.
  */
 const MAX_MIN = 1_550_000
-const MAX_GZIP = 470_000
+// (Raised with it, 470 KB to 500 KB: 472 KB with six dungeons whole. The dungeons' drawn bosses are the first to go.)
+const MAX_GZIP = 500_000
 
 let out
 before(async () => {

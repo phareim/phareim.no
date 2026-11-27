@@ -12,7 +12,7 @@
  *                                                      locked door and the great one
  *              → actstudy   THE DRESSING ROOM (16 × 12) THE UNDERSTUDY; the Big Key
  *   the great door → actcable  THE CABLE (16 × 24)     the climb over the fog, the only falls
- *              → actgondola THE GONDOLA (16 × 16)      the floor, the plate and the shut stair out; nobody yet
+ *              → actgondola THE GONDOLA (16 × 16)      THE HALLUCINATOR, the glass's plate, the Weight SOURCES; the way out
  *
  * - On the way on, a step up is 2 tiles at most and a gap 2 at most.
  * - A locked door or a gate fills an opening in a wall that is solid up to the ceiling: nothing is jumped over.
@@ -185,7 +185,7 @@ const FLY_LOFT = scene('actloft', 'THE FLY LOFT', 'SCENE THREE', room(24, 22, {
   14: '#.......5...¯¯¯#',
   16: '#...¯¯¯¯¯¯¯....#',
   17: '#....6...7.....#',
-  18: '#¯¯..........5.#',
+  18: '#¯¯¯.........5.#',
   20: '#...¯¯¯¯¯¯¯¯...#',
   21: '#1.............#',
 }), { rope: [2.5, 21.5], fromstudy: [14.5, 7.5, 'left'], kdoor: [1.5, 7.5] }, {
@@ -222,15 +222,15 @@ const CABLE = scene('actcable', 'THE CABLE', 'SCENE FOUR', [
   '.......45553....',
   '...¯¯¯¯¯¯¯¯¯¯...',
   '................',
-  '..¯¯¯.......222.',
-  '.......555......',
-  '.......¯¯¯......',
+  '....¯¯¯.....222.',
+  '........555.....',
+  '........¯¯¯.....',
   '................',
-  '..¯¯¯.......222.',
-  '.......555......',
-  '.......¯¯¯......',
-  '...555..........',
-  '...¯¯¯..........',
+  '....¯¯¯.....222.',
+  '........555.....',
+  '........¯¯¯.....',
+  '....555.........',
+  '....¯¯¯.........',
   '................',
   '222.....¯¯¯.....',
   '....555.........',
@@ -248,19 +248,27 @@ const CABLE = scene('actcable', 'THE CABLE', 'SCENE FOUR', [
   '5': ledge,
 }, { card: ['THE CABLE.', 'THE ACT WENT THIS WAY.'] })
 
-// The gondola: the floor, the glass's plate (painted, `actthreePaint.ts`), and the stair out behind a gate that waits
-// on the boss, who is not in yet.
+// The gondola: the floor, the glass's plate (painted, `actthreePaint.ts`), THE HALLUCINATOR, and the stair out behind
+// a gate that waits on its fall.
 const GONDOLA = scene('actgondola', 'THE GONDOLA', 'SCENE FOUR', room(16, 12, {
   ...Object.fromEntries(Array.from({ length: 9 }, (_, k) => [k + 1, '#............###'])),
-  10: '#............3.#',
-  11: '#1...........X2#',
+  9: '#..........h.###',
+  10: '#.........hh.3.#',
+  11: '#1...4.......X2#',
 }), { stair: [2.5, 11.5] }, {
   '1': stair('actcable', 'top'),
   '2': stair('fogstage', 'mast'),
   '3': shut('hallucinator'),
+  // The Weight it sat on, on the floor once it has fallen.
+  '4': { ent: { t: 'item', id: 'actgondola.weight', item: 'weightSources', appear: { flag: 'hallucinator' } } },
+  // Three bodies of one boss: the first of them in the room (the upper one) is the real one (`engine/bossHallucinator.ts`).
+  h: { ent: { t: 'enemy', kind: 'hallucinator', once: 'hallucinator' } },
 }, {
   track: 'boss',
-  events: [{ set: 'actthree.hallucard', lines: ['THE HALLUCINATOR.\nIT IS QUITE SURE.\nASK IT ANYTHING.'] }],
+  events: [
+    { when: { notFlag: 'hallucinator' }, set: 'actthree.hallucinatorcard', lines: ['THE HALLUCINATOR.\nIT IS QUITE SURE.\nASK IT ANYTHING.'] },
+    { when: { flag: 'hallucinator' }, set: 'actthree.cratesflat', lines: ['(THE CRATES GO FLAT. SOMEBODY ACTUALLY WROTE THE REST.)'] },
+  ],
 })
 
 /** The climb's maps by id (`lands.ts` collects them into the world). */

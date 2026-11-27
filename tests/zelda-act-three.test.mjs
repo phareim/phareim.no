@@ -1,13 +1,13 @@
 // ACT THREE (docs/worlds/act-three.md): a few end-to-end tests, four at the most (Petter, 2026-11-27). A scripted
-// player goes from the stair under Fogstage's stage as far as the climb goes, pressing what a player presses; saves
-// load where they should; and the maps hold together. The jump's reach in these rooms is measured by
+// player goes from the stair under Fogstage's stage to the Weight and Vega, pressing what a player presses; one who
+// only stands before the boss falls; saves load where they should; and the maps hold together. The jump's reach in these rooms is measured by
 // `scripts/zelda-lab/actthree-measure.mjs`, not pinned here.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
 import { walker } from './zelda-walk.mjs'
 import { reelPlayer } from './zelda-reel.mjs'
-import { awaitBags, fightBard, fightUnderstudy } from './zelda-act-three-bots.mjs'
+import { awaitBags, fightBard, fightHallucinator, fightUnderstudy } from './zelda-act-three-bots.mjs'
 
 let Z
 before(async () => { Z = await load() })
@@ -50,7 +50,7 @@ function climber(s) {
 }
 
 describe('Act Three', () => {
-  it('is climbed from the stair under the stage to the gondola\'s stair, past BARD and the understudy, with a reload on the way', () => {
+  it('is climbed from the stair under the stage to the Weight in the gondola and Vega\'s finale, with a reload on the way', () => {
     let s = Z.createGame(Z.WORLD, { seed: 7, at: { map: 'understage', entry: 'door' } })
     Z.grant(s, 'sword')
     let P = climber(s)
@@ -246,9 +246,9 @@ describe('Act Three', () => {
     P.walk(6.4)
     P.jump(9, 16, 'the third, the real one of two')
     P.walk(8.4)
-    P.jump(5.5, 14, 'the fourth')
-    P.walk(5.4)
-    P.jump(8.2, 12, 'the fifth')
+    P.jump(5.8, 14, 'the fourth')
+    P.walk(6.4)
+    P.jump(9, 12, 'the fifth')
     // The painted one: down into the fog, half a heart, and back onto the last safe clamp.
     P.walk(9.6)
     const hp = s.hero.hp
@@ -259,27 +259,76 @@ describe('Act Three', () => {
     P.until(() => P.standing(), { x: 0, y: 0 })
     P.idle(60)
     assert.deepEqual([s.hero.hp, Math.round(P.feet())], [hp - 1, 12])
-    P.walk(7.4)
-    P.jump(4.2, 10, 'the sixth, the real one')
-    P.walk(4.7)
-    P.jump(7.8, 8, 'the seventh')
-    P.walk(7.4)
-    P.jump(4.2, 6, 'the eighth')
-    P.walk(4.5)
-    P.jump(4.8, 4, 'the top')
+    P.walk(8.5)
+    P.jump(5.2, 10, 'the sixth, the real one')
+    P.walk(6.4)
+    P.jump(9, 8, 'the seventh')
+    P.walk(8.5)
+    P.jump(5.2, 6, 'the eighth')
+    P.walk(5.5)
+    P.jump(5.8, 4, 'the top')
     P.walk(6.4)
     P.jump(8.6, 4, 'over the sign')
     P.warpBy({ x: 1, y: 0 }, 'actgondola')
 
-    // The gondola: the boss's card, nobody to fight yet, the way out shut and the way back open.
+    // The gondola: the boss's card, three of it, the way out shut and the way back open.
     P.idle(10)
     P.settle()
     assert.ok(P.heard.some(l => /QUITE SURE/.test(l)))
-    assert.deepEqual([s.entry.entry, Z.tileAt(s.map, 13, 10), Z.tileAt(s.map, 13, 11), s.map.enemies.length], ['stair', 'X', 'X', 0])
-    P.walk(2.6)
-    P.warpBy({ x: -1, y: 0 }, 'actcable')
-    assert.equal(s.entry.entry, 'top')
-    assert.ok(s.hero.hp > 0)
+    assert.deepEqual([s.entry.entry, Z.tileAt(s.map, 13, 10), Z.tileAt(s.map, 13, 11), Z.halluBodies(s.map).length], ['stair', 'X', 'X', 3])
+    // THE HALLUCINATOR, with the glass he climbed here with: it falls to the blade, in its openings only.
+    const won = fightHallucinator(Z, s, P, { way: 'glass', react: 0.4 })
+    assert.ok(Z.has(s, 'hallucinator') && won.openings >= 3, `no opening gives more than four: ${won.openings}`)
+    P.idle(10)
+    P.settle()
+    assert.ok(P.heard.some(l => /CRATES GO FLAT/.test(l)))
+    assert.ok(Z.halluBodies(s.map).every(e => e.dead), 'all three go together')
+    assert.deepEqual([Z.tileAt(s.map, 13, 10), Z.tileAt(s.map, 13, 11)], ['.', '.'], 'the way out opens')
+    P.walk(5.5)
+    P.settle()
+    assert.ok(Z.has(s, 'item:weightSources') && P.heard.some(l => /STAMPED SOURCES/.test(l)), 'the Weight, in hand')
+
+    // Out by the gondola's other stair, down at the gangway in the isometric land, and Vega.
+    P.walk(12.4)
+    P.warpBy({ x: 1, y: 0 }, 'fogstage')
+    assert.equal(s.view, 'iso')
+    s.flags['q.act.tape'] = true
+    const vega = s.map.npcs.find(n => n.id === 'q.act.director')
+    /** Walk to her side, face her and talk; the lines said. */
+    const talk = () => {
+      P.walkTo(Math.floor(vega.x) - 1, Math.floor(vega.y))
+      for (let i = 0; i < 40; i++) P.step()
+      P.step({ move: { x: 0.4, y: 0 } })
+      P.heard.length = 0
+      P.step({ aPress: true, a: true })
+      assert.equal(s.mode, 'dialog', `Vega answers: ${P.where()}`)
+      P.settle()
+      return P.heard.join(' ')
+    }
+    const pieces2 = s.inv.pieces
+    assert.match(talk(), /BROUGHT THE ENDING/)
+    assert.ok(Z.has(s, 'q.act.done') && s.inv.pieces === (pieces2 + 1) % 4, 'her heart piece, once')
+    assert.match(talk(), /SOURCES\. SO IT WAS WRITTEN DOWN.*PLACES, EVERYONE/)
+  })
+
+  it('is lost by a hero who only stands in the gondola: the glass comes up and does not save him', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'actgondola', entry: 'stair' } })
+    Z.grant(s, 'sword')
+    Z.grant(s, 'lens')
+    // (Three hearts, said here: a fall gives back all he has, so a hero with more takes longer.)
+    s.hero.hp = s.hero.maxHp = 6
+    const step = (o) => Z.stepGame(Z.WORLD, s, 1 / 60, { ...Z.NO_INPUT, ...o })
+    let frames = 0
+    let glass = false
+    while (s.mode !== 'dying' && frames < 60 * 30) {
+      step(s.mode === 'dialog' && frames % 12 === 0 ? { aPress: true } : {})
+      if (s.mode === 'play') frames++
+      glass ||= Z.lensUp(s)
+    }
+    assert.ok(glass && s.mode === 'dying' && frames / 60 > 7 && frames / 60 < 11, `fell after ${frames / 60} s, glass ${glass}`)
+    // The retry: at the stair, the fight from its start.
+    for (let i = 0; i < 400 && s.mode !== 'play'; i++) step()
+    assert.deepEqual([s.map.id, s.entry.entry, s.hero.hp, Z.halluBodies(s.map).map(e => e.hp)], ['actgondola', 'stair', 6, [10, 10, 10]])
   })
 
   it('loads a save made in the climb at its last stair, with doors and finds as they were and the glass never in it', () => {

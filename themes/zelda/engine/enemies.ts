@@ -15,6 +15,7 @@ import { grok, heapTouch, phi } from './heapFoes'
 import { golem, golemHarmless } from './bossGolem'
 import { parrot, parrotHarmless } from './parrot'
 import { bard } from './bossBard'
+import { hallucinator } from './bossHallucinator'
 import { sycophant } from './bossSycophant'
 import { copilot } from './bossCopilot'
 import { weaver } from './bossWeaver'
@@ -205,6 +206,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'weaver': weaver(c, e, dt); break
     case 'blackbox': blackbox(c, e, dt); break
     case 'falcon': falcon(c, e, dt); break
+    case 'hallucinator': hallucinator(c, e, dt); break
   }
   contact(c, e)
 }
