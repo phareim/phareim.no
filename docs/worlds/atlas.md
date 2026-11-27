@@ -138,7 +138,10 @@ Solveig, the barn nisse); TROLL HUMPS in the east are sleeping trolls as hills
 (the old herder, the pass down to the Sporelight); CAIRN RIDGE in the north
 carries the path to Yule Fjord past STEINAR's cairns; THE MOUNDS in the west
 (the mound elder and the barrows) lead to Lumenby. UNDER THE
-FELL is a cave behind a cracked boulder. The heart piece sits on a ledge seen
+FELL is a cave behind a cracked boulder. South of the small mound by the stream
+a flight of stairs with a sign goes down to THE ECHO BARROW (below; tile
+(20, 26), back up at the entry `echobarrow`); while the Weight of MEANING is not
+held the mound elder speaks of the hall under them. The heart piece sits on a ledge seen
 from the Big Seter and reached from Cairn Ridge.
 Fights: blobs, bats, hounds and a sentry about the paths, and a tough sentry
 guarding the spur to the heart piece's chute.
@@ -207,6 +210,28 @@ Three hand-made floors under the deep drift, two of the old six layers on
 each: ECHO LEDGES and THE UPSIDE GROVE; THE GLASS SEA and BROADCAST; THE
 FOSSIL ARCADE and THE CORE, whose Geyser goes home. BROR, SIGGE, HANNA, ECHO
 and the HERDSMAN live down there.
+
+### THE ECHO BARROW (`echobarrow`)
+The hidden folk's hall under the Mounds, where every call comes back: a dungeon
+(48×36, eight rooms of 16×12 on a 3×3 grid, the ninth rock), both views, on a
+keyring and a crystal group of its own. It needs the blade and nothing else.
+Its look is `wild` (the chart's inks, the fireflies); the turf is laid as tiles
+(`в`) round the Shrine's stone and pillars, since no look repaints a dungeon.
+
+| Room (cell) | What is there |
+|---|---|
+| THE PORCH (1,2) | the entry; a sign; north to the hall, east to the Turning Stones. A death comes back here |
+| THE TURNING STONES (2,2) | the view as a rule: a wall of square blocks, one of diamond blocks, the chest with small key A. Below it three rows in turn hide the heart piece (`echobarrow.heart`). A bat and a skull |
+| THE HALL (1,1) | the hub, with pots. West a locked door; east a shutter that gives way to whoever holds the echo, and a locked door behind it; north the great lock |
+| MIXTRAL'S ROOM (0,1) | both ways shut behind the hero; MIXTRAL; when it falls, a big chest with THE ECHO |
+| THE ANSWERING ROOM (0,0) | a light plate holds a gate open only while something stands on it; behind it the chest with small key B. A sign. The echo stands on the plate |
+| THE CROSSING (2,1) | a row of cyan blocks, ground, a row of pink ones, and one crystal switch south of both, out of reach past the first row. Leave the echo by the switch, cross the first row, cut. East of a wall, the short way down from the Shield Hall |
+| THE SHIELD HALL (2,0) | the way shuts; two knights; then a big chest with the Big Key. A lever opens the short way down (once both are down) |
+| THE PARROT (1,0) | behind the great lock: two pot stands, and nobody yet |
+
+The east shutter keeps key A for the west door: spent east, it would leave key B
+behind a door with no key. The disc, the hook's owner or a bomb may cut the
+Crossing's switch from afar; the echo is needed to get there all the same.
 
 ## Rules for every land
 

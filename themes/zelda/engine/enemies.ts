@@ -6,7 +6,8 @@ import type { Enemy, Projectile } from '../types'
 import { HERO_R, TOUGH } from '../types'
 import { STATS, spawnEnemy } from './spawn'
 import { stepTrek } from './day'
-import { deepseek, gemini, llama, mistral } from './bosses'
+import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
+import { roundEcho } from './echo'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { knockHazard } from './puzzles/index'
@@ -48,8 +49,11 @@ export function mode(e: Enemy): MoveMode {
   return STATS[e.kind].flying ? 'fly' : 'enemy'
 }
 
-/** Move with collision inside the enemy's own camera room. Returns true if blocked. */
-export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number): boolean {
+/**
+ * Move with collision inside the enemy's own camera room. Returns true if blocked. A walker goes round the echo as
+ * round a pot (`engine/echo.ts`); `through`: a charge, which goes through it.
+ */
+export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number, through = false): boolean {
   const r = moveCircle(c.w, c.s.map, e.x, e.y, e.r, vx * dt, vy * dt, mode(e))
   let x = r.x
   let y = r.y
@@ -61,6 +65,12 @@ export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number): bool
     if (nx !== x || ny !== y) hit = true
     x = nx
     y = ny
+  }
+  if (!through && !STATS[e.kind].flying) {
+    const r2 = roundEcho(c, e, e.x, e.y, x, y)
+    x = r2.x
+    y = r2.y
+    if (r2.hit) hit = true
   }
   e.x = x
   e.y = y
@@ -89,6 +99,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
   const ai = e.ai
   if (e.flash > 0) e.flash -= dt
   if (e.invuln > 0) e.invuln -= dt
+  if ((e.echoInvuln ?? 0) > 0) e.echoInvuln! -= dt
   if (e.hitT !== undefined && e.hitT < 1) e.hitT += dt
   if (e.tough) toughClocks(c, e, dt)
   // A small foe knocked back or reeling from a blow harms no one: following up is safe.
@@ -135,6 +146,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'mistral': mistral(c, e, dt); break
     case 'deepseek': deepseek(c, e, dt); break
     case 'gemini': gemini(c, e, dt); break
+    case 'mixtral': mixtral(c, e, dt); break
   }
   contact(c, e)
 }
@@ -145,7 +157,8 @@ function contact(c: Ctx, e: Enemy) {
   const h = c.s.hero
   const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||
     (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
-    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e)
+    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e) ||
+    (e.kind === 'mixtral' && (e.ai.mode === 'dazed' || e.ai.mode === 'rouse'))
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper', true)
   }
@@ -272,7 +285,7 @@ function dasher(c: Ctx, e: Enemy, dt: number) {
   const h = c.s.hero
   if (ai.mode === 'dash') {
     const v = dirVec(e.dir)
-    if (walk(c, e, v.x * 9, v.y * 9, dt) || ai.t <= 0) { ai.mode = 'rest'; ai.t = 0.7 }
+    if (walk(c, e, v.x * 9, v.y * 9, dt, true) || ai.t <= 0) { ai.mode = 'rest'; ai.t = 0.7 }
     return
   }
   if (ai.mode === 'rest') { if (ai.t <= 0) { ai.mode = 'wander'; ai.t = 1 } return }
@@ -402,7 +415,7 @@ function knight(c: Ctx, e: Enemy, dt: number) {
   }
   if (ai.mode === 'charge') {
     const v = dirVec(e.dir)
-    if (walk(c, e, v.x * 8.5, v.y * 8.5, dt)) {
+    if (walk(c, e, v.x * 8.5, v.y * 8.5, dt, true)) {
       ai.mode = 'dazed'
       ai.t = 1.6
       c.s.shake = Math.max(c.s.shake, 0.3)
@@ -510,7 +523,7 @@ function hound(c: Ctx, e: Enemy, dt: number) {
   const ai = e.ai
   const h = c.s.hero
   if (ai.mode === 'lunge') {
-    const hit = walk(c, e, ai.vx as number, ai.vy as number, dt)
+    const hit = walk(c, e, ai.vx as number, ai.vy as number, dt, true)
     if (hit || ai.t <= 0) { ai.mode = 'rest'; ai.t = rndRange(c.s, 0.5, 0.9) }
     return
   }
@@ -619,7 +632,7 @@ function aimStrike(c: Ctx, e: Enemy, speed: number, past: number = TOUGH.past) {
 /** One step along the line, without steering. True when the strike is over: its distance run, or a wall met. */
 function strikeOver(c: Ctx, e: Enemy, dt: number): boolean {
   const ai = e.ai
-  if (!walk(c, e, ai.vx as number, ai.vy as number, dt) && ai.t > 0) return false
+  if (!walk(c, e, ai.vx as number, ai.vy as number, dt, true) && ai.t > 0) return false
   // The last step still strikes: what comes after it may be harmless.
   contact(c, e)
   return true

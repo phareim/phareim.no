@@ -26,7 +26,11 @@ let revision = 0
  * people in art of its own (the isometric view's figures, `iso/folk.ts`) tells by this what the classic painter
  * meant to draw, without the painter knowing.
  */
-export interface SpriteTag { name: string; flip: boolean; color?: string; flipV?: boolean }
+export interface SpriteTag {
+  name: string; flip: boolean; color?: string; flipV?: boolean
+  /** Painted in the echo's two tones (`echoSprite`). */
+  echo?: boolean
+}
 const tags = new WeakMap<object, SpriteTag>()
 export function spriteTag(c: unknown): SpriteTag | undefined {
   return c && typeof c === 'object' ? tags.get(c) : undefined
@@ -156,6 +160,56 @@ export function silhouette(name: string, color: string, flip = false): Canvas {
   g.fillRect(0, 0, c.width, c.height)
   tinted.set(key, c)
   tags.set(c, { name, flip, color })
+  return c
+}
+
+/** The echo's two tones of cyan: the sprite's light pixels and its dark ones. */
+export const ECHO_TONES = { light: [0xc4, 0xfb, 0xff], dark: [0x22, 0xb4, 0xd8] } as const
+
+/** A canvas in the echo's two tones: every pixel light or dark cyan by how bright it was; its alpha as it was. */
+export function echoTones(src: Canvas): Canvas {
+  const c = makeCanvas(src.width, src.height)
+  const g = c.getContext('2d')!
+  g.drawImage(src, 0, 0)
+  const img = g.getImageData(0, 0, c.width, c.height)
+  const d = img.data
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue
+    const tone = d[i]! * 0.3 + d[i + 1]! * 0.59 + d[i + 2]! * 0.11 > 105 ? ECHO_TONES.light : ECHO_TONES.dark
+    d[i] = tone[0]
+    d[i + 1] = tone[1]
+    d[i + 2] = tone[2]
+  }
+  g.putImageData(img, 0, 0)
+  return c
+}
+
+/** A sprite in the echo's two tones (the hero's frames and blades), mirrored either way. */
+export function echoSprite(name: string, flip = false, flipV = false): Canvas {
+  const key = `${name}|${flip ? 'f' : ''}${flipV ? 'v' : ''}|echo`
+  let c = tinted.get(key)
+  if (c) return c
+  c = echoTones(spriteT(name, flip, flipV))
+  tinted.set(key, c)
+  tags.set(c, { name, flip, echo: true, ...(flipV ? { flipV } : {}) })
+  return c
+}
+
+/**
+ * A sprite at twice its size, hard-edged (a heavy foe drawn with small pictures: Mixtral), or its silhouette in a
+ * colour. It keeps the sprite's name, so a view with art of its own for it draws that, at the art's own size.
+ */
+export function doubledSprite(name: string, flip = false, color?: string): Canvas {
+  const key = `${name}|${flip ? 'f' : ''}|x2|${color ?? ''}`
+  let c = tinted.get(key)
+  if (c) return c
+  const src = color ? silhouette(name, color, flip) : sprite(name, flip)
+  c = makeCanvas(src.width * 2, src.height * 2)
+  const g = c.getContext('2d')!
+  g.imageSmoothingEnabled = false
+  g.drawImage(src, 0, 0, c.width, c.height)
+  tinted.set(key, c)
+  tags.set(c, { name, flip, ...(color ? { color } : {}) })
   return c
 }
 

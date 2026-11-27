@@ -396,6 +396,7 @@ describe('bossOpen', () => {
     mistral: [['float', 0, false], ['inhale', 0, false], ['blow', 0, false], ['spin', 0, false], ['rise', 0, false], ['down', 0, true]],
     deepseek: [['under', 0, false], ['rise', 0, false], ['up', 0, true], ['hauled', 0, true]],
     gemini: [['orbit', 0, true], ['orbit', 0.5, true], ['down', 0, false]],
+    mixtral: [['stalk', 0, false], ['tell', 0, false], ['charge', 0, false], ['dazed', 0, true], ['rouse', 0, false]],
   }
 
   it('gold exactly when the blade bites, for each of the six bosses in each of its states', () => {
@@ -439,7 +440,7 @@ describe('a big key', () => {
 describe('the B items', () => {
   const save = () => {
     const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'overworld', entry: 'hut' } })
-    Object.assign(s.inv, { sword: true, hook: true, disc: true, bombBag: true, bombs: 4 })
+    Object.assign(s.inv, { sword: true, hook: true, disc: true, bombBag: true, bombs: 4, echo: true })
     Z.grant(s, 'artHop')
     return roundTrip(s)
   }

@@ -3,7 +3,9 @@
  * Prism Disc, thrown pots, drops, projectiles, sliding blocks, pressure
  * plates, gates, chests/items that appear, and wandering NPCs.
  */
-import { BOMB_FUSE, BOMB_RADIUS, DISC_RANGE, DISC_SPEED, HERO_R, PUSH_TIME, THROW_RANGE } from '../types'
+import type { Cond } from '../types'
+import { BOMB_FUSE, BOMB_RADIUS, DISC_RANGE, DISC_SPEED, HERO_R, PUSH_TIME, STAND_WAIT, THROW_RANGE } from '../types'
+import { echoOnTile } from './echo'
 import { TILE_INFO } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -25,6 +27,7 @@ export function stepObjects(c: Ctx, dt: number) {
   stepBlocks(c, dt)
   stepPhysics(c, dt)
   stepPuzzles(c)
+  stepStands(c, dt)
   stepNpcs(c, dt)
 }
 
@@ -292,7 +295,8 @@ function stepPuzzles(c: Ctx) {
     const tx = idx % m.w
     const ty = Math.floor(idx / m.w)
     const moving = m.moving.some(b => b.tx === tx && b.ty === ty)
-    if ((m.tiles[idx] === 'b' || m.tiles[idx] === 'B') && !moving) pressed.push(id)
+    // (The echo holds a plain plate as a block does.)
+    if (((m.tiles[idx] === 'b' || m.tiles[idx] === 'B') && !moving) || echoOnTile(c, tx, ty)) pressed.push(id)
   })
   pressed.push(...pressedWeights(c))
   for (const id of pressed) {
@@ -306,6 +310,7 @@ function stepPuzzles(c: Ctx) {
   // Gates.
   for (const g of c.info.gates) {
     if (g.trap) { stepTrap(c, g); continue }
+    if (g.latch) { stepHeld(c, g, g.latch); continue }
     if (m.tiles[g.tiles[0]!] !== 'X') continue
     if (!condMet(s, c.w, g.open, g.cell)) continue
     for (const i of g.tiles) m.tiles[i] = '.'
@@ -363,17 +368,84 @@ function stepTrap(c: Ctx, g: GateInfo) {
   // (Not while the chain is out: a pull flies him over whatever lies on its way.)
   if (shut || s.zoneIndex !== g.cell || cellIndex(c.info, h.x, h.y) !== g.cell || s.hook) return
   if (!clearFoes(s, g.cell).some(e => !e.dead)) return
-  // Never down on anyone or anything: the hero, a walking foe, a block come to rest in the doorway.
-  for (const i of g.tiles) {
-    const tx = i % m.w
-    const ty = Math.floor(i / m.w)
-    if (m.tiles[i] !== '.' || circleOnTile(h.x, h.y, HERO_R, tx, ty)) return
-    if (m.enemies.some(e => !e.dead && !STATS[e.kind].flying && circleOnTile(e.x, e.y, e.r, tx, ty))) return
-  }
+  if (!clearToShut(c, g)) return
   for (const i of g.tiles) m.tiles[i] = 'X'
   m.version++
   s.shake = Math.max(s.shake, 0.25)
   c.ev.push({ type: 'gate', ...at, shut: true })
+}
+
+/** Never down on anyone or anything: the hero, a walking foe, a block come to rest in the doorway. */
+function clearToShut(c: Ctx, g: GateInfo): boolean {
+  const m = c.s.map
+  const h = c.s.hero
+  return g.tiles.every(i => {
+    const tx = i % m.w
+    const ty = Math.floor(i / m.w)
+    if (m.tiles[i] !== '.' || circleOnTile(h.x, h.y, HERO_R, tx, ty) || echoOnTile(c, tx, ty)) return false
+    return !m.enemies.some(e => !e.dead && !STATS[e.kind].flying && circleOnTile(e.x, e.y, e.r, tx, ty))
+  })
+}
+
+/**
+ * A held gate (`latch`): open while its `open` holds (a plate stood on), shut again when it does not, and open for
+ * good (`gate:<id>`) once the latch holds.
+ */
+function stepHeld(c: Ctx, g: GateInfo, latch: Cond) {
+  const s = c.s
+  const m = s.map
+  const flag = `gate:${g.id}`
+  if (s.demo || has(s, flag)) return
+  const shut = m.tiles[g.tiles[0]!] === 'X'
+  const i0 = g.tiles[0]!
+  const at = { x: (i0 % m.w) + 0.5, y: Math.floor(i0 / m.w) + 0.5 }
+  const latched = condMet(s, c.w, latch, g.cell)
+  if (latched || condMet(s, c.w, g.open, g.cell)) {
+    if (shut) {
+      for (const i of g.tiles) m.tiles[i] = '.'
+      m.version++
+      c.ev.push({ type: 'gate', ...at })
+    }
+    if (latched) { setFlag(s, flag); c.ev.push({ type: 'secret' }) }
+    return
+  }
+  if (shut || !clearToShut(c, g)) return
+  for (const i of g.tiles) m.tiles[i] = 'X'
+  m.version++
+  c.ev.push({ type: 'gate', ...at, shut: true })
+}
+
+/**
+ * Pot stands: while the hero's room holds no pot at all (none standing, none in the hands, none in the air), the
+ * clock runs; at `STAND_WAIT`, with every stand of the room free to stand on, each gets a pot back.
+ */
+function stepStands(c: Ctx, dt: number) {
+  const s = c.s
+  const m = s.map
+  if (!c.info.stands.length) return
+  const stands = c.info.stands.filter(i => cellIndex(c.info, (i % m.w) + 0.5, Math.floor(i / m.w) + 0.5) === s.zoneIndex)
+  if (!stands.length) { m.standT = 0; return }
+  const z = s.zone
+  let any = s.hero.carry === 'pot' || m.thrown.some(o => o.kind === 'pot')
+  for (let y = z.y; y < z.y + z.h && !any; y++) for (let x = z.x; x < z.x + z.w; x++) if (m.tiles[y * m.w + x] === 'o') { any = true; break }
+  if (any) { m.standT = 0; return }
+  m.standT = (m.standT ?? 0) + dt
+  if (m.standT < STAND_WAIT) return
+  const h = s.hero
+  const free = stands.every(i => {
+    const tx = i % m.w
+    const ty = Math.floor(i / m.w)
+    if (circleOnTile(h.x, h.y, HERO_R, tx, ty) || echoOnTile(c, tx, ty)) return false
+    if (m.bombs.some(b => circleOnTile(b.x, b.y, 0.2, tx, ty))) return false
+    return !m.enemies.some(e => !e.dead && !STATS[e.kind].flying && circleOnTile(e.x, e.y, e.r, tx, ty))
+  })
+  if (!free) return
+  for (const i of stands) {
+    m.tiles[i] = 'o'
+    c.ev.push({ type: 'restock', x: (i % m.w) + 0.5, y: Math.floor(i / m.w) + 0.5 })
+  }
+  m.version++
+  m.standT = 0
 }
 
 // ---------------------------------------------------------------------------

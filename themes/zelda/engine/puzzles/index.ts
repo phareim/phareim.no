@@ -22,6 +22,7 @@ import { STATS } from '../spawn'
 import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
 import { cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
 import { dirVec, nextId, toDir } from '../util'
+import { echoOnTile } from '../echo'
 import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
 import { stepTubes } from './tubes'
 import { turns, turnTube } from '../../world/tubes'
@@ -142,6 +143,7 @@ function canEnter(c: Ctx, from: number, x: number, y: number, onto = PUSH_ONTO):
   if (!onto.has(tileAt(m, x, y))) return false
   if (m.enemies.some(e => !e.dead && Math.floor(e.x) === x && Math.floor(e.y) === y)) return false
   if (m.npcs.some(n => Math.floor(n.x) === x && Math.floor(n.y) === y)) return false
+  if (echoOnTile(c, x, y)) return false
   if (m.phys?.rolling.some(r => Math.floor(r.x) === x && Math.floor(r.y) === y)) return false
   const h = c.s.hero
   return !circleOnTile(h.x, h.y, HERO_R, x, y)
@@ -314,7 +316,7 @@ export function knockHazard(c: Ctx, e: Enemy): boolean {
 // Weights
 // ---------------------------------------------------------------------------
 
-/** The weight on tile `idx` now: a block or mirror 2, a boulder 3, a pot or rock 1, the hero 1 (2 carrying), a foe 1 (a big one 3), Luna 1. */
+/** The weight on tile `idx` now: a block or mirror 2, a boulder 3, a pot or rock 1, the hero 1 (2 carrying), the echo 1, a foe 1 (a big one 3), Luna 1. */
 export function weightOn(c: Ctx, idx: number): number {
   const s = c.s
   const m = s.map
@@ -331,6 +333,7 @@ export function weightOn(c: Ctx, idx: number): number {
   const h = s.hero
   if (!s.demo && at(h.x, h.y) && h.act !== 'fall' && !s.hook) w += h.carry ? 2 : 1
   for (const e of m.enemies) if (!e.dead && !STATS[e.kind].flying && at(e.x, e.y)) w += BIG.has(e.kind) ? 3 : 1
+  if (s.echo && at(s.echo.x, s.echo.y)) w += 1
   if (s.luna && at(s.luna.x, s.luna.y)) w += 1
   return w
 }

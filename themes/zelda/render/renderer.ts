@@ -28,7 +28,9 @@ import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
+import { doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
+import { drawFloorMarks } from './floorMarks'
+import { toDir } from '../engine/util'
 import { folkTop } from './iso/folk'
 import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
@@ -279,6 +281,11 @@ export interface Kit {
   /** Where the classic camera would look: the middle of its view, in tiles. */
   classicFocus(s: GameState, ui: FrameUI): Vec
   queue(g: G, s: GameState, ui: FrameUI, cx: number, cy: number, qw: number, qh: number, lights: Light[], flat?: G): SceneItem[]
+  /**
+   * What is painted flat on the floor under everything that stands (the foes' stencils, pot stands, the echo's ring),
+   * for a camera at (cx, cy) px: onto the view's ground picture once whatever stands has been taken off it.
+   */
+  floorMarks(g: G, s: GameState, ui: FrameUI, cx: number, cy: number): void
   ambient(s: GameState, ui: FrameUI, lights: Light[]): string
   projectiles(g: G, s: GameState, place: Place, dirOf?: (vx: number, vy: number) => Vec): void
   /** The effects that glow by themselves, and the tough foes' and bosses' bars (`foes`: how this view draws their figures). */
@@ -556,7 +563,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           fx.push(fxSprite('poof', 0.36, e.x, e.y, -0.1))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
           pulse(e.x, e.y, 3, '#ff2fa0', 0.2)
-          if (e.kind === 'king' || e.kind === 'knight') {
+          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral') {
             for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
@@ -591,6 +598,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'spin': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: SPIN_TIME, color: '#2ff3ff', size: 1.6, name: 'hero' }); break
         case 'bossPhase': flashT = 0.3; flashColor = '#ff2fa0'; break
         case 'won': flashT = 1; flashColor = '#ffd23f'; break
+        // An echo left: a ring where it stands; its blows flash there; a pot back on its stand.
+        case 'echo': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.45, color: '#2ff3ff', size: 1 }); pulse(e.x, e.y, 2.4, '#2ff3ff', 0.25); break
+        case 'echoCut': pulse(e.x, e.y, 2, '#2ff3ff', 0.14, 0.8); break
+        case 'restock': spark(e.x, e.y, 8, '#ffd23f', 3, 0.4); pulse(e.x, e.y, 1.6, '#ffd23f', 0.25); break
         case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
         case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
         case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; pulse(e.x, e.y, 2.5, '#b6ff4a', 0.2); break
@@ -900,6 +911,55 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
   }
 
+  /**
+   * The echo (`engine/echo.ts`): the hero's own frames in two tones of cyan, see-through; while it cuts, its swing
+   * frames and its blade, going the way its blow goes.
+   */
+  function drawEcho(g: G, s: GameState, cx: number, cy: number, lights: Light[]) {
+    const e = s.echo
+    if (!e) return
+    const x = e.x * T - cx
+    const feet = e.y * T - cy + 6
+    const cut = e.cut && e.cut.t < e.cut.dur ? e.cut : null
+    let way: Dir = cut ? toDir(Math.cos(cut.a), Math.sin(cut.a), e.dir) : e.dir
+    let pose = '0'
+    let blade: { a: number; reach: number } | null = null
+    if (cut) {
+      const p = Math.min(0.999, cut.t / cut.dur)
+      if (cut.kind === 'swing') {
+        // (Its picture starts where the hero's blow starts to cut: past the wind-up.)
+        const q = WINDUP + (1 - WINDUP) * p
+        blade = { a: swingAngle({ dir: way, a: cut.a, n: cut.n, side: cut.n === 1 ? -1 : 1 }, q), reach: 11 }
+        pose = cut.n === 1 ? 'atk_back' : cut.n === 2 ? (q < 0.7 ? 'atk_lunge' : 'atk_land') : 'atk'
+      } else if (cut.kind === 'spin' || cut.kind === 'tempest') {
+        const turns = cut.kind === 'tempest' ? TEMPEST.turns : 1
+        const seq: Dir[] = ['down', 'left', 'up', 'right']
+        way = seq[(seq.indexOf(way) + Math.floor(p * 4 * turns)) % 4]!
+        blade = { a: cut.a + Math.PI * 2 * turns * p, reach: 12 }
+        pose = 'atk'
+      } else {
+        blade = { a: cut.a, reach: cut.kind === 'comet' ? 13 : 12 }
+        pose = cut.kind === 'comet' ? 'atk_lunge' : 'atk_land'
+      }
+    }
+    const { key, flip } = dirKey(way)
+    const away = facingDir(way, facing) === 'up'
+    g.globalAlpha = frameReduced ? 0.62 : 0.6 + 0.06 * Math.sin(time * 5)
+    const drawIts = () => {
+      if (!blade) return
+      const a = aim(blade.a)
+      const bs = bladeSprite(a)
+      const c = echoSprite(bs.name, bs.fh, bs.fv)
+      g.drawImage(c, Math.round(x + Math.cos(a) * blade.reach - c.width / 2), Math.round(feet - 7 + Math.sin(a) * blade.reach - c.height / 2))
+    }
+    if (away) drawIts()
+    const c = echoSprite(`hero_${key}_${pose}`, flip)
+    g.drawImage(c, Math.round(x - c.width / 2), Math.round(feet - c.height))
+    if (!away) drawIts()
+    g.globalAlpha = 1
+    lights.push({ x: e.x, y: e.y - 0.3, r: blade ? 2.2 : 1.5, color: '#2ff3ff', a: blade ? 0.75 : 0.5 })
+  }
+
   function drawSpinBlade(g: G, s: GameState, x: number, y: number, lights: Light[]) {
     const h = s.hero
     const p = h.spin ? h.spin.t / SPIN_TIME : 0
@@ -948,6 +1008,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const other = this_map_twin(e)
         const t = !other || e.home.x < other.home.x ? 'a' : 'b'
         return { name: e.ai.mode === 'down' ? `gemini_${t}_down` : `gemini_${t}_${f(`gemini_${t}`)}`, flip: false }
+      }
+      // Three heads: walking, they take turns looking; dazed, they spin; else the one down its lane leads.
+      case 'mixtral': {
+        const heads = ['left', 'middle', 'right', 'middle'] as const
+        const dazed = e.ai.mode === 'dazed'
+        const pose = dazed || e.ai.mode === 'stalk' || e.ai.mode === 'idle' ? heads[Math.floor(time * (dazed ? 9 : 2.2)) % 4]!
+          : e.dir === 'left' ? 'left' : e.dir === 'right' ? 'right' : 'middle'
+        return { name: `mixtral_${pose}`, flip: false }
       }
     }
   }
@@ -1025,6 +1093,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
     if (e.kind === 'blob' && e.ai.mode === 'hop') feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.38) * Math.PI) * 3)
     const [sx, sy] = foeSquash(e)
+    if (e.kind === 'mixtral') {
+      // Its pictures are small ones, drawn at twice their size (`doubledSprite`); the isometric view has its own.
+      const shake = e.ai.mode === 'tell' && !frameReduced ? (Math.floor(time * 24) % 2 ? 1 : -1) : 0
+      const c = doubledSprite(name, flip, flashing(e) ? '#ffffff' : undefined)
+      g.drawImage(c, Math.round(x + shiver(e) + shake - c.width / 2), Math.round(feet - c.height))
+      // A small pale light of its own, so its picture reads against its own lane; gold while it is open.
+      lights.push({ x: e.x, y: e.y - 0.5, r: e.ai.tell > 0 ? 1.8 : 2.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.55 : 0.5 })
+      return
+    }
     if (e.tough) {
       toughOutline(g, e, name, x + shiver(e), feet, flip, sx, sy)
       // A light of its outline's colour while it tells or is open, so dusk and night do not dull it.
@@ -1066,7 +1143,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * art's own rows (the classic sprite's, or the isometric figure's), the tallest frame of the pose, so a bar over it
    * does not bob with the walk.
    */
-  function figureTop(name: string, flip: boolean, art: number): number {
+  function figureTop(name: string, flip: boolean, art: number, size = 1): number {
     const walk = /^(.*)_\d+$/.exec(name)
     const pose = walk ? Array.from({ length: frameCount(walk[1]!, 2) }, (_, i) => `${walk[1]}_${i}`)
       : /^grazer_angry[ab]$/.test(name) ? ['grazer_angrya', 'grazer_angryb'] : [name]
@@ -1077,7 +1154,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (!rows) continue
       const first = rows.findIndex(r => [...r].some(ch => !!PAL[ch]))
       const own = first < 0 ? 0 : rows.length - first
-      classic = Math.max(classic, own)
+      classic = Math.max(classic, own * size)
       if (art > 0) drawn = Math.max(drawn, folkTop(n, flip) ?? own)
     }
     return art > 0 ? classic + (drawn - classic) * art : classic
@@ -1101,9 +1178,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const { name, flip } = fin ? { name: 'deepseek_fin', flip: e.dir === 'left' } : enemySprite(e, def.realm)
       const foot = e.y + e.r + 1 / T
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art)) - standsAbove(e)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' ? 2 : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
-      const dazed = ((e.kind === 'knight' || e.kind === 'llama') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
+      const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
       const w = big ? Math.round(e.r * T) * 2 : 12
       const x = Math.round(at.x) - w / 2
@@ -1212,6 +1289,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     if (!ui.attract) queueLife({ g, s, cx, cy, time, reduced: ui.reducedMotion, sun: kind === 'overworld' ? dayOf(drawing)?.sun ?? 0.12 : -1, kind, realm: def.realm, look: def.look, items, lights, landmarks: def.isoLandmarks ?? [] })
     if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
+    if (!ui.attract && s.echo) {
+      const e = s.echo
+      items.push({ x: e.x, foot: 6 / T, y: e.y, draw: () => drawEcho(g, s, cx, cy, lights) })
+    }
     queuePuzzles(g, s, cx, cy, items)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
@@ -1343,6 +1424,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       })
     }
     return items
+  }
+
+  /** What is painted flat on the floor (`floorMarks.ts`): the foes' stencils, pot stands, the echo's ring. */
+  function floorMarks(g: G, s: GameState, ui: FrameUI, cx: number, cy: number) {
+    if (!ui.attract) drawFloorMarks(g, world, s, cx, cy, time, ui.reducedMotion)
   }
 
   /** The afterimages: where the hero was, how high, in which frame, and how long it stays. */
@@ -1689,6 +1775,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     drawDecals(g, info.def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }, lights)
 
     const items = queue(g, s, ui, cx, cy, vw, vh, lights)
+    floorMarks(g, s, ui, cx, cy)
     items.sort((a, b) => a.y - b.y)
     for (const it of items) it.draw()
     drawHookChain(g, s, cx, cy, lights)
@@ -2183,6 +2270,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       return { x: cam.x + vw / T / 2, y: cam.y + vh / T / 2 }
     },
     queue,
+    floorMarks,
     ambient,
     projectiles,
     fx: drawFx,

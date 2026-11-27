@@ -1496,7 +1496,7 @@ function keepExploring() {
 
 // ---- events → sound, save, banner ----------------------------------------------
 
-const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
+const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
 
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   spin: 'spin', roll: 'roll', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
@@ -1508,6 +1508,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   hook: 'hook', hookHit: 'hookHit', pull: 'pull', psi: 'psi', glyph: 'glyph', lever: 'lever', land: 'land',
   gust: 'gust', bark: 'bark', tube: 'tube',
   slip: 'slip',
+  echo: 'echo', echoCut: 'echoCut', restock: 'plate',
 }
 
 function handleEvents(events: GameEvent[]) {

@@ -44,6 +44,8 @@ export type SfxName =
   | 'tube'
   // The blade's acrobatics and the art (engine/moves.ts): a flip, the comet, the hop, a slip into slow time
   | 'flip' | 'comet' | 'hop' | 'slip'
+  // The Echo Barrow: an echo left on the floor, and the echo's blade
+  | 'echo' | 'echoCut'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2741,6 +2743,17 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     sword() {
       nz({ dur: 0.13, vol: 0.4, f: 900, to: 3800, q: 1.6 })
       tone({ f: 620, to: 1100, dur: 0.07, vol: 0.07 })
+    },
+    // The blade's own swish, a little lower: the echo's.
+    echoCut() {
+      nz({ dur: 0.15, vol: 0.26, f: 660, to: 2800, q: 1.6, at: 0.02 })
+      tone({ f: 465, to: 825, dur: 0.08, vol: 0.05, at: 0.02, verb: true })
+    },
+    // An echo left: a call, and the call coming back softer.
+    echo() {
+      tone({ f: 740, to: 1110, dur: 0.1, type: 'sine', vol: 0.2, verb: true })
+      tone({ f: 740, to: 1110, dur: 0.1, type: 'sine', vol: 0.09, at: 0.14, verb: true })
+      tone({ f: 740, to: 1110, dur: 0.1, type: 'sine', vol: 0.04, at: 0.28, verb: true })
     },
     sword2() {
       nz({ dur: 0.12, vol: 0.4, f: 1035, to: 4370, q: 1.6 })

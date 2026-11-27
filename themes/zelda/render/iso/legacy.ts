@@ -614,6 +614,8 @@ export default function isoView(kit: Kit): View {
       fg.clearRect(x, y, w, h)
       fg.drawImage(base.canvas, bx + x, by + y, w, h, x, y, w, h)
     }
+    // The floor's paint goes on once whatever stands has been taken off the ground, so no card carries it up.
+    kit.floorMarks(fg, s, ui, bx, by)
     if (needsEast) shaded(shadeEast, eastShade)
     if (needsSouth) shaded(shadeSouth, southShade)
 

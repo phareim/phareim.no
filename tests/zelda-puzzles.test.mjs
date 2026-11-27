@@ -770,9 +770,10 @@ describe('the older maps', () => {
   it('have no puzzle tiles and no physics: every puzzle rule stays off there (on only in the Puzzle Lab and the puzzle lands)', () => {
     // The lands whose system is the physical puzzles (docs/worlds/atlas.md): Yule Fjord and Stillsand. Lumenby has
     // only lumen tubes (Relight the Sign): the rules run, its combat stays as it was.
+    // The Echo Barrow has one weighed plate (its Answering Room), so its rules run.
     const PUZZLE_REALMS = new Set(['yulefjord', 'stillsand'])
     for (const [id, def] of Object.entries(Z.WORLD.maps)) {
-      if (id === 'puzzlelab' || PUZZLE_REALMS.has(def.realm)) continue
+      if (id === 'puzzlelab' || id === 'echobarrow' || PUZZLE_REALMS.has(def.realm)) continue
       const p = Z.puzzleInfo(Z.mapInfo(Z.WORLD, id))
       assert.equal(p.on, id === 'lumenby', id)
       // Fogstage has no puzzle tiles, only its ponds to knock foes into (`MapDef.physics`).

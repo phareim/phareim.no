@@ -17,7 +17,8 @@ import { LUNA_GAP, dirVec, opposite, trailPoint } from './util'
 export interface MarkAt { x: number; y: number; ent: EntDef }
 export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; idx: number; x: number; y: number; cell: number }
 /** `trap`: a gate that starts open and shuts behind the hero (`open` is then the room's `clear`). */
-export interface GateInfo { id: string; tiles: number[]; open: Cond; cell: number; trap?: boolean }
+/** `latch`: a held gate, open while `open` holds until the latch does. */
+export interface GateInfo { id: string; tiles: number[]; open: Cond; cell: number; trap?: boolean; latch?: Cond }
 
 export interface MapInfo {
   def: MapDef
@@ -35,6 +36,8 @@ export interface MapInfo {
   exitLines: Map<number, string[]>
   gates: GateInfo[]
   plates: Map<number, string>
+  /** Pot stands (`stand` marks): their tiles. */
+  stands: number[]
   /** Letter stones: tile index → letter. */
   glyphs: Map<number, string>
   /** Levers: tile index → the flag a hit sets. */
@@ -102,7 +105,7 @@ function buildInfo(def: MapDef): MapInfo {
     def, w, h, base, marks,
     entries: { ...(def.entries ?? {}) },
     warps: (def.warps ?? []).map(wp => ({ w: 1, h: 1, ...wp })),
-    chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(),
+    chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(), stands: [],
     glyphs: new Map(), levers: new Map(), blocks: new Map(), scenery: new Set(),
     cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh),
   }
@@ -120,7 +123,8 @@ function buildInfo(def: MapDef): MapInfo {
     else if (e.t === 'plate') info.plates.set(idx, e.id)
     else if (e.t === 'glyph') info.glyphs.set(idx, e.ch)
     else if (e.t === 'lever') info.levers.set(idx, e.flag)
-    else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open }) })
+    else if (e.t === 'stand') info.stands.push(idx)
+    else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open, ...(e.latch ? { latch: e.latch } : {}) }) })
   }
   // A trap gate is floor as authored: open on every load, and on the chart.
   for (const g of info.gates) if (g.trap) for (const i of g.tiles) base[i] = '.'
@@ -244,6 +248,7 @@ function defaultTile(e: EntDef): TileChar {
     case 'exit': return 'D'
     case 'glyph': return '{'
     case 'lever': return '}'
+    case 'stand': return 'o'
     default: return puzzleMarkTile(e) ?? '.'
   }
 }

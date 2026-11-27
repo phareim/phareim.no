@@ -1717,6 +1717,8 @@ export default function isoView(kit: Kit): View {
       fg.clearRect(0, 0, (rx0 - R.x) * T, bh)
       fg.clearRect((rx1 - R.x) * T, 0, bw, bh)
     }
+    // The floor's paint goes on once whatever stands has been taken off the ground, so no card carries it up.
+    kit.floorMarks(fg, s, ui, bx, by)
     if (s.hook) drawHookChain(fg, s, bx, by, lights)
     if (m.id === 'overworld') kit.lakeSun(fg, s, bx, by, reduced, bw, bh)
 

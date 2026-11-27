@@ -12,14 +12,17 @@
  * GEMINI (Deep Lab boss) — twins orbiting the Gate, joined by a tether that
  *   burns; a twin brought to zero only falls down, and gets up again unless
  *   the other follows within four seconds.
+ * MIXTRAL (Echo Barrow miniboss) — eight opinions and one headache: it stalks
+ *   the hero into line, stencils a lane on the floor and charges straight down
+ *   it into the wall, which dazes it; the blade hurts it only then (`MIXTRAL`).
  * Hit rules live in combat.ts (bossRules).
  */
-import type { Enemy } from '../types'
-import { HERO_R } from '../types'
+import type { Dir, Enemy } from '../types'
+import { HERO_R, MIXTRAL } from '../types'
 import { type Ctx, hurtHero } from './combat'
 import { heroDist, seesHero, shoot, walk } from './enemies'
-import { cellRect } from './map'
-import { dirVec, rnd, rndRange, toDir } from './util'
+import { cellRect, moveCircle } from './map'
+import { clamp, dirVec, rnd, rndRange, toDir } from './util'
 
 // ---------------------------------------------------------------------------
 
@@ -59,7 +62,7 @@ export function llama(c: Ctx, e: Enemy, dt: number) {
   }
   if (ai.mode === 'charge') {
     const v = dirVec(e.dir)
-    if (walk(c, e, v.x * 8, v.y * 8, dt)) {
+    if (walk(c, e, v.x * 8, v.y * 8, dt, true)) {
       ai.mode = 'dazed'
       ai.t = 1.1
       c.s.shake = Math.max(c.s.shake, 0.25)
@@ -230,4 +233,104 @@ export function gemini(c: Ctx, e: Enemy, dt: number) {
     const py = ay + (by - ay) * t
     if (Math.hypot(h.x - px, h.y - py) < HERO_R + 0.12 && t > 0.08 && t < 0.92) hurtHero(c, 1, px, py, true, true)
   }
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Where a charge from where `e` stands along `d` ends: the wall, a pillar or the room's edge, by the walker's own
+ * collision. The lane stencilled while it tells runs to here (`engine/stencils.ts`).
+ */
+export function chargeEnd(c: Ctx, e: Enemy, d: Dir): { x: number; y: number } {
+  const v = dirVec(d)
+  const z = cellRect(c.info, e.cell)
+  let x = e.x
+  let y = e.y
+  for (let i = 0; i < 400; i++) {
+    const r = moveCircle(c.w, c.s.map, x, y, e.r, v.x * 0.075, v.y * 0.075, 'enemy')
+    const nx = clamp(r.x, z.x + 1 + e.r, z.x + z.w - 1 - e.r)
+    const ny = clamp(r.y, z.y + 1 + e.r, z.y + z.h - 1 - e.r)
+    const blocked = r.hitX || r.hitY || nx !== r.x || ny !== r.y
+    x = nx
+    y = ny
+    if (blocked) break
+  }
+  return { x, y }
+}
+
+/** The tell: it stands, facing down the lane it will take. */
+function mixtralTell(c: Ctx, e: Enemy, d: Dir) {
+  const ai = e.ai
+  const t = ai.phase === 2 ? MIXTRAL.tell2 : MIXTRAL.tell
+  e.dir = d
+  ai.mode = 'tell'
+  ai.t = t
+  ai.tell = t
+  const end = chargeEnd(c, e, d)
+  ai.lx = end.x
+  ai.ly = end.y
+}
+
+export function mixtral(c: Ctx, e: Enemy, dt: number) {
+  const ai = e.ai
+  const s = c.s
+  const h = s.hero
+  const dx = h.x - e.x
+  const dy = h.y - e.y
+  if (ai.mode === 'idle') { ai.mode = 'stalk'; ai.t = MIXTRAL.rest }
+  if (ai.mode === 'stalk') {
+    ai.t = Math.max(0, ai.t)
+    const across = Math.abs(dy) < MIXTRAL.line
+    const along = Math.abs(dx) < MIXTRAL.line
+    if (ai.t <= 0 && (across || along) && seesHero(c, e, 20)) {
+      // The lane it is nearer the middle of.
+      const d: Dir = across && (!along || Math.abs(dx) >= Math.abs(dy)) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down'
+      ai.turns = ai.phase === 2 ? 1 : 0
+      mixtralTell(c, e, d)
+      return
+    }
+    // A walk that closes the smaller gap first: into line, coming on as it goes.
+    const d = Math.hypot(dx, dy) || 1
+    let vx = dx / d
+    let vy = dy / d
+    if (Math.abs(dx) < Math.abs(dy)) { vx = Math.sign(dx) * Math.min(1, Math.abs(dx) * 2) * 0.9; vy = Math.sign(dy) * 0.45 }
+    else { vy = Math.sign(dy) * Math.min(1, Math.abs(dy) * 2) * 0.9; vx = Math.sign(dx) * 0.45 }
+    walk(c, e, vx * MIXTRAL.stalk, vy * MIXTRAL.stalk, dt)
+    e.dir = toDir(dx, dy, e.dir)
+    return
+  }
+  if (ai.mode === 'tell') {
+    // (A blast may have shoved it: the lane is always the one it will take from where it stands.)
+    const end = chargeEnd(c, e, e.dir)
+    ai.lx = end.x
+    ai.ly = end.y
+    if (ai.t <= 0) { ai.mode = 'charge'; ai.t = 3; ai.tell = 0 }
+    return
+  }
+  if (ai.mode === 'charge') {
+    const v = dirVec(e.dir)
+    if (!walk(c, e, v.x * MIXTRAL.charge, v.y * MIXTRAL.charge, dt, true) && ai.t > 0) return
+    c.ev.push({ type: 'boom', x: e.x + v.x * 0.8, y: e.y + v.y * 0.8 })
+    s.shake = Math.max(s.shake, 0.3)
+    if ((ai.turns as number) > 0) {
+      // Half its hit points gone: one turn toward the hero, a new lane, a second charge.
+      ai.turns = (ai.turns as number) - 1
+      const flat = v.x !== 0
+      let d: Dir = flat ? (h.y < e.y ? 'up' : 'down') : h.x < e.x ? 'left' : 'right'
+      const end = chargeEnd(c, e, d)
+      if (Math.hypot(end.x - e.x, end.y - e.y) < 0.6) d = flat ? (d === 'up' ? 'down' : 'up') : d === 'left' ? 'right' : 'left'
+      // (Contact now would be the charge's own: it has just run him over, or not.)
+      mixtralTell(c, e, d)
+      return
+    }
+    ai.mode = 'dazed'
+    ai.t = MIXTRAL.dazed
+    ai.took = 0
+    return
+  }
+  if (ai.mode === 'dazed') {
+    if (ai.t <= 0) { ai.mode = 'rouse'; ai.t = MIXTRAL.rouse }
+    return
+  }
+  if (ai.mode === 'rouse' && ai.t <= 0) { ai.mode = 'stalk'; ai.t = MIXTRAL.rest; ai.took = 0 }
 }

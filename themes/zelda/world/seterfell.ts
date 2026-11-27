@@ -4,7 +4,8 @@
  * huts in their dry-stone ring where Sigrid comes home when the fjord's bell rings. West of the stream lie the
  * MOUNDS, where the tusse keep their pantry and the road goes on to Lumenby; east the TROLL HUMPS, sleeping trolls
  * with birches on their backs, and the pass down to the Sporelight; north CAIRN RIDGE, the tarn, the lookout and
- * the way over the tops to Yule Fjord. The LOWER PASTURE's hay fields, mill and pond run to the fell's edge over
+ * the way over the tops to Yule Fjord. A second mound's stairs go down to THE ECHO BARROW (`echobarrow.ts`). The
+ * LOWER PASTURE's hay fields, mill and pond run to the fell's edge over
  * the town. A heart piece waits on a ledge the seter can see and only the ridge can reach. The elder's mound has a
  * hole in its roof under a cracked boulder (UNDER THE FELL). The gorge east of the fell road is crossed by two hook posts, the herder's quick
  * way home from the humps.
@@ -69,8 +70,8 @@ export const SETERFELL: MapDef = {
     'TT...;;,;;...~~.....;.....F....:.....,......,,,,,,,,,,,,,,,,,.T...;.,,,,',
     'TTTT..:...;...~...;;;;;...F..........,...:d.....,...;.;...,...........,,',
     'TT..T;.....:..~~.;;***;;..F.HHH......,.:.....:..F...;..T..,......;;...TT',
-    'TTT.T:.;....T..~.;**G**;..F.HHH:.....,....:.:...F...O...T.,.......T...TT',
-    'TT....;;;;;.:..~~;;*,*;;.;F.HHH..r...,:....r....F;.OO;...,...;T;......TT',
+    'TTT.T:.;....T..~.;**4**;..F.HHH:.....,....:.:...F...O...T.,.......T...TT',
+    'TT....;;;;;.:..~~;;*,0;;.;F.HHH..r...,:....r....F;.OO;...,...;T;......TT',
     'TT...;;***;;T;..~.;;,;;...F.......j..,..........F..OOOT..,..;;;;;...TTTT',
     'TT...;**G**;.T..~....;...;F........::,.......r:.F...OO...,.T;;;;;...:.TT',
     'TT...;;*,*;;.:.~~..:....:;F:....:.:..,..........F...OOO..,..;;;;;.....TT',
@@ -112,6 +113,7 @@ export const SETERFELL: MapDef = {
     'humps': { x: 56.5, y: 23.5, dir: 'right' },
     'pasture': { x: 22.5, y: 38.5, dir: 'down' },
     'fellcave': { x: 7.5, y: 23.5, dir: 'down' },
+    'echobarrow': { x: 20.5, y: 27.5, dir: 'down' },
   },
   isoLandmarks: [
     // The realm's arch over the gate road, lit at night.
@@ -167,7 +169,7 @@ export const SETERFELL: MapDef = {
     'g': npc('seterfell.dairymaid', 'dairymaid', [{ lines: ['DAIRYMAID: THE CHURN HAS BEEN GOING SINCE MAY. I AM NOT SURE IT IS STILL BUTTER.'] }]),
     'h': npc('seterfell.nisse', 'troll', [{ lines: ['BARN NISSE: NO BUTTER. NO BUTTER! NOT A SCRAP OF BUTTER IN MY PORRIDGE.', 'BARN NISSE: SOMEONE WILL HEAR ABOUT THIS PORRIDGE. SOMEONE WITH COWS.'] }]),
     'j': npc('seterfell.goat', 'fellgoat', [{ lines: ['(THE GOAT EYES YOUR COAT.)', 'MAA.'] }], { wander: true }),
-    'k': npc('seterfell.elder', 'owl', [{ lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.'] }]),
+    'k': npc('seterfell.elder', 'owl', [{ when: { notFlag: 'item:weightMeaning' }, lines: ['MOUND ELDER: THE HALL UNDER US ANSWERS BACK. IT USED TO WAIT TO BE ASKED.'] }, { lines: ['MOUND ELDER: SOMEBODY DUG INTO MY PANTRY, SO WE ROLLED A BOULDER OVER THE HOLE.'] }]),
     'm': npc('q.map.cairn', 'owl', [{ when: { flag: 'q.map.p3' }, lines: ['STEINAR: I WOULD GIVE YOU A STONE FOR THE ROAD. THEY ARE ALL SPOKEN FOR.'] }, { lines: ['STEINAR: I KEEP THE CAIRNS. A PAGE BLEW INTO THIS ONE. IT HAS DUNES ON IT.', 'STEINAR: WE HAVE NO DUNES UP HERE. TAKE IT.'], set: 'q.map.p3' }]),
     'p': npc('seterfell.herder', 'oldherder', [{ lines: ["OLD HERDER: DON'T WHISTLE NEAR THE HUMPS. THEY'RE ONLY HILLS IN THE DAYTIME.", 'OLD HERDER: TWO POSTS OVER THE GORGE. I NEVER LEARNED THE HOOK, SO I WALK ROUND.'] }]),
     's': npc('seterfell.ashlad', 'kid', [{ lines: ['ASH LAD: THAT HILL HAS A NOSE. I POKED IT. IT SNEEZED.', 'ASH LAD: MY BROTHERS SAY I\'M NO GOOD FOR ANYTHING. I\'M GOOD AT POCKETS.'] }], { wander: true }),
@@ -178,6 +180,9 @@ export const SETERFELL: MapDef = {
     '2': { ent: { t: 'chest', id: 'seterfell.nostril', item: 'bits50' } },
     '3': { ent: { t: 'chest', id: 'seterfell.hedge', item: 'bits20' } },
     '5': { ent: { t: 'warp', to: 'fellcave', entry: 'door' }, tile: '>' },
+    // The way down into THE ECHO BARROW, in the little garden south of a small mound, and its sign.
+    '4': { ent: { t: 'warp', to: 'echobarrow', entry: 'start' }, tile: '>' },
+    '0': sign('THE ECHO BARROW.\nKNOCK, AND IT KNOCKS FIRST.'),
     '6': { ent: { t: 'enemy', kind: 'blob' } },
     '7': { ent: { t: 'enemy', kind: 'hound' } },
     '8': { ent: { t: 'enemy', kind: 'bat' } },

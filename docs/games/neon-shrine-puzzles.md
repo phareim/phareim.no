@@ -15,7 +15,7 @@ Demo: `world/puzzlelab.ts`. Tests: `tests/zelda-puzzles.test.mjs`.
 | `μ` `ν` | mirror (`/`, `\`) | Turns a beam a quarter. A blade, the disc or A turns it (`μ`⇄`ν`); it pushes like a block and slides on ice. |
 | `π` | prism | Splits a beam into the two ways across it. |
 | `ρ` | receiver | Mark `{ t: 'receiver', flag }` (unmarked: `beam:<map>:<tile>`). Lit once, the flag is set for good. |
-| `θ` `η` | light / heavy plate | Mark `{ t: 'plate', id }` (unmarked: `w:<tile>`). Held by weight ≥ 1 / ≥ 2: block or mirror 2, boulder 3, pot or rock tile 1, hero 1 (2 carrying a pot or rock), foe 1 (big 3), Luna 1. Read by `{ plates: [id] }` like the old plates. |
+| `θ` `η` | light / heavy plate | Mark `{ t: 'plate', id }` (unmarked: `w:<tile>`). Held by weight ≥ 1 / ≥ 2: block or mirror 2, boulder 3, pot or rock tile 1, hero 1 (2 carrying a pot or rock), the echo 1 (`docs/games/neon-shrine.md`, "The Echo"; it holds a plain plate `_` too), foe 1 (big 3), Luna 1. Read by `{ plates: [id] }` like the old plates. |
 | `σ` | scale pan | Pans sharing a plate id are one scale: down only while all carry equal weight > 0. |
 | `κ` | boulder | Mark `{ t: 'boulder', dir, flag? }`: rolls along `dir` once `flag` is set (a lever); a bomb beside a boulder kicks it away, unless its lever still holds it. Crushes foes (4), hits the hero (2, thrown aside), bursts cracked walls (`%`, `R`) and rolls on, fills a pit for good, rests at anything solid. |
 | `ω` `ψ` | sluice water / drained floor | Mark `{ t: 'sluice', flag, invert? }` on every tile of a basin: full while `flag` is unset (set, with `invert`). Flooding waits for the hero to step out and drowns walking foes. |

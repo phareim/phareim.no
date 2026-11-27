@@ -29,6 +29,7 @@ import { iceUnder } from './puzzles/index'
 import { angleDiff, toDir } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { bladeHits, swingDur, underfoot, aimOf } from './hero'
+import { echoBlade, echoRing } from './echo'
 
 // ---------------------------------------------------------------------------
 // Lookups
@@ -325,6 +326,7 @@ export function stepAir(c: Ctx, inp: Input, dt: number) {
       const dmg = (COMET_DMG + (mastered(s, 'comet') ? 1 : 0)) * mul
       const opt: HitOpts = { knock: 1.1, stagger: 0.45, stop: 45 }
       let n = bladeHits(c, a.a, bladeReach(s) * 0.85, dmg, 'sword', a.hit, opt)
+      echoBlade(c, { of: a, lap: a.hit, kind: 'comet', base: a.a, dur: d.time }, a.a, bladeReach(s) * 0.85, dmg, opt)
       for (const e of s.map.enemies) {
         if (!enemyActive(c, e) || a.hit.includes(e.id)) continue
         if (Math.hypot(e.x - h.x, e.y - h.y) < e.r + HERO_R + 0.4) {
@@ -347,7 +349,11 @@ export function stepAir(c: Ctx, inp: Input, dt: number) {
       let n = 0
       for (let j = 0; j <= 3; j++) {
         const q = p0 + ((p - p0) * j) / 3
-        n += bladeHits(c, base + Math.PI * 2 * TEMPEST.turns * q, TEMPEST.reach + (s.inv.arc ? 0.2 : 0), dmg, 'spin', a.hit, { knock: 0.7, stagger: 0.3, stop: 30, chain: true })
+        const at = base + Math.PI * 2 * TEMPEST.turns * q
+        const reach = TEMPEST.reach + (s.inv.arc ? 0.2 : 0)
+        const opt: HitOpts = { knock: 0.7, stagger: 0.3, stop: 30, chain: true }
+        n += bladeHits(c, at, reach, dmg, 'spin', a.hit, opt)
+        echoBlade(c, { of: a, lap: a.hit, kind: 'tempest', base, dur: d.time }, at, reach, dmg, opt)
       }
       if (n > 0 && !a.landed) { a.landed = true; credit(c, 'tempest') }
       break
@@ -382,7 +388,13 @@ function land(c: Ctx) {
     const dmg = (FLIP_CHOP.dmg + (mastered(s, 'flip') ? 1 : 0)) * mul
     const opt: HitOpts = { knock: 1.5, stagger: 0.45, stop: 70 }
     let n = 0
-    for (let j = 0; j <= 6; j++) n += bladeHits(c, at - FLIP_CHOP.arc / 2 + (FLIP_CHOP.arc * j) / 6, FLIP_CHOP.reach, dmg, 'sword', a.hit, opt)
+    const chop = { of: a, lap: a.hit, kind: 'chop' as const, base: at, dur: 0.16 }
+    for (let j = 0; j <= 6; j++) {
+      const q = at - FLIP_CHOP.arc / 2 + (FLIP_CHOP.arc * j) / 6
+      n += bladeHits(c, q, FLIP_CHOP.reach, dmg, 'sword', a.hit, opt)
+      echoBlade(c, chop, q, FLIP_CHOP.reach, dmg, opt)
+    }
+    echoRing(c, chop, FLIP_CHOP.ring, mul, { knock: 1, stagger: 0.3, stop: 40 })
     // And the ground shakes all round.
     for (const f of s.map.enemies) {
       if (!enemyActive(c, f) || a.hit.includes(f.id)) continue

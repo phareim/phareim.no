@@ -37,7 +37,7 @@
 import { FOLK_ART, type FolkFamily } from './folkArt'
 import { BOSS_ART } from './bossArt'
 import { bladePic, heroPic } from './hero'
-import { frameCount, makeCanvas, spriteRevision, spriteRows, spriteTag as spriteTagOf, type SpriteTag } from '../sheet'
+import { echoTones, frameCount, makeCanvas, spriteRevision, spriteRows, spriteTag as spriteTagOf, type SpriteTag } from '../sheet'
 
 export type Facing = 'front' | 'back'
 
@@ -186,6 +186,8 @@ export function folkTop(name: string, flip: boolean): number | null {
  * null when it has none, or has none that is still fresh: then the classic sprite is drawn.
  */
 export function folkPic(tag: SpriteTag): FolkPic | null {
+  // The echo: the hero's own art (or its blade's), in two tones.
+  if (tag.echo) return echoPic(tag)
   // The hero and its blade have art of their own (`hero.ts`, part 21).
   if (tag.name.startsWith('hero_')) return heroPic(tag)
   if (tag.name.startsWith('sword')) return bladePic(tag)
@@ -206,6 +208,16 @@ export function folkPic(tag: SpriteTag): FolkPic | null {
     }
     pics.set(key, p)
   }
+  return p
+}
+
+const echoes = new WeakMap<FolkPic, FolkPic>()
+/** The picture `tag` would have, painted in the echo's two tones (`sheet.ts` `echoTones`). */
+function echoPic(tag: SpriteTag): FolkPic | null {
+  const base = folkPic({ ...tag, echo: false })
+  if (!base) return null
+  let p = echoes.get(base)
+  if (!p) echoes.set(base, p = { c: echoTones(base.c), ax: base.ax, ay: base.ay })
   return p
 }
 

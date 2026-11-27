@@ -62,6 +62,7 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
   c.ev.push({ type: 'hitStop', ms: 70 })
   s.shake = Math.max(s.shake, 0.18)
   if (h.hp <= 0) {
+    s.echo = null
     h.act = 'dead'
     h.actT = 0
     h.knock = null
@@ -76,15 +77,23 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 // Enemy damage
 // ---------------------------------------------------------------------------
 
-/** `art`: one of the arts on B (`moves.ts`). */
-export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit'
+/** `echo`: a blow of the echo's blade (`engine/echo.ts`), the blade to every rule of armour. */
+export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'spit' | 'echo'
 
 /** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
-export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
-/** The ones whose fall clears the room and plays the boss fanfare. */
-const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
+export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
+/** The ones whose fall clears the room of its small fry and plays the boss fanfare. */
+const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
 
-const blade = (src: HitSource) => src === 'sword' || src === 'spin'
+/** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
+const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
+/** The hero's own blade: only it is shoved back by armour, shocked, or spends a SLIP's edge. */
+const own = (src: HitSource) => src === 'sword' || src === 'spin'
+/**
+ * The mercy a blow that was only turned aside leaves on the foe. None for the echo's: the two blades keep separate
+ * mercies (`Enemy.invuln`, `Enemy.echoInvuln`), so one never swallows the other's blow.
+ */
+const turned = (e: Enemy, src: HitSource, t: number) => { if (src !== 'echo') e.invuln = t }
 
 /**
  * A tough foe's opening (`TOUGH`): stunned, or standing spent after its strike (the sentry's `spent`, the hound's
@@ -112,6 +121,8 @@ export function bossOpen(e: Enemy): boolean {
     case 'deepseek': return mode === 'up' || mode === 'hauled'
     // A twin on its feet; one that has fallen is out of reach until it gets up.
     case 'gemini': return mode !== 'down'
+    // Dazed against the wall, while this daze still has blows to give.
+    case 'mixtral': return mode === 'dazed' && ((e.ai.took as number | undefined) ?? 0) < TOUGH.take
     default: return false
   }
 }
@@ -126,14 +137,17 @@ export interface HitOpts {
   knock?: number; stagger?: number; stop?: number; chain?: boolean; finisher?: boolean; crit?: boolean
   /** The most this blow may take (a tough foe's opening, `TOUGH.take`); what it took is counted in `ai.took`. */
   cap?: number
+  /** The echo's blow: its mercy is the foe's `echoInvuln` (set by `hitEnemy`). */
+  echo?: boolean
 }
 
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource, opt?: HitOpts): boolean {
-  if (e.dead || e.invuln > 0) return false
+  if (e.dead || (src === 'echo' ? (e.echoInvuln ?? 0) : e.invuln) > 0) return false
+  if (src === 'echo') opt = { ...opt, echo: true }
   const st = STATS[e.kind]
   if (st.invulnerable) {
-    if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
+    if (blade(src)) c.ev.push({ type: 'clank', x: e.x, y: e.y })
     return false
   }
   // Poise: a tough one that is not open turns the blade (every move of it) without a mark, and a SLIP's edge is kept.
@@ -147,7 +161,7 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
   if (e.tough && blade(src)) opt = { ...opt, cap: Math.max(0, TOUGH.take - ((e.ai.took as number | undefined) ?? 0)) }
   // After a SLIP the hero's next blow is critical (`moves.ts`).
   const h0 = c.s.hero
-  if (h0.edge && (src === 'sword' || src === 'spin')) {
+  if (h0.edge && own(src)) {
     opt = { ...opt, crit: true }
     const landed = hitEnemyPlain(c, e, dmg, fromX, fromY, src, opt)
     if (landed) h0.edge = false
@@ -185,12 +199,12 @@ function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: numb
     return true
   }
   // Zappers shock a blade that strikes them unless they are stunned.
-  if (e.kind === 'zapper' && (src === 'sword' || src === 'spin') && e.stun <= 0) {
+  if (e.kind === 'zapper' && own(src) && e.stun <= 0) {
     hurtHero(c, 1, e.x, e.y, true, true)
     e.flash = 0.2
     return false
   }
-  if (e.kind === 'knight' && (src === 'sword' || src === 'spin') && e.ai.mode !== 'dazed' && e.stun <= 0) {
+  if (e.kind === 'knight' && blade(src) && e.ai.mode !== 'dazed' && e.stun <= 0) {
     // Shield: blocks blows from the front half.
     const fx = e.dir === 'left' ? -1 : e.dir === 'right' ? 1 : 0
     const fy = e.dir === 'up' ? -1 : e.dir === 'down' ? 1 : 0
@@ -198,16 +212,18 @@ function hitEnemyPlain(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: numb
     const dy = fromY - e.y
     if (dx * fx + dy * fy > 0.25 * Math.hypot(dx, dy)) {
       c.ev.push({ type: 'clank', x: e.x + fx * 0.6, y: e.y + fy * 0.6 })
-      const h = c.s.hero
-      const len = Math.hypot(h.x - e.x, h.y - e.y) || 1
-      h.knock = { vx: ((h.x - e.x) / len) * KNOCK_SPEED * 0.8, vy: ((h.y - e.y) / len) * KNOCK_SPEED * 0.8, t: KNOCK_TIME }
-      e.invuln = 0.25
+      if (own(src)) {
+        const h = c.s.hero
+        const len = Math.hypot(h.x - e.x, h.y - e.y) || 1
+        h.knock = { vx: ((h.x - e.x) / len) * KNOCK_SPEED * 0.8, vy: ((h.y - e.y) / len) * KNOCK_SPEED * 0.8, t: KNOCK_TIME }
+      }
+      turned(e, src, 0.25)
       return false
     }
   }
   if (e.kind === 'king' && e.ai.mode !== 'down') {
     c.ev.push({ type: 'clank', x: e.x, y: e.y })
-    e.invuln = 0.2
+    turned(e, src, 0.2)
     return false
   }
   return damage(c, e, dmg, fromX, fromY, opt)
@@ -227,8 +243,8 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (src === 'spit' || src === 'shot' || src === 'bomb' || src === 'pot') return damage(c, e, 2, fromX, fromY)
       if (src === 'disc') { e.stun = 1; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
       c.ev.push({ type: 'clank', x: e.x, y: e.y })
-      e.invuln = 0.2
-      if (blade(src)) {
+      turned(e, src, 0.2)
+      if (own(src)) {
         const h = c.s.hero
         const len = Math.hypot(h.x - e.x, h.y - e.y) || 1
         h.knock = { vx: ((h.x - e.x) / len) * KNOCK_SPEED * 0.7, vy: ((h.y - e.y) / len) * KNOCK_SPEED * 0.7, t: KNOCK_TIME }
@@ -247,8 +263,18 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
         return true
       }
       c.ev.push({ type: 'clank', x: e.x, y: e.y })
-      e.invuln = 0.15
+      turned(e, src, 0.15)
       return false
+    // MIXTRAL: bombs, pots and batted shots hurt it at any time; the blade only while the wall has it dazed, and no
+    // more than `TOUGH.take` a daze. Anything else clanks, the disc and the hook with the rest: nothing stuns it.
+    case 'mixtral': {
+      if (src === 'bomb' || src === 'pot' || src === 'shot' || src === 'spit') return damage(c, e, dmg, fromX, fromY, opt)
+      const left = TOUGH.take - ((ai.took as number | undefined) ?? 0)
+      if (blade(src) && ai.mode === 'dazed' && left > 0) return damage(c, e, dmg, fromX, fromY, { ...opt, cap: left })
+      c.ev.push({ type: 'clank', x: e.x, y: e.y })
+      turned(e, src, 0.2)
+      return false
+    }
     case 'deepseek':
       if (ai.mode === 'under' || ai.mode === 'rise') {
         if (src !== 'hook') return false
@@ -283,7 +309,9 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   e.hp -= dealt
   if (opt?.cap !== undefined) e.ai.took = ((e.ai.took as number | undefined) ?? 0) + dealt
   e.flash = 0.14
-  e.invuln = big ? 0.45 : opt?.chain ? 0.1 : 0.28
+  const mercy = big ? 0.45 : opt?.chain ? 0.1 : 0.28
+  if (opt?.echo) e.echoInvuln = mercy
+  else e.invuln = mercy
   const ddx = e.x - fromX
   const ddy = e.y - fromY
   const len = Math.hypot(ddx, ddy) || 1
@@ -319,7 +347,7 @@ function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, opt
   // Hitstop by weight: a quick hit of the chain, the finisher, a boss, a kill.
   c.ev.push({ type: 'hitStop', ms: killed ? 90 : BOSSES.has(e.kind) ? 60 : opt?.stop ?? 40 })
   if (killed) killEnemy(c, e)
-  else if ((e.kind === 'king' || e.kind === 'mistral' || e.kind === 'deepseek') && e.hp <= STATS[e.kind].hp / 2 && e.ai.phase !== 2) {
+  else if ((e.kind === 'king' || e.kind === 'mistral' || e.kind === 'deepseek' || e.kind === 'mixtral') && e.hp <= STATS[e.kind].hp / 2 && e.ai.phase !== 2) {
     e.ai.phase = 2
     c.ev.push({ type: 'bossPhase', phase: 2 })
     c.ev.push({ type: 'hitStop', ms: 120 })
@@ -338,8 +366,8 @@ export function killEnemy(c: Ctx, e: Enemy) {
   if (BOSSES.has(e.kind)) {
     c.ev.push({ type: 'bossDown', kind: e.kind })
     c.s.shake = 0.6
-    // The room's small fry go with their master.
-    for (const o of c.s.map.enemies) if (o !== e && o.cell === e.cell && !o.dead && o.kind !== 'eye') { o.dead = true; o.deathT = 0; c.ev.push({ type: 'kill', x: o.x, y: o.y, kind: o.kind }) }
+    // The room's small fry go with their master (another heavy foe stays: the Echo Barrow's pair of knights).
+    for (const o of c.s.map.enemies) if (o !== e && o.cell === e.cell && !o.dead && o.kind !== 'eye' && !BIG.has(o.kind)) { o.dead = true; o.deathT = 0; c.ev.push({ type: 'kill', x: o.x, y: o.y, kind: o.kind }) }
     return
   }
   // A tough one always leaves a heart and five bits, side by side (and its key, if it carries one).
@@ -412,6 +440,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bits20': return ['YOU GOT 20 BITS!']
     case 'bits50': return ['YOU GOT 50 BITS!']
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
+    case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
@@ -457,6 +486,7 @@ export function grant(s: GameState, item: ItemId) {
     case 'prism': inv.prism = true; break
     case 'hook': inv.hook = true; inv.selected = 'hook'; break
     case 'arc': inv.arc = true; inv.sword = true; break
+    case 'echo': inv.echo = true; inv.selected = 'echo'; break
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break

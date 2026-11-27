@@ -6,6 +6,9 @@ export { aimOf, swingAngle, swingDur, useItems } from './hero'
 // The acrobatics and the arts (`moves.ts`)
 export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artReady, artRest, isArt, ART_IDS } from './moves'
 export { STATS } from './spawn'
+// The echo (`echo.ts`), and what the floor is stencilled with.
+export { echoMayStand, echoAim, ECHO_R } from './echo'
+export { stencilsOf, type Stencil } from './stencils'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy, hurtHero, grant } from './combat'
 export { toughOpen, bossOpen, BIG, itemText } from './combat'

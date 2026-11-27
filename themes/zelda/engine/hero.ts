@@ -9,6 +9,7 @@ import {
   HERO_SPEED, HOP, LIFT_TIME, LUNGE_TIME, PSI_SPEED, PUSH_DELAY, ROLL_CANCEL, ROLL_COOLDOWN, ROLL_DIST, ROLL_TIME, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWORD_ARC, SWORD_REACH, TALK_REST, TEMPEST_WINDOW, THROW_SPEED, WINDUP,
 } from '../types'
+import { echoBlade, echoOnTile, setEcho } from './echo'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -652,6 +653,7 @@ function stepSwing(c: Ctx, inp: Input, dt: number) {
     const p = p0 + ((p1 - p0) * k) / 2
     if (hit && p < WINDUP) continue
     const n = bladeHits(c, swingAngle(sw, p), reach, dmg, 'sword', sw.hit, opt)
+    echoBlade(c, { of: sw, lap: sw.hit, kind: 'swing', n: sw.n, base: sw.a ?? dirAngle(sw.dir), dur: dur * (1 - WINDUP) }, swingAngle(sw, p), reach, dmg, opt)
     if (n > 0 && sw.n === 2 && !sw.landed) { sw.landed = true; credit(c, 'triple') }
     if (n > 0 && sw.spring !== undefined && !sw.sprung) { sw.sprung = true; credit(c, 'hopcut') }
   }
@@ -835,6 +837,7 @@ function stepSpin(c: Ctx, dt: number) {
     const a = base + Math.PI * 2 * (p0 + ((p1 - p0) * k) / 3)
     const dmg = (c.s.inv.arc ? 3 : 2) + (mastered(c.s, 'whirl') ? 1 : 0)
     const n = bladeHits(c, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), dmg, 'spin', sp.hit, SPIN_HIT)
+    echoBlade(c, { of: sp, lap: sp.hit, kind: 'spin', base, dur: SPIN_TIME }, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), dmg, SPIN_HIT)
     if (n > 0 && !sp.landed) { sp.landed = true; credit(c, 'whirl') }
   }
   if (sp.t >= SPIN_TIME) {
@@ -848,10 +851,17 @@ function stepSpin(c: Ctx, dt: number) {
 /** The spin's blows: a hard shove and a heavy stop. */
 const SPIN_HIT: HitOpts = { knock: 1.2, stop: 55 }
 
-/** Everything the blade at angle `a` touches: enemies, shards, pellets, tiles. Returns how many foes it struck. */
-export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' | 'spin', hit: string[], opt?: HitOpts): number {
+/**
+ * Everything the blade at angle `a` touches: enemies, shards, pellets, tiles. Returns how many foes it struck. The
+ * blade is the hero's, or with `src` 'echo' the echo's, struck from `from` (`engine/echo.ts`): that one also
+ * shatters a pot it sweeps, and feeds no art.
+ */
+export function bladeHits(
+  c: Ctx, a: number, reach: number, dmg: number, src: 'sword' | 'spin' | 'echo', hit: string[], opt?: HitOpts,
+  from: { x: number; y: number; dir: Dir } = c.s.hero,
+): number {
   const s = c.s
-  const h = s.hero
+  const h = from
   let struck = 0
   const ca = Math.cos(a)
   const sa = Math.sin(a)
@@ -867,7 +877,7 @@ export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 's
     if ((off < 0.5 || perp < e.r + 0.15) && dx * ca + dy * sa > -0.2 && lineClear(c.w, s.map, h.x, h.y, e.x, e.y)) {
       hit.push(e.id)
       // A landed blow shortens every art's rest (`moves.ts`).
-      if (hitEnemy(c, e, dmg, h.x, h.y, src, opt)) { struck++; feedArts(s) }
+      if (hitEnemy(c, e, dmg, h.x, h.y, src, opt)) { struck++; if (src !== 'echo') feedArts(s) }
     }
   }
   for (let r = 0.6; r <= reach; r += 0.3) breakShards(c, h.x + ca * r, h.y + sa * r, 0.15)
@@ -906,6 +916,11 @@ export function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 's
     } else if (t === '}') {
       hit.push(key)
       throwLever(c, tx, ty)
+    } else if (src === 'echo' && t === 'o') {
+      hit.push(key)
+      setTile(s.map, tx, ty, '.')
+      c.ev.push({ type: 'shatter', x: tx + 0.5, y: ty + 0.5, kind: 'pot' })
+      rollDrop(c, tx + 0.5, ty + 0.5, 0.45)
     } else if ((!isTube(t) || (tx === front.x && ty === front.y)) && hitPuzzle(c, tx, ty, t)) hit.push(key)
   }
   return struck
@@ -972,6 +987,7 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
   if (!(t === '.' || t === ',' || t === '_')) return
   if (m.moving.some(b => b.tx === tx && b.ty === ty)) return
   for (const e of m.enemies) if (!e.dead && Math.floor(e.x) === nx && Math.floor(e.y) === ny) return
+  if (echoOnTile(c, nx, ny)) return
   // Stay inside the block's camera room.
   if (cellIndex(c.info, nx + 0.5, ny + 0.5) !== cellIndex(c.info, tx + 0.5, ty + 0.5)) return
   m.tiles[ty * m.w + tx] = '.'
@@ -1004,6 +1020,7 @@ const TOOL_USE: Record<ToolId, (c: Ctx, inp: Input) => void> = {
   hook: c => fireHook(c),
   disc: throwDisc,
   bombs: setBomb,
+  echo: c => { setEcho(c) },
 }
 
 function useItem(c: Ctx, inp: Input) {
@@ -1085,6 +1102,7 @@ export function psiPush(c: Ctx, tx: number, ty: number, d: Dir) {
     if (c.info.def.kind === 'dungeon' && cellIndex(c.info, nx + 0.5, ny + 0.5) !== cell) break
     if (m.enemies.some(e => !e.dead && Math.floor(e.x) === nx && Math.floor(e.y) === ny)) break
     if (m.npcs.some(n2 => Math.floor(n2.x) === nx && Math.floor(n2.y) === ny)) break
+    if (echoOnTile(c, nx, ny)) break
     const h = s.hero
     if (Math.abs(h.x - (nx + 0.5)) < 0.5 + HERO_R && Math.abs(h.y - (ny + 0.5)) < 0.5 + HERO_R) break
     x = nx

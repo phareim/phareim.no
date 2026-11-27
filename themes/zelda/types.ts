@@ -332,6 +332,7 @@ export type ItemId =
   | 'hat' // the troll's hat
   // The art (`engine/moves.ts`), for the B button
   | 'artHop' // the Keeper
+  | 'echo' // THE ECHO, the Echo Barrow's treasure: B leaves one (`engine/echo.ts`)
   // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
   | WeightId
 
@@ -367,6 +368,7 @@ const B_TOOLS = [
   { id: 'hook', name: 'HOOK', icon: 'item_hook', owned: (inv: Inventory) => inv.hook },
   { id: 'disc', name: 'DISC', icon: 'item_disc', owned: (inv: Inventory) => inv.disc },
   { id: 'bombs', name: 'BOMBS', icon: 'item_bombbag', owned: (inv: Inventory) => inv.bombBag },
+  { id: 'echo', name: 'ECHO', icon: 'item_echo', owned: (inv: Inventory) => !!inv.echo },
 ] as const satisfies readonly BItem[]
 
 /** Everything B can hold, in the cycle's order: the things, then the arts. What `useItems`, a save and the HUD read. */
@@ -397,6 +399,16 @@ export interface TerrainDef {
   ground?: number
 }
 
+/** Seconds a room with pot stands holds no pot before its stands get theirs back. */
+export const STAND_WAIT = 1.2
+/**
+ * MIXTRAL (`engine/bosses.ts`): it walks at `stalk` tiles/s to get the hero in line (within `line` tiles of a lane's
+ * middle), tells `tell` s (`tell2` at half its hit points) with the lane on the floor, and charges at `charge` tiles/s
+ * to the wall (at half, twice, turning once between). The wall dazes it `dazed` s: open, and the blade takes `TOUGH.take`
+ * at most. It rouses for `rouse` s, harmless, and walks `rest` s before it may tell again.
+ */
+export const MIXTRAL = { stalk: 1.8, line: 0.8, tell: 0.7, tell2: 0.5, charge: 9, dazed: 2.2, rouse: 0.5, rest: 1.1 } as const
+
 // ---------------------------------------------------------------------------
 // Authored world
 // ---------------------------------------------------------------------------
@@ -422,6 +434,7 @@ export type EnemyKind =
   | 'mistral' // boss: the cold wind; hook it down, then strike
   | 'deepseek' // miniboss: swims under the floor, surfaces to bite; the hook drags it up
   | 'gemini' // boss: one of the twins; both must fall close together
+  | 'mixtral' // miniboss: stencils a lane and charges down it; open only while dazed against the wall
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -484,12 +497,15 @@ export type EntDef =
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
   | { t: 'warp'; to: string; entry: string } // stepping on this tile warps
   /**
-   * On one tile of an X run (tile 'X'). A shut gate opens for good once `open` holds. A `trap` gate (a dungeon room
-   * only, no `open` of its own) starts open, shuts behind the hero in its room while a foe lives there, and opens for
-   * good when the room is clear (`engine/objects.ts`).
+   * On one tile of an X run (tile 'X'). A shut gate opens for good once `open` holds. With a `latch` it is a held
+   * gate: open only while `open` holds (a plate stood on), shut again when it does not, and open for good once `latch`
+   * holds. A `trap` gate (a dungeon room only, no `open` of its own) starts open, shuts behind the hero in its room
+   * while a foe lives there, and opens for good when the room is clear (`engine/objects.ts`).
    */
-  | { t: 'gate'; open: Cond; trap?: false }
-  | { t: 'gate'; trap: true; open?: never }
+  | { t: 'gate'; open: Cond; latch?: Cond; trap?: false }
+  | { t: 'gate'; trap: true; open?: never; latch?: never }
+  /** A pot stand (tile 'o'): once its room holds no pot at all, every stand of the room gets one back (`STAND_WAIT`). */
+  | { t: 'stand' }
   | { t: 'glyph'; ch: string } // a letter stone (tile '{')
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   // Physical puzzles (`engine/puzzles/`): each also works unmarked with defaults, see world/puzzles.ts
@@ -790,6 +806,8 @@ export interface Enemy {
   trek?: { x: number; y: number; out: boolean; stuck: number }
   /** Seconds left reeling from a blow: it does nothing and harms no one (small foes only). */
   stagger?: number
+  /** Seconds the foe's mercy against the echo's blows still runs (the echo's blade has its own, `hitEnemy`). */
+  echoInvuln?: number
   /** The reeling came from the blade's own chain (its quick hits): that does not make the finisher critical. */
   reelChain?: boolean
   /** Seconds since the last blow landed, and the way it was driven (unit vector): the renderer's squash and pop. */
@@ -940,6 +958,8 @@ export interface MapState {
   onGlyph: number
   /** MapDef.keyring, resolved. */
   ring: string
+  /** Seconds the hero's room has held no pot at all (pot stands, `engine/objects.ts`). */
+  standT?: number
   /** `MapDef.terrain`: the height of every tile, the ground's level, the hero's standing level. */
   terrain?: TerrainState
   /** The physical puzzles' live state (`engine/puzzles/`), made on first use; absent on maps without them. */
@@ -990,6 +1010,32 @@ export interface TerrainState { h: number[]; g: number; z: number }
 export type HeroAct =
   | 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'throw' | 'push'
   | 'use' | 'hurt' | 'get' | 'fall' | 'dead' | 'hook' | 'roll' | 'air'
+
+/**
+ * The echo (`engine/echo.ts`): the copy of the hero B leaves on the floor. One at a time, gone with the room; never
+ * saved. `dir` is the way the hero faced when it was left; `cut` the blow it is making or made last.
+ */
+export interface Echo {
+  x: number
+  y: number
+  dir: Dir
+  cut: null | {
+    /** The hero's move it copies (the swing, the spin, the air move): a new one is a new blow. */
+    of: object
+    /** The hero's list of what that blow has struck: a new list is a new lap of the same move (the tempest). */
+    lap: string[]
+    /** What the echo's blow has struck this lap. */
+    hit: string[]
+    /** The way the echo's blow goes (rad): at the nearest thing a blade can hit, else along its facing. */
+    a: number
+    /** Its picture: which blow, which hit of the chain, seconds in, and how long it is shown. */
+    kind: EchoBlow
+    n: 0 | 1 | 2
+    t: number
+    dur: number
+  }
+}
+export type EchoBlow = 'swing' | 'spin' | 'chop' | 'comet' | 'tempest'
 
 export interface Hero {
   x: number
@@ -1076,6 +1122,8 @@ export interface Inventory {
   selected: UseItem | null
   prism: boolean
   hook: boolean
+  /** THE ECHO (the Echo Barrow's treasure). */
+  echo: boolean
   /** The Arc Blade (the sword, upgraded). */
   arc: boolean
   /** Bomb bag holds 20 instead of 12. */
@@ -1179,6 +1227,8 @@ export interface GameState {
   demo: boolean
   disc: Disc | null
   hook: Hook | null
+  /** The echo on the floor, if one is left (`engine/echo.ts`). Never saved. */
+  echo: Echo | null
   luna: Follower | null
   /**
    * Seconds into the day (`engine/day.ts`, 0 … 720), or null while the sun is
@@ -1286,6 +1336,11 @@ export type GameEvent =
   | { type: 'hookHit'; x: number; y: number }
   | { type: 'pull' }
   | { type: 'psi'; x: number; y: number }
+  /** An echo left on the floor, and the echo cutting with the hero. */
+  | { type: 'echo'; x: number; y: number }
+  | { type: 'echoCut'; x: number; y: number }
+  /** A room's pot stands got their pots back. */
+  | { type: 'restock'; x: number; y: number }
   | { type: 'glyph'; x: number; y: number; ok: boolean }
   | { type: 'lever'; x: number; y: number }
   | { type: 'land' }

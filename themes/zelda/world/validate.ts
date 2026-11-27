@@ -29,6 +29,7 @@ function markTile(e: EntDef): TileChar {
     case 'exit': return 'D'
     case 'glyph': return '{'
     case 'lever': return '}'
+    case 'stand': return 'o'
     default: return puzzleMarkTile(e) ?? '.'
   }
 }
@@ -69,8 +70,10 @@ export function validateWorld(world: World): string[] {
         if (m.ent.trap) {
           if (def.kind !== 'dungeon' || !def.cell) out.push(`${id}: marker '${ch}' is a trap gate outside a dungeon's rooms`)
           if (m.ent.open) out.push(`${id}: marker '${ch}' is a trap gate with a condition of its own`)
+          if (m.ent.latch) out.push(`${id}: marker '${ch}' is a trap gate with a latch`)
         } else if (!m.ent.open) out.push(`${id}: marker '${ch}' is a gate that nothing opens`)
       }
+      if (m.ent.t === 'stand' && (def.kind !== 'dungeon' || !def.cell)) out.push(`${id}: marker '${ch}' is a pot stand outside a dungeon's rooms`)
       if (m.ent.t === 'enemy' && m.ent.tough) {
         if (m.ent.kind !== 'sentry' && m.ent.kind !== 'hound') out.push(`${id}: marker '${ch}' is a tough ${m.ent.kind} (only a sentry or a hound may be tough)`)
         if (m.ent.calm) out.push(`${id}: marker '${ch}' is calm and tough at once`)

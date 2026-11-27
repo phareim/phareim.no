@@ -17,6 +17,7 @@ import { resetEnemy } from './spawn'
 import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
+import { stepEcho } from './echo'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -27,7 +28,7 @@ import { ART_IDS, endMoves, resetMoves, stepSlow } from './moves'
 function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
-    hook: false, arc: false, bigBag: false, shrooms: 0, keyrings: {},
+    hook: false, arc: false, echo: false, bigBag: false, shrooms: 0, keyrings: {},
   }
 }
 
@@ -73,6 +74,7 @@ export function createGame(
     demo: !!opts.demo,
     disc: null,
     hook: null,
+    echo: null,
     luna: null,
     daytime: save?.inv.prism ? (typeof save.day === 'number' ? save.day : 0) : null,
   }
@@ -121,6 +123,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, h.x, h.y, HERO_R)
   s.disc = null
   s.hook = null
+  s.echo = null
   if (!at) s.entry = { map: mapId, entry: entryId }
   // A land walked into is drawn on the MAP page's chart of the world (and the QUEST line stops pointing at the gates).
   if (info.def.away) s.flags[`seen:${mapId}`] = true
@@ -251,6 +254,7 @@ function play(c: Ctx, dt: number, inp: Input) {
     // On terrain, the level the hero stands at before moving (`terrain.ts`).
     if (s.map.terrain) s.map.terrain.z = terrainLevel(s.map, s.hero.x, s.hero.y, HERO_R)
     stepHero(c, inp, dt)
+    stepEcho(c, dt)
     revealAround(s, c.info.def, c.info.w, c.info.h)
   }
   if (s.mode !== 'play') return
@@ -292,6 +296,8 @@ function play(c: Ctx, dt: number, inp: Input) {
       s.scroll = { from, to, t: 0, dx, dy, index: idx }
       s.mode = 'scroll'
       s.disc = null
+      // An echo stays with its room.
+      s.echo = null
       h.carry = null
       h.swing = null
       h.spin = null

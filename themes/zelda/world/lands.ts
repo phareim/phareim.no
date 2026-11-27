@@ -11,5 +11,6 @@ import { MAPS as rerun } from './rerun'
 import { MAPS as lumenby } from './lumenby'
 import { MAPS as fogstage } from './fogstage'
 import { MAPS as underglow } from './underglow'
+import { MAPS as echobarrow } from './echobarrow'
 
-export const LANDS: Record<string, MapDef> = { ...seterfell, ...yulefjord, ...sporelight, ...stillsand, ...rerun, ...lumenby, ...fogstage, ...underglow }
+export const LANDS: Record<string, MapDef> = { ...seterfell, ...yulefjord, ...sporelight, ...stillsand, ...rerun, ...lumenby, ...fogstage, ...underglow, ...echobarrow }

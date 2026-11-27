@@ -21,6 +21,7 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   mistral: { hp: 12, r: 1.1, dmg: 2, flying: true },
   deepseek: { hp: 8, r: 0.9, dmg: 2 },
   gemini: { hp: 8, r: 0.62, dmg: 2, flying: true },
+  mixtral: { hp: 10, r: 0.8, dmg: 2 },
 }
 
 export function spawnEnemy(
@@ -47,5 +48,6 @@ export function resetEnemy(e: Enemy) {
   e.stun = 0
   e.knock = null
   e.flash = 0
+  e.echoInvuln = 0
   e.ai = { mode: 'idle', t: 0.4, tell: 0 }
 }

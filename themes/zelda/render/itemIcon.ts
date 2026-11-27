@@ -24,9 +24,15 @@ export function itemSpriteName(item: ItemId): string {
     case 'hat': return 'item_hat'
     // The art learned (`engine/moves.ts`): its own icon.
     case 'artHop': return 'item_hop'
-    // The Sacred Weights share one picture, a stand-in until the seven stamped icons are drawn.
-    case 'weightMeaning': case 'weightReasons': case 'weightNo': case 'weightSurprise':
-    case 'weightFingers': case 'weightCredit': case 'weightSources': return 'item_weight'
+    case 'echo': return 'item_echo'
+    // Each Sacred Weight wears its own band.
+    case 'weightMeaning': return 'item_weight_meaning'
+    case 'weightReasons': return 'item_weight_reasons'
+    case 'weightNo': return 'item_weight_no'
+    case 'weightSurprise': return 'item_weight_surprise'
+    case 'weightFingers': return 'item_weight_fingers'
+    case 'weightCredit': return 'item_weight_credit'
+    case 'weightSources': return 'item_weight_sources'
   }
 }
 

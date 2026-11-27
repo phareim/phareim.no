@@ -929,7 +929,7 @@ classic picture. `/?view=<id>` asks for one.
       strike and cuts in the opening wins untouched, in 6 to 20 s. Tune
       `TOUGH` against it.
   - *The bosses' bar* (`BIG`: the knight, the king, the llama, Mistral,
-    DeepSeek, the twins). The tough foes' bar over each of their heads, in
+    DeepSeek, the twins, Mixtral). The tough foes' bar over each of their heads, in
     every view, as wide as twice the foe's radius in classic px (20 for a twin,
     36 for the king): what is left is pink, gold while the boss is open
     (`bossOpen`, beside `toughOpen`: the state in which the blade takes hit
@@ -937,9 +937,36 @@ classic picture. `/?view=<id>` asks for one.
     the blade too, but depends on where the hero stands, so the bar stays
     pink); the king down; Mistral down; DeepSeek up or hauled (under the floor
     the bar rides over the fin); a twin on its feet, so always, except while it
-    lies fallen; the llama never, its wool turns the blade. A stunned or dazed
+    lies fallen; Mixtral dazed, while that daze still has blows to give; the
+    llama never, its wool turns the blade. A stunned or dazed
     boss's stars turn between its head and the bar. A new boss adds its case to
     `bossOpen`.
+  - *A heavy foe's fall* clears the small foes of its room with it; another
+    heavy foe there stays on its feet (the Echo Barrow's pair of knights).
+  - *Mixtral* (`mixtral`, the Echo Barrow's miniboss; hp 10, radius 0.8;
+    `engine/bosses.ts`, every number in `MIXTRAL`). Its card, the first time
+    in its room: MIXTRAL. EIGHT OPINIONS AND ONE HEADACHE. It walks at 1.8
+    tiles/s to get the hero into line (within 0.8 tiles of a row or a column
+    through it, in sight), then stands and tells for 0.7 s with a pink lane
+    stencilled on the floor from it to the wall it will hit, and charges
+    straight down the lane at 9 tiles/s, without steering. The lane is as wide
+    as the charge's touch: a hero whose middle is outside the paint is not hit.
+    The wall dazes it for 2.2 s: open (gold bar), its touch harmless, and the
+    blade takes at most 5 hit points a daze (`TOUGH.take`). At every other
+    time the blade clanks off it, and the disc and the hook too (nothing stuns
+    it). Bombs, thrown pots and batted shots hurt it at any time. It then
+    rouses for 0.5 s, harmless, and walks at least 1.1 s before it tells again.
+    From half its hit points (`bossPhase`) it tells for 0.5 s and charges
+    twice, turning once toward the hero between, each lane stencilled. Both
+    views draw its three-headed pictures (`mixtral_left`, `_middle`, `_right`:
+    the heads take turns as it walks and spin while it is dazed); the 8-bit
+    view draws them at twice their size (`doubledSprite`), the isometric one
+    its own art for them (`render/iso/frontierArt/`).
+  - *Stencils* (`engine/stencils.ts` `stencilsOf`, painted by
+    `render/floorMarks.ts`): what a foe's blow will hit, as shapes in tiles
+    read off its brain's state, painted flat on the floor under everything that
+    stands, in every view (`Kit.floorMarks`: each view lays them on its ground
+    picture once the standing things are off it), and never up a room's walls.
   - *The lands' foes* are ordinary foe marks, drawn in the realm's own skins
     (`FRONTIER_FOE_LOOKS` in `render/renderer.ts`): which stand where is in
     `docs/worlds/atlas.md`, "The lands". The Sporelight's sentries are
@@ -1609,7 +1636,16 @@ After lines close, A only swings until it has rested `TALK_REST` (0.35 s, restar
 
 **Dungeon pieces: gates, keys, the Weights.** A gate is an `X` run with one
 `gate` mark; it opens for good once its condition holds (`open`: a flag,
-plates, `clear`), saved as `gate:<map>.<x>,<y>`. A **trap gate**
+plates, `clear`), saved as `gate:<map>.<x>,<y>`. A **held gate** (a `latch`
+beside `open`) is open only while `open` holds and shuts again when it does
+not, never onto the hero, a walking foe, a block or the echo; once `latch`
+holds it is open for good and saved as the others are (the Echo Barrow's
+Answering Room: a plate, latched by the chest behind the gate, so a hero who
+moves the echo from inside is not shut in for ever). A **pot stand**
+(`{ t: 'stand' }`, tile `o`, in a dungeon's rooms) gives its pot back: once
+the hero's room holds no pot at all (none standing, carried or in the air) for
+1.2 s (`STAND_WAIT`), every stand of the room that is free gets one, all
+together. A **trap gate**
 (`{ t: 'gate', trap: true }`, in a dungeon's rooms only, no condition of its
 own) is a room that locks: it is open, drawn and walked as floor, until the
 hero is in its room and clear of its tiles while a foe that counts for
@@ -1621,7 +1657,7 @@ to shut while the hook's chain is out, or while a walking foe or a block is in
 the doorway. A death, a warp out or entering any room puts an unbeaten one
 back to open, the room's foes reset as always; with no such foe left it never
 shuts. A beaten trap gate does not count as a solved puzzle: the room's push
-blocks still go home. No map has one yet. Small keys and the big key are per
+blocks still go home. The Echo Barrow's two fight rooms have them. Small keys and the big key are per
 keyring (`MapDef.keyring`, `docs/games/wildwood.md`); the big key says it
 opens the great door to the King in the Shrine's ring and the great door
 "here" in every other. A foe that `carries` a key needs a `once` flag
@@ -1629,10 +1665,43 @@ opens the great door to the King in the Shrine's ring and the great door
 seven **Sacred Weights** (`WEIGHTS` in `types.ts`, one a land:
 MEANING, REASONS, NO, SURPRISE, FINGERS, CREDIT, SOURCES) are items whose
 grant sets only the flag `item:<id>` (`hasWeight`, `weightCount`), with the
-heart container's jingle and one shared stand-in picture in the world
-(`item_weight`); the ITEMS page hangs each on its beam with its own icon
-(`item_weight_<word>`, `render/spritesItemsPage.ts`). No map gives one yet
+heart container's jingle and a picture of its own
+(`item_weight_meaning` … `item_weight_sources`: the brass weight, each with
+its band; `item_weight` is the plain one), and the ITEMS page hangs each on
+its beam with the same picture. No map gives one yet
 (`docs/worlds/sacred-weights.md` is the plan).
+
+**The Echo** (`engine/echo.ts`; item `echo`, a B item; the Echo Barrow's
+treasure). Its words: YOU GOT THE ECHO! / {B} LEAVES ONE WHERE YOU STAND. WHEN
+YOU CUT, IT CUTS.
+- *Leaving one.* B leaves an echo where the hero stands, facing as the hero
+  faces; B again moves it. It cannot be left on a pit or water, on or against a
+  crystal block or a view block (nothing may stand where one rises), or in a
+  door's tile (a doorway, stairs, an opened lock, a shutter's tiles): B there
+  buzzes and the one before stays. It is gone when the hero leaves the room,
+  dies or warps, when something solid takes its tile (a chest appearing), and
+  out in a land once the hero is a screen away. `GameState.echo`, never saved.
+- *Weight.* It weighs one, as the hero does: it holds a light plate, is half of
+  a heavy one, balances a scale pan, and holds a plain plate `_` down as a
+  block does. Nothing is pushed onto it.
+- *The blade.* Every blow of the hero's blade is struck by the echo too, at the
+  same moment, from where it stands: each hit of the chain, the spin, the
+  comet, the tempest, the flip's chop and its ring. Same reach, arc and damage,
+  centred on the nearest thing a blade can hit within that reach (a foe, a
+  lever not yet thrown, a crystal switch, a pot), else along its own facing. It
+  shatters the pots it sweeps, which the hero's own blade does not.
+- *Its blows* carry `HitSource` `'echo'`. To armour it is the blade (a shield,
+  a tough foe's poise and its opening's five, Mixtral's daze), but it keeps its
+  own mercy on a foe (`Enemy.echoInvuln`), so its blow and the hero's both
+  land. It never hurts or shoves the hero (no shield's shove, no zapper's
+  shock), spends no SLIP's edge, feeds no art and counts for no combo.
+- *Foes* neither see it nor strike it. A walker goes round it as round a pot;
+  a charge goes through it.
+- *The picture.* The hero's own frames in two tones of cyan at about 60 %
+  (`echoSprite`; the isometric view two-tones its own hero art, `folkPic`), its
+  swing frames and blade while it cuts, a soft ring on the floor under it. A
+  call and its echo when it is left (`echo`), the blade's swish a little lower
+  when it cuts (`echoCut`).
 
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
@@ -1646,7 +1715,7 @@ secret, door, gate, boss, respawn, exit, TO TOWN and when the tab is
 hidden. The server takes up to 32 KB of JSON (`SAVE_GAMES`; a bigger write is
 refused and the client says nothing): a save with everything in the world done
 is about 9 KB. What B holds is one of `B_ITEMS` (`types.ts`: the hook, the
-disc, bombs, the arts); a save naming anything else loads with nothing in
+disc, bombs, the echo, the arts); a save naming anything else loads with nothing in
 hand. On load the shell starts on the local copy and pulls the slot in
 the background; `reconcile` in `progress.ts` keeps the newer write, and a
 newer profile save replaces the run at the next calm frame only if this
@@ -1805,7 +1874,10 @@ key, gate, crystal, push block and appear-chest is wired. The dungeon pieces
 are `tests/zelda-kit.test.mjs`; `SAVE_SIZE=1` prints what a full save holds.
 The view rule and the Turn Room are `tests/zelda-view-rule.test.mjs` (every
 mover in both views, the refusals, a scripted solve, the validator's failures,
-the shell's wiring).
+the shell's wiring). The Echo Barrow is `tests/zelda-echo-barrow.test.mjs`
+(the map and its order, the echo, the two rooms only it solves, Mixtral and the
+Shield Hall fought by scripted players, the way from the door to the great
+lock; `ECHO_LOG=1` prints each fight's time and blows taken).
 The town's own
 checks are `test:portal`. `node scripts/zelda-lab/shot.mjs <outDir>
 [scenes]` renders the real renderer for named scenes without Nuxt (`r-*`
