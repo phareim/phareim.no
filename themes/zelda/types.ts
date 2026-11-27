@@ -937,6 +937,11 @@ export interface World {
    * since the lands were made by hand), or null to fall back to the start.
    */
   rescue?: (map: string, entry: string) => { map: string; entry: string } | null
+  /**
+   * Maps of a chunk (the dungeons, `world/dungeons.ts`) may be missing from `maps` while `pending`; the shell fills
+   * `maps` in place and clears it (`dungeonLoad.ts`). An object, so a copy made by `{...world}` sees the change.
+   */
+  lazy?: { pending: boolean }
 }
 
 // ---------------------------------------------------------------------------
@@ -1467,7 +1472,7 @@ export interface GameState {
    * instead of changing map; with `at` it lands on that spot (a drop through
    * a hole) instead of an entry.
    */
-  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean; edge?: boolean; white?: true }
+  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean; edge?: boolean; white?: true; aborted?: string }
   dialog: Dialog | null
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }
