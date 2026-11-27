@@ -1427,7 +1427,9 @@ export default function isoView(kit: Kit): View {
         }
         else if (t === 'i' && kind === 'interior') prop = 'stool'
         else if (t === 'β' || t === 'ρ' || t === 'ξ' || t === 'μ' || t === 'ν' || t === 'π' || t === 'κ' || t === 'Θ' || t === 'Λ' || t === 'Φ' || t === 'Ξ') {
-          if (drawn && k >= 1 && def.realm === 'yulefjord' && (t === 'μ' || t === 'ν')) {
+          // (Its art comes with the realm's pack: until that is here, as on a reload inside the Lighthouse, the built
+          // mirrors stand.)
+          if (drawn && k >= 1 && def.realm === 'yulefjord' && (t === 'μ' || t === 'ν') && thingKey(t === 'μ' ? 'fjord_mirror_a' : 'fjord_mirror_b') in propAtlas!.sprites) {
             stand(thingKey(t === 'μ' ? 'fjord_mirror_a' : 'fjord_mirror_b'), tx + 0.5, ty + 0.5, px, 1)
             bare(sx, sy - up, T, T + up)
             continue

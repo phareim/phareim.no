@@ -370,6 +370,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       const foe = spawnEnemy(`${id}:${m.x},${m.y}`, e.kind, cx, cy, e.dir ?? 'down', cellIndex(info, cx, cy), e.once, e.carries)
       if (e.calm) foe.calm = true
       if (e.tough && (e.kind === 'sentry' || e.kind === 'hound')) { foe.tough = true; foe.hp = foe.maxHp = TOUGH.hp[e.kind] }
+      if (e.dark && foe.tough && e.kind === 'hound') foe.dark = true
       enemies.push(foe)
     } else if (e.t === 'npc') {
       if (e.hide && condMet(s, world, e.hide, -1)) continue

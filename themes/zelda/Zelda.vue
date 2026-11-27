@@ -1561,6 +1561,7 @@ function keepExploring() {
 // ---- events → sound, save, banner ----------------------------------------------
 
 const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini', 'mixtral'])
+BIG_FOES.add('orca')
 
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   spin: 'spin', roll: 'roll', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',

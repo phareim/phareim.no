@@ -10,10 +10,10 @@
  *
  * The route: the door in Yule Fjord into the Foot; east, the Parlour, where the lamp lies and is taught in the
  * light (its receiver gives small key A); west, the stair down to the Ice Store (two mirrors on salt ice; its
- * receiver drains the sluice) and past it the Flooded Cellar, where a hound stands in for Orca (small key B). Key A
+ * receiver drains the sluice) and past it the Flooded Cellar, where ORCA lies stranded (small key B). Key A
  * or B opens the Foot's north alcove (the stair up) to the Quarters (dark: a receiver across the rotten boards lights
  * it for good; a second one, past a bend that wants a pushed mirror, opens the heart piece's gate); its east door
- * takes the second key into the Oil Store, where a hound stands in for the dark one (the Big Key, and the gate over
+ * takes the second key into the Oil Store, where the dark hound waits (the Big Key, and the gate over
  * the stair); the Gallery (a ring of walkway round a block of wall, three mirrors on its corners and two draugs)
  * and its Big-Key door into the Lamp Room, which here has no Box in it.
  *
@@ -131,7 +131,7 @@ const ICE_STORE = [
 const FLOODED = [
   '################',
   '#..............#',
-  '#.............z#',
+  '#............z.#',
   '#..wwwwwwwwww..#',
   '#..wwwIwwwwww..#',
   'g..wwwwwwwwww..#',
@@ -156,7 +156,13 @@ export const LIGHTHOUSE0: MapDef = {
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE ICE STORE' },
-    '1,0': { name: 'THE FLOODED CELLAR' },
+    '1,0': {
+      name: 'THE FLOODED CELLAR',
+      events: [
+        { when: { notFlag: 'lighthouse.orca' }, lines: ['ORCA. NOT A WHALE. NEVER WAS.'], set: 'lighthouse.orca.met' },
+        { when: { flag: 'lighthouse.orca' }, lines: ['(HALF A BOAT SETTLES INTO THE FLOOR. THE OTHER HALF IS STILL OUT THERE.)'], set: 'lighthouse.orca.fell' },
+      ],
+    },
   },
   rows: joinCells([[ICE_STORE, FLOODED]]),
   marks: {
@@ -166,9 +172,10 @@ export const LIGHTHOUSE0: MapDef = {
     a: sign('COLD STORE.\nTHE SEA CAME IN ONE NIGHT\nAND WAS NEVER ASKED TO LEAVE.'),
     u: { ent: { t: 'receiver', flag: 'lighthouse.drained' } },
     w: { tile: 'ω', ent: { t: 'sluice', flag: 'lighthouse.drained' } },
-    // The Flooded Cellar: the gate shuts behind the hero while the hound lives; its fall opens it and the chest of key B.
+    // The Flooded Cellar: the gate shuts behind the hero while ORCA lives; its fall opens it and the chest of key B. Its
+    // home is dry rim; it rows over the drained floor.
     g: { tile: 'X', ent: { t: 'gate', trap: true } },
-    z: { ent: { t: 'enemy', kind: 'hound', tough: true, once: 'lighthouse.orca', dir: 'left' } },
+    z: { ent: { t: 'enemy', kind: 'orca', once: 'lighthouse.orca', dir: 'left' } },
     k: { ent: { t: 'chest', id: 'lighthouse0.keyB', item: 'smallKey', appear: { flag: 'lighthouse.orca' } } },
   },
 }
@@ -177,8 +184,9 @@ export const LIGHTHOUSE0: MapDef = {
 // FLOOR 2: the Quarters and the Oil Store
 // ---------------------------------------------------------------------------
 
-// Rotten boards down the middle (a way across at rows 5 and 6): a beam crosses them; the lamp is refused on one. West
-// of them the receiver that lights the room. The heart's receiver stands in the south-east corner behind a board and a
+// Rotten boards down the middle (a way across at rows 5 and 6): a beam crosses them; the lamp is refused on one. The
+// receiver that lights the room is set in the west wall at the end of a run of boards (row 3), so no lamp can stand
+// beside it: the beam comes to it from east of the boards. The keeper's bed lies past them. The heart's receiver stands in the south-east corner behind a board and a
 // pillar: only a beam sent down from the nook at (14,8) reaches it, and a lamp set in the nook shines the way its hero
 // faced, east into the wall, so the mirror goes into the nook (pushed east along row 8), is turned, and the lamp is
 // set west of it on that row.
@@ -186,7 +194,7 @@ const QUARTERS = [
   '################',
   '#.nn..#......#h#',
   '#.....#....d.#N#',
-  '#u....O........#',
+  'uOOOOOO........#',
   '#...d.O........#',
   '#..............L',
   '#..............L',
@@ -231,7 +239,11 @@ export const LIGHTHOUSE2: MapDef = {
       lit: 'lighthouse.quarters',
       events: [{ lines: ['(THE BED IS MADE. THE PILLOW IS WARM. NOBODY IS HOME.)'], set: 'lighthouse.quarters.met' }],
     },
-    '1,0': { name: 'THE OIL STORE', dark: true },
+    '1,0': {
+      name: 'THE OIL STORE',
+      dark: true,
+      events: [{ when: { notFlag: 'lighthouse.hound' }, lines: ['(TWO EYES WATCH FROM THE DARK. THEY BLINK WHEN YOU DO.)'], set: 'lighthouse.hound.met' }],
+    },
   },
   rows: joinCells([[QUARTERS, OIL_STORE]]),
   marks: {
@@ -243,9 +255,10 @@ export const LIGHTHOUSE2: MapDef = {
     N: { tile: 'X', ent: { t: 'gate', open: { flag: 'lighthouse.heart' } } },
     h: { ent: { t: 'chest', id: 'lighthouse2.heart', item: 'heartPiece' } },
     d: { ent: { t: 'enemy', kind: 'bat' } },
-    // The Oil Store: the gate shuts behind the hero while the hound lives; its fall gives the Big Key and opens the stair.
+    // The Oil Store: the gate shuts behind the hero while the dark hound lives (`DARK_HOUND`); its fall gives the Big Key
+    // and opens the stair.
     g: { tile: 'X', ent: { t: 'gate', trap: true } },
-    z: { ent: { t: 'enemy', kind: 'hound', tough: true, once: 'lighthouse.hound', dir: 'left' } },
+    z: { ent: { t: 'enemy', kind: 'hound', tough: true, dark: true, once: 'lighthouse.hound', dir: 'left' } },
     k: { ent: { t: 'chest', id: 'lighthouse2.bigkey', item: 'bigKey', big: true, appear: { flag: 'lighthouse.hound' } } },
     G: { tile: 'X', ent: { t: 'gate', open: { flag: 'lighthouse.hound' } } },
     v: { tile: '>', ent: { t: 'warp', to: 'lighthouse3', entry: 'up' } },
@@ -257,21 +270,23 @@ export const LIGHTHOUSE2: MapDef = {
 // FLOOR 3: the Gallery and the Lamp Room
 // ---------------------------------------------------------------------------
 
-// A walkway two tiles wide round a block of wall: a lamp is a solid thing and never closes it. Three mirrors on the
-// inner corners (the blade turns them), the receiver by the stair, and a gate in front of the Big-Key door that opens
-// on it. Two draugs walk the ring.
+// A walkway two tiles wide round a block of wall: a lamp is a solid thing and never closes it. Three mirrors on three
+// corners (the blade turns them), the receiver in the west wall behind the third, and a gate in front of the Big-Key
+// door that opens on it. No lamp can shine into the receiver itself: the only way in is south down the west side, turned
+// by the mirror before it (the pillar closes the way up from below). The long way is up the east side, west along the
+// north and down. Two draugs walk the ring.
 const GALLERY = [
   '################',
   '#.....s........#',
-  '#.ν..........μ.#',
+  '#ν...........μ.#',
   '#..##########..#',
   '#..##########..#',
   '#..##########.GK',
   '#..##########.XK',
   '#..##########..#',
   '#..##########..#',
-  '#..ρ.........ν.#',
-  '#.@........s...#',
+  'ρν.............#',
+  '#I@........s...#',
   '#VV#############',
 ]
 

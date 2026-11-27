@@ -134,7 +134,8 @@ export const YULEFJORD: MapDef = {
     boathouse(12, 21),
     boathouse(19, 21),
     prop('fjord_church', 51.5, 32.05, { cover: { x: 49, y: 30, w: 5, h: 4 }, shadow: { tall: 2, wide: 1.15, deep: 1.1 }, lights: [light('gold', 2.2, 0.55, { z: 0.6, dy: 2.25 })] }),
-    prop('fjord_lighthouse', 4.5, 30.5, { night: 'fjord_lighthouse_lens', cover: { x: 3, y: 29, w: 3, h: 3 }, motion: cycle(4, 1), lights: [light('cream', 6.5, 0.8, { z: 2.6, anim: 'sweep' }), light('amber', 2.2, 0.6, { z: 0.5, dy: 1.8 })] }),
+    // (Stood south of its footprint's middle, so that its painted door is at the door tile (4, 31) one walks into.)
+    prop('fjord_lighthouse', 4.5, 31.15, { night: 'fjord_lighthouse_lens', cover: { x: 3, y: 29, w: 3, h: 3 }, motion: cycle(4, 1), lights: [light('cream', 6.5, 0.8, { z: 2.6, anim: 'sweep' }), light('amber', 2.2, 0.6, { z: 0.5, dy: 1.8 })] }),
     // The warden's fire on the green; the rest stop where the two roads meet.
     prop('campfire', 38.5, 32.5, { motion: cycle(3, 6), light: { r: 2.6, tone: 'gold', a: 0.7 }, ...at(38, 32) }),
     prop('camp_log', 37.6, 33.2),

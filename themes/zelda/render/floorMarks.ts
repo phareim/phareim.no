@@ -8,6 +8,7 @@ import type { GameState, World } from '../types'
 import { TILE } from '../types'
 import { cellIndex, mapInfo } from '../engine/map'
 import { stencilsOf, type Stencil } from '../engine/stencils'
+import { drawLanes, drawStrip } from './lighthouse'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -21,6 +22,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
   const info = mapInfo(world, s.map.id)
   const m = s.map
   const dungeon = info.def.kind === 'dungeon'
+  drawLanes(g, world, s, cx, cy)
   for (const i of info.stands) {
     const x = i % m.w
     const y = Math.floor(i / m.w)
@@ -38,7 +40,8 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
         g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
         g.clip()
       }
-      lane(g, st, cx, cy, time, reduced)
+      if (st.t === 'lane') lane(g, st, cx, cy, time, reduced)
+      else drawStrip(g, st, cx, cy, time, reduced)
       g.restore()
     }
   }
@@ -46,7 +49,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
 }
 
 /** A lane (they run along an axis): a wash that deepens as the tell runs out, a hard edge, chevrons down it. */
-function lane(g: G, st: Stencil, cx: number, cy: number, time: number, reduced: boolean) {
+function lane(g: G, st: Extract<Stencil, { t: 'lane' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const len = Math.hypot(st.x1 - st.x0, st.y1 - st.y0)
   const flat = Math.abs(st.x1 - st.x0) >= Math.abs(st.y1 - st.y0)
   const way = Math.sign(flat ? st.x1 - st.x0 : st.y1 - st.y0) || 1

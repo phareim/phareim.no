@@ -11,6 +11,8 @@ export { STATS } from './spawn'
 // The echo (`echo.ts`), and what the floor is stencilled with.
 export { echoMayStand, echoAim, ECHO_R } from './echo'
 export { stencilsOf, type Stencil } from './stencils'
+// The storm lamp (`lamp.ts`): its beam on a foe, and whether a dark hound is unseen.
+export { inLampBeam, unseen } from './lamp'
 // The side view's numbers (the lab measures them).
 export { SIDE, type SideHero } from './side'
 // Test hooks: the play-through test kills bosses directly.

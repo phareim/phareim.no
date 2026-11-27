@@ -1,9 +1,9 @@
-// Neon Shrine, THE LIGHTHOUSE (docs/games/neon-shrine-lighthouse.md): Yule Fjord's tower and the storm lamp. Part one holds
-// three of the file's four tests: the map and its keys (and the door in the land), the lamp never saved, and the walk
+// Neon Shrine, THE LIGHTHOUSE (docs/games/neon-shrine-lighthouse.md): Yule Fjord's tower and the storm lamp. Three of
+// the file's four tests are here: the map and its keys (and the door in the land), the lamp never saved, and the walk
 // from the door in Yule Fjord to the Lamp Room's inside, played by a scripted hero with the blade and the lamp: every
-// room, both small keys, the Big Key, the lamp in all four puzzle rooms (its beam on a hound, too), the two stand-in
-// hounds fought, and a save made halfway and loaded as a reloaded tab would be. Parts two and three put the real Orca,
-// the dark hound and the Box into this same walk.
+// room, both small keys, the Big Key, the lamp in all four puzzle rooms, ORCA and the dark hound fought (the lamp's
+// beam stunning each, then the blade), and a save made halfway and loaded as a reloaded tab would be. Part three puts
+// the Black Box into this same walk.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -124,7 +124,7 @@ describe('the Lighthouse', () => {
   })
 
   // ---- (1), the first half: from the door to the Lamp Room -------------------------------------------------------
-  it('goes from the door in Yule Fjord to the Lamp Room, with the blade and the lamp: both keys, the Big Key, two hounds, a reload on the way', () => {
+  it('goes from the door in Yule Fjord to the Lamp Room, with the blade and the lamp: both keys, the Big Key, ORCA and the dark hound, a reload on the way', () => {
     const tile = (s, x, y) => s.map.tiles[y * s.map.w + x]
     const step = (s, i = inp()) => Z.stepGame(Z.WORLD, s, 1 / FPS, i)
     const run = (s, n, i = inp()) => { for (let k = 0; k < n; k++) { s.hero.invuln = Math.max(s.hero.invuln, 0.2); step(s, i) } }
@@ -229,18 +229,28 @@ describe('the Lighthouse', () => {
     P.step(s, inp({ bPress: true }))
     assert.equal(s.lamp, null, 'B beside the lamp takes it up')
 
-    // The Flooded Cellar: a hound where Orca will be. The gate shuts behind the hero; the dancer wins.
+    // The Flooded Cellar: ORCA. Its card is read, the gate shuts behind the hero; the lamp across its drag stops it in
+    // the light, and the blade does the rest while its oar is planted.
     P.walkTo(s, 3, 5)
     press(s, 'right', 100)
     through(s, () => s.zoneIndex === 1, 'right')
+    wait(s, 0.1)
+    assert.ok(s.flags['lighthouse.orca.met'] && s.mode === 'dialog', 'its card on the way in')
+    P.settle(s)
     P.walkTo(s, 18, 5)
     wait(s, 0.3)
     assert.equal(tile(s, 16, 5), 'X', 'shut in')
-    const hound = s.map.enemies.find(e => e.kind === 'hound' && e.cell === 1)
-    assert.ok(hound && hound.tough && hound.once === 'lighthouse.orca')
-    const fought = dance(s, hound, { x: 24, y: 6 }, 60)
-    assert.ok(fought.won, `the Flooded Cellar's hound: ${hound.hp} left after ${fought.seconds.toFixed(1)} s, ${fought.hurts} blows taken`)
+    const orca = s.map.enemies.find(e => e.kind === 'orca' && e.cell === 1)
+    assert.ok(orca && orca.once === 'lighthouse.orca')
+    const lit = duel(s, orca, 60, { lamp: true, until: () => orca.stun > 0 })
+    assert.ok(orca.stun > 0 && Z.bossOpen(orca) && orca.hp < 10, `the beam across the lane stops the drag and opens it (${lit.seconds.toFixed(1)} s)`)
+    assert.equal(Z.stencilsOf(orca).length, 0, 'and its strike is off the floor')
+    const fought = duel(s, orca, 60)
+    assert.ok(orca.dead, `ORCA: ${orca.hp} left after ${fought.seconds.toFixed(1)} s, ${fought.hurts} blows taken`)
     assert.ok(s.flags['lighthouse.orca'])
+    wait(s, 0.2)
+    P.settle(s)
+    assert.ok(s.flags['lighthouse.orca.fell'], 'the line as it falls')
     wait(s, 0.5)
     assert.equal(tile(s, 29, 9), '$', 'the chest of key B shows')
     open(s, 29, 8, 'down')
@@ -320,24 +330,22 @@ describe('the Lighthouse', () => {
     assert.equal(s.inv.keyrings.lighthouse, 0, 'the Quarters\' lock takes the second key')
     assert.equal(tile(s, 15, 5), '.')
 
-    // The Oil Store: the gate shuts behind the hero and the hound is fought, the lamp's beam on it first.
+    // The Oil Store: the dark hound, two eyes until the beam finds it. The gate shuts behind the hero.
     P.walkTo(s, 17, 6)
     through(s, () => s.zoneIndex === 1, 'right')
+    wait(s, 0.1)
+    assert.ok(s.flags['lighthouse.hound.met'], 'the room\'s line, read on the way in')
     P.walkTo(s, 17, 6)
-    const hound2 = s.map.enemies.find(e => e.kind === 'hound' && e.cell === 1)
-    assert.ok(hound2 && hound2.tough && hound2.once === 'lighthouse.hound')
+    const hound = s.map.enemies.find(e => e.kind === 'hound' && e.cell === 1)
+    assert.ok(hound && hound.tough && hound.dark && hound.once === 'lighthouse.hound')
     wait(s, 0.2)
     assert.equal(tile(s, 16, 5), 'X', 'shut in')
-    const hp0 = hound2.hp
-    lamp(s, 'right', 0)
-    let opened = false
-    for (let k = 0; k < 40 && !opened; k++) { run(s, 1); opened = Z.toughOpen(hound2) }
-    assert.ok(opened && hound2.hp < hp0, 'the beam stuns the hound (gold bar) and burns it, without the blade')
-    // The lamp back in the hand, and the fight is the blade's.
-    P.step(s, inp({ bPress: true }))
-    assert.equal(s.lamp, null)
-    const fought2 = dance(s, hound2, { x: 24, y: 6 }, 60)
-    assert.ok(fought2.won, `the Oil Store's hound: ${hound2.hp} left after ${fought2.seconds.toFixed(1)} s, ${fought2.hurts} blows taken`)
+    const dark = Z.mapInfo(Z.WORLD, 'lighthouse2')
+    assert.ok(Z.unseen(s, dark, hound), 'in the dark there is nothing of it but its eyes')
+    const found = duel(s, hound, 60, { lamp: true, until: () => hound.stun > 0 })
+    assert.ok(Z.toughOpen(hound) && hound.hp < 10 && !Z.unseen(s, dark, hound), `the beam shows it, stuns it and burns it (${found.seconds.toFixed(1)} s)`)
+    const fought2 = duel(s, hound, 60)
+    assert.ok(hound.dead, `the dark hound: ${hound.hp} left after ${fought2.seconds.toFixed(1)} s, ${fought2.hurts} blows taken`)
     wait(s, 0.5)
     assert.equal(tile(s, 26, 9), '$', 'the Big Key shows')
     assert.equal(tile(s, 23, 2), '.', 'the gate over the stair is open')
@@ -346,19 +354,24 @@ describe('the Lighthouse', () => {
     P.walkTo(s, 23, 3)
     through(s, () => s.map.id === 'lighthouse3', 'up')
 
-    // The Gallery: dark, two draugs on the ring. Three mirrors turned, the lamp by the stair, the beam goes round the tower.
+    // The Gallery: dark, two draugs on the ring. Three mirrors turned, the lamp up the east side, the beam goes round the
+    // tower into the receiver in the west wall.
     assert.equal(s.zoneIndex, 0)
     assert.equal(s.map.enemies.filter(e => e.cell === 0 && e.kind === 'skull').length, 2)
     P.killCell(s)
-    open(s, 2, 3, 'up')
-    assert.equal(tile(s, 2, 2), 'μ')
-    open(s, 13, 1, 'down')
+    P.walkTo(s, 1, 6)
+    lamp(s, 'down', 40)
+    assert.ok(s.lamp && !s.flags['lighthouse.gallery'], 'the lamp near the receiver is not enough by itself')
+    step(s, inp({ bPress: true }))
+    open(s, 1, 3, 'up')
+    assert.equal(tile(s, 1, 2), 'μ')
+    open(s, 13, 3, 'up')
     assert.equal(tile(s, 13, 2), 'ν')
-    open(s, 13, 8, 'down')
-    assert.equal(tile(s, 13, 9), 'μ')
-    P.walkTo(s, 2, 10)
+    open(s, 1, 8, 'down')
+    assert.equal(tile(s, 1, 9), 'μ')
+    P.walkTo(s, 13, 10)
     lamp(s, 'up', 80)
-    assert.ok(s.flags['lighthouse.gallery'], 'the beam goes up, east, down and west to the receiver by the stair')
+    assert.ok(s.flags['lighthouse.gallery'], 'the beam goes up, west, down and west to the receiver')
     wait(s, 1)
     assert.equal(tile(s, 14, 5), '.', 'the gate before the Big-Key door is open')
     P.walkTo(s, 14, 5)
@@ -379,44 +392,78 @@ describe('the Lighthouse', () => {
 // ---- the scripted hero -----------------------------------------------------------------------------------------
 
 /**
- * Plays a tough hound's fight on what a player can see: keeps three to four tiles off; when the lunge comes rolls off its
- * line a tenth of a second later, toward `center`; while the foe is open (the gold bar) runs in and cuts, and leaves after
- * 0.65 s of it. As `tests/zelda-tough.test.mjs`' dancer, in a real room; the hero has ten hearts, and every blow is counted.
+ * Plays ORCA's fight or the dark hound's on what a player can see: the strips on the floor, the gold bar and where the
+ * foe (or its eyes) is. A strip with him in it, he steps out of it sideways after a quarter of a second; open, he runs
+ * in and cuts; else he keeps three to four tiles off. With `lamp`, he also sets it: ORCA's as it announces a drag, to
+ * shine across the lane; the hound's, in line with it, to shine at it. Every blow taken is counted.
  */
-function dance(s, e, center, seconds) {
-  const toward = (k = 1) => unit(e.x - s.hero.x, e.y - s.hero.y, k)
-  const away = (k = 1) => unit(s.hero.x - e.x, s.hero.y - e.y, k)
-  const inReach = () => gap(s.hero, e) < Z.SWORD_REACH + e.r - 0.15
-  const mem = {}
+function duel(s, e, seconds, { lamp = false, until = () => false } = {}) {
+  const mem = { seen: 0, laid: -999 }
   const policy = f => {
     const h = s.hero
     const d = gap(h, e)
-    const mode = e.ai.mode
-    if (mode === 'charge' || mode === 'lunge') {
-      let p = unit(-(Number(e.ai.vy) || 0), Number(e.ai.vx) || 0)
-      if (p.x * (center.x - h.x) + p.y * (center.y - h.y) < 0) p = { x: -p.x, y: -p.y }
-      if (mem.mode !== mode) { mem.mode = mode; mem.owed = !h.roll; mem.since = 0 }
-      if (h.roll) mem.owed = false
-      return inp({ move: p, rollPress: mem.owed && mem.since++ >= 6 })
+    const toward = (k = 1) => unit(e.x - h.x, e.y - h.y, k)
+    const away = (k = 1) => unit(h.x - e.x, h.y - e.y, k)
+    const open = e.kind === 'orca' ? Z.bossOpen(e) : Z.toughOpen(e)
+    const strip = Z.stencilsOf(e)[0]
+    mem.seen = strip ? mem.seen + 1 : 0
+    const out = mem.seen > 12 ? outOf(s, strip) : null
+    if (out) return inp({ move: out, rollPress: !h.roll && mem.seen > 26 })
+    if (lamp && e.kind === 'orca' && !s.lamp && strip && e.ai.mode === 'dragTell' && mem.seen > 12) {
+      const along = (h.x - strip.x0) * strip.ux + (h.y - strip.y0) * strip.uy
+      const across = (h.y - strip.y0) * strip.ux - (h.x - strip.x0) * strip.uy
+      if (along > 1.2 && along < strip.len + 0.5 && Math.abs(across) < 3.5) {
+        const x = strip.uy * Math.sign(across)
+        const y = -strip.ux * Math.sign(across)
+        h.dir = Math.abs(x) > 0.5 ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up'
+        return inp({ bPress: true })
+      }
     }
-    mem.mode = mode
-    mem.open = Z.toughOpen(e) ? (mem.open ?? 0) + 1 : 0
-    if (Z.toughOpen(e)) {
-      if (mem.open > 0.65 * FPS) return inp({ move: away(), rollPress: !h.roll && !h.swing && d < 2 })
-      if (!inReach()) return inp({ move: toward() })
-      return inp({ move: toward(0.05), aPress: f % 4 === 0, a: true })
+    if (strip) return inp()
+    if (open) return d < Z.SWORD_REACH + e.r - 0.15 ? inp({ move: toward(0.05), aPress: f % 4 === 0, a: true }) : inp({ move: toward() })
+    // (The lamp left out a while and of no use now: back to it, and take it up.)
+    if (s.lamp && f - mem.laid > 1.5 * FPS) {
+      const l = { x: (s.lamp.idx % s.map.w) + 0.5, y: Math.floor(s.lamp.idx / s.map.w) + 0.5 }
+      if (gap(h, l) > 1.5) return inp({ move: unit(l.x - h.x, l.y - h.y) })
+      mem.laid = f
+      return inp({ bPress: true })
     }
-    if (d < 3) return inp({ move: away() })
-    if (d > 4) return inp({ move: toward() })
+    if (lamp && e.kind === 'hound' && !s.lamp && d > 1.6 && d < 7) {
+      const flat = Math.abs(e.x - h.x) > Math.abs(e.y - h.y)
+      if (Math.abs(flat ? e.y - h.y : e.x - h.x) >= e.r - 0.15) return inp({ move: flat ? unit(0, e.y - h.y) : unit(e.x - h.x, 0) })
+      h.dir = flat ? (e.x < h.x ? 'left' : 'right') : e.y < h.y ? 'up' : 'down'
+      mem.laid = f
+      return inp({ bPress: true })
+    }
+    if (d < 3.1) return inp({ move: away() })
+    if (d > 4.2) return inp({ move: toward() })
     return inp({ move: toward(0.05) })
   }
   let hurts = 0
   let hp = s.hero.hp
   let f = 0
-  for (; f < seconds * FPS && !e.dead && s.mode === 'play'; f++) {
+  s.inv.selected = 'lamp'
+  for (; f < seconds * FPS && !e.dead && !until() && s.mode === 'play'; f++) {
+    const standing = !!s.lamp
     Z.stepGame(Z.WORLD, s, 1 / FPS, policy(f))
+    if (s.lamp && !standing) mem.laid = f
     if (s.hero.hp < hp) hurts++
     hp = s.hero.hp
   }
-  return { won: e.dead, seconds: f / FPS, hurts }
+  return { seconds: f / FPS, hurts }
+}
+
+/** The way out of a strip: sideways from its middle line to whichever side has floor, else along it. Null when clear. */
+function outOf(s, st) {
+  const h = s.hero
+  const along = (h.x - st.x0) * st.ux + (h.y - st.y0) * st.uy
+  const across = (h.y - st.y0) * st.ux - (h.x - st.x0) * st.uy
+  if (along < -0.35 || along > st.len + 0.35 || Math.abs(across) > st.w / 2 + 0.35) return null
+  const side = across >= 0 ? 1 : -1
+  for (const k of [side, -side]) {
+    const way = { x: -st.uy * k, y: st.ux * k }
+    const need = st.w / 2 + 0.35 - across * k
+    if (!Z.circleBlocked(Z.WORLD, s.map, h.x + way.x * need, h.y + way.y * need, 0.34)) return way
+  }
+  return along > st.len / 2 ? { x: st.ux, y: st.uy } : { x: -st.ux, y: -st.uy }
 }
