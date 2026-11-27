@@ -8,7 +8,7 @@ import type { GameState, World } from '../types'
 import { TILE } from '../types'
 import { cellIndex, mapInfo, solidTile } from '../engine/map'
 import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
-import { laneOf, throwerLanes } from '../engine/gifts'
+import { flightLane, throwerLanes } from '../engine/gifts'
 import { drawLanes, drawStrip } from './lighthouse'
 import { drawPads, drawShape } from './examination'
 
@@ -39,13 +39,14 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
     stand(g, x * T - cx, y * T - cy, m.tiles[l.idx] !== l.tile, time, reduced)
   }
   const marks: Stencil[] = []
+  const lw = { w: world, s }
   for (const e of m.enemies) {
     if (e.dead || (dungeon && e.cell !== s.zoneIndex)) continue
-    marks.push(...stencilsOf(e))
+    marks.push(...stencilsOf(e, lw))
   }
   // The Steamhouse's gifts: the throws being told, and the way still ahead of each one in the air.
-  marks.push(...throwerLanes(s))
-  for (const p of m.projectiles) if (p.kind === 'gift' && p.to) marks.push(laneOf(p.x, p.y, p.to, 0))
+  marks.push(...throwerLanes(lw))
+  for (const p of m.projectiles) if (p.kind === 'gift') marks.push(flightLane(p, lw))
   for (const st of marks) {
     g.save()
     // Never up the walls: the room's floor only.

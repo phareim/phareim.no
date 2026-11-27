@@ -94,6 +94,8 @@ function sayYes(c: Ctx, n: Npc) {
 export function startBath(c: Ctx) {
   const s = c.s
   const h = s.hero
+  // A bath from the Best Room starts the fight again, but the way back is the short one: the lobby's north gate opens.
+  if (s.map.id === 'steamsuite') setFlag(s, 'steamhouse.back')
   s.mode = 'warp'
   s.warp = { t: 0, to: 'steamhouse', entry: 'baths', swapped: false, white: true }
   h.swing = null

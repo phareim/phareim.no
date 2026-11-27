@@ -10,6 +10,7 @@ import { PARROT, type ParrotMove, type Reciter } from './parrot'
 import { angleDiff, dirVec } from './util'
 import { sycophantLanes } from './bossSycophant'
 import { golemStencils } from './bossGolem'
+import type { LaneWorld } from './gifts'
 
 export type StencilShape =
   /** A lane from (x0, y0) to (x1, y1) along `a`, `w` tiles wide, and `cap` tiles on past each end. */
@@ -83,9 +84,9 @@ export function moveStencil(e: Enemy, p: Reciter): StencilShape | null {
 const unit = (k: number) => Math.max(0, Math.min(1, k))
 
 /** The stencils a foe shows now. */
-export function stencilsOf(e: Enemy): Stencil[] {
+export function stencilsOf(e: Enemy, lw?: LaneWorld): Stencil[] {
   if (e.dead) return []
-  if (e.kind === 'sycophant') return sycophantLanes(e)
+  if (e.kind === 'sycophant') return sycophantLanes(e, lw)
   if (e.kind === 'golem') return golemStencils(e)
   const out: Stencil[] = []
   // How far a tell of `whole` s has run, 0 to 1.

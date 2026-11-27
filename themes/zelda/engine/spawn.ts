@@ -68,5 +68,5 @@ export function resetEnemy(e: Enemy) {
   e.knock = null
   e.flash = 0
   e.echoInvuln = 0
-  e.ai = { mode: 'idle', t: 0.4, tell: 0 }
+  e.ai = { mode: 'idle', t: e.first ?? 0.4, tell: 0 }
 }

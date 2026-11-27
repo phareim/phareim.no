@@ -13,6 +13,8 @@ let P
 before(async () => { Z = await load(); P = walker(Z) })
 
 const tile = (s, x, y) => s.map.tiles[y * s.map.w + x]
+/** A person is talked to only when no foe is awake within 8 tiles (else A swings): the foes near are out of the way. */
+const calm = s => { for (const e of s.map.enemies) if (Math.hypot(e.x - s.hero.x, e.y - s.hero.y) < 8) e.dead = true }
 
 /** A game standing at `entry` of `map` with the blade (and whatever `inv` adds). */
 function at(map, entry, inv = {}, flags = []) {
@@ -61,6 +63,7 @@ describe('Luna', () => {
     // Fetch her: talk, and she follows again.
     s.hero.x = 37.5; s.hero.y = 33.5
     P.walkTo(s, 37, 32)
+    calm(s)
     P.face(s, 'up')
     P.pressA(s)
     assert.ok(s.luna)
@@ -192,6 +195,7 @@ describe('full run through the Wildwood', () => {
     P.walkTo(s, 37, 36)
     P.swing(s, 'up')
     P.walkTo(s, 37, 32)
+    calm(s)
     P.face(s, 'up'); P.pressA(s)
     assert.ok(s.flags.luna && s.luna, 'Luna joined')
 
@@ -310,6 +314,7 @@ describe('full run through the Wildwood', () => {
     assert.deepEqual([tile(s, 52, 21), tile(s, 59, 21)], ['.', 'B'], 'the block Luna slid is still where she left it')
     assert.equal(Z.keyCount(s), 0, 'the lab\'s keys stayed in the lab')
     P.walkTo(s, 48, 37)
+    calm(s)
     P.face(s, 'up'); P.pressA(s)
     assert.ok(s.flags['got:toby:bits50'])
 

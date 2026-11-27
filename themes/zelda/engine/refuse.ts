@@ -43,7 +43,7 @@ export function stepRefuse(c: Ctx, dt: number) {
     : sw && sw.n === 0 && sw.t / swingDur(sw) >= WINDUP ? { a: sw.a ?? dirAngle(sw.dir), spin: false } : null
   const w = h.refuseWin
   if (live) {
-    if (!w && (h.refuseCool ?? 0) <= 0) { h.refuseWin = { ...live }; h.refuseCool = REFUSE.cool }
+    if (!w && (live.spin || (h.refuseCool ?? 0) <= 0)) { h.refuseWin = { ...live }; h.refuseCool = REFUSE.cool }
     else if (w) { w.a = live.a; w.spin = live.spin; delete w.tail }
   } else if (w) {
     w.tail = (w.tail ?? REFUSE.tail) - dt

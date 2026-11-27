@@ -11,7 +11,7 @@
  *
  * One call from `stepObjects` (`stepGifts`).
  */
-import type { Dir, GameState, GiftKind, Npc, Projectile, Vec } from '../types'
+import type { Dir, GameState, GiftKind, Npc, Projectile, Vec, World } from '../types'
 import { ARC_REACH, HERO_R, SPIN_REACH, SWORD_REACH, WINDUP } from '../types'
 import { type Ctx } from './combat'
 import { startBath } from './attendants'
@@ -27,8 +27,8 @@ export const GIFTS = {
   speed: 2.0,
   /** The lane painted for it, tiles wide. */
   width: 1.4,
-  /** A gift's own radius: with the hero's, how near it lands. */
-  touch: 0.5,
+  /** A gift's own radius: with the hero's, how near it lands. `2 * (touch + HERO_R)` is the lane's width, so the paint is what hurts. */
+  touch: 0.36,
   /**
    * Seconds out of the sleeve before it can land (it can be cut from the first): the Sycophant may hang beside the
    * hero when it offers, and a gift that left the sleeve already touching would be a YES nobody was asked.
@@ -59,8 +59,35 @@ export function launchGift(c: Ctx, x: number, y: number, to: Vec, kind: GiftKind
   c.ev.push({ type: 'toss', x, y })
 }
 
-/** A gift's lane on the floor: 1.4 tiles wide from where it is thrown to the spot aimed at; `k`, 0 to 1, how near. */
-export const laneOf = (x: number, y: number, to: Vec, k: number): Stencil => ({ t: 'ray', x0: x, y0: y, x1: to.x, y1: to.y, w: GIFTS.width, k })
+/** What `laneOf` needs to know where a gift bursts: the world and the state. */
+export type LaneWorld = { w: World; s: GameState }
+
+/** Where a gift thrown from (x, y) toward `to` bursts: at the first wall or at the room's wall, the lane's true end. */
+function laneEnd(lw: LaneWorld, x: number, y: number, to: Vec): Vec {
+  const d = Math.hypot(to.x - x, to.y - y)
+  const ux = d > 0.01 ? (to.x - x) / d : 0
+  const uy = d > 0.01 ? (to.y - y) / d : 1
+  const z = lw.s.zone
+  let u = 0
+  for (; u < 80; u += 0.05) {
+    const px = x + ux * (u + 0.05)
+    const py = y + uy * (u + 0.05)
+    if (px < z.x + 1 || py < z.y + 1 || px > z.x + z.w - 1 || py > z.y + z.h - 1 || solidTile(lw.w, lw.s.map, Math.floor(px), Math.floor(py), 'shot')) break
+  }
+  return { x: x + ux * u, y: y + uy * u }
+}
+
+/**
+ * A gift's lane on the floor: 1.4 tiles wide (what it lands on) from where it is thrown, straight on to the wall it
+ * bursts on; `k`, 0 to 1, how near. Without the world it ends at the spot aimed at.
+ */
+export const laneOf = (x: number, y: number, to: Vec, k: number, lw?: LaneWorld): Stencil => {
+  const end = lw ? laneEnd(lw, x, y, to) : to
+  return { t: 'ray', x0: x, y0: y, x1: end.x, y1: end.y, w: GIFTS.width, k }
+}
+
+/** The lane still ahead of a gift in the air. */
+export const flightLane = (p: Projectile, lw: LaneWorld): Stencil => laneOf(p.x, p.y, { x: p.x + p.vx, y: p.y + p.vy }, 0, lw)
 
 /** How near the hero a gift turns gold: a cut pressed now will meet it. */
 export const goldReach = (s: GameState) => (s.inv.arc ? ARC_REACH : SWORD_REACH) + GIFTS.reach + GIFTS.lead
@@ -90,8 +117,6 @@ export function stepGifts(c: Ctx, dt: number) {
     p.t += dt
     p.x += p.vx * dt
     p.y += p.vy * dt
-    // Past the spot it was aimed at, its lane is spent.
-    if (p.to && (p.to.x - p.x) * p.vx + (p.to.y - p.y) * p.vy <= 0) p.to = undefined
     const out = p.x < z.x + 1 || p.y < z.y + 1 || p.x > z.x + z.w - 1 || p.y > z.y + z.h - 1
     if (out || p.t > p.life || solidTile(c.w, m, Math.floor(p.x), Math.floor(p.y), 'shot')) {
       c.ev.push({ type: 'scraps', x: p.x - p.vx * 0.1, y: p.y - p.vy * 0.1, refused: false })
@@ -182,13 +207,14 @@ export const nextGift = (s: GameState, n: Npc): GiftKind =>
   GIFT_KINDS[(n.toss!.thrown * 2 + s.map.npcs.filter(o => o.toss).indexOf(n)) % GIFT_KINDS.length]!
 
 /** The lanes of the throws being told (the flying gifts' own lanes run from them to their spots). */
-export function throwerLanes(s: GameState): Stencil[] {
+export function throwerLanes(lw: LaneWorld): Stencil[] {
+  const s = lw.s
   const out: Stencil[] = []
   for (const n of s.map.npcs) {
     const t = n.toss
     if (!t || t.tell <= 0) continue
     const from = sleeveOf(n)
-    out.push(laneOf(from.x, from.y, { x: t.x, y: t.y }, 1 - t.tell / GIFTS.tell))
+    out.push(laneOf(from.x, from.y, { x: t.x, y: t.y }, 1 - t.tell / GIFTS.tell, lw))
   }
   return out
 }

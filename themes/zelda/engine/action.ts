@@ -96,7 +96,8 @@ function aThing(c: Ctx): AThing | null {
     if (br) return { do: 'luna', lines: br.lines, set: br.set }
   }
   // NPCs in front (also across a counter).
-  for (const n of s.map.npcs) {
+  // (Awake foes near, A is the blade for people too: the press swings, and THE NO's window opens.)
+  for (const n of calm ? s.map.npcs : []) {
     const near = Math.hypot(n.x - fx, n.y - fy) < 0.75
     const across = t === 'n' && Math.hypot(n.x - (h.x + v.x * 1.8), n.y - (h.y + v.y * 1.8)) < 0.8
     if (near || across) return { do: 'npc', npc: n, talk: hasWords(c, n.id) }
