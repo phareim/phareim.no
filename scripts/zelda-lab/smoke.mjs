@@ -49,7 +49,7 @@ const read = () => b.eval(`(() => {
   for (let i = 0; i < d.length; i += 4) if (d[i + 3]) colours.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
   return {
     paused,
-    page: paused ? ({ MOVES: 'items', MAP: 'moves', ITEMS: 'map' })[next] ?? '?' + next : null,
+    page: paused ? ({ MOVES: 'items', MAP: 'moves', LOG: 'map', ITEMS: 'log' })[next] ?? '?' + next : null,
     dress: game.classList.contains('px16'),
     view: localStorage.getItem('zelda.view'),
     away: !corner || corner.classList.contains('zelda-corner--away'),

@@ -38,7 +38,8 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | `themes/zelda/newsLinks.ts` | `NEWS_BASE` and `WRITING_URL`, apart, so the page's hidden index gets the addresses without the fetch code |
 | `themes/portal/Landing.vue` | The page: the shell, the first-move hint, the ending panel, the hidden link index |
 
-**Controls.** Arrows or WASD walk; Space, J, Z or Enter is A (talk, read,
+**Controls.** (The first keys; Neon Shrine's menu has a KEYS page that changes
+them, `docs/games/neon-shrine.md`.) Arrows or WASD walk; Space, J, Z or Enter is A (talk, read,
 use; with the blade, swing). K/X/Shift is B and Q swaps once there is an
 item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a

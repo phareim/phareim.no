@@ -3,6 +3,7 @@
  * keys, and where its buttons stand (`LogPageButtons.vue`). `Zelda.vue` makes one.
  */
 import { shallowRef } from 'vue'
+import { codesOf } from './bindings'
 import { CHANGE_LOG } from './changes.gen'
 import type { LogTargets } from './render/renderer'
 
@@ -15,8 +16,12 @@ export interface LogShellHooks {
   toggleDev(): void
 }
 
-/** Down, right and S show older changes; up, left and W newer. (D is the switch.) */
-const TURNS: Record<string, 1 | -1> = { ArrowDown: 1, ArrowRight: 1, KeyS: 1, ArrowUp: -1, ArrowLeft: -1, KeyW: -1 }
+/** Down, right and walk-down show older changes; up, left and walk-up newer. (D is the switch, whatever walks.) */
+function turnOf(code: string): 1 | -1 | undefined {
+  if (code === 'ArrowDown' || code === 'ArrowRight' || codesOf('walkDown').has(code)) return 1
+  if (code === 'ArrowUp' || code === 'ArrowLeft' || codesOf('walkUp').has(code)) return -1
+  return undefined
+}
 
 export function createLogShell(o: LogShellHooks) {
   /** The page asked for, 0 the newest, and how many there were at the last paint. */
@@ -43,8 +48,9 @@ export function createLogShell(o: LogShellHooks) {
     newer: () => turn(-1),
     /** The page's own keys, while the menu is open on it. */
     key(e: KeyboardEvent): boolean {
-      const by = TURNS[e.code]
-      if (!by && e.code !== 'KeyD') return false
+      const dev = e.code === 'KeyD'
+      const by = dev ? undefined : turnOf(e.code)
+      if (!by && !dev) return false
       e.preventDefault()
       if (e.repeat) return true
       if (by) turn(by)

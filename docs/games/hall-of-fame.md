@@ -123,7 +123,10 @@ and `POST /api/save { playerId, game, data?, savedAt, best?, won? }` are the
 adventure save slots (2026-09-23, migration `0005_game_saves.sql`, games in
 `SAVE_GAMES` — Neon Shrine, Another Shore, Night of the Dead Battery, Mini World and Lag Din Figur): opaque JSON up to the game's `maxBytes`, newest `savedAt`
 wins, `data: null` clears, `best` keeps the lowest (60 s–100 h, else
-ignored), `won` counts a clear; 404 unknown player.
+ignored), `won` counts a clear; 404 unknown player. One slot is no adventure:
+`zelda.keys` (`hidden: true`, 2 KB) holds the keys a player chose in Neon Shrine
+(`themes/zelda/keysStore.ts`); the Hangar does not list it, and NEW GAME, which
+clears the `zelda` slot, leaves it.
 There is no auth and no rate limit: a determined person
 can post any number under the cap, and a wipe is `DELETE FROM scores`.
 

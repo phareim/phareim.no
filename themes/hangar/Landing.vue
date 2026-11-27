@@ -49,7 +49,7 @@
 
           <p class="hg-label hg-label--rule">ADVENTURES</p>
           <ol v-if="status === 'ready'" class="hg-scores">
-            <li v-for="g in SAVE_GAMES" :key="g.id" class="hg-row">
+            <li v-for="g in ADVENTURES" :key="g.id" class="hg-row">
               <span class="hg-row-key">{{ g.title.toUpperCase() }}</span>
               <span class="hg-row-val" :class="{ 'hg-row-val--none': !saves[g.id] }">{{ questLine(g.id) }}</span>
             </li>
@@ -72,6 +72,9 @@ import { SOLVE_COUNT, summarizeBatteryRaw } from '~/themes/battery/progress'
 /** The hangar's horizon backdrop is its own chunk (2026-09-30). */
 const Horizon = defineAsyncComponent(() => import('./Horizon.vue'))
 
+/** The save slots that are adventures. */
+const ADVENTURES = SAVE_GAMES.filter(g => !g.hidden)
+
 const { hint } = useInputMode()
 const { player, avatar, fetchBoards } = useLeaderboard()
 const { bests, distinctGames, saves, avatarFull, loadProfile } = useShip()
@@ -82,7 +85,7 @@ const pic = computed(() => avatarFull.value ?? avatar.value)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 
 /** Adventure slots that have been started at all (any state past NOT STARTED). */
-const startedAdventures = computed(() => SAVE_GAMES.filter(g => questLine(g.id) !== 'NOT STARTED').length)
+const startedAdventures = computed(() => ADVENTURES.filter(g => questLine(g.id) !== 'NOT STARTED').length)
 
 /**
  * The adventure row: the quest in progress, else the best finish, else

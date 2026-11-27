@@ -16,8 +16,8 @@
 import { B_ITEMS, B_WORDS, WEIGHTS, type GameState, type Inventory, type UseItem } from '../types'
 import { hasBigKey, hasWeight, keyCount } from '../engine/map'
 import { objective } from '../progress'
-import type { HudKeys } from '../keys'
-import { drawMenuTabs, hudFont, menuTabsBox, menuTabsY, type HudFont, type HudSkin } from './hud'
+import { KEYBOARD_KEYS, type HudKeys, type MenuKeys } from '../keys'
+import { drawMenuTabs, hudFont, menuTabsBox, menuTabsY, type HudFont, type HudSkin, type TabKeys } from './hud'
 import { Buf, CORNER_SKIN, type CornerPicture } from './corner'
 import { MARK_INKS, type Box } from './worldMap'
 import { PAGE_VEIL, pageBottom } from './mapPage'
@@ -118,13 +118,14 @@ export interface ItemsContent {
   hints: Array<Array<{ text: string; tone: 'dim' | 'cool' | 'hot' | 'prize' }>>
 }
 
-export function itemsPageContent(s: GameState, o: { muted?: boolean; view?: string } = {}): ItemsContent {
+export function itemsPageContent(s: GameState, o: { muted?: boolean; view?: string; names?: MenuKeys } = {}): ItemsContent {
+  const names = o.names ?? KEYBOARD_KEYS.menu
   const held = WEIGHTS.map(w => (hasWeight(s, w.id) ? `item_weight_${w.word.toLowerCase()}` : null))
   const menu: ItemsContent['hints'][number] = [
-    { text: 'T TOWN', tone: 'dim' },
-    { text: `O SOUND ${o.muted ? 'OFF' : 'ON'}`, tone: o.muted ? 'hot' : 'cool' },
+    { text: `${names.town} TOWN`, tone: 'dim' },
+    { text: `${names.sound} SOUND ${o.muted ? 'OFF' : 'ON'}`, tone: o.muted ? 'hot' : 'cool' },
   ]
-  if (o.view) menu.push({ text: `V VIEW ${o.view}`, tone: 'prize' })
+  if (o.view) menu.push({ text: `${names.view} VIEW ${o.view}`, tone: 'prize' })
   return {
     cells: sockets(s.inv),
     always: ALWAYS.filter(a => a.owned(s)).map(a => a.icon(s)),
@@ -148,6 +149,8 @@ export interface ItemsLayoutOpts {
   css: number
   /** Beside a keyboard: the hints at the bottom. */
   keys: boolean
+  /** The keys' names, for the tabs' widths (none: their first keys). */
+  tabKeys?: TabKeys
   /** The first y the page may not use, logical px: the top of the touch deck, or of the bottom safe band. */
   bottom: number
   safe?: { top?: number; left?: number; right?: number }
@@ -403,7 +406,7 @@ export function itemsPageLayout(vw: number, vh: number, o: ItemsLayoutOpts): Ite
     if (!force && (spare < 0 || gridW > pickW || (wide ? widest > restW : widest > across))) return null
 
     const out: ItemsLayout = {
-      wide, tabs: menuTabsBox(o.font, vw, first, o.keys),
+      wide, tabs: menuTabsBox(o.font, vw, first, o.tabKeys ?? o.keys),
       heading: null!, grid: null!, cells: [], line: null!,
       always: null, weights: null, carried: null, quest: null, last: null, gave: [],
     }
@@ -548,10 +551,11 @@ export function itemsPageFor(s: GameState, vw: number, vh: number, o: ItemsPageO
   const density = skin.density ?? 1
   const css = o.css ?? (density > 1 ? 2 : 1.5)
   const opts: ItemsLayoutOpts = {
-    content: itemsPageContent(s, o),
+    content: itemsPageContent(s, { muted: o.muted, view: o.view, names: o.keys.menu }),
     density,
     css,
     keys: !o.keys.touch,
+    tabKeys: o.keys,
     bottom: pageBottom(vh, o, css),
     safe: o.safe,
     font: hudFont(skin),

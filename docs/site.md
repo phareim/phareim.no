@@ -98,7 +98,7 @@ Two faces, the Neon Dreams split: `--font-person` (Space Grotesk at weight 300, 
 
 ## State
 
-The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the navigation lock (no state library). sessionStorage `portal.return` puts the portal's hero back where they left. localStorage holds per-game high scores, the browser's Hall of Fame player (`phareim.player`) and the bits wallet (`phareim.wallet`, shared by Neon Shrine and Mini World). Neon Shrine's hero wears the newest choice: the look chosen at the NEW LOOK stall on the square (`zelda.heroLook`, this browser only) until the made figure is changed after it, else the colours of Lag Din Figur's active figure (`figur.heroColors`), else Mini World's active person (`miniworld.heroColors`).
+The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the navigation lock (no state library). sessionStorage `portal.return` puts the portal's hero back where they left. localStorage holds per-game high scores, the browser's Hall of Fame player (`phareim.player`) and the bits wallet (`phareim.wallet`, shared by Neon Shrine and Mini World). Neon Shrine keeps the player's chosen keys in `zelda.keys` (also on the profile). Its hero wears the newest choice: the look chosen at the NEW LOOK stall on the square (`zelda.heroLook`, this browser only) until the made figure is changed after it, else the colours of Lag Din Figur's active figure (`figur.heroColors`), else Mini World's active person (`miniworld.heroColors`).
 
 ## Source layout
 

@@ -13,7 +13,7 @@
  * lays a button over each (`LogPageButtons.vue`). `drawLogPage` paints.
  */
 import type { HudKeys } from '../keys'
-import { drawMenuTabs, hudFont, menuTabsBox, menuTabsY, type HudFont, type HudSkin } from './hud'
+import { drawMenuTabs, hudFont, menuTabsBox, menuTabsY, type HudFont, type HudSkin, type TabKeys } from './hud'
 import { CORNER_SKIN } from './corner'
 import { MARK_INKS, type Box } from './worldMap'
 import { PAGE_VEIL, pageBottom } from './mapPage'
@@ -64,6 +64,8 @@ export interface LogLayoutOpts {
   css: number
   /** Beside a keyboard: the keys' line at the bottom. */
   keys: boolean
+  /** The keys' names, for the tabs' widths (none: their first keys). */
+  tabKeys?: TabKeys
   /** The first y the page may not use, logical px: the top of the touch deck, or of the bottom safe band. */
   bottom: number
   safe?: { top?: number; left?: number; right?: number }
@@ -170,7 +172,7 @@ export function logPageLayout(vw: number, vh: number, o: LogLayoutOpts): LogLayo
   const centred = (text: string, y: number) => label(F, text, mid(textW(F, text)), y)
   const side = Math.ceil(44 / o.css)
 
-  const tabs = menuTabsBox(F, vw, menuTabsY(vh, o.safe?.top), o.keys)
+  const tabs = menuTabsBox(F, vw, menuTabsY(vh, o.safe?.top), o.tabKeys ?? o.keys)
 
   // The head. On a short screen the name and the version share a row where they fit.
   let y = tabs.y + tabs.h + sp.under
@@ -291,7 +293,7 @@ export interface LogPageOpts {
 export function logPageFor(vw: number, vh: number, o: LogPageOpts, skin: HudSkin): LogLayout {
   const css = o.css ?? ((skin.density ?? 1) > 1 ? 2 : 1.5)
   return logPageLayout(vw, vh, {
-    log: o.log, dev: o.dev, page: o.page, css, keys: !o.keys.touch, bottom: pageBottom(vh, o, css), safe: o.safe, font: hudFont(skin),
+    log: o.log, dev: o.dev, page: o.page, css, keys: !o.keys.touch, tabKeys: o.keys, bottom: pageBottom(vh, o, css), safe: o.safe, font: hudFont(skin),
   })
 }
 

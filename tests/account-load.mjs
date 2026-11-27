@@ -43,7 +43,8 @@ function installGlobals(server) {
   server.getRequestURL = () => new URL('https://phareim.no/')
 }
 
-export async function loadRoutes() {
+/** `define`: esbuild's, e.g. `import.meta.dev` for the dev server's in-memory stores. */
+export async function loadRoutes({ define } = {}) {
   installGlobals(globalThis)
   const lines = utils.map(u => `export * as u_${u} from '~/server/utils/${u}'`)
   routeNames.forEach((n, i) => lines.push(`import r${i} from '~/server/api/${n}'; export { r${i} }`))
@@ -52,6 +53,7 @@ export async function loadRoutes() {
     stdin: { contents: lines.join('\n'), resolveDir: repo, loader: 'ts' },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
     plugins: [tilde],
+    define,
     // Nitro's auto-imports are globals: keep the bundle from resolving them.
   })
   // Auto-imports: every export of every util, by its plain name, before a route runs.

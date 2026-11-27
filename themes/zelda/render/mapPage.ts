@@ -20,7 +20,7 @@ import { cellDef, mapDef, mapInfo } from '../engine/map'
 import { charted, seenTile } from '../engine/explore'
 import { glyphRows } from '../../base/pixel/font'
 import { viewList } from '../views'
-import { drawMenuTabs, hudFont, menuTabsBox, type HudFont, type HudSkin } from './hud'
+import { drawMenuTabs, hudFont, menuTabsBox, type HudFont, type HudSkin, type TabKeys } from './hud'
 import {
   Buf, CAP_H, CAP_W, CORNER_SKIN, GEM_H, GEM_W, PLATE_H, STUB, chartProjection, cornerParts, hasGem, pinName,
   renderCorner, stampCap, stampChain, stampGem, stampPlate, sunPhase, RULE_TAGS, TURN_STEPS, type CornerPicture, type PinName,
@@ -214,8 +214,10 @@ export interface PageLayoutOpts {
   css: number
   /** The isometric chart; else the square one. */
   iso: boolean
-  /** Beside a keyboard: the last line, and the V cap by the gem. */
+  /** Beside a keyboard: the last line, and the view key's cap by the gem. */
   keys: boolean
+  /** The keys' names, for the tabs' widths and the cap (none: their first keys). */
+  tabKeys?: TabKeys & object
   /** The first y the page may not use, logical px: the top of the touch deck, or of the bottom safe band. */
   bottom: number
   safe?: { top?: number; left?: number; right?: number }
@@ -391,7 +393,8 @@ function chartBlock(o: PageLayoutOpts, z: number, maxRight: number): Chart & { b
   let chain: Box | null = null
   if (o.gem) {
     const text = o.pin ? `${o.pin} ONLY` : o.rule ? RULE_TAGS[o.rule] : o.iso ? 'ISO' : '8-BIT'
-    const key = o.keys && !o.pin
+    // (A cap holds one letter: a key with a longer name has none, and the plate stands where it did.)
+    const key = o.keys && !o.pin && (o.tabKeys?.menu?.view ?? 'V').length === 1
     const right = Math.min(maxRight, cx + (o.iso ? 7 : 6))
     gem = { x: right - GEM_W, y: cy - Math.floor(GEM_H / 2), w: GEM_W, h: GEM_H }
     if (o.iso) {
@@ -705,7 +708,7 @@ export function mapPageLayout(vw: number, vh: number, o: PageLayoutOpts, grid: G
     const finish = (y: number, h: ReturnType<NonNullable<ReturnType<typeof head>>['place']>, placed: Array<Partial<PageLayout>>, k: number, lastY: number): PageLayout => {
       const out: PageLayout = {
         wide,
-        tabs: menuTabsBox(o.font, vw, y, o.keys),
+        tabs: menuTabsBox(o.font, vw, y, o.tabKeys ?? o.keys),
         title: h.title,
         land: h.chart?.land ?? null,
         gem: h.chart?.gem ?? null,
@@ -861,7 +864,7 @@ export function mapPageLayout(vw: number, vh: number, o: PageLayoutOpts, grid: G
 
 function empty(o: PageLayoutOpts, vw: number, top: number): PageLayout {
   return {
-    wide: false, tabs: menuTabsBox(o.font, vw, top, o.keys), title: { x: 2, y: top + 14, w: 0, h: 0, name: { x: 2, y: top + 14 }, sub: null },
+    wide: false, tabs: menuTabsBox(o.font, vw, top, o.tabKeys ?? o.keys), title: { x: 2, y: top + 14, w: 0, h: 0, name: { x: 2, y: top + 14 }, sub: null },
     land: null, gem: null, gemHit: null, plate: null, cap: null, chain: null, stub: null, places: null, legend: null, world: null, last: null,
     gave: [...GIVE_WAY],
   }
@@ -1292,6 +1295,7 @@ export function mapPageFor(world: World, s: GameState, vw: number, vh: number, o
     css,
     iso: o.e >= 0.5,
     keys: !o.keys.touch,
+    tabKeys: o.keys,
     bottom: pageBottom(vh, o, css),
     safe: o.safe,
     font: hudFont(skin),
@@ -1337,7 +1341,7 @@ export function drawMapPage(g: G, world: World, s: GameState, vw: number, vh: nu
         p.plate.lines.forEach((line, i) => B.text(line, b.x + Math.floor((b.w - textWidthL(line)) / 2), b.y + 3 + i * (LINE + 1), WHITE))
       }
     }
-    if (p.cap) stampCap(B, 'V', here(p.cap))
+    if (p.cap) stampCap(B, o.keys.menu?.view ?? 'V', here(p.cap))
     blit(g, B, all.x - 1, all.y - 1, 1)
   }
   // The hero over the Prism too, where they stand under it.
