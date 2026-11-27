@@ -138,6 +138,8 @@ function buildInfo(def: MapDef): MapInfo {
     else if (e.t === 'pad') info.pads.push({ idx, dir: e.dir, cell })
     else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open, ...(e.latch ? { latch: e.latch } : {}) }) })
   }
+  // A trap gate is its own room's: one in the doorway beyond the rim, touching it, is another gate.
+  for (const g of info.gates) if (g.trap) g.tiles = g.tiles.filter(i => cellIndex(info, (i % w) + 0.5, Math.floor(i / w) + 0.5) === g.cell)
   // A trap gate is floor as authored: open on every load, and on the chart.
   for (const g of info.gates) if (g.trap) for (const i of g.tiles) base[i] = '.'
   // Exits, and the entry beside each one (after the entry markers, which win a name clash).

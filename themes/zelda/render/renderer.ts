@@ -33,6 +33,7 @@ import { copySprite, doubledSprite, echoSprite, frameCount, heroStyle, makeCanva
 import { drawFloorMarks } from './floorMarks'
 import { drawClock, drawRings, drawTurban } from './steamPaint'
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
+import { createChartRoom, type ChartKit } from './chartRoom'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -198,6 +199,8 @@ export interface Renderer {
   viewState(): { id: string; k: number; turn: number; turning: boolean; waiting: boolean; dark: boolean; dawn: boolean; failed: number }
   /** The page is done with the renderer: every view lets go of what it holds. */
   dispose(): void
+  /** A room's chart covers the world (`chartRoom.ts`): north is up on the screen, whatever the view. */
+  charted(): boolean
   /**
    * CSS px to one pixel of a fine HUD (a skin at two px to the classic px), on this screen and in this map.
    * The shell's HTML sizes its 16-bit dress by it, so its letters are as large as the canvas's. 0 where a
@@ -580,7 +583,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           fx.push(fxSprite('poof', 0.36, e.x, e.y, -0.1))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
           pulse(e.x, e.y, 3, '#ff2fa0', 0.2)
-          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral' || e.kind === 'parrot') {
+          if (e.kind === 'king' || e.kind === 'knight' || e.kind === 'mixtral' || e.kind === 'parrot' || e.kind === 'grok') {
             for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
@@ -1073,6 +1076,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           : e.ai.mode === 'recite' && e.ai.on && !e.ai.act ? 'parrot_tell' : `parrot_${f('parrot')}`
         return { name, flip: e.dir === 'right' }
       }
+      // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
+      case 'grok': {
+        const pose = ({ tell: 'ram', roll: 'roll', drill: 'drill', dazed: 'dazed' } as Record<string, string>)[e.ai.mode]
+        if (pose) return { name: `grok_${pose}`, flip: false }
+        return { name: `grok_${key}_${f(`grok_${key}`)}`, flip }
+      }
+      // Drawn up to dart; alight while it is open.
+      case 'phi': {
+        const lit = e.ai.mode === 'rest' || e.stun > 0
+        return { name: lit ? 'phi_lit' : e.ai.mode === 'tell' || e.ai.mode === 'dart' ? 'phi_eat' : `phi_down_${f('phi_down')}`, flip: false }
+      }
     }
   }
 
@@ -1165,6 +1179,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const open = bossOpen(e)
       lights.push({ x: e.x, y: e.y - 0.8, r: 3, color: open ? TOUGH_GOLD : e.ai.mode === 'recite' ? '#ff8ae0' : '#c4fbff', a: open ? 0.6 : 0.5 })
     }
+    // GROK carries a light of its own, as MIXTRAL does: pale, gold while it is open.
+    if (e.kind === 'grok') lights.push({ x: e.x, y: e.y - 0.3, r: 2.1, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: 0.65 })
     if (e.tough) {
       toughOutline(g, e, name, x + shiver(e), feet, flip, sx, sy)
       // A light of its outline's colour while it tells or is open, so dusk and night do not dull it.
@@ -1183,7 +1199,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     // (A tough one's stars and a boss's go with its bar, over its head as this view draws it: `foeBars`.)
     if (e.stun > 0 && !e.tough && !BIG.has(e.kind)) drawStars(g, x, feet - 16)
     // (A tough one tells by its outline.)
-    if (e.ai.tell > 0 && !e.tough && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek') {
+    // (GROK tells by its lane and its pose.)
+    if (e.ai.tell > 0 && !e.tough && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek' && e.kind !== 'grok') {
       g.fillStyle = '#ff2fa0'
       const top = feet - (e.kind === 'knight' ? 28 : 19)
       g.fillRect(Math.round(x), Math.round(top), 1, 4)
@@ -1243,7 +1260,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const at = place(e.x, foot, view.lift?.(e.x, foot - 0.01) ?? 0)
       const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' ? 2 : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
-      const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
+      const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
       const w = big ? Math.round(e.r * T) * 2 : 12
       const x = Math.round(at.x) - w / 2
@@ -1720,6 +1737,55 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     return hgFine
   }
 
+  // ---------------------------------------------------------------------------
+  // A room on its chart (`chartRoom.ts`)
+  // ---------------------------------------------------------------------------
+
+  const chartRoom = createChartRoom(world)
+
+  /** Draw something the classic way round, whatever the view on screen has said about its own (blade angles, a bare hero). */
+  function flatly(draw: () => void) {
+    const was = { aim, span, heroBare, facing }
+    aim = a => a
+    span = null
+    heroBare = false
+    facing = 0
+    draw()
+    ;({ aim, span, heroBare, facing } = was)
+  }
+
+  const chartKit: ChartKit = {
+    foe(g, s, e, cx, cy) {
+      // (Its picture's middle on its own: the figure stands in the lower half of its tile.)
+      if (!e.dead) put(g, enemySprite(e).name, e.x * T - cx, e.y * T - cy + 5, false, flashing(e))
+      else if (e.deathT !== undefined && e.deathT < DEATH_POP) flatly(() => drawDeathPop(g, s, e, cx, cy))
+    },
+    figures(g, s, cx, cy) {
+      const m = s.map
+      const lights: Light[] = []
+      for (const d of m.drops) {
+        if (d.life - d.t < 2 && Math.floor(time * 12) % 2 === 0) continue
+        const name = d.kind === 'heart' ? 'drop_heart' : d.kind === 'bit' ? 'bit_1' : d.kind === 'bit5' ? 'bit_5' : d.kind === 'bomb' ? 'drop_bomb' : 'drop_key'
+        put(g, name, d.x * T - cx, d.y * T - cy + 4 - d.z * T)
+      }
+      for (const b of m.bombs) put(g, `bomb_${Math.floor(time * (b.t > BOMB_FUSE - 0.6 ? 16 : 5)) % frameCount('bomb', 2)}`, b.x * T - cx, b.y * T - cy + 5)
+      for (const o of m.thrown) put(g, o.kind === 'rock' ? 'rock' : 'pot', o.x * T - cx, o.y * T - cy + 8 - o.z * T * 1.4)
+      flatly(() => {
+        if (s.echo) drawEcho(g, s, cx, cy, lights)
+        drawHero(g, s, cx, cy, lights)
+      })
+    },
+    effects(g, s, cx, cy) {
+      const place: Place = (x, y, z = 0) => ({ x: x * T - cx, y: (y - z) * T - cy })
+      flatly(() => {
+        drawHookChain(g, s, cx, cy, [])
+        projectiles(g, s, place)
+        // (The view under the page has moved the effects on already: here they are only drawn.)
+        drawFx(g, s, 0, place, true)
+      })
+    },
+  }
+
   /**
    * The HUD layer and the touch stick. (cx, cy) is the camera the exit labels
    * are placed by (px), `heroY` the hero's row on the scene (the dialog box
@@ -1727,6 +1793,19 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * `from`: see `Kit.hudLayer`.
    */
   function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
+    // A room on its chart lies over whichever view drew the world, and under the HUD.
+    if (!ui.attract && s.mode !== 'exit') {
+      const edge = (v: number) => Math.ceil(v * dpr)
+      const page = chartRoom.draw(screen, { w: W, h: H, top: edge(insets.top), bottom: edge(insets.bottom), left: edge(insets.left), right: edge(insets.right) }, chartKit, s, time, ui.reducedMotion, dt)
+      if (page) {
+        // The dialog box keeps clear of the hero where the page shows them, and a flash or a fade shows over it.
+        heroY = (page.heroY - Math.floor((H - vh * scale) / 2)) / scale
+        screen.save()
+        screen.setTransform(W / vw, 0, 0, H / vh, 0, 0)
+        flashFade(screen, s, ui, 0)
+        screen.restore()
+      }
+    }
     // The dialog box keeps the side it opened on: a turn of the view under it (the camera tipping, the hero's row moving
     // on the screen) never throws it from the bottom to the top in one frame.
     if (s.dialog) {
@@ -2620,6 +2699,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       for (const v of views.values()) try { v.dispose?.() } catch { /* nothing to be done */ }
       views.clear()
     },
+    charted: () => chartRoom.covering(),
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
     pagePrism: () => prismAt,
     itemCells: () => cellsAt,

@@ -147,13 +147,14 @@ function stroke(g: G, x0: number, y0: number, x1: number, y1: number, size: numb
   }
 }
 
-/** The latch line, from the hero's hand: to each piece on the move, and (2 px, dashed) to the bolt in flight. */
+/** The latch line, from the hero's hand: to each piece (and PHI) on the move, and (2 px, dashed) to the bolt in flight. */
 export function drawLatchLines(g: G, s: GameState, cx: number, cy: number, time: number, reduced: boolean, lights: Light[]) {
   const h = s.hero
   const hx = h.x * T - cx
   const hy = h.y * T - cy - 4
   g.fillStyle = CYAN
   for (const f of s.map.iron?.flights ?? []) stroke(g, hx, hy, f.x * T - cx, f.y * T - cy - 4, 1, 0, 0)
+  for (const e of s.map.enemies) if (!e.dead && e.kind === 'phi' && e.ai.mode === 'pulled') stroke(g, hx, hy, e.x * T - cx, e.y * T - cy, 1, 0, 0)
   const k = s.hook
   if (!k?.magnet) return
   const bx = k.x * T - cx

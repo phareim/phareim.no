@@ -5,7 +5,7 @@
  * - The aim is the stick's while it is held, else the way the hero faces. The target is the nearest metal inside
  *   `MAGNET.cone` either side of it, from `MAGNET.near` to `MAGNET.reach` tiles centre to centre, in the hero's own
  *   room, with no wall or shut gate on the line. For a bolt or a cart no other resting iron may be on the line either.
- *   Foes are never targets.
+ *   Foes are never targets, but for a PHI: gold is metal, and one is pulled to a tile before the hero, stunned.
  * - Resting iron is a tile (`world/tiles.ts`): solid to walkers and foes, open to shots and the blade's sight.
  * - Loose iron (`▣ ▤`) flies over pits and water and comes down on the last free floor tile of its line towards the
  *   hero, short of any iron on the way. A resting piece weighs on a plain plate.
@@ -16,7 +16,7 @@
  * - Iron off its home tile goes home when its room is entered again; smashed iron after `MAGNET.mend` s. None of it is
  *   saved: a map loads with its iron where it was written.
  */
-import type { GameState, Input, IronFlight, IronState, MapState, TileChar, Vec, World } from '../types'
+import type { Enemy, GameState, Input, IronFlight, IronState, MapState, TileChar, Vec, World } from '../types'
 import { HERO_R } from '../types'
 import { TILE_INFO, isBolt, isIron, isLoose, isRailed, isViewBlock } from '../world/tiles'
 import type { Ctx } from './combat'
@@ -48,6 +48,7 @@ export const MAGNET = {
 export type MagnetPlan =
   | { t: 'loose' | 'cart'; idx: number; x: number; y: number; to: number }
   | { t: 'bolt'; idx: number; x: number; y: number; to: Vec }
+  | { t: 'phi'; id: string; x: number; y: number; to: Vec }
 
 const iron = (m: MapState): IronState => (m.iron ??= { flights: [], away: {}, smashed: [], rest: 0 })
 const mid = (m: Pick<MapState, 'w'>, i: number): Vec => ({ x: (i % m.w) + 0.5, y: Math.floor(i / m.w) + 0.5 })
@@ -215,6 +216,18 @@ function cartLanding(world: World, s: GameState, from: number): number | null {
   return k === start ? null : rail.tiles[k]!
 }
 
+/** Where a pulled PHI would come down: a tile before the hero on its line, or the first spot further out it fits. */
+function phiLanding(world: World, s: GameState, e: Enemy): Vec | null {
+  const h = s.hero
+  const d = Math.hypot(e.x - h.x, e.y - h.y)
+  for (let out = MAGNET.land as number; out < d; out += 0.25) {
+    const x = h.x + ((e.x - h.x) / d) * out
+    const y = h.y + ((e.y - h.y) / d) * out
+    if (!circleBlocked(world, s.map, x, y, e.r, 'enemy')) return { x, y }
+  }
+  return null
+}
+
 /**
  * What a tap along `aim` (rad) would take: the nearest metal in the cone that has a clear line, and where it ends up.
  * Null when there is none, or when the nearest cannot move (the tap fizzles).
@@ -237,7 +250,23 @@ export function magnetPlan(world: World, s: GameState, aim: number): MagnetPlan 
       if (sees(world, m, h, i, !isLoose(t))) best = { idx: i, d, off }
     }
   }
+  // Gold is metal: a PHI nearer than that (or as near and truer to the aim), on a line clear of walls and iron.
+  let gold: Enemy | null = null
+  for (const e of m.enemies) {
+    if (e.kind !== 'phi' || e.dead || e.ai.mode === 'pulled' || e.cell !== s.zoneIndex) continue
+    const d = Math.hypot(e.x - h.x, e.y - h.y)
+    if (d < MAGNET.near - 1e-9 || d > MAGNET.reach + 1e-9) continue
+    const off = angleDiff(Math.atan2(e.y - h.y, e.x - h.x), aim)
+    if (off > MAGNET.cone + 1e-9 || (best && (d > best.d + 1e-6 || (d > best.d - 1e-6 && off >= best.off)))) continue
+    if (!line(m, h.x, h.y, e.x, e.y).every(i => !solidTile(world, m, i % m.w, Math.floor(i / m.w), 'shot') && !isIron(m.tiles[i]!))) continue
+    gold = e
+    best = { idx: -1, d, off }
+  }
   if (!best) return null
+  if (gold) {
+    const to = phiLanding(world, s, gold)
+    return to ? { t: 'phi', id: gold.id, x: gold.x, y: gold.y, to } : null
+  }
   const idx = best.idx
   const t = m.tiles[idx]!
   const at = mid(m, idx)
@@ -283,6 +312,15 @@ export function useMagnet(c: Ctx, inp: Input) {
     h.vy = 0
     // (From the first instant: the foes step before the pull does.)
     h.invuln = Math.max(h.invuln, 0.05)
+    return
+  }
+  if (plan.t === 'phi') {
+    // On the line: whatever it was about is over (`heapFoes.ts` flies it in).
+    const e = m.enemies.find(o => o.id === plan.id)!
+    Object.assign(e.ai, { mode: 'pulled', tell: 0, tx: plan.to.x, ty: plan.to.y, speed: MAGNET.loose })
+    e.stun = 0
+    e.stagger = 0
+    e.knock = null
     return
   }
   const ch = m.tiles[plan.idx]!

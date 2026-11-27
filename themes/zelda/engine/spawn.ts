@@ -23,6 +23,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   gemini: { hp: 8, r: 0.62, dmg: 2, flying: true },
   mixtral: { hp: 10, r: 0.8, dmg: 2 },
   parrot: { hp: 16, r: 0.9, dmg: 2 },
+  grok: { hp: 12, r: 0.5, dmg: 2 },
+  phi: { hp: 2, r: 0.4, dmg: 2 },
 }
 
 export function spawnEnemy(

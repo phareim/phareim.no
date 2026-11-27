@@ -462,6 +462,8 @@ export type EnemyKind =
   | 'gemini' // boss: one of the twins; both must fall close together
   | 'mixtral' // miniboss: stencils a lane and charges down it; open only while dazed against the wall
   | 'parrot' // boss: recites the hero's moves back, stencilled; open while it thinks, and to the echo at its back
+  | 'grok' // miniboss: rolls down a stencilled lane; open only while a wall or iron has it dazed
+  | 'phi' // miniboss, five in a room: darts down a lane and rests; open resting, and pulled by the Magnet
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -645,6 +647,8 @@ export interface CellDef {
   dark?: boolean
   /** A dark room is lit once this flag is set (the lab's power). */
   lit?: string
+  /** While the hero is in the room and a foe of it lives, it is played on its chart (`render/chartRoom.ts`). */
+  chart?: true
   track?: TrackId
   /** 'static': the Other Side leaks in — red-violet tint and drifting ash. */
   mood?: 'static'

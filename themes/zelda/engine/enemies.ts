@@ -9,6 +9,7 @@ import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral, mixtral } from './bosses'
 import { roundEcho } from './echo'
 import { tryRefuse } from './refuse'
+import { grok, heapTouch, phi } from './heapFoes'
 import { parrot, parrotHarmless } from './parrot'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
@@ -158,12 +159,16 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'gemini': gemini(c, e, dt); break
     case 'mixtral': mixtral(c, e, dt); break
     case 'parrot': parrot(c, e, dt); break
+    case 'grok': grok(c, e, dt); break
+    case 'phi': phi(c, e, dt); break
   }
   contact(c, e)
 }
 
 function contact(c: Ctx, e: Enemy) {
   if (e.dead || e.stun > 0) return
+  // The Heap's two hit with their lanes (`heapFoes.ts`).
+  if (e.kind === 'grok' || e.kind === 'phi') { heapTouch(c, e); return }
   const st = STATS[e.kind]
   const h = c.s.hero
   const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||
