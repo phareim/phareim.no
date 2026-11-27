@@ -15,14 +15,16 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [x] THE TURN ROOM in the Puzzle Lab (commit 2bff6bd; walked with real keys in a local build in both views, not walked on the live site).
 - [ ] Going on where one was: a new visit starts in town, and a reload inside a cave does too. A dungeon must be picked up again at its last stair, and a new visit should offer it.
 - [ ] The test suite pruned to end-to-end tests (Petter, 2026-11-27): three files of this work were 226 of the suite's 280 seconds.
+  - Part one is in (commit bf24202): the slow files, 370 tests to 78. Part two (the other files, the boss gauntlet, the gate walk, the old-save corpus, a shell smoke) is being built.
 - [ ] One side room as a trial, on a phone.
-- [ ] The ITEMS page as a grid, with the Weights.
+- [x] The ITEMS page as a grid, with the Weights (commit 618d02d; picked from with keys on the live site in both views, 2026-11-27).
 - [ ] Cards (intertitles, score cards, THE END).
 - [ ] Dungeon maps in a chunk of their own.
 - [ ] The side engine in a chunk of its own.
 
 ## Dungeons
 - [ ] 1. Seter Fell: THE ECHO BARROW. The Echo. Mixtral. THE STOCHASTIC PARROT. Weight: MEANING.
+  - Part one is live (commit 7915db1, 2026-11-27): eight rooms, the Echo, Mixtral; the door was walked on the live site in both views. The Parrot's fight and the Weight are part two.
 - [ ] 2. Yule Fjord: THE LIGHTHOUSE. The Storm Lamp. Orca. THE BLACK BOX. Weight: REASONS.
 - [ ] 3. The Sporelight: THE STEAMHOUSE. The No. THE SYCOPHANT. Weight: NO.
 - [ ] 4. Stillsand: THE EXAMINATION. The Duck. THE BENCHMARK TITAN. Weight: SURPRISE.
