@@ -97,6 +97,8 @@ entry `ferry` (the harbour); the harbour's warp sails back to overworld
 Stillsand's gold pyramid. A **door** in the north wall of its first room, the Weigh House, leads on to THE TURN
 ROOM (`turnroom`), a dungeon of one room off the grid that teaches the view as a rule (square blocks solid in the
 8-bit view, diamond blocks in the isometric one; `docs/games/neon-shrine.md`, "The view as a rule"), and back.
+A stair in the Lab's last room leads to THE EXAMINATION (`examination`, `examtop`), Stillsand's dungeon of scored
+rounds, off the grid: `docs/games/neon-shrine-examination.md`.
 
 ## Loops
 

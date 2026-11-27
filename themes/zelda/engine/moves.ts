@@ -171,6 +171,7 @@ function stickOf(inp: Input): { x: number; y: number } | null {
 
 /** FLIP CUT: a press of A in a roll springs into a somersault along it. */
 export function startFlip(c: Ctx, inp: Input): boolean {
+  if (c.s.map.exam?.rule === 'noBlade') return false
   const h = c.s.hero
   const r = h.roll
   if (!r) return false
@@ -243,6 +244,7 @@ export function canComet(h: GameState['hero']): boolean {
 }
 
 export function startComet(c: Ctx, inp: Input): boolean {
+  if (c.s.map.exam?.rule === 'noBlade') return false
   const h = c.s.hero
   const from = h.air?.kind ?? 'back'
   const st = stickOf(inp)
@@ -261,6 +263,7 @@ export function canTempest(h: GameState['hero']): boolean {
 }
 
 export function startTempest(c: Ctx, inp: Input): boolean {
+  if (c.s.map.exam?.rule === 'noBlade') return false
   const h = c.s.hero
   const st = stickOf(inp)
   const a = h.swing?.a ?? aimOf(h)

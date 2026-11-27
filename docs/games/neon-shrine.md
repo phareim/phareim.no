@@ -1704,7 +1704,9 @@ moves the echo from inside is not shut in for ever). A **pot stand**
 (`{ t: 'stand' }`, tile `o`, in a dungeon's rooms) gives its pot back: once
 the hero's room holds no pot at all (none standing, carried or in the air) for
 1.2 s (`STAND_WAIT`), every stand of the room that is free gets one, all
-together. A **trap gate**
+together. (A stand with a `wait` fills on its own clock instead: THE
+EXAMINATION's, with its rounds and pads, `docs/games/neon-shrine-examination.md`;
+that dungeon's treasure is not built yet.) A **trap gate**
 (`{ t: 'gate', trap: true }`, in a dungeon's rooms only, no condition of its
 own) is a room that locks: it is open, drawn and walked as floor, until the
 hero is in its room and clear of its tiles while a foe that counts for

@@ -8,6 +8,7 @@ import type { GameState, World } from '../types'
 import { TILE } from '../types'
 import { cellIndex, mapInfo } from '../engine/map'
 import { stencilsOf, type Stencil } from '../engine/stencils'
+import { drawPads, drawShape } from './examination'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -21,11 +22,18 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
   const info = mapInfo(world, s.map.id)
   const m = s.map
   const dungeon = info.def.kind === 'dungeon'
+  drawPads(g, world, s, cx, cy)
   for (const i of info.stands) {
     const x = i % m.w
     const y = Math.floor(i / m.w)
     if (dungeon && cellIndex(info, x + 0.5, y + 0.5) !== s.zoneIndex && !s.scroll) continue
     stand(g, x * T - cx, y * T - cy, m.tiles[i] !== 'o', time, reduced)
+  }
+  for (const l of info.lends) {
+    const x = l.idx % m.w
+    const y = Math.floor(l.idx / m.w)
+    if (cellIndex(info, x + 0.5, y + 0.5) !== s.zoneIndex && !s.scroll) continue
+    stand(g, x * T - cx, y * T - cy, m.tiles[l.idx] !== l.tile, time, reduced)
   }
   for (const e of m.enemies) {
     if (e.dead || (dungeon && e.cell !== s.zoneIndex)) continue
@@ -38,7 +46,8 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
         g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
         g.clip()
       }
-      lane(g, st, cx, cy, time, reduced)
+      if (st.t === 'lane') lane(g, st, cx, cy, time, reduced)
+      else drawShape(g, st, cx, cy, time, reduced)
       g.restore()
     }
   }
@@ -46,7 +55,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
 }
 
 /** A lane (they run along an axis): a wash that deepens as the tell runs out, a hard edge, chevrons down it. */
-function lane(g: G, st: Stencil, cx: number, cy: number, time: number, reduced: boolean) {
+function lane(g: G, st: Extract<Stencil, { t: 'lane' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const len = Math.hypot(st.x1 - st.x0, st.y1 - st.y0)
   const flat = Math.abs(st.x1 - st.x0) >= Math.abs(st.y1 - st.y0)
   const way = Math.sign(flat ? st.x1 - st.x0 : st.y1 - st.y0) || 1

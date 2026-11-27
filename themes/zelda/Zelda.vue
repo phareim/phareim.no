@@ -1569,6 +1569,9 @@ function handleEvents(events: GameEvent[]) {
         save = true
         break
       case 'secret': a?.jingle('secret'); save = true; break
+      // The examination: a pane that gave marks or took them, and a round's stamp (the flags are saved with it).
+      case 'pad': a?.sfx(e.ok ? 'coin' : 'error'); break
+      case 'stamp': a?.sfx(e.passed ? 'chest' : 'error'); save = true; break
       case 'shoot': a?.sfx(e.kind === 'laser' ? 'laser' : 'pellet'); break
       case 'buy': if (!e.ok) a?.sfx('error'); break
       case 'bossDown': a?.sfx('bossDie'); a?.jingle('fanfare'); save = true; break

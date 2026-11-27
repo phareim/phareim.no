@@ -10,6 +10,10 @@ import { HERO_R, MIXTRAL } from '../types'
  * outside it is not touched.
  */
 export type Stencil = { t: 'lane'; x0: number; y0: number; x1: number; y1: number; w: number; cap: number; k: number }
+  // The examination's shapes (`render/examination.ts` `drawShape`), in tiles; `k` fills them, `dim` is a fainter copy.
+  | { t: 'disc'; x: number; y: number; r: number; k: number; dim?: boolean }
+  | { t: 'box'; x: number; y: number; w: number; h: number; k: number; dim?: boolean }
+  | { t: 'path'; x0: number; y0: number; x1: number; y1: number; w: number; k: number; dim?: boolean }
 
 /** The stencils a foe shows now (`k`: 0 to 1 as its tell runs out). */
 export function stencilsOf(e: Enemy): Stencil[] {

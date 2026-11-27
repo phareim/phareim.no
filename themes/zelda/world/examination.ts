@@ -1,0 +1,254 @@
+/**
+ * THE EXAMINATION: the test behind the Puzzle Lab in Stillsand's gold pyramid. A dungeon with no keys: four rounds,
+ * each with its rule on a card at its door, a score and a pass mark (`CellDef.round`, `engine/exam.ts`), and a pass
+ * is what opens the way on. Docs: docs/games/neon-shrine-examination.md.
+ *
+ *   marking ← r4 ← perch ← r3        and `examtop`, the Titan's hall, up the stair in the Marking Room
+ *      ↓                    ↑
+ *   desk   → r1 → r2   → staff
+ *
+ * Built so far: the Front Desk, rounds one and two and the Staff Room; the others are walled floors with their doors.
+ */
+import type { Cond, EntDef, MapDef, Mark, PadPic, TalkBranch } from '../types'
+import { joinCells } from './cells'
+
+const DESK = [
+  '#######..#######',
+  '#[[..........[[#',
+  '#[..I.....nnn.[#',
+  '#..........V...#',
+  '#...I..........#',
+  '#...............',
+  '#...............',
+  '###............#',
+  '##<@...........#',
+  '###..........Y.#',
+  '#.............Y#',
+  '################',
+]
+
+const R1 = [
+  '################',
+  '#.......p....k.#',
+  '#..p.....zOO..##',
+  '#.....p.......h#',
+  '!.............n#',
+  '.1........sO...5',
+  '.....k.....O...X',
+  '#........d.....#',
+  '#..p..p........#',
+  '#.........yOO..#',
+  '#.k.....p....z.#',
+  '################',
+]
+
+const R2 = [
+  '################',
+  '#..............#',
+  '#.E..A..J..A..##',
+  '#.............h#',
+  '?.............n#',
+  '..A..N..f..U...6',
+  '.2.............X',
+  '#..............#',
+  '#.A..U..A..E...#',
+  '#..............#',
+  '#..............#',
+  '################',
+]
+
+const STAFF = [
+  '#######7X#######',
+  '#[[............#',
+  '#..Q.........I.#',
+  '#....c.........#',
+  '#...........I..#',
+  '.......vvv.....#',
+  '.......vjv.....#',
+  '#......vvv.....#',
+  '#..............#',
+  '#...I........I.#',
+  '#[[............#',
+  '################',
+]
+
+const ROUND3 = [
+  '################',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '8..............#',
+  'X..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#......3.......#',
+  '#######..#######',
+]
+
+const PERCH = [
+  '################',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '0...............',
+  'X...............',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '################',
+]
+
+const ROUND4 = [
+  '################',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '9.............4.',
+  'X...............',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '################',
+]
+
+const MARKING = [
+  '################',
+  '#.....#u#......#',
+  '#.....#&#......#',
+  '#......m.......#',
+  '#..............#',
+  '#...............',
+  '#...............',
+  '#..............#',
+  '#..............#',
+  '#....}.........#',
+  '#..............#',
+  '#######$X#######',
+]
+
+const HALL = [
+  '################',
+  '###..........###',
+  '##............##',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '##............##',
+  '###.....2....###',
+  '########1#######',
+]
+
+const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [text] } })
+const entry = (id: string, dir: 'up' | 'down' | 'left' | 'right'): Mark => ({ ent: { t: 'entry', id, dir } })
+const gate = (open: Cond): Mark => ({ ent: { t: 'gate', open } })
+const foe = (kind: Extract<EntDef, { t: 'enemy' }>['kind']): Mark => ({ ent: { t: 'enemy', kind } })
+/** A pane of round two's board: two tiles square from its mark. */
+const pane = (pic: PadPic): Mark => ({ ent: { t: 'pad', pic, size: 2 } })
+/** A pond tile: full of water (nothing in the world drains it). */
+const water: Mark = { tile: 'ω', ent: { t: 'sluice', flag: 'examination.pond' } }
+
+const INVIGILATOR: TalkBranch[] = [
+  { when: { flags: [], not: ['exam.met'] }, lines: ['INVIGILATOR: RULES ARE ON THE DOORS. I DO NOT REPEAT THEM.'], set: 'exam.met' },
+]
+
+export const EXAMINATION: MapDef = {
+  id: 'examination',
+  name: 'THE EXAMINATION',
+  kind: 'dungeon',
+  track: 'dungeon',
+  look: 'dune',
+  realm: 'stillsand',
+  views: ['iso'],
+  keyring: 'examination',
+  physics: true,
+  resume: true,
+  cell: { w: 16, h: 12 },
+  rows: joinCells([[MARKING, ROUND4, PERCH, ROUND3], [DESK, R1, R2, STAFF]]),
+  cells: {
+    '0,1': { name: 'THE FRONT DESK' },
+    '1,1': { name: 'ROUND ONE', round: { id: 'r1', entry: 'r1', pass: 6, max: 10, rule: 'noBlade', foeWorth: 2 } },
+    '2,1': { name: 'ROUND TWO', round: { id: 'r2', entry: 'r2', pass: 10, max: 12, foeWorth: 2 } },
+    '3,1': { name: 'THE STAFF ROOM' },
+    '3,0': { name: 'ROUND THREE' },
+    '2,0': { name: 'THE PERCH' },
+    '1,0': { name: 'ROUND FOUR' },
+    '0,0': { name: 'THE MARKING ROOM' },
+  },
+  marks: {
+    // The Front Desk: the stair back to the Lab, and who minds the desk.
+    '<': { tile: '>', ent: { t: 'warp', to: 'puzzlelab', entry: 'from-exam' } },
+    '@': entry('desk', 'right'),
+    V: { ent: { t: 'npc', id: 'examination.invigilator', look: 'gardenbot', talk: INVIGILATOR } },
+    // Round one: no blade. Pots and stones that come back, pits to drop a foe in.
+    '!': sign('ROUND ONE. NO BLADE. CLEAR THE ROOM.'),
+    '1': entry('r1', 'right'),
+    p: { ent: { t: 'stand', wait: 5 } },
+    k: { tile: 'r', ent: { t: 'stand', wait: 5 } },
+    z: foe('blob'),
+    s: foe('skull'),
+    y: foe('sentry'),
+    d: foe('dasher'),
+    h: { ent: { t: 'pad', handin: true } },
+    '5': gate({ flag: 'exam.r1' }),
+    // Round two: the board on the floor, and the cactus that walks.
+    '?': sign('ROUND TWO. PROVE YOU ARE NOT A MACHINE. STAND ON EACH CACTUS.'),
+    '2': entry('r2', 'right'),
+    A: pane('cactus'),
+    E: pane('palm'),
+    J: pane('stone'),
+    N: pane('cloud'),
+    U: pane('bones'),
+    f: foe('spitter'),
+    '6': gate({ flag: 'exam.r2' }),
+    // The Staff Room: the chest, the pond and the gate north.
+    // (A STAND-IN: the chest holds bits until the Duck is built.)
+    Q: { ent: { t: 'chest', id: 'examination.duck', item: 'bits50', big: true, appear: { flag: 'exam.r2' } } },
+    c: sign('STAFF ROOM. THE POND IS DECORATIVE. THE DUCK IS ON STAFF.'),
+    v: water,
+    j: { ...water },
+    '7': gate({ plates: ['exam.pond'] }),
+    // Round three, the Perch, round four: their doors and entries.
+    '3': entry('r3', 'up'),
+    '8': gate({ flag: 'exam.r3' }),
+    '0': { ent: { t: 'gate', trap: true } },
+    '4': entry('r4', 'left'),
+    '9': gate({ flag: 'exam.r4' }),
+    // The Marking Room: the stair up (all four rounds passed) and the short way down to the desk.
+    m: entry('mark', 'down'),
+    u: { tile: '>', ent: { t: 'warp', to: 'examtop', entry: 'stair' } },
+    '&': gate({ flags: ['exam.r1', 'exam.r2', 'exam.r3', 'exam.r4'] }),
+    '}': { ent: { t: 'lever', flag: 'examination.back' } },
+    '$': gate({ flag: 'examination.back' }),
+  },
+}
+
+export const EXAMTOP: MapDef = {
+  id: 'examtop',
+  name: 'THE TITAN\'S HALL',
+  kind: 'dungeon',
+  track: 'dungeon',
+  look: 'dune',
+  realm: 'stillsand',
+  views: ['iso'],
+  keyring: 'examination',
+  physics: true,
+  resume: true,
+  cell: { w: 16, h: 12 },
+  rows: HALL,
+  cells: { '0,0': { name: 'THE TITAN\'S HALL', track: 'boss' } },
+  entries: { stair: { x: 8, y: 9.5, dir: 'up' } },
+  marks: {
+    // The way back to the Marking Room, behind a gate that will shut for the fight.
+    '1': { tile: 'D', ent: { t: 'warp', to: 'examination', entry: 'mark' } },
+    '2': { ent: { t: 'gate', trap: true } },
+  },
+}

@@ -18,6 +18,7 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { stepEcho } from './echo'
+import { examEnterCell, examEnterMap, stepExam } from './exam'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -131,6 +132,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
   settleFoes(world, s)
+  examEnterMap(world, s)
   const area = areaAt(world, s)
   s.area = area.name
   ev.push({ type: 'enter', map: mapId, area: area.name, track: area.track })
@@ -204,6 +206,7 @@ function enterCell(c: Ctx, index: number) {
     }
   }
   resetPuzzleRoom(c, index)
+  examEnterCell(c, index)
   s.hero.safe = { x: s.hero.x, y: s.hero.y }
   placeLuna(s)
   const area = areaAt(c.w, s)
@@ -262,6 +265,8 @@ function play(c: Ctx, dt: number, inp: Input) {
   // A SLIP: the world runs slow a moment, the hero at full pace (`moves.ts`).
   const wdt = s.slow ? dt * SLIP_SCALE : dt
   stepSlow(s, dt)
+  // (The examination's rounds and its stands run on the hero's clock.)
+  stepExam(c, dt)
   stepEnemies(c, wdt)
   stepObjects(c, wdt)
   if (s.mode !== 'play' || s.demo) return
@@ -609,7 +614,7 @@ function rescueSave(world: World, v: SaveData): SaveData {
 /** A map out past the hand-made coast (`MapDef.away`), or one a save names that the world moved out there. */
 export function awayMap(world: World, map: string, entry = ''): boolean {
   const def = mapDef(world, map)
-  if (def) return !!def.away
+  if (def) return !!def.away || !!def.resume
   const to = world.rescue?.(map, entry)
   return !!to && !!mapDef(world, to.map)?.away
 }
