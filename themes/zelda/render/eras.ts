@@ -85,6 +85,63 @@ const STAGE_CARD = { plate: '#101c26', rule: '#7fa0a8', title: '#f4f0fa', text: 
 export const eraCard = (era: Era | 'stage') => era === 'stage' ? STAGE_CARD : year(era)?.card ?? { plate: '#0b0616', rule: '#9690c4', title: '#fff4ff', text: '#cfc6ff' }
 
 // ---------------------------------------------------------------------------
+// The film's look, over the set and under everything else
+// ---------------------------------------------------------------------------
+
+/**
+ * What the film itself does to a year's room, laid over its sky and its tiles and under every warning, every gold
+ * mark and everyone in it: 1958 has grain at twelve pictures a second, a scratch now and then and a dark rim; 1986
+ * has a tracking band rolling down. A few rects and one slice of the picture drawn aslant, nothing by the pixel.
+ * Reduced motion keeps only the rim.
+ */
+export function eraFilm(k: SideKit, def: Pick<MapDef, 'era'>, z: Rect) {
+  const { g, cx, cy, vw, vh, time, reduced } = k
+  if (def.era !== '1958' && def.era !== '1986') return
+  // The room, as much of it as is on the screen.
+  const x = Math.max(0, z.x * T - cx)
+  const y = Math.max(0, z.y * T - cy)
+  const w = Math.min(vw, (z.x + z.w) * T - cx) - x
+  const h = Math.min(vh, (z.y + z.h) * T - cy) - y
+  if (w <= 0 || h <= 0) return
+  if (def.era === '1986') {
+    if (reduced) return
+    // Down the picture in some seven seconds, then a rest.
+    const at = Math.floor((time * 62) % (h + 170)) - 10
+    if (at < 0 || at + 9 > h) return
+    g.drawImage(g.canvas, x, y + at, w - 4, 8, x + 4, y + at, w - 4, 8)
+    g.globalAlpha = 0.28
+    r(g, '#e4dabc', x, y + at - 1, w, 1)
+    r(g, '#e4dabc', x, y + at + 8, w, 1)
+    g.globalAlpha = 0.5
+    const beat = Math.floor(time * 12)
+    for (let i = 0; i < 5; i++) r(g, '#e4dabc', x + Math.floor(hash2(i, beat, 71) * (w - 14)), y + at + 1 + ((i * 3) % 6), 4 + Math.floor(hash2(i, beat, 72) * 10), 1)
+    g.globalAlpha = 1
+    return
+  }
+  // The rim, in three steps on each side.
+  g.globalAlpha = 0.22
+  for (const d of [18, 10, 4]) {
+    r(g, '#000000', x, y, w, d)
+    r(g, '#000000', x, y + h - d, w, d)
+    r(g, '#000000', x, y + d, d, h - 2 * d)
+    r(g, '#000000', x + w - d, y + d, d, h - 2 * d)
+  }
+  g.globalAlpha = 1
+  if (reduced) return
+  const beat = Math.floor(time * 12)
+  g.globalAlpha = 0.5
+  for (let i = 0; i < 44; i++) {
+    r(g, i % 3 ? BONE : BLACK, x + Math.floor(hash2(i, beat, 73) * (w - 2)), y + Math.floor(hash2(i, beat, 74) * (h - 2)), i % 11 === 0 ? 2 : 1, i % 7 === 0 ? 2 : 1)
+  }
+  // A scratch down the print, one picture in five.
+  if (hash2(beat, 1, 75) > 0.8) {
+    g.globalAlpha = 0.22
+    r(g, BONE, x + Math.floor(hash2(beat, 2, 76) * (w - 1)), y, 1, h)
+  }
+  g.globalAlpha = 1
+}
+
+// ---------------------------------------------------------------------------
 // A foe in the year's tones
 // ---------------------------------------------------------------------------
 

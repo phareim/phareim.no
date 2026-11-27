@@ -177,6 +177,10 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
     jump(29, 17, 'the alcove ledge')
     walk(29.3)
     open('lateshow.stomp')
+    // The bat comes to whoever stands still up here: wait for it with the blade, so that nothing after is harried.
+    const bat = live('bat', 16)
+    for (let i = 0; i < 900 && bat && !bat.dead; i++) { if (s.mode !== 'play') settle(); else if (!cut(bat)) step() }
+    walk(29.3)
   }
   /** Down on the blob from above, B let go before A is pressed. */
   function stompTheBlob() {
@@ -187,6 +191,7 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
     const from = events.length
     for (let i = 0; i < 1500 && !hit; i++) {
       if (s.mode !== 'play') { settle(); continue }
+      if (standing()) swat()
       const dx = blob.x - h().x
       if (!standing()) {
         const take = h().side.vy >= -Z.STOMP.rise && aimNow()?.on === 'foe'
@@ -300,7 +305,7 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
 
   /**
    * The Road: keep ahead of the screen's edge, jump what is in the way, jump the wagon as it passes, and cut it while
-   * it stands (or, with `stomp`, come down on it); then the chest, and the door.
+   * it stands (with `stomp`, come down on it once a stall first, which is all a stall takes); then the chest, and the door.
    */
   function theRoad({ stomp = false, log = null, watch = null } = {}) {
     const e = car()
@@ -316,10 +321,11 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
       const left = m.chase.left
       const mode = e.dead ? 'gone' : e.ai.mode
       const dx = e.x - h().x
+      const down = stomp && !e.ai.stomped
       // Where to be on the screen: a third in, so that there is road to see; in front of the wagon while it stands.
       let want = left + 6
       if (e.dead) want = 57.4
-      else if (mode === 'stall') want = e.x - (stomp ? 1.2 : 1.1)
+      else if (mode === 'stall') want = e.x - (down ? 1.2 : 1.1)
       let mx = Math.abs(want - h().x) < 0.25 ? 0 : Math.sign(want - h().x)
       let b = false
       let a = false
@@ -334,12 +340,12 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
         // The wagon coming through: jump as it is about to meet him.
         const meets = mode === 'pass' && dx < 0 && (h().x - e.x - 0.95) / (11 + 3.4 - Math.max(0, h().vx)) < 0.13 && feet() > 20.05
         if (blocked || meets) { b = true; air = true; hold = true }
-        if (stomp && mode === 'stall' && Math.abs(dx) < 1.7 && e.ai.t > 0.5 && !blocked) { b = true; air = true; hold = false }
-      } else if (stomp && mode === 'stall' && h().side.vy > -8 && Math.abs(dx) < 2) { a = !h().side.dive && i % 6 === 0; mx = Math.sign(dx) }
+        if (down && mode === 'stall' && Math.abs(dx) < 1.7 && e.ai.t > 0.5 && !blocked) { b = true; air = true; hold = false }
+      } else if (down && mode === 'stall' && h().side.vy > -8 && Math.abs(dx) < 2) { a = !h().side.dive && i % 6 === 0; mx = Math.sign(dx) }
       // The blade, on foot or in the air, while it takes it.
-      if (!stomp && mode === 'stall' && Z.bossOpen(e) && Math.abs(dx) < 2.1 && e.invuln <= 0.08 && (!h().swing || h().swing.t > 0.12) && i % 3 === 0) a = true
+      if (!down && mode === 'stall' && Z.bossOpen(e) && Math.abs(dx) < 2.1 && e.invuln <= 0.08 && (!h().swing || h().swing.t > 0.12) && i % 3 === 0) a = true
       // (A cut goes where the stick points.)
-      if (a && !stomp) mx = Math.sign(dx) || 1
+      if (a && !down) mx = Math.sign(dx) || 1
       const before = e.hp
       const hp = h().hp
       step({ move: { x: mx, y: 0 }, ...(b ? { bPress: true, jumpPress: true } : {}), ...(hold ? { jumpHeld: true } : {}), ...(a ? { aPress: true, a: true } : {}) })
@@ -434,9 +440,95 @@ export function reelPlayer(Z, s, W = Z.WORLD) {
     warpBy({ x: -1, y: 0 }, 'showbooth')
   }
 
+  // -- the Screen ---------------------------------------------------------------
+
+  const weaver = () => s.map.enemies.find(e => e.kind === 'weaver')
+
+  /**
+   * The Weaver. A scribble aimed at the hero is walked or jumped out from under; a ripple is jumped; a resting hand is
+   * come down on (a tapped B, A once the feet are in the finger's ring); then, up on the top ledge, the face is cut in
+   * its yawns from the ledge's left end and stepped away from for each bite. It stops after `secs`, or when `until`
+   * says so; `react` is how long a hand or a yawn has been open before it moves (s); without `stomps` it never comes
+   * down on a hand, and cuts at it instead. `log` hears what happens.
+   */
+  function theWeaver({ log = null, watch = null, secs = 180, react = 0, stomps = true, until = null } = {}) {
+    const e = weaver()
+    /** Where to wait for each hand: the floor's west end, then the east end of the step before. */
+    const stands = [{ x: 2.5, row: 21 }, { x: 4.5, row: 20 }, { x: 7.5, row: 19 }]
+    let t = 0
+    let air = null
+    let was = ''
+    let hp = h().hp
+    let since = 0
+    for (let i = 0; i < 60 * secs && !e.dead && !until?.(e); i++, t += 1 / 60) {
+      if (s.mode !== 'play') { settle(); continue }
+      const mode = e.ai.mode
+      const n = e.ai.n ?? 0
+      const lane = Z.weaverLane(e)
+      let mx = 0
+      let b = false
+      let a = false
+      let hold = false
+      const face = n >= 3
+      // Where to be: below the step a hand will come to; on the top ledge for the face, off it for the bite.
+      let want = face ? (mode === 'bite' || mode === 'snap' || mode === 'rise' ? 6.6 : 8.2) : stands[n].x
+      const row = face ? (mode === 'bite' || mode === 'snap' || mode === 'rise' ? 19 : 18) : stands[n].row
+      // Out from under a lane: a step to the side that is clear of it, on the same footing.
+      if (lane && mode !== 'yawn') {
+        const clear = x => !Z.inStencil({ ...lane, w: lane.w + 0.2 }, x, h().y)
+        // (The footing the plan stands on, from end to end.)
+        const [lo, hi] = face ? [8, 10.7] : [[2.4, 6.5], [2.4, 4.8], [5.3, 7.8]][n]
+        if (!clear(want)) want = [1.3, -1.3, 2, -2, 3].map(d => want + d).find(x => x >= lo && x <= hi && clear(x)) ?? want
+      }
+      const near = Math.abs(h().x - want) < 0.12
+      mx = near ? 0 : Math.sign(want - h().x)
+      const wave = Z.weaverWaves(e).find(w => (h().x - w.x) * w.way > 0 && Math.abs(h().x - w.x) < 1.6)
+      if (standing()) {
+        air = null
+        // Climbing back to the footing the plan wants: a held jump up onto the step.
+        if (feet() > row + 0.1 && h().x < want + 1.6) {
+          // Run at the step's edge and jump.
+          const edge = row === 20 ? 2 : row === 19 ? 5 : 8
+          if (h().x > edge - 1.2 && h().x < edge + 2.6) { b = true; hold = true; air = 'climb'; mx = Math.sign(want - h().x) || 1 }
+          else mx = Math.sign(edge - 0.6 - h().x)
+        } else if (wave) { b = true; air = 'wave' }
+        else if (stomps && mode === 'rest' && near && Math.abs(h().x - stands[n].x) < 0.45 && since >= react && e.ai.t > 0.5) { b = true; air = 'stomp' }
+        // Who never stomps cuts at the hand where it lies.
+        else if (!stomps && mode === 'rest' && near) { a = i % 20 === 0; if (a) mx = 1 }
+        else if (face && mode === 'yawn' && near && since >= react) { a = i % 5 === 0; if (a) mx = -1 }
+      } else {
+        const f = Z.weaverFinger(Z.mapInfo(W, s.map.id), e)
+        if (air === 'climb') { hold = true; mx = Math.abs(h().x - want) < 0.2 ? 0 : Math.sign(want - h().x) }
+        // A thumb's stomp: B was only tapped; A when the feet are at the finger.
+        if (f) {
+          mx = Math.sign(f.x - h().x) * (air === 'stomp' ? 1 : 0)
+          if (Math.hypot(h().x - f.x, feet() - f.y) <= Z.STOMP.wide - 0.05) a = i % 3 === 0
+          if (air === 'stomp') mx = 0
+        }
+      }
+      // A pellet about to arrive is cut.
+      const p = Z.weaverPellet(e)
+      if (p && !a && Math.hypot(p.x - h().x, p.y - h().y) < 1.6 && !h().swing) { a = true; const dy = p.y - h().y; mx = Math.abs(dy) > Math.abs(p.x - h().x) && dy < 0 ? 0 : Math.sign(p.x - h().x) || 1; if (!mx) { step({ move: { x: 0, y: -1 }, aPress: true, a: true }); continue } }
+      step({ move: { x: mx, y: 0 }, ...(b ? { bPress: true, jumpPress: true, jumpHeld: true } : {}), ...(hold ? { jumpHeld: true } : {}), ...(a ? { aPress: true, a: true } : {}) })
+      watch?.(e, i)
+      since = e.ai.mode === mode ? since + 1 / 60 : 0
+      if (log && (e.ai.mode !== was || h().hp !== hp)) log({ t, mode: e.ai.mode, boss: e.hp, hero: h().hp, x: h().x, feet: feet() })
+      was = e.ai.mode
+      hp = h().hp
+    }
+    return t
+  }
+
+  /** The Weight on the top ledge, where the Weaver's fall left it. */
+  function takeTheWeight() {
+    settle()
+    walk(9.5)
+    settle()
+  }
+
   return {
     s, heard, events, step, idle, settle, card, until, warpBy, walkTo, walk, jump, climb, fell, where, standing, feet,
     mainStreetEast, backlotToStomp, stompTheBlob, stompTheFloor, stompTheFloorFrom, backlotWest, mainStreetWest,
-    bounce, videoStore, theRoad, usher, overgrownLot, lastReel,
+    bounce, videoStore, theRoad, usher, overgrownLot, lastReel, weaver, theWeaver, takeTheWeight,
   }
 }

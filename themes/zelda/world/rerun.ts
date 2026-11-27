@@ -214,7 +214,7 @@ export const RERUN: MapDef = {
     // The door in the screen's middle, and its sign.
     'g': { tile: 'D', ent: { t: 'warp', to: 'showbooth', entry: 'door' } },
     'V': { tile: 'S', ent: { t: 'sign', lines: ['THE LATE SHOW. DOORS OPEN AT DUSK.', 'IT IS ALWAYS DUSK.'] } },
-    'u': npc('l.band', 'guitar', [{ when: { notFlag: 'lateshow.seen' }, lines: ['LENNY: THREE NIGHTS, SAME PICTURE. THERE IS A DOOR IN IT. WE GO ON AT NINE.'] }, { lines: ['LENNY: OVERDUE FOUR. WE OWE THIS DRIVE-IN ONE GIG. THE SIGN SAYS TONIGHT.', 'LENNY: THREE OF US ARE HERE. THE BASSIST WANDERED OFF WITH THE BASS. AND THE VAN.'] }]),
+    'u': npc('l.band', 'guitar', [{ when: { item: 'weightFingers' }, lines: ['LENNY: THE PICTURE STOPPED REPEATING. WE DO NOT KNOW WHAT TO PLAY AFTER.'] }, { when: { notFlag: 'lateshow.seen' }, lines: ['LENNY: THREE NIGHTS, SAME PICTURE. THERE IS A DOOR IN IT. WE GO ON AT NINE.'] }, { lines: ['LENNY: OVERDUE FOUR. WE OWE THIS DRIVE-IN ONE GIG. THE SIGN SAYS TONIGHT.', 'LENNY: THREE OF US ARE HERE. THE BASSIST WANDERED OFF WITH THE BASS. AND THE VAN.'] }]),
     'm': npc('l.rose', 'mossa', [{ lines: ['ROSE: I PLANTED THAT OAK WHEN I WAS SMALL. MIND THE ROOTS.', 'ROSE: THE STREET LOOKS THE SAME EVERY YEAR. THE OAK IS HOW I KNOW IT ISN\'T.'] }]),
     'z': npc('rerun.rocker', 'guitar', [{ lines: ['TEEN ROCKER: MY BAND PRACTISES IN THE GARAGE. THE NEIGHBOURS PRACTISE COMPLAINING.'] }]),
     '0': npc('rerun.cat', 'cat', [{ lines: ['MRRP.', '(THE CAT HAS FOUND THE MIDDLE OF THE MAZE. IT HAS NO PLANS TO LEAVE.)'] }]),

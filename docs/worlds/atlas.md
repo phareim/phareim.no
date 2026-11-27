@@ -297,16 +297,18 @@ and dressed in its year. A reload comes back at the last door or lens.
 | THE ROAD (`chase1986` 0,0, 64 wide) | 1986 | the chase: the screen scrolls by itself over three pits and three parked wagons; COPILOT; the second key; the way back to the booth |
 | THE OVERGROWN LOT (`reel2086` 0,0) | 2086 | two spring pads to the high slab, with the third key on it; two bats below, and a ladder |
 | THE LAST REEL (`reel2086` 1,0) | 2086 | down from the slab; a pad either side of a block; the third locked door and the Big Key behind it; a bat, a blob; the way out |
-| THE SCREEN (`weaver` 0,0) | blank | its floor, its stair, and three pencilled outlines where something will land; its line, once (`weaver.card`) |
+| THE SCREEN (`weaver` 0,0) | blank | THE UNCANNY WEAVER: its stair on a landing two steps high, three pencilled outlines where its hands will land and leave three ledges up to its face; where it falls, the Weight of FINGERS |
 
 The route: the screen, the Scaffold, the Booth, the 1958 lens, Main Street's key,
 the Backlot's Stomp, back to the booth, the locked lens; the Video Store, the Road,
 COPILOT and the second key; the booth's gate, the Usher, the locked lens in the
 Snack Bar; the Lot's key, the Last Reel's door and the Big Key; the great door,
-the Screen. One small key a reel, and the Snack Bar's gate holds the order: when a
+the Screen: the Weaver and the Weight. One small key a reel, and the Snack Bar's gate holds the order: when a
 key is in hand, one locked door can be reached
 (`node scripts/zelda-lab/lateshow-keys.mjs`). Without the Stomp a reel's own door
-is the way out. LENNY speaks of the door until the Scaffold has been seen.
+is the way out. LENNY speaks of the door until the Scaffold has been seen, and of
+the picture once the Weight is held. No reel has a tune of its own: they play the
+game's tracks.
 
 ## Rules for every land
 

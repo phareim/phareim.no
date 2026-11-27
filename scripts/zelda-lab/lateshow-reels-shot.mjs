@@ -1,21 +1,24 @@
 #!/usr/bin/env node
-// THE LATE SHOW, reels two and three, in the running shell (a local dev server only), one frame at a time
-// (`lockstep.mjs`), with real key events at 1280 × 800 and real touches on the deck at 390 × 844. The test's own
-// play-through (`tests/zelda-lateshow.test.mjs`) is played there, from the screen's door in Rerun Estates to the
-// Screen, by the same scripted player (`tests/zelda-reel.mjs`), with a real reload of the tab halfway; pictures are
+// THE LATE SHOW in the running shell (a local dev server only), one frame at a time (`lockstep.mjs`), with real key
+// events at 1280 × 800 and real touches on the deck at 390 × 844. The test's own play-through
+// (`tests/zelda-lateshow.test.mjs`) is played there, from the screen's door in Rerun Estates to the Sacred Weight,
+// by the same scripted player (`tests/zelda-reel.mjs`), with a real reload of the tab halfway; pictures are
 // taken as things happen. On the touch deck one thumb has B or A, never both. The player is given the blade, and is
 // healed when down to a heart (each time printed). Then scenes set up by the script (each printed): the booth in both
-// views, COPILOT stomped and a pass that hits, thirty timed stomps on a foe, and the Road's frame time.
+// views, COPILOT stomped and a pass that hits, thirty timed stomps on a foe, the Weaver from the great door to the
+// Weight and a hand left to lift, thirty timed stomps on its first finger, the film look on each reel, a reload and
+// the way back to the isometric picture in each part-two reel, and the frame time of the Road, reel one and the Screen.
 // Every request that leaves this machine is blocked.
 //   CHROME_BIN=… node scripts/zelda-lab/lateshow-reels-shot.mjs http://127.0.0.1:3257 <outDir> desk|phone [play|booth|road|stomp|frames …]
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
+import { loadavg } from 'node:os'
 import { load } from '../../tests/zelda-load.mjs'
 import { reelPlayer } from '../../tests/zelda-reel.mjs'
 import { lockstep } from './lockstep.mjs'
 
 const [base, out, size, ...parts] = process.argv.slice(2)
-if (!base || !out || !['desk', 'phone'].includes(size) || !/^http:\/\/(localhost|127\.0\.0\.1):/.test(base)) { console.error('usage: lateshow-reels-shot.mjs <local base url> <outDir> desk|phone [play booth road stomp frames]'); process.exit(2) }
+if (!base || !out || !['desk', 'phone'].includes(size) || !/^http:\/\/(localhost|127\.0\.0\.1):/.test(base)) { console.error('usage: lateshow-reels-shot.mjs <local base url> <outDir> desk|phone [play booth road stomp weaver fingers films back frames]'); process.exit(2) }
 const want = p => !parts.length || parts.includes(p)
 mkdirSync(out, { recursive: true })
 const phone = size === 'phone'
@@ -99,7 +102,7 @@ const read = () => sync(S, JSON.parse(B.eval(SNAP)))
 let heals = 0
 const taken = new Set()
 let inRoom = { key: '', n: 0 }
-const shoot = name => { B.shot(`${out}/${size}-2-${name}.png`) }
+const shoot = name => { B.shot(`${out}/${size}-3-${name}.png`) }
 const once = (name, when) => { if (!when || taken.has(name)) return; taken.add(name); shoot(name) }
 
 /** The pictures taken as things happen. */
@@ -139,6 +142,30 @@ function watch(s) {
   once('snack-shut', s.map.id === 'showbooth' && s.map.tiles[5 * 48 + 32] === 'X' && s.mode === 'play' && h.x > 35)
   once('usher-tell', s.map.enemies.some(e => e.kind === 'sentry' && e.tough && e.ai.mode === 'tell' && e.ai.t < 0.3))
   once('booth-k-open', s.map.id === 'showbooth' && s.map.tiles[10 * 48 + 23] === '.' && s.mode === 'play')
+  const boss = s.map.enemies.find(e => e.kind === 'weaver')
+  if (boss && !boss.dead && s.mode === 'play') {
+    const { mode, t, sk, st, n = 0 } = boss.ai
+    once(`weaver-draw-${n + 1}`, mode === 'draw' && t < 0.35)
+    once(`weaver-slam-${n + 1}`, mode === 'slam' && t < 0.12)
+    once(`weaver-ripple-${n + 1}`, mode === 'rest' && [0, 1].some(i => boss.ai[`w${i}d`] && Math.abs(boss.ai[`w${i}x`] - boss.ai.from) > 1.2))
+    once(`weaver-rest-${n + 1}`, mode === 'rest' && t < E.WEAVER.rest[n] - 0.12)
+    once(`weaver-lifting-${n + 1}`, mode === 'rest' && t < 0.7)
+    once(`weaver-lift-${n + 1}`, mode === 'lift' && t < 0.5)
+    once(`weaver-stomp-${n}`, mode === 'gap' && n > 0 && t < E.WEAVER.gap - 0.12)
+    once('weaver-three-steps', mode === 'watch' && t < 2.4)
+    once('weaver-face-sink', mode === 'sink' && t < 0.3)
+    once('weaver-face-yawn', mode === 'yawn' && t < 2.08 && boss.flash <= 0)
+    once('weaver-face-cut', mode === 'yawn' && boss.flash > 0)
+    once('weaver-face-bite', mode === 'bite' && t < 0.45)
+    once('weaver-face-snap', mode === 'snap' && t < 0.14)
+    once('weaver-face-rise', mode === 'rise' && t < 0.3)
+    once('weaver-scribble-aim', sk === 'aim' && st < 0.45 && mode !== 'watch')
+    once('weaver-scribble-fly', sk === 'fly' && boss.ai.su > 4)
+    once('weaver-scribble-watch', sk === 'aim' && st < 0.45 && mode === 'watch')
+  }
+  once('weaver-felled', !!boss?.dead && s.mode === 'dialog' && /PROJECTOR/.test(said))
+  once('weaver-weight', s.map.id === 'weaver' && s.mode === 'get' && s.get?.t > 0.4)
+  once('weaver-weight-text', s.map.id === 'weaver' && /FINGERS/.test(said))
 }
 
 function stepShell(_w, _s, _dt, inp) {
@@ -223,19 +250,19 @@ try {
   if (want('play')) {
     // The test's own words, from its first line to its last, with the shell for an engine.
     const src = readFileSync(new URL('../../tests/zelda-lateshow.test.mjs', import.meta.url), 'utf8')
-    const from = src.indexOf('let s = Z.createGame(Z.WORLD, { seed: 11')
-    const body = src.slice(from, src.indexOf("  it('loads a save made in a reel"))
+    const from = src.indexOf('let s = Z.createGame(Z.WORLD, { seed:')
+    const body = src.slice(from, src.indexOf("  it('is lost by"))
     const play = new Function('Z', 'reelPlayer', 'assert', 'reload', body.slice(0, body.lastIndexOf('  })')))
     const t0 = Date.now()
     try {
       play(Z, reelPlayer, assert, reload)
-      check(true, `played from the screen's door to the Screen in the shell (${size}), healed ${heals} times`)
+      check(true, `played from the screen's door to the Weight in the shell (${size}), healed ${heals} times`)
     } catch (e) {
       check(false, `the play-through: ${e.message.split('\n')[0]}`)
       shoot('failed-here')
     }
     idle(40)
-    shoot('the-screen')
+    shoot('the-end')
     results.play = { heals, seconds: Math.round((Date.now() - t0) / 1000), flags: Object.keys(S.flags).filter(f => /lateshow/.test(f)) }
     if (phone) {
       const room = B.eval(`(() => { const cv = document.querySelector('.zelda-canvas'), W = cv.width, H = cv.height, r = devicePixelRatio; const scale = Math.max(1, Math.min(Math.floor(W / 256), Math.floor(H / 384))); const top = (H - 384 * scale) / 2 / r, t = 16 * scale / r; return { top, bottom: top + 24 * t, floorTop: top + 21 * t, tile: t } })()`)
@@ -378,34 +405,177 @@ try {
     B.hold()
   }
 
+  /** The Screen from the great door: the Weaver whole, the blade and the Stomp given. */
+  const screen = (flags = []) => {
+    B.eval(`(() => { const s = window.__zelda.state; s.inv.sword = s.inv.stomp = true; delete s.inv.weight; for (const f of Object.keys(s.flags)) if (/^(weaver|took:weaver|item:weightFingers)/.test(f)) delete s.flags[f]; s.flags['bigkey:lateshow'] = true; s.flags['weaver.card'] = true; for (const f of ${JSON.stringify(flags)}) s.flags[f] = true })()`)
+    go('weaver', 'stair')
+    read()
+  }
+
+  if (want('weaver')) {
+    B.eval(`(() => { const s = window.__zelda.state; s.inv.sword = s.inv.stomp = true; for (const f of Object.keys(s.flags)) if (/^(weaver|took:weaver|item:weightFingers|door:showbooth)/.test(f)) delete s.flags[f]; s.flags['bigkey:lateshow'] = true; for (const f of ['lateshow.seen', 'lateshow.copilot', 'lateshow.usher', 'lateshow.usher.card']) s.flags[f] = true; s.rng = 11 })()`)
+    go('showbooth', 'kdoor')
+    note('in the booth at the great door, the Big Key, blade and Stomp given')
+    view('flat')
+    const before = heals
+    Object.assign(presses, { a: 0, b: 0 })
+    try {
+      const P = reelPlayer(Z, S)
+      // (The door opens to the hero's own bump, and the stair under it is walked onto.)
+      P.until(() => S.map.tiles[10 * 48 + 23] === '.', { x: 0, y: 1 })
+      P.warpBy({ x: 0, y: 1 }, 'weaver')
+      P.idle(10)
+      P.settle()
+      let lost = 0
+      let frames = 0
+      const counted = { ...Z, stepGame: (...a) => { const hp = S.hero.hp; const ev = stepShell(...a); if (S.mode === 'play') frames++; if (S.hero.hp < hp) lost += hp - S.hero.hp; return ev } }
+      const Q = reelPlayer(counted, S)
+      Q.theWeaver()
+      const secs = +(frames / 60).toFixed(1)
+      Q.takeTheWeight()
+      check(!!S.flags['item:weightFingers'], `from the great door to the Weight in the shell: the fight ${secs} s of play, ${lost} half hearts lost, healed ${heals - before} times${phone ? `, right thumb ${presses.b} on B and ${presses.a} on A, one at a time` : ''}`)
+      results.weaver = { secondsOfPlay: secs, halfHeartsLost: lost, healed: heals - before, ...(phone ? { thumbPresses: { ...presses } } : {}) }
+      idle(60)
+      shoot('weaver-after')
+    } catch (e) { check(false, `the Weaver: ${e.message.split('\n')[0]}`); shoot('failed-here') }
+    // A hand nobody comes down on: its outline filling, and the lift.
+    for (const n of ['weaver-lifting-1', 'weaver-lift-1', 'weaver-ripple-2']) taken.delete(n)
+    screen()
+    note('the Screen again, the hero left standing: the first hand lifts')
+    for (let i = 0; i < 600 && S.map.enemies[0].ai.mode !== 'draw'; i++) idle(1)
+    for (let i = 0; i < 700 && !taken.has('weaver-lift-1'); i++) { B.eval('window.__zelda.state.hero.invuln = 1'); idle(1) }
+    check(taken.has('weaver-lifting-1') && taken.has('weaver-lift-1'), 'an unstruck hand fills pink, then lifts')
+    screen(['weaver.h1'])
+    note('one hand already right: the second round, the ripple')
+    for (let i = 0; i < 500 && !taken.has('weaver-ripple-2'); i++) { B.eval('window.__zelda.state.hero.invuln = 1'); idle(1) }
+  }
+
+  if (want('fingers')) {
+    // Thirty timed presses on each finger from the footing before it: B tapped (a frame down), A so many frames after.
+    const stands = [[2.6, 21], [4.5, 20], [7.5, 19]]
+    results.fingers = []
+    for (let n = 0; n < 3; n++) {
+      screen([1, 2, 3].slice(0, n).map(k => `weaver.h${k}`))
+      const [x, row] = stands[n]
+      const trials = []
+      for (let k = 1; k <= 20; k++) {
+        B.eval(`(() => { const s = window.__zelda.state, e = s.map.enemies[0], flag = 'weaver.h${n + 1}'; delete s.flags[flag]; for (const st of [0, 1, 2]) if (st + 1 === ${n + 1}) for (const i of [0, 1, 2]) s.map.tiles[${[20 * 16 + 2, 19 * 16 + 5, 18 * 16 + 8][n]} + i] = '.'; s.map.version++; e.hp = ${12 - 2 * n}; e.invuln = 0; Object.assign(e.ai, { mode: 'rest', t: 30, n: ${n}, sk: '', clk: -99, w0d: 0, w1d: 0 }); const h = s.hero; Object.assign(h, { x: ${x}, y: ${row} - ${R} - 0.0001, knock: null, invuln: 9, swing: null, spin: null, charge: -1, hp: h.maxHp, act: 'idle', bufA: 0 }); delete h.side; s.mode = 'play'; s.dialog = null })()`)
+        rest(); B.step(12); read()
+        hands({ move: { x: 0, y: 0 }, bPress: true, jumpHeld: true }); delivered(); sync(S, JSON.parse(B.step(1, SNAP)))
+        hands({ move: { x: 0, y: 0 } }); delivered()
+        for (let at = 1; at < k; at++) sync(S, JSON.parse(B.step(1, SNAP)))
+        hands({ move: { x: 0, y: 0 }, aPress: true, a: true }); delivered()
+        let struck = false
+        for (let i = 0; i < 50 && !struck; i++) { sync(S, JSON.parse(B.step(1, SNAP))); struck = !!S.flags[`weaver.h${n + 1}`] }
+        rest()
+        trials.push({ ms: Math.round((k * 1000) / 60), struck })
+        B.step(40); read()
+      }
+      const ok = trials.filter(t => t.struck)
+      results.fingers.push({ finger: n + 1, from: x, struck: ok.length, of: trials.length, ms: ok.length ? [ok[0].ms, ok.at(-1).ms] : [] })
+      check(ok.length > 0, `finger ${n + 1} from x ${x}: ${ok.length} of ${trials.length} (A 17 to 333 ms after a tapped take-off) struck it, from ${ok[0]?.ms} to ${ok.at(-1)?.ms} ms`)
+    }
+  }
+
+  if (want('films')) {
+    B.eval(`(() => { const s = window.__zelda.state; s.inv.sword = true; for (const f of ['lateshow.copilot', 'lateshow.copilot.card']) s.flags[f] = true; for (const id of ['reel1958:0', 'reel1986:0', 'chase1986:0', 'reel2086:0']) if (!s.cardsSeen.includes(id)) s.cardsSeen.push(id) })()`)
+    for (const [name, map, entry] of [['1958-main-street', 'reel1958', 'lens'], ['1986-video-store', 'reel1986', 'lens'], ['1986-road', 'chase1986', 'start'], ['2086-lot', 'reel2086', 'lens']]) {
+      go(map, entry)
+      B.step(90)
+      // (The tracking band takes some seven seconds a pass: several pictures, a second and a half apart.)
+      for (let i = 0; i < (name.startsWith('1986') ? 5 : 2); i++) { read(); shoot(`film-${name}-${i}`); B.step(name.startsWith('1986') ? 75 : 5) }
+    }
+    check(true, 'the film look pictured on each reel')
+  }
+
+  if (want('back')) {
+    // The isometric picture chosen in the booth, a part-two reel entered, the tab reloaded inside it, and out again
+    // by its own door: the reel in the 8-bit picture before and after, the booth isometric again.
+    B.eval(`(() => { const s = window.__zelda.state; s.inv.sword = s.inv.stomp = true; for (const f of ['lateshow.seen', 'lateshow.copilot', 'lateshow.copilot.card', 'lateshow.usher', 'lateshow.usher.card']) s.flags[f] = true })()`)
+    results.back = []
+    for (const [name, map, entry, at, out] of [
+      ['video-store', 'reel1986', 'lens', null, 'showbooth'],
+      ['road', 'chase1986', 'start', null, 'reel1986'],
+      ['lot', 'reel2086', 'lens', null, 'showbooth'],
+      ['last-reel', 'reel2086', 'lens', { x: 19.5, y: 21 - R - 0.001, zone: 1 }, 'showbooth'],
+    ]) {
+      go('showbooth', 'door')
+      view('iso')
+      go(map, entry)
+      B.step(60)
+      read()
+      // (A card standing is passed.)
+      for (let i = 0; i < 300 && (S.card || S.mode !== 'play'); i++) { hands({ move: { x: 0, y: 0 }, aPress: i % 20 === 0, a: i % 20 === 0 }); delivered(); sync(S, JSON.parse(B.step(1, SNAP))) }
+      rest()
+      const inside = S.view
+      if (at) { B.eval(`(() => { const s = window.__zelda.state; s.zoneIndex = ${at.zone}; s.zone = { x: ${at.zone * 16}, y: 0, w: 16, h: 24 }; s.hero.x = ${at.x}; s.hero.y = ${at.y}; delete s.hero.side })()`); note(`the hero set in the Last Reel`); B.step(30) }
+      B.step(60); read()
+      reload()
+      B.step(60); read()
+      // (A card passes by itself while the page settles: the session's list says it was played again.)
+      const after = { map: S.map.id, entry: S.entry.entry, view: S.view, cardsPlayed: S.cardsSeen }
+      shoot(`reload-${name}`)
+      for (let i = 0; i < 400 && (S.card || S.mode !== 'play'); i++) { hands({ move: { x: 0, y: 0 }, aPress: i % 20 === 0, a: i % 20 === 0 }); delivered(); sync(S, JSON.parse(B.step(1, SNAP))) }
+      rest()
+      // (The Road's screen has been moving since: its door is there again from a fresh start.)
+      if (map === 'chase1986') { go(map, entry); note('the Road entered again at its start, its screen at rest') }
+      // (A reload in reel three comes back at the Lot's lens, its one entry; from the Last Reel walk its own door.)
+      if (at) { B.eval(`(() => { const s = window.__zelda.state; s.zoneIndex = 1; s.zone = { x: 16, y: 0, w: 16, h: 24 }; s.hero.x = 18.6; s.hero.y = ${21 - R - 0.001}; delete s.hero.side })()`); note('the hero set by the Last Reel\'s door'); B.step(20); read() }
+      for (let i = 0; i < 240 && S.map.id === map; i++) { hands({ move: { x: -1, y: 0 } }); delivered(); sync(S, JSON.parse(B.step(1, SNAP))) }
+      rest()
+      B.step(90); read()
+      // (The Road's door leads back into the Video Store: on out of that too.)
+      let via = S.map.id
+      if (via === 'reel1986' && map !== 'reel1986') {
+        for (let i = 0; i < 300 && (S.card || S.mode !== 'play'); i++) { hands({ move: { x: 0, y: 0 }, aPress: i % 20 === 0, a: i % 20 === 0 }); delivered(); sync(S, JSON.parse(B.step(1, SNAP))) }
+        go('showbooth', 'lens2')
+        B.step(90); read()
+      }
+      shoot(`back-${name}`)
+      results.back.push({ name, inside, after, via, booth: S.view })
+      check(inside === 'flat' && after.map === map && after.view === 'flat' && after.cardsPlayed.length === 1 && via === out && S.map.id === 'showbooth' && S.view === 'iso',
+        `${name}: ${inside} inside; a reload came back in ${after.map} at ${after.entry} (${after.view}, cards played ${after.cardsPlayed.join(' ')}); out by its door into ${via}; the booth ${S.view}`)
+    }
+    view('flat')
+  }
+
   if (want('frames')) {
     const stats = a => { const s = [...a].sort((x, y) => x - y); const q = p => s[Math.min(s.length - 1, Math.floor(p * s.length))]; return { n: s.length, mean: +(s.reduce((x, y) => x + y, 0) / s.length).toFixed(2), p95: +q(0.95).toFixed(2), p99: +q(0.99).toFixed(2), max: +s.at(-1).toFixed(2) } }
-    road()
-    B.eval('(() => { const h = window.__zelda.state.hero; h.maxHp = h.hp = 20 })()')
-    note('ten seconds of the Road in real time, 20 half hearts: running to keep a third in, B tapped every 0.7 s, A after it')
-    rest()
-    B.run()
-    B.sleep(400)
-    B.eval('window.__ft = []')
-    const end = Date.now() + 10000
-    let k = 0
-    let right = false
-    while (Date.now() < end) {
-      const [x, left] = B.eval('[window.__zelda.state.hero.x, window.__zelda.state.map.chase?.left ?? 0]')
-      right = x < left + 7
-      const jump = k % 14 === 0
-      const cut = k % 14 === 4
-      hands({ move: { x: right ? 1 : 0, y: 0 }, bPress: jump, jumpHeld: jump || (k % 14 > 0 && k % 14 < 3), aPress: cut, a: cut })
-      B.sleep(40)
-      k++
+    // Ten seconds of real time each: the Road (1986, its tracking band), reel one (1958, grain and rim), the Screen.
+    results.frames = {}
+    for (const [name, setUp, third] of [
+      ['road', () => road(), true],
+      ['reel1958', () => { B.eval(`(() => { const s = window.__zelda.state; s.inv.sword = true; if (!s.cardsSeen.includes('reel1958:0')) s.cardsSeen.push('reel1958:0') })()`); go('reel1958', 'lens') }, false],
+      ['screen', () => screen(), false],
+    ]) {
+      B.hold()
+      setUp()
+      B.eval('(() => { const h = window.__zelda.state.hero; h.maxHp = h.hp = 20 })()')
+      note(`ten seconds of ${name} in real time, 20 half hearts: the stick moving, B tapped every 0.7 s, A after it`)
+      rest()
+      B.run()
+      B.sleep(400)
+      B.eval('window.__ft = []')
+      const end = Date.now() + 10000
+      let k = 0
+      let right = false
+      while (Date.now() < end) {
+        const [x, left] = B.eval('[window.__zelda.state.hero.x, window.__zelda.state.map.chase?.left ?? 0]')
+        right = third ? x < left + 7 : x < (name === 'screen' ? 3.5 : 4)
+        const jump = k % 14 === 0
+        const cut = k % 14 === 4
+        hands({ move: { x: right ? 1 : name === 'screen' && x < 3 ? 0 : third || x > 3 ? (third ? 0 : -1) : 0, y: 0 }, bPress: jump, jumpHeld: jump || (k % 14 > 0 && k % 14 < 3), aPress: cut, a: cut })
+        B.sleep(40)
+        k++
+      }
+      const ft = B.eval('(() => { const f = window.__ft; window.__ft = null; return f })()')
+      hands({ move: { x: 0, y: 0 } })
+      const by = new Map()
+      for (const [t, d] of ft) by.set(t, (by.get(t) ?? 0) + d)
+      const stamps = [...by.keys()].sort((a, c) => a - c)
+      results.frames[name] = { interval: stats(stamps.slice(1).map((t, i) => t - stamps[i])), work: stats([...by.values()]), load: loadavg()[0].toFixed(0) }
+      shoot(`${name}-real-time`)
     }
-    const ft = B.eval('(() => { const f = window.__ft; window.__ft = null; return f })()')
-    hands({ move: { x: 0, y: 0 } })
-    const by = new Map()
-    for (const [t, d] of ft) by.set(t, (by.get(t) ?? 0) + d)
-    const stamps = [...by.keys()].sort((a, c) => a - c)
-    results.frames = { interval: stats(stamps.slice(1).map((t, i) => t - stamps[i])), work: stats([...by.values()]) }
-    shoot('road-real-time')
   }
 
   const errs = B.errors().filter(e => !/ERR_BLOCKED|Failed to load resource|net::|\[vite\]|WebSocket/.test(e))
@@ -414,5 +584,5 @@ try {
   B.close()
 }
 console.log(JSON.stringify(results, null, 1))
-writeFileSync(`${out}/${size}-2-results${parts.length ? `-${parts.join('-')}` : ''}.json`, JSON.stringify(results, null, 1))
+writeFileSync(`${out}/${size}-3-results${parts.length ? `-${parts.join('-')}` : ''}.json`, JSON.stringify(results, null, 1))
 process.exit(failed ? 1 : 0)

@@ -10,7 +10,7 @@ const Z = await load()
 const R = Z.HERO_R
 const f2 = v => v.toFixed(2)
 
-console.log('THE ROAD, from its start (blade given; 3 hearts)')
+console.log('THE ROAD, from its start (blade given; 3 hearts; with the stomp: one stomp a stall, then the blade)')
 for (const stomp of [false, true]) {
   for (const seed of [11, 1, 2]) {
     const s = Z.createGame(Z.WORLD, { seed, at: { map: 'chase1986', entry: 'start' } })
@@ -30,17 +30,17 @@ for (const stomp of [false, true]) {
 }
 
 /** A game on the Road, the screen held at its end, the hero standing `r` tiles into it, the wagon at its honk. */
-function scene(r) {
-  const s = Z.createGame(Z.WORLD, { seed: 3, at: { map: 'chase1986', entry: 'start' } })
+function scene(r, left = 48, W = Z.WORLD) {
+  const s = Z.createGame(W, { seed: 3, at: { map: 'chase1986', entry: 'start' } })
   s.inv.sword = true
   s.inv.stomp = true
   s.flags['lateshow.copilot.card'] = true
-  Z.enterMap(Z.WORLD, s, 'chase1986', 'start', [], { x: 48 + r, y: 21 - R - 1e-4 })
+  Z.enterMap(W, s, 'chase1986', 'start', [], { x: left + r, y: 21 - R - 1e-4 })
   delete s.card
-  Object.assign(s.map.chase, { left: 48, wait: 0 })
+  Object.assign(s.map.chase, { left, wait: 0 })
   const car = s.map.enemies[0]
   Object.assign(car.ai, { mode: 'honk', t: Z.COPILOT.honk, r: Z.COPILOT.off })
-  const step = (o = {}) => Z.stepGame(Z.WORLD, s, 1 / 120, { ...Z.NO_INPUT, move: { x: 0, y: 0 }, ...o })
+  const step = (o = {}) => Z.stepGame(W, s, 1 / 120, { ...Z.NO_INPUT, move: { x: 0, y: 0 }, ...o })
   for (let i = 0; i < 2; i++) step()
   return { s, car, step, feet: () => s.hero.y + R }
 }
@@ -72,6 +72,38 @@ for (const r of [3, 5, 8]) {
   const P = scene(5)
   for (let i = 0; i < 360; i++) P.step()
   console.log(`  a hero who only stands: ${6 - P.s.hero.hp} half hearts for one pass`)
+}
+{
+  // Nowhere on the screen is safe by standing: a hero stood at every quarter tile of it, through a honk and a pass.
+  // (The screen held eight short of its end, where no door, pit or wagon lies anywhere on it.)
+  const short = { ...Z.WORLD, maps: { ...Z.WORLD.maps, chase1986: { ...Z.WORLD.maps.chase1986, autoscroll: { vx: 3.4, from: 0, to: 40, wait: 0 } } } }
+  const safe = []
+  for (let r = Z.CHASE.edge; r <= Z.CHASE.right + 1e-9; r += 0.25) {
+    const P = scene(r, 40, short)
+    for (let i = 0; i < 360; i++) P.step()
+    if (P.s.hero.hp === 6 || P.s.map.id !== 'chase1986') safe.push(f2(r))
+  }
+  console.log(`  standing anywhere from r ${Z.CHASE.edge} to r ${Z.CHASE.right}: ${safe.length ? `SAFE at r ${safe.join(', ')}` : 'hit at every place'}`)
+}
+{
+  // A stall takes one stomp: the second comes down on it, bounces off and takes nothing.
+  const P = scene(8)
+  const { s, car, step } = P
+  Object.assign(car.ai, { mode: 'stall', t: 9, r: Z.COPILOT.to, stomped: false, took: 0 })
+  step()
+  const lost = []
+  for (let go = 0; go < 2; go++) {
+    Object.assign(s.hero, { x: car.x - 0.2, y: 21 - R - 1e-4, vy: 0, knock: null, invuln: 0 })
+    delete s.hero.side
+    for (let i = 0; i < 30; i++) step()
+    car.ai.t = 9
+    const hp = car.hp
+    const events = []
+    for (let i = 0; i < 240 && !events.some(e => e.type === 'stomp' && e.on === 'foe'); i++) events.push(...Z.stepGame(Z.WORLD, s, 1 / 120, { ...Z.NO_INPUT, move: { x: 0, y: 0 }, ...(i === 0 ? { bPress: true, jumpPress: true, jumpHeld: true } : i < 40 ? { jumpHeld: true } : {}), ...(i === 40 ? { aPress: true, a: true } : {}) }))
+    lost.push(`${hp - car.hp}${events.some(e => e.type === 'clank') ? ' (clank)' : ''}${s.hero.side.vy < 0 ? ', bounced' : ''}`)
+    for (let i = 0; i < 120; i++) step()
+  }
+  console.log(`  two stomps in one stall take: ${lost.join(' | ')}`)
 }
 
 console.log(`\nTHE STALL (${Z.COPILOT.stall} s): a hero standing at r 5 at the honk jumps the pass, runs up and cuts`)

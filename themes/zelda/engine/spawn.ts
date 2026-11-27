@@ -35,6 +35,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   bard: { hp: 10, r: 1.0, dmg: 0, flying: true },
   // Grown, its body is wider (`bossGolem.ts` `GOLEM.r`).
   golem: { hp: 18, r: 1.2, dmg: 2 },
+  // (It harms by what it draws, never by touch: `engine/bossWeaver.ts`.)
+  weaver: { hp: 12, r: 1.4, dmg: 0, flying: true },
 }
 
 export function spawnEnemy(

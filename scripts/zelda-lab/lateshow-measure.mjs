@@ -286,3 +286,48 @@ console.log(`ladders up the far side of the Video Store's shelves and the Lot's 
   for (let i = 0; i < 360; i++) P.step({ move: { x: P.s.hero.x < 21.6 ? 1 : 0, y: 0 } })
   console.log(`off the high slab: down at x ${f2(P.s.hero.x)}, feet ${f2(P.feet())}, hearts lost ${hp - P.s.hero.hp}`)
 }
+
+// -- the Screen --------------------------------------------------------------------------------------------------
+
+console.log(`\nTHE SCREEN: the fingers' rings (radius ${f2(Z.WEAVER.finger)}), from the footing before each, B tapped and let go, A after it`)
+/** A try at finger `n` from x: the hand held at rest, the hero set on the footing, A `d` s after a tapped take-off. */
+function finger(n, x, row, d, hold = 0) {
+  const flags = [1, 2, 3].slice(0, n).map(k => `weaver.h${k}`)
+  const P = at(Z.WORLD, 'weaver', x, row, { flags })
+  const e = P.s.map.enemies.find(o => o.kind === 'weaver')
+  const rest = () => Object.assign(e.ai, { mode: 'rest', t: 99, sk: '', clk: 0 })
+  e.ai.n = n
+  rest()
+  for (let i = 0; i < 480; i++) {
+    const t = i / 120
+    e.ai.sk = ''
+    e.ai.clk = 0
+    P.step({ autoFace: true, ...(i === 0 ? { bPress: true, jumpPress: true, jumpHeld: true } : t < hold ? { jumpHeld: true } : {}), ...(Math.abs(t - d) < 1 / 240 ? { aPress: true, a: true } : {}) })
+    if (P.events.some(v => v.type === 'stomp' && v.on === 'finger')) return { hit: true, at: row - P.feet() }
+    if (i > 12 && P.down()) break
+  }
+  return { hit: false }
+}
+const stands = [
+  // name, the slot, footing row, take-off spots
+  ['slot 1, from the floor at its west end (the landing of the stair ends at x 2)', 0, 21, [2.4, 2.5, 3.0, 3.4]],
+  ['slot 2, from step 1\'s east end', 1, 20, [3.8, 4.2, 4.5, 4.8, 5.2]],
+  ['slot 3, from step 2\'s east end', 2, 19, [6.8, 7.2, 7.5, 7.8, 8.2]],
+]
+for (const [name, n, row, spots] of stands) {
+  const s = Z.mapInfo(Z.WORLD, 'weaver')
+  const slot = Z.weaverSlot(s, n)
+  const f = { x: slot.x + 0.5, y: slot.y - 0.5 }
+  console.log(`  ${name}: finger (${f.x}, ${f.y}), footing ${row}`)
+  for (const x of spots) {
+    const dx = Math.abs(f.x - x)
+    // The feet enter the ring once they are this far over the footing (standing, the stick at rest).
+    const need = dx <= Z.WEAVER.finger ? row - f.y - Math.sqrt(Z.WEAVER.finger ** 2 - dx ** 2) : null
+    const ok = []
+    let all = 0
+    for (let d = 1 / 120; d <= 0.45; d += 1 / 120, all++) if (finger(n, x, row, d).hit) ok.push(d)
+    console.log(`      from x ${x} (${f2(dx)} across): ring entered ${need === null ? 'never' : `${f2(Math.max(0, need))} up, a tapped jump (${f2(T)}) passes it by ${f2(T - need)}`}; A ${ok.length ? `${Math.round(ok[0] * 1000)}-${Math.round(ok.at(-1) * 1000)} ms after take-off (${ok.length}/${all})` : 'never'}`)
+  }
+}
+console.log('  steps: floor to step 1, step to step: 1 up (held +' + f2(J - 1) + ', tapped +' + f2(T - 1) + '); step 2 or 3 straight from the floor: 2 and 3 up, held only (+' + f2(J - 2) + ', +' + f2(J - 3) + ')')
+console.log(`  the bite's rectangle y ${Z.WEAVER.rect.y}-${Z.WEAVER.rect.y + Z.WEAVER.rect.h}, asked of the hero's middle: on step 3 (middle ${f2(18 - R)}) inside, on step 2 (middle ${f2(19 - R)}) clear by ${f2(19 - R - Z.WEAVER.rect.y - Z.WEAVER.rect.h)}`)
