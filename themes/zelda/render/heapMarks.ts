@@ -37,7 +37,7 @@ export function drawHeapFloor(g: G, world: World, s: GameState, cx: number, cy: 
       rail(g, (i % m.w) * T - cx, Math.floor(i / m.w) * T - cy, r.dir === 'right', k === 0 ? -1 : k === r.tiles.length - 1 ? 1 : 0)
     })
   }
-  for (const p of info.pads) {
+  for (const p of info.ironPads) {
     if (!here(p.cell) || isIron(m.tiles[p.idx]!)) continue
     pad(g, (p.idx % m.w) * T - cx, Math.floor(p.idx / m.w) * T - cy, p.dir)
   }
@@ -115,7 +115,7 @@ export function drawMetalGlint(g: G, px: number, py: number, tx: number, ty: num
 /** Iron on the move: loose iron lifted off the floor over its shadow, a cart on its wheels. And the marks' own light. */
 export function queueHeap(g: G, world: World, s: GameState, cx: number, cy: number, time: number, reduced: boolean, items: Item[], lights: Light[]) {
   // (The floor's paint is darkened with the floor: the pads and the bracket bring lights of their own.)
-  for (const p of mapInfo(world, s.map.id).pads) {
+  for (const p of mapInfo(world, s.map.id).ironPads) {
     if (p.cell === s.zoneIndex) lights.push({ x: (p.idx % s.map.w) + 0.5, y: Math.floor(p.idx / s.map.w) + 0.5, r: 0.9, color: CYAN, a: 0.4 })
   }
   const mark = magnetPreview(world, s)

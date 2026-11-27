@@ -536,6 +536,7 @@ export function unlockDoor(c: Ctx, tx: number, ty: number, t: TileChar) {
 function startSwing(c: Ctx, inp: Input) {
   const s = c.s
   const h = s.hero
+  if (s.map.exam?.rule === 'noBlade') return
   // Read the stick afresh for every hit: the chain can turn between blows.
   const mx = inp.move.x
   const my = inp.move.y
@@ -807,6 +808,7 @@ export function endRoll(c: Ctx, inp: Input) {
 }
 
 function startSpin(c: Ctx) {
+  if (c.s.map.exam?.rule === 'noBlade') return
   const h = c.s.hero
   h.spin = { t: 0, hit: [] }
   h.act = 'spin'

@@ -31,7 +31,7 @@ const sign = (text: string): Mark => ({ tile: 'S', ent: { t: 'sign', lines: [tex
 const entry = (id: string, dir: Dir = 'down'): Mark => ({ ent: { t: 'entry', id, dir } })
 const stairs = (to: string, id: string): Mark => ({ tile: '>', ent: { t: 'warp', to, entry: id } })
 const rail = (len: number, tile?: Mark['tile']): Mark => (tile ? { tile, ent: { t: 'rail', len, dir: 'right' } } : { ent: { t: 'rail', len, dir: 'right' } })
-const pad = (dir: Dir): Mark => ({ ent: { t: 'pad', dir } })
+const pad = (dir: Dir): Mark => ({ ent: { t: 'ironpad', dir } })
 const bats: Mark = { ent: { t: 'enemy', kind: 'bat' } }
 /** A trap gate's mark: the first tile of its run. */
 const trap: Mark = { tile: 'X', ent: { t: 'gate', trap: true } }

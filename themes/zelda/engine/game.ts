@@ -24,6 +24,7 @@ import { lampHome } from './lamp'
 import { homeIron } from './magnet'
 import { raiseCard, stepCard } from './cards'
 import { stepLens } from './lens'
+import { examEnterCell, examEnterMap, stepExam } from './exam'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -144,6 +145,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   setZone(world, s, cellIndex(info, h.x, h.y))
   settleFoes(world, s)
   raiseCard(world, s)
+  examEnterMap(world, s)
   const area = areaAt(world, s)
   s.area = area.name
   ev.push({ type: 'enter', map: mapId, area: area.name, track: area.track })
@@ -220,6 +222,7 @@ function enterCell(c: Ctx, index: number) {
   resetPuzzleRoom(c, index)
   // Iron goes home (`magnet.ts`), solved room or not.
   homeIron(c, index)
+  examEnterCell(c, index)
   s.hero.safe = { x: s.hero.x, y: s.hero.y }
   placeLuna(s)
   const area = areaAt(c.w, s)
@@ -282,6 +285,8 @@ function play(c: Ctx, dt: number, inp: Input) {
   // A SLIP: the world runs slow a moment, the hero at full pace (`moves.ts`).
   const wdt = s.slow ? dt * SLIP_SCALE : dt
   stepSlow(s, dt)
+  // (The examination's rounds and its stands run on the hero's clock.)
+  stepExam(c, dt)
   stepEnemies(c, wdt)
   stepObjects(c, wdt)
   if (s.mode !== 'play' || s.demo) return

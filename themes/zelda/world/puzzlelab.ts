@@ -8,6 +8,8 @@
  *                           ↑
  *   A weights → B ice  → C beams
  *
+ * In F's north-east corner a stair leads to THE EXAMINATION (`examination.ts`).
+ *
  * A: a heavy plate the hero alone is too light for (carry a pot onto it). A door in its north wall leads to the
  *    Turn Room (`turnroom.ts`).
  * B: ice; slide the block onto the heavy plate across the lake.
@@ -96,7 +98,7 @@ const E = [
 
 const F = [
   '################',
-  '#...Q..........#',
+  '#...Q.......4.8#',
   '#.U.....ααIα...#',
   '#p..%...αααα...#',
   '#.......αααα....',
@@ -128,6 +130,7 @@ export const PUZZLELAB: MapDef = {
   },
   entries: {
     'from-turnroom': { x: 7.5, y: 13.5, dir: 'down' },
+    'from-exam': { x: 13.5, y: 1.5, dir: 'down' },
   },
   marks: {
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
@@ -163,5 +166,8 @@ export const PUZZLELAB: MapDef = {
     y: { ent: { t: 'receiver', flag: 'lab.f.lit' } },
     '6': { ent: { t: 'gate', open: { flag: 'lab.f.lit' } } },
     '9': { ent: { t: 'chest', id: 'puzzlelab.prize', item: 'bits50', big: true } },
+    // The stair up to the Examination (`examination.ts`), and what it says of itself.
+    '4': { ent: { t: 'sign', lines: ['THE EXAMINATION. THE QUESTIONS ARE NOT THE ONES YOU PRACTISED.'] }, tile: 'S' },
+    '8': { ent: { t: 'warp', to: 'examination', entry: 'desk' }, tile: '>' },
   },
 }

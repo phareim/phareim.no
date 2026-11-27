@@ -81,6 +81,17 @@ export function validateWorld(world: World): string[] {
         } else if (!m.ent.open) out.push(`${id}: marker '${ch}' is a gate that nothing opens`)
       }
       if (m.ent.t === 'stand' && (!roomed(def.kind) || !def.cell)) out.push(`${id}: marker '${ch}' is a pot stand outside a dungeon's rooms`)
+      if (m.ent.t === 'stand' && !TILE_INFO[m.tile ?? 'o'].lift) out.push(`${id}: marker '${ch}' is a pot stand on a tile that holds no pot`)
+      if (m.ent.t === 'pad') {
+        if (!m.ent.pic && m.ent.worth === undefined && !m.ent.handin) out.push(`${id}: marker '${ch}' is a pad with no pic, no worth and no hand-in`)
+        const cw = def.cell?.w ?? 0
+        const chh = def.cell?.h ?? 0
+        def.rows.forEach((r, y) => {
+          for (let x = 0; x < r.length; x++) {
+            if (r[x] === ch && !(cw && def.cells?.[`${Math.floor(x / cw)},${Math.floor(y / chh)}`]?.round)) out.push(`${id}: the pad at ${x},${y} is in a room that is no round`)
+          }
+        })
+      }
       if (m.ent.t === 'ledge' && def.kind !== 'side') out.push(`${id}: marker '${ch}' is a safe ledge outside a side map`)
       if (m.ent.t === 'enemy' && m.ent.tough) {
         if (m.ent.kind !== 'sentry' && m.ent.kind !== 'hound') out.push(`${id}: marker '${ch}' is a tough ${m.ent.kind} (only a sentry or a hound may be tough)`)
@@ -333,7 +344,7 @@ function ironProblems(id: string, world: World): string[] {
   def.rows.forEach((r, y) => {
     for (let x = 0; x < r.length; x++) {
       const e = def.marks[r[x]!]?.ent
-      if (e?.t === 'pad' && !PASSABLE.has(tileOf(def, x, y))) out.push(`${id}: the pad at ${x},${y} is not floor`)
+      if (e?.t === 'ironpad' && !PASSABLE.has(tileOf(def, x, y))) out.push(`${id}: the pad at ${x},${y} is not floor`)
       if (e?.t !== 'rail') continue
       const [dx, dy] = STEP[e.dir]
       for (let k = 0; k < e.len; k++) {

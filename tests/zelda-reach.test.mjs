@@ -233,6 +233,8 @@ function round(W, world, opened) {
         const cell = m.cell(cx * m.def.cell.w, cy * m.def.cell.h)
         if (!cells.has(`${m.id}|${cell}`)) continue
         for (const ev of def.events ?? []) if (holds(ev.when, m, cell)) set(ev.set)
+        // A round of the Examination is passed by whoever plays it in its room (its own test plays it).
+        if (def.round && flags['item:sword']) set(`exam.${def.round.id}`)
       }
     }
     if (flags.luna) { const b = W.luna?.find(v => Z.condMet(g, W, v.when, -1)); if (b?.set) set(b.set) }
@@ -280,7 +282,14 @@ function solve(W) {
  * What a dungeon that is landing part by part cannot open yet. The list is exact: the part that opens a thing takes
  * its line out, and a finished world has none.
  */
-const OWED = []
+const OWED = [
+  // The Examination: rounds three and four, the pond's plate (the Duck) and the hall at the top (parts two and three).
+  'examination: gate examination.16,5',
+  'examination: gate examination.48,5',
+  'examination: gate examination.7,11',
+  'examination: gate examination.7,2',
+  'examtop: never walked into',
+]
 
 describe('the whole world can be opened', () => {
   it('reaches every chest, key, locked door and gate in some order, with only what the world gives', () => {

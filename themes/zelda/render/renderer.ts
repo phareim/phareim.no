@@ -36,6 +36,7 @@ import { drawClock, drawGifts, drawRings, drawRobe, queueRack, steamLights, SYCO
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
 import { drawEyes, stripLights } from './lighthouse'
+import { drawExamCard, queueExam } from './examination'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -75,6 +76,8 @@ const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierC
   stillsand: { bat: 'stonebird' },
   rerun: { hound: 'mowermob', drone: 'flamingomob', spitter: 'mailboxmob' },
 }
+// The cactus that walks (round two of the examination).
+FRONTIER_FOE_LOOKS.stillsand!.spitter = 'cactus'
 
 const T = TILE
 
@@ -1066,6 +1069,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (frontier === 'nokk' && e.ai.mode === 'idle') return { name: 'nokk_eyes', flip }
       // Pink eyes: every grazer but a calm one that nobody has struck.
       if (frontier === 'grazer' && (!e.calm || e.ai.angry)) return { name: tick % 2 ? 'grazer_angryb' : 'grazer_angrya', flip }
+      if (frontier === 'cactus' && e.ai.tell > 0) return { name: 'cactus_popped', flip }
       const prefix = `${frontier}_${key}`
       return { name: `${prefix}_${f(prefix)}`, flip }
     }
@@ -1450,6 +1454,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     queuePuzzles(g, s, cx, cy, items)
     if (!ui.attract) queueHeap(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
+    if (!ui.attract) queueExam(g, world, s, cx, cy, items)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
@@ -1956,6 +1961,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         g.save()
         g.translate(left, top)
         drawHud(g, s, sp.vw - left - right, time, ui.touch, skin, world)
+        // The examination's score card (no dialog: play goes on under it).
+        drawExamCard(g, s, sp.vw - left - right, sp.vh - top - bottom, ui.reducedMotion)
         g.restore()
       }
       // A combo's name where it lands (`moves.ts` credit).

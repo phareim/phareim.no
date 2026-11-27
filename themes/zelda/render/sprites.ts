@@ -24,6 +24,7 @@ import { intermediateBlades } from './bladeAngles'
 import { COMBAT_MARK_RAW } from './combatMarks'
 import { FOE_HURT_RAW } from './foeHurtSprites'
 import { WILDLIFE_RAW } from './wildlifeSprites'
+import { EXAM_RAW } from './spritesExamination'
 import { FRONTIER_RAW } from './frontierSprites'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
@@ -1619,6 +1620,7 @@ const RAW: Record<string, Rows> = {
   ...HEAP_RAW,
   ...SYCOPHANT_RAW,
   ...GIFT_RAW,
+  ...EXAM_RAW,
 }
 
 

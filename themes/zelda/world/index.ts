@@ -15,6 +15,7 @@ import { DEEP1, DEEP2 } from './lab2'
 import { LUNA_TALK } from './luna'
 import { PUZZLELAB } from './puzzlelab'
 import { TURNROOM } from './turnroom'
+import { EXAMINATION, EXAMTOP } from './examination'
 import { linkBack } from './demos'
 import { ATLAS, rescueGone } from './atlas'
 import { LANDS } from './lands'
@@ -47,6 +48,9 @@ export const WORLD: World = {
     ...LANDS,
     // The Sporelight's dungeon with no keys, behind a door in its bathhouse.
     ...STEAMHOUSE_MAPS,
+    // The test behind the Puzzle Lab (a stair in its last room), and the hall at its top.
+    examination: EXAMINATION,
+    examtop: EXAMTOP,
   },
   start: { map: 'overworld', entry: 'start' },
   luna: LUNA_TALK,

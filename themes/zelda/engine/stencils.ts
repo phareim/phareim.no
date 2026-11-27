@@ -22,6 +22,10 @@ export type StencilShape =
   | { t: 'ray'; x0: number; y0: number; x1: number; y1: number; w: number }
   /** The Lighthouse's one shape: a plain rectangle from (x0, y0) `len` tiles along the unit way (ux, uy), `w` wide. */
   | { t: 'strip'; x0: number; y0: number; ux: number; uy: number; len: number; w: number }
+  // The examination's shapes (`render/examination.ts` `drawShape`), in tiles.
+  | { t: 'disc'; x: number; y: number; r: number }
+  | { t: 'box'; x: number; y: number; w: number; h: number }
+  | { t: 'path'; x0: number; y0: number; x1: number; y1: number; w: number }
 /** `k`: 0 to 1 as its tell runs out; `dim`: a copy's, painted fainter. */
 export type Stencil = StencilShape & { k: number; dim?: boolean }
 
@@ -45,6 +49,9 @@ export function inStencil(s: StencilShape, x: number, y: number): boolean {
       const u = (x - s.x0) * s.ux + (y - s.y0) * s.uy
       return u >= 0 && u <= s.len && Math.abs((y - s.y0) * s.ux - (x - s.x0) * s.uy) <= s.w / 2
     }
+    case 'disc': return Math.hypot(x - s.x, y - s.y) <= s.r
+    case 'box': return x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h
+    case 'path':
     case 'ray': {
       const dx = s.x1 - s.x0
       const dy = s.y1 - s.y0

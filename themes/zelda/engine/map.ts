@@ -4,9 +4,9 @@
  * it; `loadMap` builds the mutable MapState for the current progress.
  */
 import type {
-  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, ViewSide, Warp, WeightId, World, Enemy, Npc, Pickup,
+  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, PadPic, Rect, Spot, TileChar, ViewSide, Warp, WeightId, World, Enemy, Npc, Pickup,
 } from '../types'
-import { HERO_R, TOUGH, WEIGHTS } from '../types'
+import { EXAM, HERO_R, TOUGH, WEIGHTS } from '../types'
 import { TILE_INFO, blockUp, isTileChar, isViewBlock } from '../world/tiles'
 import { puzzleMarkTile } from '../world/puzzles'
 import { loadPuzzleTiles } from './puzzles/load'
@@ -15,6 +15,7 @@ import { terrainAbove, terrainLevel, terrainLoad } from './terrain'
 import { LUNA_GAP, dirVec, opposite, trailPoint } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
+export interface PadInfo { id: string; x: number; y: number; size: 1 | 2; worth: number; hold: number; when?: Cond; pic?: PadPic; handin: boolean; cell: number }
 export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; idx: number; x: number; y: number; cell: number }
 /** `trap`: a gate that starts open and shuts behind the hero (`open` is then the room's `clear`). */
 /** `latch`: a held gate, open while `open` holds until the latch does. */
@@ -40,7 +41,11 @@ export interface MapInfo {
   stands: number[]
   /** The Magnet's rails (`rail` marks): each one's tiles in order, and the pads (`pad` marks). */
   rails: Array<{ tiles: number[]; dir: 'right' | 'down'; cell: number }>
-  pads: Array<{ idx: number; dir: import('../types').Dir; cell: number }>
+  ironPads: Array<{ idx: number; dir: import('../types').Dir; cell: number }>
+  /** Stands that fill one at a time (`stand` marks with a `wait`): the tile, what stands there, the seconds. */
+  lends: Array<{ idx: number; tile: TileChar; wait: number }>
+  /** The examination's pads (`pad` marks), filled in. */
+  pads: PadInfo[]
   /** Letter stones: tile index → letter. */
   glyphs: Map<number, string>
   /** Levers: tile index → the flag a hit sets. */
@@ -111,8 +116,9 @@ function buildInfo(def: MapDef): MapInfo {
     entries: { ...(def.entries ?? {}) },
     warps: (def.warps ?? []).map(wp => ({ w: 1, h: 1, ...wp })),
     chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(), stands: [],
-    rails: [], pads: [],
+    rails: [], ironPads: [],
     glyphs: new Map(), levers: new Map(), blocks: new Map(), scenery: new Set(),
+    lends: [], pads: [],
     cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh), heads: new Map(),
   }
   for (const [key, cd] of Object.entries(def.cells ?? {})) {
@@ -133,9 +139,11 @@ function buildInfo(def: MapDef): MapInfo {
     else if (e.t === 'plate') info.plates.set(idx, e.id)
     else if (e.t === 'glyph') info.glyphs.set(idx, e.ch)
     else if (e.t === 'lever') info.levers.set(idx, e.flag)
+    else if (e.t === 'stand' && 'wait' in e) info.lends.push({ idx, tile: base[idx]!, wait: e.wait })
     else if (e.t === 'stand') info.stands.push(idx)
     else if (e.t === 'rail') info.rails.push({ tiles: Array.from({ length: e.len }, (_, k) => idx + k * (e.dir === 'right' ? 1 : w)), dir: e.dir, cell })
-    else if (e.t === 'pad') info.pads.push({ idx, dir: e.dir, cell })
+    else if (e.t === 'ironpad') info.ironPads.push({ idx, dir: e.dir, cell })
+    else if (e.t === 'pad') info.pads.push({ id: e.id ?? `${def.id}.${m.x},${m.y}`, x: m.x, y: m.y, size: e.size ?? 1, worth: e.handin ? 0 : e.worth ?? (e.pic === 'cactus' ? 2 : -2), hold: e.hold ?? EXAM.hold, when: e.when, pic: e.pic, handin: !!e.handin, cell })
     else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), cell, ...(e.trap ? { open: { clear: true }, trap: true } : { open: e.open, ...(e.latch ? { latch: e.latch } : {}) }) })
   }
   // A trap gate is its own room's: one in the doorway beyond the rim, touching it, is another gate.

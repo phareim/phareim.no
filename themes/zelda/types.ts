@@ -456,6 +456,52 @@ export const ORCA = {
  */
 export const DARK_HOUND = { tell: 0.7, w: 2, near: 0.9 } as const
 
+/**
+ * THE EXAMINATION (`engine/exam.ts`): `hold` s the hero stands on a pad at no more than `still` tiles/s before it
+ * latches; the score card plays `card` s.
+ */
+export const EXAM = { hold: 0.35, still: 1, card: 2.2 } as const
+export type RoundId = 'r1' | 'r2' | 'r3' | 'r4'
+/** What a pane on the floor shows. A cactus is worth marks; any other picture takes them. */
+export type PadPic = 'cactus' | 'palm' | 'stone' | 'cloud' | 'bones'
+/** A camera room that is a round of an examination (`CellDef.round`). */
+export interface RoundDef {
+  id: RoundId
+  /** The entry just inside its door: the continue point on coming in, and where a resit begins. */
+  entry: string
+  /** The marks that pass, and all there are. */
+  pass: number
+  max: number
+  /** 'noBlade': no move of the blade starts. 'still': time waits for the hero. */
+  rule?: 'noBlade' | 'still'
+  /** What each fallen foe of the room is worth. */
+  foeWorth?: number
+  /** Marks lost for each heart (`hurt`) and for each hollow pot broken on a weighed tile (`shatter`). */
+  penalty?: { hurt?: number; shatter?: number }
+}
+/** The score card, as a round ended: `t` seconds of it played. */
+export interface ExamCard { id: RoundId; entry: string; cell: number; marks: number; pass: number; max: number; passed: boolean; t: number }
+/** The round under way, or just over (never saved: the flags `exam.<id>` and `exam.<id>.full` are what lasts). */
+export interface ExamState {
+  id: RoundId
+  cell: number
+  /** The rule in force; gone when the round is over. */
+  rule?: RoundDef['rule']
+  marks: number
+  /** Pads latched, by id, and the seconds the hero has stood on each of the others. */
+  got: string[]
+  hold: Record<string, number>
+  /** Half hearts lost, and the tiles a hollow pot broke on. */
+  lost: number
+  shattered: number[]
+  card: null | ExamCard
+  over: boolean
+  /** How fast the world runs, 0 to 1 (a room where time waits). */
+  k: number
+  /** The hero's hit points at the last step. */
+  hp: number
+}
+
 // ---------------------------------------------------------------------------
 // Authored world
 // ---------------------------------------------------------------------------
@@ -586,7 +632,15 @@ export type EntDef =
   /** A rail (a floor tile): this tile and the `len - 1` after it along `dir`. A cart or striped cart moves along it only. */
   | { t: 'rail'; len: number; dir: 'right' | 'down' }
   /** A pad (floor): the Magnet's stencil on the floor, facing `dir`. A hint for the eye; the engine never reads it. */
-  | { t: 'pad'; dir: Dir }
+  | { t: 'ironpad'; dir: Dir }
+  /** A pot stand of its own (tile 'o' or 'r'): `wait` s after its pot went, it gets one back (`engine/exam.ts`). */
+  | { t: 'stand'; wait: number }
+  /**
+   * A pad on the floor of a round's room (`engine/exam.ts`), `size` tiles square from its tile. Standing on it
+   * `hold` s latches it for `worth` marks (a cactus 2, any other picture -2); with `when`, it latches as soon as
+   * that holds. A `handin` pad is no mark: it ends the round.
+   */
+  | { t: 'pad'; id?: string; worth?: number; size?: 1 | 2; hold?: number; when?: Cond; pic?: PadPic; handin?: true }
   | { t: 'glyph'; ch: string } // a letter stone (tile '{')
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   // Physical puzzles (`engine/puzzles/`): each also works unmarked with defaults, see world/puzzles.ts
@@ -695,6 +749,8 @@ export interface CellDef {
   events?: Array<{ when?: Cond; lines: string[]; who?: string; set: string }>
   /** An intertitle card, shown when the hero comes into this room by a warp, once a session (`engine/cards.ts`). */
   card?: { title: string; lines: string[] }
+  /** The room is a round of an examination (`engine/exam.ts`). */
+  round?: RoundDef
 }
 
 /**
@@ -1090,6 +1146,9 @@ export interface MapState {
   onGlyph: number
   /** MapDef.keyring, resolved. */
   ring: string
+  /** The examination's round in this map (`engine/exam.ts`), and the seconds each empty stand of its own has waited. */
+  exam?: ExamState
+  stands?: Record<number, number>
   /** Seconds the hero's room has held no pot at all (pot stands, `engine/objects.ts`). */
   standT?: number
   /** `MapDef.terrain`: the height of every tile, the ground's level, the hero's standing level. */
@@ -1551,6 +1610,9 @@ export type GameEvent =
   | { type: 'latch'; x: number; y: number }
   | { type: 'fizzle'; x: number; y: number }
   | { type: 'iron'; x: number; y: number }
+  /** A pad of the examination latched (`ok`: it gave marks), and a round ending with its stamp. */
+  | { type: 'pad'; x: number; y: number; ok: boolean }
+  | { type: 'stamp'; passed: boolean }
   | { type: 'glyph'; x: number; y: number; ok: boolean }
   | { type: 'lever'; x: number; y: number }
   | { type: 'land' }

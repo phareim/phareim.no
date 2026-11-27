@@ -165,7 +165,12 @@ export const STILLSAND: MapDef = {
     'k': npc('stillsand.gardenunit', 'gardenbot', [{ lines: ['GARDEN UNIT: MY ISLAND FELL. I KEPT WATERING THE SPOT. IT SEEMED POLITE.', 'GARDEN UNIT: THE SURVEYOR LEFT A STAKE ON EACH SIDE OF THE CRACK. I WATER THOSE TOO.'] }]),
     's': npc('stillsand.roostkid', 'kid', [{ lines: ["ROOST KID: THE BIRDS ARE STONE. DON'T TELL THEM.", 'ROOST KID: THEY NEST FAR WEST, SOUTH OF THE RIBS. THE EGG IS NOT STONE. I CHECKED.'] }]),
     'u': npc('stillsand.hermit', 'smoker', [{ lines: ['SALT HERMIT: SHH. OH. IT\'S ONLY YOU. I THOUGHT YOU WERE THE WIND.', 'SALT HERMIT: I TALK TO MY REFLECTION IN THE SALT. IT AGREES WITH EVERYTHING. GOOD COMPANY.'] }]),
-    'j': npc('stillsand.tourist', 'hippie', [{ lines: ['TOURIST: I CAME THROUGH THE GRAVES FOR AN AFTERNOON. THE SUN HASN\'T MOVED SINCE.', 'TOURIST: A GOLD PYRAMID, AND NOT ONE GIFT SHOP. FIVE STARS FOR THE VIEW, THOUGH.'] }]),
+    'j': npc('stillsand.tourist', 'hippie', [
+      // The Examination (`examination.ts`): said once before its Weight is held, once after.
+      { when: { flags: [], not: ['item:weightSurprise', 'stillsand.exam.told'] }, lines: ['TOURIST: THERE IS A TEST AT THE BACK OF THE LAB. I AM NOT ON THE LIST.'], set: 'stillsand.exam.told' },
+      { when: { flags: ['item:weightSurprise'], not: ['stillsand.exam.thanked'] }, lines: ['TOURIST: SOMEONE PASSED. THEY GOT A SMALL BRASS WEIGHT. STILL NO GIFT SHOP.'], set: 'stillsand.exam.thanked' },
+      { lines: ['TOURIST: I CAME THROUGH THE GRAVES FOR AN AFTERNOON. THE SUN HASN\'T MOVED SINCE.', 'TOURIST: A GOLD PYRAMID, AND NOT ONE GIFT SHOP. FIVE STARS FOR THE VIEW, THOUGH.'] },
+    ]),
     '1': { ent: { t: 'chest', id: 'stillsand.garden', item: 'heartPiece' } },
     '2': { ent: { t: 'chest', id: 'stillsand.ribs', item: 'bits20' } },
     '3': { ent: { t: 'chest', id: 'stillsand.scales', item: 'bits50', appear: { plates: ['stillsand.scale'] } } },

@@ -14,6 +14,7 @@ import { itemIconName } from './itemIcon'
 import { ARTS, MOVES, type ArtId, type MoveId } from '../types'
 import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
 import { PAGE_VEIL } from './mapPage'
+import { drawExamStrip } from './examination'
 
 type G = CanvasRenderingContext2D
 
@@ -207,15 +208,19 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   counter('hud_bit', inv.bits, 3, skin.ok)
   if (inv.bombBag) counter('hud_bomb', inv.bombs, 2)
   const keys = keyCount(s)
-  if (keys > 0 || s.map.ring !== 'shrine' || s.map.id === 'shrine') counter('hud_key', keys, 1, skin.prize)
+  // (The examination has no keys: no count of them either.)
+  if (s.map.ring !== 'examination' && (keys > 0 || s.map.ring !== 'shrine' || s.map.id === 'shrine')) counter('hud_key', keys, 1, skin.prize)
   if (hasBigKey(s)) { icon(g, skin, 'hud_bigkey', cx, cy); cx += 12 }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
   // its pause chip owns the top-right corner). An art resting shows dim, its rest filling a bar under it.
   // (On a side map B is the jump, whatever is owned.)
   const jumps = !!world && mapDef(world, s.map.id)?.kind === 'side'
-  if (!touch && (jumps || inv.selected)) {
-    const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
+  const box = !touch && (jumps || !!inv.selected)
+  const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
+  // The examination's strip: on the counters' row where there is room beside them, else under them and the item box.
+  if (world) drawExamStrip(g, world, s, vw, cy, box ? bx + 30 : cx - 6, Math.max(cy + 11, box ? 27 : 0), { rule: skin.prize, text: skin.text, pass: skin.ok, outline: skin.outline })
+  if (box) {
     skin.panel(g, bx, 3, 22, 22, 'cool')
     const item = itemIconName(s)
     const rest = !jumps && isArt(inv.selected) ? artRest(s, inv.selected) : 1
@@ -230,7 +235,6 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
       g.fillRect(bx + 3, 21, Math.round(16 * rest), 2)
     }
   }
-  void vw
 }
 
 export function drawBanner(g: G, text: string, t: number, vw: number, vh: number, skin: HudSkin = NEON_SKIN) {
