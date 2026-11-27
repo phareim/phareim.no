@@ -1,12 +1,12 @@
 /**
- * What THE LATE SHOW draws of its own (`world/lateshow.ts`): the door in the drive-in screen, the stomp's marks, the
- * Road's parked wagons and lane markings, COPILOT's warnings, and the Screen: its pencilled outlines, the Weaver's
- * arm and hands, everything it will hit (read off its `ai` through the same shapes its blows ask,
+ * What THE LATE SHOW draws of its own (`world/lateshow.ts`): the door in the drive-in screen, the booth's lenses, the
+ * stomp's marks, the Road's parked wagons and lane markings, COPILOT's warnings, and the Screen: its pencilled
+ * outlines, the Weaver's arm and hands, everything it will hit (read off its `ai` through the same shapes its blows ask,
  * `engine/bossWeaver.ts`), the gold ring and chevron over a resting finger, its ripple and its scribble. The streak
  * of the dive is the hero's cyan, a warning is pink, a thing to strike is gold, each with a dark outline, so that
  * they read on any year's ground.
  */
-import type { Enemy, GameState } from '../types'
+import type { Enemy, GameState, World } from '../types'
 import { TILE } from '../types'
 import { COPILOT, copilotRoad } from '../engine/bossCopilot'
 import { handsRight, WEAVER, weaverFinger, weaverFootprint, weaverLane, weaverPellet, weaverSlot, weaverStrips, weaverWaves } from '../engine/bossWeaver'
@@ -79,6 +79,19 @@ export function queueScreenDoor(g: G, cx: number, cy: number, turned: boolean, i
     },
   })
   lights.push({ x: DOOR.x + 0.5, y: DOOR.y + 0.5, r: 2.2, color: '#fff4d6', a: 0.6 })
+}
+
+/**
+ * The booth's lenses: a projector's lens on its stand over each stair in the north wall that goes into a reel, in that
+ * year's colours (`lens_<year>`, `spritesLateShow.ts`). It lies behind whoever stands on its tile.
+ */
+export function queueLenses(g: G, world: World, map: string, cx: number, cy: number, items: Item[]) {
+  for (const w of mapInfo(world, map).warps) {
+    if (!w.to.startsWith('reel')) continue
+    const x = w.x + 0.5
+    const foot = w.y + 1
+    items.push({ x, ay: foot, y: w.y, draw: () => g.drawImage(sprite(`lens_${w.to.slice(4)}`), Math.round(x * T - cx) - 8, Math.round(foot * T - cy) - T) })
+  }
 }
 
 // ---------------------------------------------------------------------------

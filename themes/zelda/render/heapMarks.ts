@@ -46,16 +46,14 @@ export function drawHeapFloor(g: G, world: World, s: GameState, cx: number, cy: 
   bracket(g, Math.round((mark.x - 0.5) * T - cx), Math.round((mark.y - 0.5) * T - cy), reduced ? 0 : Math.floor(time * 3) % 2)
 }
 
-/** Two bright strips on dark sleepers; a stop across the rail's two ends. */
+/** A tile of rail, running east or south (`spritesHeap.ts`); a stop across the rail's two ends. */
 function rail(g: G, x: number, y: number, flat: boolean, end: -1 | 0 | 1) {
-  const bar = (color: string, u: number, v: number, w: number, h: number) => {
-    g.fillStyle = color
-    if (flat) g.fillRect(x + u, y + v, w, h)
-    else g.fillRect(x + v, y + u, h, w)
-  }
-  for (const u of [1, 6, 11]) bar('#6a4432', u, 3, 3, 10)
-  for (const v of [4, 10]) { bar(INK, 0, v + 1, T, 1); bar('#8f86b8', 0, v, T, 1) }
-  if (end) bar('#cfc6ff', end < 0 ? 0 : T - 2, 2, 2, 12)
+  g.drawImage(sprite(flat ? 'heap_rail_h' : 'heap_rail_v'), x, y)
+  if (!end) return
+  g.fillStyle = '#cfc6ff'
+  const u = end < 0 ? 0 : T - 2
+  if (flat) g.fillRect(x + u, y + 2, 2, 12)
+  else g.fillRect(x + 2, y + u, 12, 2)
 }
 
 /** A square stencilled in cyan, with a short bar toward what it faces. */

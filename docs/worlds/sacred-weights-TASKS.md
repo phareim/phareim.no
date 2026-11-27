@@ -44,7 +44,7 @@ State on 2026-11-27, night: all seven dungeons are whole on master. "Played by s
   - Reviewed: ten findings held and are fixed (commit 2f09aaa), not seen in a browser.
 - [ ] 6. Lumenby: THE HEAP under the Underglow. The Magnet. Grok, Phi. THE SCRAPE GOLEM. Weight: CREDIT.
   - Whole in three parts (commits ed347e9, 7718b1d, fed7639). Played by script.
-  - Reviewed: the findings that held are fixed (commit f95e0ff), not seen in a browser. The iron tiles, the rails and four of the Golem's frames are stand-ins; the drawn ones are in `tmp/dungeons/art/heap2/`.
+  - Reviewed: the findings that held are fixed (commit f95e0ff), not seen in a browser. The carts, the rails and the Golem's tell and spit frames are drawn art; the crate, the scrap and the bolt are code stand-ins (their drawn pictures in `tmp/dungeons/art/heap2/` read worse at 1x).
 - [ ] 7. Fogstage: ACT THREE. The Lens. Bard. THE HALLUCINATOR. Weight: SOURCES.
   - Whole in three parts (commits 46c9e60, 91c7f02, 26c0594). Played by script.
   - Reviewed: nine findings held and are fixed (the merge of `dungeon-act3fix`, 2026-11-27), not seen in a browser.
