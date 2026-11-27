@@ -54,7 +54,7 @@ function down(e: PointerEvent) {
   font-weight: 400;
   line-height: 12px;
   -webkit-font-smoothing: none;
-  color: rgba(185, 168, 217, 0.34);
+  color: rgba(185, 168, 217, 0.8);
   cursor: pointer;
   touch-action: none;
   user-select: none;
