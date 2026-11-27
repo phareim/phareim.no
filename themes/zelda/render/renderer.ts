@@ -145,6 +145,8 @@ const DAWN_MS = 320
 const TURN_S = 0.7
 const HANDOFF = 0.1
 const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', side: '#c8bcf4', dark: '#1d1433', caveDark: '#2a1e44' }
+/** A dark room to a hero who owns the storm lamp: halfway between the black and a dungeon's own light (`CellDef.dark`, docs/games/neon-shrine-lighthouse.md). */
+const AMBIENT_DIM = '#4d4274'
 
 export interface SafeInsets { top: number; right: number; bottom: number; left: number }
 const NO_INSETS: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 }
@@ -1480,13 +1482,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const m = s.map
     const dark = kind !== 'overworld' && cellIsDark(s, info, s.zoneIndex)
     const day = kind === 'overworld' ? dayOf(drawing) : null
-    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : day ? day.ambient : AMBIENT[kind]
+    // The dark has three levels: black (no lamp), dim (the lamp owned), lit (the room's `lit` flag: not dark at all).
+    const dim = dark && s.inv.lamp
+    const amb = dark ? (dim ? AMBIENT_DIM : kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : day ? day.ambient : AMBIENT[kind]
     const h = s.hero
     // Out in a dark realm, and anywhere on the frontier at night, the hero's own light is more of a lantern.
     const realm = day ? realmLook(info.def.look) : null
     const lantern = day ? Math.max(realm ? MOOD[realm].hero : 0, info.def.realm ? 0.6 * nightOf(day) : 0) : 0
-    if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6 + 0.9 * lantern, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 + 0.2 * lantern })
+    if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? (dim ? 6.2 : 5.2) : 2.6 + 0.9 * lantern, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 + 0.2 * lantern })
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
+    // The storm lamp set down lights its own ground.
+    if (s.lamp) lights.push({ x: (s.lamp.idx % m.w) + 0.5, y: Math.floor(s.lamp.idx / m.w) + 0.5, r: 3.2, color: '#2ff3ff', a: 1 })
     for (const p of m.projectiles) {
       if (p.kind === 'gust') continue
       lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' ? 1.8 : 1.4, color: p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })

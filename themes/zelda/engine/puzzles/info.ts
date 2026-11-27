@@ -10,7 +10,7 @@ import { PUZZLE_TILES, WEIGHT_PLATES, isMirror } from '../../world/puzzles'
 import { SOCKET, TAP, TUBE_TILES, isTube } from '../../world/tubes'
 import type { MapInfo } from '../map'
 
-export interface Emitter { idx: number; dir: Dir; when?: Cond; cell: number }
+export interface Emitter { idx: number; dir: Dir; when?: Cond; cell: number; src?: 'lamp' | 'box' }
 export interface Sluice { key: string; flag: string; invert: boolean; tiles: number[] }
 /** Lumen tubes side by side, with the taps and sockets beside them: one puzzle. */
 export interface TubeBoard { tubes: number[]; taps: number[]; sockets: number[] }

@@ -1426,7 +1426,7 @@ export default function isoView(kit: Kit): View {
           prop = ch?.big ? (open ? 'bigChestOpen' : 'bigChest') : open ? 'chestOpen' : 'chest'
         }
         else if (t === 'i' && kind === 'interior') prop = 'stool'
-        else if (t === 'β' || t === 'ρ' || t === 'ξ' || t === 'μ' || t === 'ν' || t === 'π' || t === 'κ' || t === 'Θ' || t === 'Λ') {
+        else if (t === 'β' || t === 'ρ' || t === 'ξ' || t === 'μ' || t === 'ν' || t === 'π' || t === 'κ' || t === 'Θ' || t === 'Λ' || t === 'Φ' || t === 'Ξ') {
           if (drawn && k >= 1 && def.realm === 'yulefjord' && (t === 'μ' || t === 'ν')) {
             stand(thingKey(t === 'μ' ? 'fjord_mirror_a' : 'fjord_mirror_b'), tx + 0.5, ty + 0.5, px, 1)
             bare(sx, sy - up, T, T + up)
@@ -1436,7 +1436,7 @@ export default function isoView(kit: Kit): View {
           const pz = puzzleInfo(info)
           const i = ty * m.w + tx
           const flag = pz.receivers.get(i) ?? pz.valves.get(i) ?? pz.sockets.get(i)?.flag
-          prop = puzzlePropOf(t, { lit: !!m.phys?.lit.includes(i) || !!m.phys?.gas?.fed.includes(i) || ((t === 'ρ' || t === 'Λ') && !!flag && has(s, flag)), open: !!flag && has(s, flag), dir: pz.emitters.find(e => e.idx === i)?.dir })
+          prop = puzzlePropOf(t, { lit: !!m.phys?.lit.includes(i) || !!m.phys?.gas?.fed.includes(i) || ((t === 'ρ' || t === 'Λ') && !!flag && has(s, flag)), open: !!flag && has(s, flag), dir: pz.emitters.find(e => e.idx === i)?.dir ?? (t === 'Φ' ? s.lamp?.dir : undefined) })
         }
         else if (t === 't' && kind !== 'dungeon') {
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)

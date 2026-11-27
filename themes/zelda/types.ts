@@ -296,6 +296,9 @@ export type TileChar =
   | 'ω' // sluice water (water while its sluice group is full)
   | 'ψ' // drained sluice floor (walkable while its sluice group is drained)
   | 'ξ' // valve wheel (solid; a hit opens or shuts its mark's sluice flag)
+  // The Lighthouse (`world/lighthouse.ts`)
+  | 'Φ' // the storm lamp set down (solid, projectiles and sight pass; `GameState.lamp` remembers the floor under it)
+  | 'Ξ' // the Black Box's pedestal (solid, projectiles and sight pass; stops walkers and beams)
   // Lumen tubes (Relight the Sign: `engine/puzzles/tubes.ts`, `world/tubes.ts`). Walkable glass tubes in the ground,
   // drawn as the box chars look; a blade, the disc or A turns a light one a quarter clockwise, a double one is bolted.
   | '╵' | '╶' | '╷' | '╴' // a capped end, open north / east / south / west
@@ -338,6 +341,7 @@ export type ItemId =
   | 'artHop' // the Keeper
   | 'echo' // THE ECHO, the Echo Barrow's treasure: B leaves one (`engine/echo.ts`)
   | 'no' // THE NO, the Steamhouse's treasure: a cut at the right moment refuses a blow (`engine/refuse.ts`); no slot, held by its flag
+  | 'lamp' // THE STORM LAMP, the Lighthouse's treasure: B sets it down, shining the way you face (`engine/lamp.ts`)
   // The seven Sacred Weights (`WEIGHTS`, docs/worlds/sacred-weights.md): one a land's dungeon
   | WeightId
 
@@ -374,6 +378,7 @@ const B_TOOLS = [
   { id: 'disc', name: 'DISC', icon: 'item_disc', owned: (inv: Inventory) => inv.disc },
   { id: 'bombs', name: 'BOMBS', icon: 'item_bombbag', owned: (inv: Inventory) => inv.bombBag },
   { id: 'echo', name: 'ECHO', icon: 'item_echo', owned: (inv: Inventory) => !!inv.echo },
+  { id: 'lamp', name: 'LAMP', icon: 'item_lamp', owned: (inv: Inventory) => !!inv.lamp },
 ] as const satisfies readonly BItem[]
 
 /** Everything B can hold, in the cycle's order: the things, then the arts. What `useItems`, a save and the HUD read. */
@@ -391,6 +396,7 @@ export const B_WORDS: Readonly<Record<UseItem, { name: string; does: string }> &
   bombs: { name: 'BOMBS', does: 'OPEN CRACKED WALLS. MIND YOUR FEET.' },
   hop: { name: 'THE HOP', does: 'A SHORT JUMP. NOTHING LANDS ON YOU IN THE AIR.' },
   echo: { name: 'THE ECHO', does: 'LEAVES ONE OF YOU. WHEN YOU CUT, IT CUTS.' },
+  lamp: { name: 'THE STORM LAMP', does: 'SHINES THE WAY YOU FACE. FEEDS WHAT WANTS LIGHT.' },
 }
 
 /**
@@ -1004,7 +1010,7 @@ export interface PhysState {
   /** The hero sliding over ice along (dx, dy); `at` where he was last step (a jump ends the slide). */
   slide: null | { dx: number; dy: number; at: Vec }
   /** The beams this step, from tile centre to tile centre (tiles); `end` 1: it stops at a solid's face. */
-  beams: Array<{ x0: number; y0: number; x1: number; y1: number }>
+  beams: Array<{ x0: number; y0: number; x1: number; y1: number; src?: 'lamp' | 'box' }>
   /** Receiver tiles a beam reaches now. */
   lit: number[]
   /** Boulders rolling (centre, way, the tile it set out from, its home tile for the save). */
@@ -1065,6 +1071,12 @@ export interface Echo {
     t: number
     dur: number
   }
+}
+/** The storm lamp set down (`engine/lamp.ts`): the tile it stands on, the way it shines, the tile's floor as it was. */
+export interface LampDown {
+  idx: number
+  dir: Dir
+  under: TileChar
 }
 export type EchoBlow = 'swing' | 'spin' | 'chop' | 'comet' | 'tempest'
 
@@ -1163,6 +1175,8 @@ export interface Inventory {
   hook: boolean
   /** THE ECHO (the Echo Barrow's treasure). */
   echo: boolean
+  /** THE STORM LAMP (the Lighthouse's treasure): owned. Where it stands is never saved (`GameState.lamp`). */
+  lamp: boolean
   /** The Arc Blade (the sword, upgraded). */
   arc: boolean
   /** Bomb bag holds 20 instead of 12. */
@@ -1268,6 +1282,8 @@ export interface GameState {
   hook: Hook | null
   /** The echo on the floor, if one is left (`engine/echo.ts`). Never saved. */
   echo: Echo | null
+  /** The storm lamp set down: its tile, the way it shines, the floor under it (`engine/lamp.ts`). Never saved. */
+  lamp: LampDown | null
   luna: Follower | null
   /**
    * Seconds into the day (`engine/day.ts`, 0 … 720), or null while the sun is
@@ -1382,6 +1398,8 @@ export type GameEvent =
   /** An echo left on the floor, and the echo cutting with the hero. */
   | { type: 'echo'; x: number; y: number }
   | { type: 'echoCut'; x: number; y: number }
+  /** The storm lamp set down (`up` false) or taken up (`engine/lamp.ts`). */
+  | { type: 'lamp'; x: number; y: number; up: boolean }
   /** A room's pot stands got their pots back. */
   | { type: 'restock'; x: number; y: number }
   | { type: 'glyph'; x: number; y: number; ok: boolean }

@@ -48,6 +48,8 @@ export type SfxName =
   | 'echo' | 'echoCut'
   // The Steamhouse: a blow refused (the blade's clank, pitched up), and a bath
   | 'refuse' | 'bath'
+  // The Lighthouse: the storm lamp set down or taken up
+  | 'lamp'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2762,6 +2764,11 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     bath() {
       nz({ dur: 0.7, vol: 0.2, f: 500, to: 2400, q: 0.7 })
       ;[523, 659, 784].forEach((f, i) => tone({ f, dur: 0.3, type: 'sine', vol: 0.1, at: 0.1 + i * 0.12, verb: true }))
+    },
+    // The storm lamp: a glass chime, and a warm tone under it.
+    lamp() {
+      tone({ f: 1320, to: 1760, dur: 0.09, type: 'sine', vol: 0.12, verb: true })
+      tone({ f: 330, to: 440, dur: 0.16, type: 'triangle', vol: 0.12 })
     },
     // An echo left: a call, and the call coming back softer.
     echo() {

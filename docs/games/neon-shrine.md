@@ -1820,6 +1820,9 @@ there all the same) and are marked `resume` (below).
   the hero while a hound lives; its east gate wants THE NO. Words: the same offer
   at every attendant ("ATTENDANT: WELCOME! A WARM TOWEL? YOU LOOK SO TIRED.").
   Tests: `tests/zelda-steamhouse.test.mjs`.
+**The Storm Lamp** (`engine/lamp.ts`; item `lamp`, a B item; the Lighthouse's
+treasure): B sets it down shining the way the hero faces; its beam feeds
+receivers and burns foes. All of it in `docs/games/neon-shrine-lighthouse.md`.
 
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
@@ -1833,7 +1836,7 @@ secret, door, gate, boss, respawn, exit, TO TOWN and when the tab is
 hidden. The server takes up to 32 KB of JSON (`SAVE_GAMES`; a bigger write is
 refused and the client says nothing): a save with everything in the world done
 is about 9 KB. What B holds is one of `B_ITEMS` (`types.ts`: the hook, the
-disc, bombs, the echo, the arts); a save naming anything else loads with nothing in
+disc, bombs, the echo, the lamp, the arts); a save naming anything else loads with nothing in
 hand. On load the shell starts on the local copy and pulls the slot in
 the background; `reconcile` in `progress.ts` keeps the newer write, and a
 newer profile save replaces the run at the next calm frame only if this

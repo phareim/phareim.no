@@ -19,6 +19,7 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { stepEcho } from './echo'
+import { lampHome } from './lamp'
 import { dirVec } from './util'
 import { TILE_INFO } from '../world/tiles'
 import { terrainLevel } from './terrain'
@@ -29,7 +30,7 @@ import { ART_IDS, endMoves, resetMoves, stepSlow } from './moves'
 function freshInv(): Inventory {
   return {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
-    hook: false, arc: false, echo: false, bigBag: false, shrooms: 0, keyrings: {},
+    hook: false, arc: false, echo: false, lamp: false, bigBag: false, shrooms: 0, keyrings: {},
   }
 }
 
@@ -76,6 +77,7 @@ export function createGame(
     disc: null,
     hook: null,
     echo: null,
+    lamp: null,
     luna: null,
     daytime: save?.inv.prism ? (typeof save.day === 'number' ? save.day : 0) : null,
   }
@@ -100,6 +102,8 @@ export function createGame(
  */
 export function enterMap(world: World, s: GameState, mapId: string, entryId: string, ev: GameEvent[], at?: Vec) {
   const info = mapInfo(world, mapId)
+  // The storm lamp is back in the hand (before the old map is let go: its tile gets its floor again).
+  lampHome(s)
   s.map = loadMap(world, s, mapId)
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
@@ -164,6 +168,7 @@ function areaAt(world: World, s: GameState): { name: string; track: TrackId; ent
 function enterCell(c: Ctx, index: number) {
   const s = c.s
   const m = s.map
+  lampHome(s)
   setZone(c.w, s, index)
   for (const e of m.enemies) {
     if (e.cell !== index) continue

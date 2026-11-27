@@ -1542,7 +1542,7 @@ const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   gust: 'gust', bark: 'bark', tube: 'tube',
   jump: 'hop',
   slip: 'slip',
-  echo: 'echo', echoCut: 'echoCut', restock: 'plate',
+  echo: 'echo', echoCut: 'echoCut', restock: 'plate', lamp: 'lamp',
   refuse: 'refuse',
 }
 

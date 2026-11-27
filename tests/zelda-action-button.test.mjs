@@ -158,7 +158,7 @@ describe('the A button', () => {
 
 const BEFORE = {
   map: 'shrine', mode: 'play', hp: 8,
-  inv: { sword: true, bombBag: true, bombs: 8, disc: true, keys: 0, bigKey: true, pieces: 1, selected: 'disc', prism: true, hook: false, arc: false, echo: false, bigBag: false, shrooms: 0, keyrings: {} },
+  inv: { sword: true, bombBag: true, bombs: 8, disc: true, keys: 0, bigKey: true, pieces: 1, selected: 'disc', prism: true, hook: false, arc: false, echo: false, lamp: false, bigBag: false, shrooms: 0, keyrings: {} },
   flags: [
     'appear:shrine.bigkey', 'appear:shrine.key1', 'appear:shrine.key2', 'bomb:overworld:513', 'bomb:overworld:514',
     'bomb:overworld:584', 'boss', 'chest:ow.bombbag', 'chest:ow.sword', 'chest:shrine.bigkey', 'chest:shrine.disc',

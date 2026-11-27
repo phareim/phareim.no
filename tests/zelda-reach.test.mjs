@@ -198,10 +198,12 @@ function round(W, world, opened) {
           }
           continue
         }
+        // (A beam lights a receiver from across its room: nobody need stand beside it.)
+        if (e.t === 'receiver' && cells.has(`${m.id}|${cell}`)) set(e.flag)
         if (!near(m, x, y)) continue
         if (e.t === 'chest' && holds(e.appear, m, cell)) once(`chest ${e.id}`, () => { set(`chest:${e.id}`); get(e.item, ring) })
         if (e.t === 'item' && holds(e.appear, m, cell)) once(`item ${e.id}`, () => { set(`took:${e.id}`); get(e.item, ring) })
-        if (e.t === 'lever' || e.t === 'receiver') set(e.flag)
+        if (e.t === 'lever') set(e.flag)
         if (e.t === 'glyph') for (const code of m.def.codes ?? []) set(code.flag)
         if (e.t === 'npc' && !(e.hide && holds(e.hide, m, cell))) {
           const talk = e.talk.find(b => holds(b.when, m, cell))

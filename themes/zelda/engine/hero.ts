@@ -12,6 +12,7 @@ import {
 import { aPlan, type AThing } from './action'
 import { echoBlade, echoOnTile, setEcho } from './echo'
 import { hangRobe, ROBE_SPEED } from './attendants'
+import { useLamp } from './lamp'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -999,6 +1000,7 @@ const TOOL_USE: Record<ToolId, (c: Ctx, inp: Input) => void> = {
   disc: throwDisc,
   bombs: setBomb,
   echo: c => { setEcho(c) },
+  lamp: c => { useLamp(c) },
 }
 
 function useItem(c: Ctx, inp: Input) {
