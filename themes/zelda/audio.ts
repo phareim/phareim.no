@@ -46,6 +46,8 @@ export type SfxName =
   | 'flip' | 'comet' | 'hop' | 'slip'
   // The Echo Barrow: an echo left on the floor, and the echo's blade
   | 'echo' | 'echoCut'
+  // The Steamhouse: a blow refused (the blade's clank, pitched up), and a bath
+  | 'refuse' | 'bath'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2748,6 +2750,18 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     echoCut() {
       nz({ dur: 0.15, vol: 0.26, f: 660, to: 2800, q: 1.6, at: 0.02 })
       tone({ f: 465, to: 825, dur: 0.08, vol: 0.05, at: 0.02, verb: true })
+    },
+    // THE NO: the clank, a step higher and with a gold ring after it.
+    refuse() {
+      tone({ f: 2093, dur: 0.12, vol: 0.14 })
+      tone({ f: 2794, dur: 0.1, type: 'triangle', vol: 0.12 })
+      tone({ f: 3136, dur: 0.18, type: 'sine', vol: 0.08, at: 0.06, verb: true })
+      nz({ dur: 0.04, vol: 0.18, type: 'highpass', f: 5500 })
+    },
+    // A bath: a soft rising wash, the way a warm room closes round you.
+    bath() {
+      nz({ dur: 0.7, vol: 0.2, f: 500, to: 2400, q: 0.7 })
+      ;[523, 659, 784].forEach((f, i) => tone({ f, dur: 0.3, type: 'sine', vol: 0.1, at: 0.1 + i * 0.12, verb: true }))
     },
     // An echo left: a call, and the call coming back softer.
     echo() {

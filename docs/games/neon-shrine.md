@@ -1763,6 +1763,64 @@ YOU CUT, IT CUTS.
   call and its echo when it is left (`echo`), the blade's swish a little lower
   when it cuts (`echoCut`).
 
+**The Steamhouse** (`world/steamhouse.ts`; the Sporelight's dungeon with no
+keys; part one: the house, the attendants, THE NO). A door in the bathhouse's
+south face (the `6` tile at (39,24); the path tile before it, `8`, is where the
+way back lands) leads to `steamhouse` (48x24, six rooms: the lobby, the baths,
+the laundry, the boiler, the gift shop, rock) and, past the boiler's stair,
+`steamsuite` (the stair and the Best Room, empty until the Sycophant).
+Both maps allow both views, have no `keyring` (the HUD shows a key counter
+there all the same) and are marked `resume` (below).
+- *Attendants* (`engine/attendants.ts`; an `npc` with `attend: { mode: 'ask',
+  ring }`; `Npc.att` holds its state, never saved) offer and never hunt: not
+  foes, no hit points, solid as any person. The first time the hero stands or
+  walks inside the ring (default 2.5 tiles, drawn white and dashed flat on the
+  floor, `render/steamPaint.ts`) in a visit, the brain opens the attendant's
+  first talk branch: a two-way ask whose first answer is NO, so the cursor starts
+  on it. YES starts THE BATH when its reply is read (`TalkAsk.after`, `Dialog
+  after.bath`). After a NO, or B, a clock fills over 5.0 s while the hero stays
+  in the ring (white arc over the head, pink for its last 1.5 s; outside the ring
+  it drains at twice the speed, and it never runs in a dialog); full, the
+  attendant says its YES and the bath begins. A visit lasts until the hero leaves the
+  room or is bathed. A press of A on an attendant asks again, whenever.
+- *THE BATH.* The world holds, the fade runs to white (`warp.white`) and back
+  into the lobby at the pool (entry `baths`, the new continue point), hearts
+  full, in the robe (`Hero.robe`: 0.8 walking speed and a towel on the head;
+  never saved, cleared by the rack (A, a `sign` with `robe`), by death, by any
+  door out of the house and by a reload). Nothing else is touched: flags, deck,
+  B item, purse and every solved gate stay; what a map load always loses is
+  lost, so foes and baskets and a boss fight start over. The lobby attendant
+  counts its offer as made, with no clock, so the hero is not asked again at
+  once. The first bath says its line once (`steamhouse.bathed`).
+- *THE NO* (`engine/refuse.ts`; item `no`, held by the flag `item:no`, no slot,
+  not on B). A cut meets a blow: the window opens at the hit frame of the
+  chain's opening swing, or with a spin, and closes 0.10 s after the swing ends
+  (about 0.25 s; 0.5 s for the spin); after one has opened no other does for
+  0.9 s (`Hero.refuseCool`), so mashing A never covers a hero for more than a
+  third of the time. A foe's contact or lunge at the moment it would have hurt
+  (one call in `contact()`, `enemies.ts`), from a foe within 2.2 tiles in the
+  front half of the swing's aim (all round for the spin), does nothing to the hero: no hurt,
+  no knock, no mercy spent, a `refuse` event (gold ring, sound `refuse`), and the foe
+  reels 1.0 s (`Enemy.stun`: a tough foe is open to the blade then, which takes
+  its 5). Never a `BIG` foe's blow, never a shot, shard, spike, bomb or fall. A
+  press made late, with a plain foe already inside the blade's reach, strikes
+  it and shoves it as the blade always did; the refusal is the early press (a
+  lunge from three tiles is refused by a press in its first moments), and the
+  only answer to a tough foe, whose poise turns the blade. The numbers are `REFUSE` in
+  `refuse.ts`.
+- *The reload mark.* `MapDef.resume` makes `awayMap` true for a map without
+  `away`'s other doing (the first-visit words, `seen:<id>`, the MAP page's land): a
+  tab reloaded inside the house continues at the last entry used, with its
+  gates as saved.
+- *The rooms.* The lobby's barred gate (`steamhouse.back`) opens only from the
+  boiler's lever. The baths' north doorway hides behind diamond screens: in the
+  isometric view the hero cannot pass, in the plan they are floor. The laundry
+  opens its east gate when two baskets stand on two plates (leaving the room
+  puts them home until the gate has opened); the boiler's trap gate shuts behind
+  the hero while a hound lives; its east gate wants THE NO. Words: the same offer
+  at every attendant ("ATTENDANT: WELCOME! A WARM TOWEL? YOU LOOK SO TIRED.").
+  Tests: `tests/zelda-steamhouse.test.mjs`.
+
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
 ship. Nothing is written before the hero has the blade, so a visitor who

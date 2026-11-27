@@ -441,6 +441,7 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bits50': return ['YOU GOT 50 BITS!']
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
     case 'echo': return ['YOU GOT THE ECHO!', '{B} LEAVES ONE WHERE YOU STAND. WHEN YOU CUT, IT CUTS.']
+    case 'no': return ['YOU GOT THE NO!', 'A CUT AT THE RIGHT MOMENT REFUSES A BLOW OR AN OFFER.']
     case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
     case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES."]
     case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
@@ -490,6 +491,8 @@ export function grant(s: GameState, item: ItemId) {
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
+    // THE NO is held by its flag alone (`engine/refuse.ts`).
+    case 'no': break
     // A Sacred Weight is held by its flag alone (`hasWeight`).
     case 'weightMeaning': case 'weightReasons': case 'weightNo': case 'weightSurprise':
     case 'weightFingers': case 'weightCredit': case 'weightSources': break

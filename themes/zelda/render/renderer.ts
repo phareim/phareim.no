@@ -30,6 +30,7 @@ import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { doubledSprite, echoSprite, frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteRows, spriteT } from './sheet'
 import { drawFloorMarks } from './floorMarks'
+import { drawClock, drawRings, drawTurban } from './steamPaint'
 import { toDir } from '../engine/util'
 import { folkTop } from './iso/folk'
 import type { HeroLook } from './heroLook'
@@ -602,6 +603,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'won': flashT = 1; flashColor = '#ffd23f'; break
         // An echo left: a ring where it stands; its blows flash there; a pot back on its stand.
         case 'echo': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.45, color: '#2ff3ff', size: 1 }); pulse(e.x, e.y, 2.4, '#2ff3ff', 0.25); break
+        // THE NO met a blow: a gold ring bursts where it met it (the ring is the clue; the sound only confirms).
+        case 'refuse':
+          fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ffd23f', size: 1.6, lift: 5 })
+          fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: -0.08, life: 0.4, color: '#fff4ff', size: 0.9, lift: 5 })
+          spark(e.x, e.y, 8, '#ffd23f', 5, 0.35)
+          pulse(e.x, e.y, 2.4, '#ffd23f', 0.2)
+          break
         case 'echoCut': pulse(e.x, e.y, 2, '#2ff3ff', 0.14, 0.8); break
         case 'restock': spark(e.x, e.y, 8, '#ffd23f', 3, 0.4); pulse(e.x, e.y, 1.6, '#ffd23f', 0.25); break
         case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
@@ -833,6 +841,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const away = facingDir(h.dir, facing) === 'up'
     if (blade && away) drawBlade(g, s, x, feet - 7, lights)
     if (!heroBare) put(g, name, x, feet, mirror, false, sx, sy)
+    // The Steamhouse's robe: a white wash over the figure the view draws, and a towel on the head.
+    if (h.robe) {
+      if (!heroBare) { g.globalAlpha = 0.5; put(g, name, x, feet, mirror, false, sx, sy, '#ffffff'); g.globalAlpha = 1 }
+      drawTurban(g, x, feet)
+    }
     if (blade && !away) drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
@@ -1370,6 +1383,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
             put(g, `${prefix}_${frame}`, x, y, flip)
           } else put(g, `${n.look}_${f}`, x, y, n.dir === 'left')
           if (n.look === 'smoker') smoke(g, x + (n.dir === 'left' ? -1 : 1) * (f ? 6 : 7), y - (f ? 9 : 5), time, ui.reducedMotion)
+          if (n.att) drawClock(g, n, x, y, time, ui.reducedMotion)
         },
       })
       if (n.look === 'bonfire') {
@@ -1432,6 +1446,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** What is painted flat on the floor (`floorMarks.ts`): the foes' stencils, pot stands, the echo's ring. */
   function floorMarks(g: G, s: GameState, ui: FrameUI, cx: number, cy: number) {
     if (!ui.attract) drawFloorMarks(g, world, s, cx, cy, time, ui.reducedMotion)
+    if (!ui.attract) drawRings(g, world, s, cx, cy, time, ui.reducedMotion)
   }
 
   /** The afterimages: where the hero was, how high, in which frame, and how long it stays. */
@@ -1557,7 +1572,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (s.mode === 'exit') fade = 1
     if (fade > 0) {
       g.globalAlpha = Math.min(1, fade)
-      g.fillStyle = into
+      g.fillStyle = s.warp?.white ? '#ffffff' : into
       g.fillRect(0, 0, vw, vh)
       g.globalAlpha = 1
     }

@@ -260,9 +260,20 @@ function solve(W) {
   return best
 }
 
+/**
+ * What a dungeon that is landing part by part cannot open yet. The list is exact: the part that opens a thing takes
+ * its line out, and a finished world has none.
+ */
+const OWED = [
+  // The Steamhouse: the Gift Shop's throwers (part two) and the Sycophant's fall (part three).
+  'steamhouse: heartPiece at 45,13',
+  'steamhouse: gate steamhouse.45,15',
+  'steamsuite: gate steamsuite.23,1',
+]
+
 describe('the whole world can be opened', () => {
   it('reaches every chest, key, locked door and gate in some order, with only what the world gives', () => {
-    assert.deepEqual(solve(Z.WORLD), [])
+    assert.deepEqual([...solve(Z.WORLD)].sort(), [...OWED].sort())
     // The walk can say no: without the hook's chest the lands past it stay shut.
     const lab = Z.WORLD.maps.lab1
     const [ch, mark] = Object.entries(lab.marks).find(([, m]) => m.ent.item === 'hook')

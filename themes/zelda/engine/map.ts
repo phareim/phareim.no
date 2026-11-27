@@ -373,7 +373,10 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       enemies.push(foe)
     } else if (e.t === 'npc') {
       if (e.hide && condMet(s, world, e.hide, -1)) continue
-      npcs.push({ id: e.id, look: e.look, x: cx, y: cy, dir: e.dir ?? 'down', home: { x: cx, y: cy }, wander: !!e.wander, t: 0, vx: 0, vy: 0 })
+      npcs.push({
+        id: e.id, look: e.look, x: cx, y: cy, dir: e.dir ?? 'down', home: { x: cx, y: cy }, wander: !!e.wander, t: 0, vx: 0, vy: 0,
+        ...(e.attend ? { att: { mode: e.attend.mode, ring: e.attend.ring ?? 2.5, made: false, linger: false, clock: 0, muted: false } } : {}),
+      })
     } else if (e.t === 'item') {
       if (flag(`took:${e.id}`)) continue
       pickups.push({ id: e.id, item: e.item, x: cx, y: cy, appear: e.appear, hidden: !!e.appear })

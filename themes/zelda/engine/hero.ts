@@ -11,6 +11,7 @@ import {
 } from '../types'
 import { aPlan, type AThing } from './action'
 import { echoBlade, echoOnTile, setEcho } from './echo'
+import { hangRobe, ROBE_SPEED } from './attendants'
 import { TILE_INFO, isViewBlock } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx, type HitOpts } from './combat'
 import { breakShards, enemyActive } from './enemies'
@@ -175,6 +176,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   let speed = h.carry ? CARRY_SPEED : charging ? CHARGE_SPEED : HERO_SPEED
   if (h.swing) speed *= 0.25
   if (h.spin) speed = 0
+  if (h.robe) speed *= ROBE_SPEED
   let mx = inp.move.x
   let my = inp.move.y
   const mag = Math.hypot(mx, my)
@@ -398,6 +400,8 @@ function useThing(c: Ctx, a: AThing) {
       return
     }
     case 'words': openDialog(c, a.lines, null); return
+    // The Steamhouse's rack of hooks: a robed hero hangs the robe up (an unrobed one reads it: `words`).
+    case 'rack': hangRobe(c); return
     case 'psi': psiPush(c, a.tx, a.ty, h.dir); return
     case 'lever': throwLever(c, a.tx, a.ty); return
     case 'part': hitPuzzle(c, a.tx, a.ty, a.t); return
@@ -422,7 +426,7 @@ function useThing(c: Ctx, a: AThing) {
   }
 }
 
-function talkTo(c: Ctx, id: string) {
+export function talkTo(c: Ctx, id: string) {
   const s = c.s
   for (const m of c.info.marks) {
     const e = m.ent

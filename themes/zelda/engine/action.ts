@@ -26,6 +26,8 @@ export type AThing =
   | { do: 'exit'; exit: ExitSpot; lines: string[] | undefined }
   /** Lines to read: a sign, a tap or a socket, a moon block with nobody to move it. */
   | { do: 'words'; lines: string[] }
+  /** The Steamhouse's rack, with a robe to hang on it. */
+  | { do: 'rack' }
   | { do: 'psi'; tx: number; ty: number }
   | { do: 'lever'; tx: number; ty: number }
   /** A mirror, a valve, a lumen tube (`hitPuzzle`). */
@@ -101,6 +103,7 @@ function aThing(c: Ctx): AThing | null {
   if (exit && !exit.walk) return { do: 'exit', exit, lines: c.info.exitLines.get(idx) }
   if (t === 'S') {
     const sign = c.info.signs.get(idx)
+    if (sign?.robe && h.robe) return { do: 'rack' }
     if (sign) return { do: 'words', lines: sign.alt && condMet(s, c.w, sign.alt.when, -1) ? sign.alt.lines : sign.lines }
   }
   if (t === 'B') {
@@ -147,7 +150,7 @@ function picture(p: APlan): AWould {
       // The newsstand is read, the viewfinder turns the view, the console and the mirror open.
       return to.panel === 'news' ? 'read' : to.panel === 'view' ? 'pull' : 'open'
     }
-    case 'psi': case 'lever': case 'part': return 'pull'
+    case 'psi': case 'lever': case 'part': case 'rack': return 'pull'
     case 'chest': return 'open'
     case 'ware': return 'buy'
     case 'lift': return 'lift'
