@@ -3,6 +3,8 @@ export { createGame, stepGame, respawn, resumeAfterWin, toSave, parseSave, camer
 export { mapDef, mapInfo, cellIndex, cellRect, cellDef, tileAt, raised, crystalAt, has, keyCount, addKeys, hasBigKey, cellIsDark, condMet, setSession } from './map'
 export { shardPos, SHARD_R, enemyActive } from './enemies'
 export { aimOf, swingAngle, swingDur, useItems } from './hero'
+// What a press of A would do (`action.ts`): the touch deck's picture, and the engine's own choice.
+export { aWould, type AWould } from './action'
 // The acrobatics and the arts (`moves.ts`)
 export { heroZ, airTime, mastered, moveCount, moveDef, knowsArt, artDef, artReady, artRest, isArt, ART_IDS } from './moves'
 export { STATS } from './spawn'

@@ -55,7 +55,7 @@ and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 `validate.ts`; the Wildwood: `wildwood.ts`, `lab1.ts`, `lab2.ts`, `luna.ts`,
 `cells.ts`. `index.ts` holds `WORLD` (start: the plaza), `worldExits()`
 and `worldStartingAt()`. `engine/` — pure simulation split by concern
-(`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `moves.ts` (the acrobatics and the hop), `enemies.ts`,
+(`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `action.ts` (what a press of A does), `moves.ts` (the acrobatics and the hop), `enemies.ts`,
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
 `bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the
 classic view, and the turn between views), `iso/` (the isometric view),
@@ -68,7 +68,7 @@ font and the shared palette are `themes/base/pixel/font.ts` and
 `palette.ts`. `views.ts` — the list of views. `keys.ts` — the button names
 in dialog lines. `audio.ts` —
 music, jingles, SFX. `Zelda.vue` — the world shell (loop, input, touch
-deck, audio, saves, pause menu, exits, navigation lock), mounted by
+deck, audio, saves, pause menu, exits, navigation lock; `aPad.ts` the A pad's pictures), mounted by
 `themes/portal/Landing.vue`. `LookBooth.vue` — the NEW LOOK stall's mirror.
 `profileSync.ts` — the profile pull.
 `progress.ts` — quest steps and the save merge. `hiscore.ts` — a real top
@@ -1645,7 +1645,7 @@ turns to the next view anywhere (see "Views"). Holding Escape saves and
 goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %; round buttons with pictures and no
-letters: A always (a sword), the roll (the hero curled up, a small green
+letters: A always (its picture says what a press would do now, below), the roll (the hero curled up, a small green
 ring over B, beside A while there is no item) once there is the blade, B
 (the chosen item or the hop; the hop resting dims and fills from the bottom) and swap (two arrows) once there is an item or the hop, and the
 lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
@@ -1660,6 +1660,35 @@ bar: the shell measures the safe-area insets and the renderer keeps the HUD
 and the dialog box clear of them (`resize(w, h, dpr, safe)`). The bottom
 inset it measures is the site's bottom band, `--app-safe-bottom` (see
 AGENTS.md), so the dialog box and the button deck stay above it.
+
+**The A button says what it will do** (touch only; keys get no hint). One pure
+function decides what a press does: `aPlan` (`engine/action.ts`), which
+`stepHero` asks and then acts on; the deck asks the same thing through `aWould`,
+once a frame (a few tile and flag look-ups: about 1 µs).
+
+| The pad | `aria-label` | In front of the hero (or in his hands) |
+| --- | --- | --- |
+| sword, pink ring | Sword | nothing to use: a swing, or what the blade does in his state (the chain, the TEMPEST, the COMET, a shove, the air, a roll); also a locked door without its key (A only says it is locked: no promise), and the rest after a talk (`TALK_REST`) |
+| speech bubble | Talk | a person, also across a counter; Luna when no foe is near |
+| board on a post | Read | a sign, a tap or a socket of the tubes, a moon block without Luna, the newsstand, the NEW GAME machine |
+| up arrow | Lift | a pot or a rock |
+| arc | Throw | something is carried |
+| chest | Open | a chest not yet opened and within reach; the login console, the NEW LOOK stall |
+| arch with an arrow | Go in | an exit A uses: a cabinet, a terminal, a booth or a stall that leads away |
+| key | Unlock | a locked door, with the key that opens it |
+| lever | Pull | a lever not yet thrown; a mirror, a valve, a lumen tube; a moon block Luna can push; the viewfinder |
+| coins | Buy | a shop's ware |
+
+Every answer but the sword has a **cyan ring** (the second cue, for a thumb over
+the picture). The button follows an answer once it has held 150 ms
+(`A_PAD_HOLD`, `aPad.ts`), so walking past a row of pots does not flicker it,
+and falls back to the sword at once when it is no longer true; a change pops from
+85 % to full size in 120 ms (not with reduced motion). The picture is never
+anything but what the press does (`aWould` is `aPlan`'s picture), in a fight
+too: a pot can be lifted and a lever pulled with a foe at arm's length, and the
+button says so. Pictures:
+`render/spritesPad.ts` (coins: `item_bits`), in the 16-bit dress through EPX as
+the sword is.
 
 A talk branch can end in a two-way question (`ask` on `TalkBranch`: two labels, a reply each; left/right or a tap picks, B closes). The town cat uses it: TALK or PET (2026-10-01).
 After lines close, A only swings until it has rested `TALK_REST` (0.35 s, restarted by each press), so mashing through someone's lines never starts them over (2026-10-06).

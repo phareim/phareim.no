@@ -146,13 +146,14 @@
         </button>
         <button
           class="zelda-pad zelda-pad-a"
-          aria-label="Sword: talk, read, use"
+          :class="{ 'zelda-pad-a--use': aShows !== 'blade' }"
+          :aria-label="A_PAD[aShows].label"
           @pointerdown.prevent.stop="pressA"
           @pointerup.prevent.stop="releaseA"
           @pointercancel="releaseA"
           @pointerleave="releaseA"
           @contextmenu.prevent
-        ><img v-if="swordIcon" :src="swordIcon" alt="" class="zelda-pad-icon zelda-pad-icon--big"></button>
+        ><img v-if="aIcon" ref="aImg" :src="aIcon" alt="" class="zelda-pad-icon zelda-pad-icon--big"></button>
       </div>
     </template>
     <div v-else-if="confirmReset" class="zelda-deck-paused">
@@ -209,8 +210,9 @@
  * isometric one a visit starts in, the classic one, and the studio's own);
  * holding Escape saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
- * pictures, no letters: A (the sword), and with an item B (the item) and
- * swap. The top-right corner (`render/corner.ts`) is the chart in a frame
+ * pictures, no letters: A (what a press would do now: the sword, or talk,
+ * read, lift, throw, open and the rest, `aPad.ts`), and with an item B (the
+ * item) and swap. The top-right corner (`render/corner.ts`) is the chart in a frame
  * that says the view: a press on it opens the menu, a press on the Sun Prism
  * on its corner turns the view; indoors a small pane with a door stands in
  * the chart's place and opens the menu. The input itself is `input.ts`.
@@ -247,8 +249,9 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { artRest, awayMap, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems } from './engine/index'
+import { artRest, awayMap, aWould, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
 import { jumpIcon } from './render/side'
+import { A_PAD, createAPad } from './aPad'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -464,13 +467,25 @@ function iconUrl(name: string) {
   return url
 }
 const itemIcon = computed(() => (sideRoom.value ? (import.meta.client ? jumpIcon().toDataURL() : '') : padItem.value ? iconUrl(padItem.value) : ''))
-const swordIcon = ref('')
+/** What the A pad shows (`aPad.ts`): the answer of `aWould`, once it has held a moment. */
+const aShows = ref<AWould>('blade')
+const aPad = createAPad()
+const aImg = ref<HTMLImageElement | null>(null)
+const aIcon = computed(() => iconUrl(A_PAD[aShows.value].icon))
+/** Each frame, on touch only. */
+function stepAPad(nowMs: number) {
+  if (touchUI.value) aShows.value = aPad.step(aWould(WORLD, state), nowMs)
+}
+// A changed picture pops: 85 % to full size.
+watch(aShows, () => {
+  if (reducedMotion.value) return
+  aImg.value?.animate?.([{ transform: 'translate(-50%, -50%) scale(0.85)' }, { transform: 'translate(-50%, -50%) scale(1)' }], { duration: 120, easing: 'ease-out' })
+}, { flush: 'post' })
 const swapIcon = ref('')
 /** The roll pad's picture: the hero curled mid-roll (a classic frame; the skins have no icon for it). */
 const rollIcon = ref('')
 function rollIconUrl() { return import.meta.client ? sprite('hero_side_roll_1').toDataURL() : '' }
 watch(dress16, () => {
-  swordIcon.value = iconUrl('item_sword')
   swapIcon.value = iconUrl('hud_swap')
 })
 
@@ -1217,6 +1232,8 @@ function begin(save: SaveData | null, at: Spot | null, banner = false) {
   bannerArea = state.area
   if (unlocked) audio?.pause(false)
   syncDeck()
+  aPad.reset()
+  aShows.value = 'blade'
   playTrack(trackFor(state))
   setPhase('play')
   lastT = 0
@@ -1702,6 +1719,7 @@ function frame(nowMs: number) {
   stepRule(renderer.viewState())
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
   syncDeck()
+  stepAPad(nowMs)
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
     lowHpT -= dt
     if (lowHpT <= 0) { audio?.sfx('lowHp'); lowHpT = 1.2 }
@@ -1818,12 +1836,10 @@ onMounted(() => {
     onApplied: (art) => {
       iconCache.clear()
       artVersion.value++
-      swordIcon.value = iconUrl('item_sword')
       swapIcon.value = iconUrl('hud_swap')
       applyLiveViews(art.views)
     },
   })
-  swordIcon.value = iconUrl('item_sword')
   swapIcon.value = iconUrl('hud_swap')
   reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   try {
@@ -2151,6 +2167,12 @@ onBeforeUnmount(() => {
   border: 4px solid #ff2fa0;
   color: #ff2fa0;
   box-shadow: 4px 4px 0 #0b0616;
+}
+
+/* A would do something else than swing: the ring says so too, in the colour of the interface (a thumb may hide the picture). */
+.zelda-pad-a--use {
+  border-color: #2ff3ff;
+  color: #2ff3ff;
 }
 
 .zelda-pad-b {
