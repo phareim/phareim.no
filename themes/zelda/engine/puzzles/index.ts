@@ -322,7 +322,10 @@ export function knockHazard(c: Ctx, e: Enemy): boolean {
 // Weights
 // ---------------------------------------------------------------------------
 
-/** The weight on tile `idx` now: a block or mirror 2, a boulder 3, a pot or rock 1, the hero 1 (2 carrying), the echo 1, a foe 1 (a big one 3), Luna 1. */
+/**
+ * The weight on tile `idx` now: a block or mirror 2, a boulder 3, a pot or rock 1, the hero 1 (2 carrying), the echo
+ * 1, the Duck 1, a foe 1 (a big one 3), Luna 1. A float plate that has drained takes none.
+ */
 export function weightOn(c: Ctx, idx: number): number {
   const s = c.s
   const m = s.map
@@ -330,6 +333,7 @@ export function weightOn(c: Ctx, idx: number): number {
   const ty = Math.floor(idx / m.w)
   const t = m.tiles[idx]!
   const at = (x: number, y: number) => Math.floor(x) === tx && Math.floor(y) === ty
+  if (t !== 'ω' && pz(c).floats.has(idx)) return 0
   let w = 0
   if (!m.moving.some(b => b.tx === tx && b.ty === ty)) {
     if (t === 'b' || t === 'B' || isMirror(t)) w += 2
@@ -340,6 +344,7 @@ export function weightOn(c: Ctx, idx: number): number {
   if (!s.demo && at(h.x, h.y) && h.act !== 'fall' && !s.hook) w += h.carry ? 2 : 1
   for (const e of m.enemies) if (!e.dead && !STATS[e.kind].flying && at(e.x, e.y)) w += BIG.has(e.kind) ? 3 : 1
   if (s.echo && at(s.echo.x, s.echo.y)) w += 1
+  if (s.duck && at(s.duck.x, s.duck.y)) w += 1
   if (s.luna && at(s.luna.x, s.luna.y)) w += 1
   return w
 }

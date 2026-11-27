@@ -4,7 +4,6 @@
  * bit chest or a floor item worth bits adds its line here; a dungeon without one adds nothing.
  */
 export const DUNGEON_BITS: Record<string, number> = {
-  'chest:examination.duck': 50,
   'chest:actunder.bits': 20,
   'chest:lateshow.nook': 20,
 }

@@ -22,6 +22,7 @@ ELSEWHERE.bard = 'zelda-act-three.test.mjs'
 ELSEWHERE.golem = 'zelda-heap.test.mjs'
 ELSEWHERE.weaver = 'zelda-lateshow.test.mjs'
 ELSEWHERE.blackbox = 'zelda-lighthouse.test.mjs'
+ELSEWHERE.falcon = 'zelda-examination.test.mjs'
 
 /**
  * Each boss: its map, the flag its fall sets, the B item the fight takes, and the states the two fights must have

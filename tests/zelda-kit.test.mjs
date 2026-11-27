@@ -398,7 +398,7 @@ describe('the B items', () => {
   it('a save keeps the item in hand, each of them and none', () => {
     const raw = save()
     // (A B item the save does not own is put away: each is owned here.)
-    const owned = { hook: true, disc: true, bombBag: true, echo: true, lamp: true, magnet: true }
+    const owned = { hook: true, disc: true, bombBag: true, echo: true, lamp: true, magnet: true, duck: true }
     for (const selected of [...Z.B_ITEMS.map(b => b.id), null]) assert.equal(Z.parseSave({ ...raw, inv: { ...raw.inv, ...owned, selected } })?.inv.selected, selected)
   })
 

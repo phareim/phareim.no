@@ -76,6 +76,7 @@ type Palette = typeof OW_BASE
 let OW: Palette = OW_BASE
 const palettes = new Map<string, Palette>()
 function setLook(look: string | undefined) {
+  DG = look === 'dune' ? DG_SAND : DG_SHRINE
   wild = look === 'wild'
   const realm = realmLook(look)
   if (!realm) { OW = OW_BASE; return }
@@ -84,11 +85,24 @@ function setLook(look: string | undefined) {
   OW = p
 }
 
-const DG = {
+const DG_SHRINE = {
   floor: '#2b2553', floorL: '#332c61', grout: '#201a40', crack: '#1a1535',
-  top: '#1f1a3c', topL: '#2c2552', face: '#3a2f70', faceL: '#4a3d88', faceD: '#271f50', neon: '#ff3fae', neonC: '#3ff0ff',
+  top: '#1f1a3c', topL: '#2c2552', topD: '#171230', face: '#3a2f70', faceL: '#4a3d88', faceD: '#271f50', neon: '#ff3fae', neonD: '#7a1a58', neonC: '#3ff0ff',
   moss: '#3fd8b0',
 }
+type DungeonPalette = typeof DG_SHRINE
+/**
+ * A dungeon of warm sandstone (`look: 'dune'`: the Examination): the Shrine's painting in browns, gold strips where
+ * it has neon. The isometric view tells its materials by these colours (`iso/shaders.ts` `fits`, `uSand`) and has
+ * them in sandstone for this look (`iso/materials.ts`).
+ */
+const DG_SAND: DungeonPalette = {
+  floor: '#8c6440', floorL: '#9c7248', grout: '#684628', crack: '#523520',
+  top: '#4c3222', topL: '#6a4830', topD: '#38241a', face: '#a87646', faceL: '#cc9a5c', faceD: '#6c4628', neon: '#ffd23f', neonD: '#9a5c14', neonC: '#ffe9a8',
+  moss: '#3fd8b0',
+}
+/** The dungeon palette being painted with. Set per paint, as `OW`. */
+let DG: DungeonPalette = DG_SHRINE
 
 const IN = {
   floor: '#4b2c44', floorL: '#5a3752', floorD: '#3a2034', wall: '#2b1c40', wallL: '#3d2a58', trim: '#ff5fb8', rug: '#8a2a6a', rugL: '#b03a88',
@@ -464,7 +478,7 @@ function cliff(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: num
         r(g, DG.faceL, px + off + 2, py + row * 4, 3, 1)
       }
       r(g, DG.neon, px, py, T, 1) // the Shrine's neon strip
-      r(g, '#7a1a58', px, py + 1, T, 1)
+      r(g, DG.neonD, px, py + 1, T, 1)
       r(g, DG.faceD, px, py + T - 1, T, 1)
     } else {
       // Wall top: dressed stone blocks, lit edges where they meet a room.
@@ -473,7 +487,7 @@ function cliff(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: num
         const off = (by / 8 + tx) % 2 ? 4 : 0
         for (let bx = -off; bx < T; bx += 8) {
           r(g, DG.topL, px + Math.max(0, bx) + 1, py + by + 1, Math.min(6, 6 + bx), 1)
-          r(g, '#171230', px + Math.max(0, bx), py + by + 7, Math.min(8, 8 + bx), 1)
+          r(g, DG.topD, px + Math.max(0, bx), py + by + 7, Math.min(8, 8 + bx), 1)
         }
       }
       const L = open(at(-1, 0))

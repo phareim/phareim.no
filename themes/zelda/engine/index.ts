@@ -45,3 +45,5 @@ export { terrainAbove, terrainZ, terrainRise, terrainLevel, heightAt, isRamp, RA
 export { puzzleInfo, phys, weightOn, startRoll, SLIDE_SPEED, ROLL_SPEED, GAS_SPEED, boardSolved, traceBoard, scrambleTubes } from './puzzles/index'
 export { puzzleKits, solveKit, solveGrid, stampKit, type PuzzleKit, type KitSolution, type KitMove } from './puzzles/kits'
 export * from './explore'
+// The Examination (`exam.ts`): the world's share of the hero's clock where time waits.
+export { stillK } from './exam'

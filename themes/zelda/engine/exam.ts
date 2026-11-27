@@ -8,16 +8,18 @@
  * - Passed, the room is quiet for good (its foes are not there). Not passed, the card plays and the hero is put
  *   back at the round's door with the map loaded afresh: nothing is lost.
  * - A hero who walks out of a round that is still running abandons it; coming back begins it afresh.
+ * - TIME WAITS (`rule: 'still'`): the world's clock runs only as the hero does something (`stillK`, which `play()`
+ *   multiplies into the time foes and things are stepped by). The hero, the pads and the cards keep their own.
  *
  * Also here: the pot stands that fill one at a time (`stand` marks with a `wait`).
  * Every clock here runs on the hero's `dt`. Docs: docs/games/neon-shrine-examination.md.
  */
-import type { ExamState, GameState, RoundDef, World } from '../types'
-import { EXAM, HERO_R } from '../types'
+import type { Enemy, ExamState, GameState, Input, RoundDef, World } from '../types'
+import { EXAM, HERO_R, STILL } from '../types'
 import type { Ctx } from './combat'
 import { cellDef, circleOnTile, condMet, has, mapInfo, setFlag, type MapInfo, type PadInfo } from './map'
 
-export function stepExam(c: Ctx, dt: number) {
+export function stepExam(c: Ctx, dt: number, inp: Input) {
   const s = c.s
   if (s.demo) return
   stepStands(c, dt)
@@ -31,6 +33,7 @@ export function stepExam(c: Ctx, dt: number) {
   if (round && !has(s, `exam.${round.id}`) && (!m.exam || (m.exam.over && m.exam.card?.passed !== false))) begin(c, round)
   const x = m.exam
   if (!round || !x || x.over || x.cell !== s.zoneIndex) return
+  if (x.rule === 'still') stepStill(c, x, inp, dt)
   // A heart lost is seen by the hit points going down since the last step.
   if (s.hero.hp < x.hp) x.lost += x.hp - s.hero.hp
   x.hp = s.hero.hp
@@ -46,6 +49,37 @@ export function stepExam(c: Ctx, dt: number) {
   const foes = m.enemies.filter(e => e.cell === x.cell)
   const cleared = !pads.some(p => !p.handin) && foes.length > 0 && foes.every(e => e.dead)
   if (handedIn || cleared) end(c, x, round)
+}
+
+/** What the hero does besides walking, in a room where time waits: each of these lets it run. */
+const DOING: ReadonlySet<string> = new Set(['swing', 'spin', 'roll', 'air', 'lift', 'throw', 'use', 'hook', 'push', 'hurt'])
+
+/**
+ * TIME WAITS: `k` eases to 1 while the hero does something and to 0 while not. The stick has two thresholds, so that
+ * a thumb resting at the edge of its dead zone does not flicker the world.
+ */
+function stepStill(c: Ctx, x: ExamState, inp: Input, dt: number) {
+  const mag = Math.hypot(inp.move.x, inp.move.y)
+  x.moving = mag > STILL.on || (!!x.moving && mag >= STILL.off)
+  const does = x.moving || DOING.has(c.s.hero.act)
+  x.k = does ? Math.min(1, x.k + STILL.up * dt) : Math.max(0, x.k - STILL.down * dt)
+  if (x.k > 0) { x.stood = 0; return }
+  if (!x.stood) c.ev.push({ type: 'still' })
+  x.stood = (x.stood ?? 0) + dt
+}
+
+/** The world's share of the hero's clock: 1, except in a running round where time waits. */
+export function stillK(s: GameState): number {
+  const x = s.map.exam
+  return x && x.rule === 'still' && !x.over && x.cell === s.zoneIndex ? x.k : 1
+}
+
+/**
+ * The examination's foes in the states in which their touch does no harm (`enemies.ts` `contact`): FALCON stuck in
+ * the sand, and in its dive, which hurts by its lane and ring alone (`bossFalcon.ts`).
+ */
+export function examBossHarmless(e: Enemy): boolean {
+  return e.kind === 'falcon' && (e.ai.mode === 'stuck' || e.ai.mode === 'dive')
 }
 
 /** Does the hero's standing here latch pad `p` now? */

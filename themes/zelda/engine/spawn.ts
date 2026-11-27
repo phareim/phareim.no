@@ -39,6 +39,7 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   weaver: { hp: 12, r: 1.4, dmg: 0, flying: true },
   // (Every tile beside its pedestal lies inside its reach, so its touch does no harm: only its pink beams hurt.)
   blackbox: { hp: 14, r: 1.6, dmg: 0 },
+  falcon: { hp: 10, r: 0.8, dmg: 2, flying: true },
 }
 
 export function spawnEnemy(

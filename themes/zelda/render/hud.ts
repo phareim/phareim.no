@@ -332,8 +332,11 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
     skin.panel(g, x + 6, py, pw, GLYPH_H + 6, 'cool')
     F.draw(g, name, x + 12, py + 3, skin.prize, skin.shadow)
   }
+  // The engine types the line as it is written; a key's name in its place may be longer ({B} is THE ITEM BUTTON on
+  // touch), so the line is all there as soon as either length is reached.
+  const done = d.chars >= Math.min(line.length, (d.lines[d.line] ?? '').length)
   // The line is typed at the pace of the whole of it, name and all, so the body starts at once and ends when the line does.
-  let left = Math.floor(named ? d.chars * body.length / line.length : d.chars)
+  let left = done ? line.length : Math.floor(named ? d.chars * body.length / line.length : d.chars)
   for (let i = 0; i < wrapped.length; i++) {
     const text = wrapped[i]!
     const shown = text.slice(0, Math.max(0, left))
@@ -341,7 +344,7 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
     F.draw(g, shown, x + 8, y + 8 + i * (GLYPH_H + 4), skin.text, skin.shadow)
   }
   if (asks) {
-    if (d.chars < line.length) return
+    if (!done) return
     const oy = y + 8 + textH + 4
     ;(d.ask?.options ?? ['YES', 'NO']).forEach((label, i) => {
       const on = (d.choice ?? 0) === i
@@ -354,7 +357,7 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
     })
     return
   }
-  if (d.chars < line.length) return
+  if (!done) return
   if (skin.more) { skin.more(g, x + w - 11, y + h - 7, time); return }
   if (Math.floor(time * 3) % 2 === 0) {
     g.fillStyle = skin.cool

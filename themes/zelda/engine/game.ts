@@ -26,7 +26,7 @@ import { lampHome } from './lamp'
 import { homeIron } from './magnet'
 import { raiseCard, stepCard } from './cards'
 import { stepLens } from './lens'
-import { examEnterCell, examEnterMap, stepExam } from './exam'
+import { examEnterCell, examEnterMap, stepExam, stillK } from './exam'
 import { startChase, stepChase } from './chase'
 import { sideStanding } from './side'
 import { dirVec } from './util'
@@ -41,6 +41,7 @@ function freshInv(): Inventory {
     sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
     hook: false, arc: false, echo: false, lamp: false, magnet: false, bigBag: false, shrooms: 0, keyrings: {},
     stomp: false,
+    duck: false,
   }
 }
 
@@ -142,6 +143,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   s.hook = null
   s.echo = null
   delete s.beat
+  delete s.duck
   if (!at) s.entry = { map: mapId, entry: entryId }
   keepRobe(s, mapId)
   // A land walked into is drawn on the MAP page's chart of the world (and the QUEST line stops pointing at the gates).
@@ -205,6 +207,7 @@ function enterCell(c: Ctx, index: number) {
   m.bombs.length = 0
   m.blasts.length = 0
   m.thrown.length = 0
+  delete s.duck
   m.spell = ''
   m.spellTiles = []
   // A trap gate not yet beaten stands open again, in whatever room it is (the hero may have left by another way).
@@ -302,11 +305,13 @@ function play(c: Ctx, dt: number, inp: Input) {
   const wdt = s.slow ? dt * SLIP_SCALE : dt
   stepSlow(s, dt)
   // (The examination's rounds and its stands run on the hero's clock.)
-  stepExam(c, dt)
+  stepExam(c, dt, inp)
+  // (In a round where time waits, the world's clock runs only as the hero does.)
+  const wd = wdt * stillK(s)
   // A screen that scrolls by itself moves first, so that what rides it moves with it.
   stepChase(c, wdt)
-  stepEnemies(c, wdt)
-  stepObjects(c, wdt)
+  stepEnemies(c, wd)
+  stepObjects(c, wd)
   if (s.mode !== 'play' || s.demo) return
   stepHook(c, dt)
   stepLuna(c, dt)
@@ -341,8 +346,9 @@ function play(c: Ctx, dt: number, inp: Input) {
       s.scroll = { from, to, t: 0, dx, dy, index: idx }
       s.mode = 'scroll'
       s.disc = null
-      // An echo stays with its room.
+      // An echo stays with its room, and so does the Duck.
       s.echo = null
+      delete s.duck
       h.carry = null
       h.swing = null
       h.spin = null

@@ -285,9 +285,8 @@ function solve(W) {
  * its line out, and a finished world has none.
  */
 const OWED = [
-  // The Examination: rounds three and four, the pond's plate (the Duck) and the hall at the top (parts two and three).
+  // The Examination: round four, the Marking Room's gates and the hall at the top (part three).
   'examination: gate examination.16,5',
-  'examination: gate examination.48,5',
   'examination: gate examination.7,11',
   'examination: gate examination.7,2',
   'examtop: never walked into',

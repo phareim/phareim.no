@@ -16,7 +16,7 @@
  * light map.
  */
 import type { Dir, Enemy, GameEvent, GameState, ViewSide, World } from '../types'
-import { BOMB_FUSE, FLIP_CHOP, ORCA, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP, roomed } from '../types'
+import { BOMB_FUSE, FALCON, FLIP_CHOP, ORCA, ROLL_TIME, SPIN_TIME, TEMPEST, TILE, WARP_TIME, WINDUP, roomed } from '../types'
 import { airTime, BIG, bossOpen, cameraFor, cellDef, cellIndex, cellIsDark, heroZ, HOURS, mapDef, mapInfo, shardPos, swingAngle, swingDur, toughOpen, unseen } from '../engine/index'
 import { itemSpriteName } from './itemIcon'
 import { dayLook, nightOf, type DayLook } from './daylight'
@@ -36,7 +36,7 @@ import { drawClock, drawGifts, drawPaper, drawRings, drawRobe, queueHouse, steam
 import { drawHeapFloor, drawLatchLines, queueHeap } from './heapMarks'
 import { createChartRoom, type ChartKit } from './chartRoom'
 import { BOX_AHEAD, boxFoot, drawBox, drawEyes, drawNumbers, lampItem, stripLights } from './lighthouse'
-import { drawExamCard, queueExam } from './examination'
+import { drawExamCard, drawStillWash, queueExam, timeStands } from './examination'
 import { drawGolem, drawGolemFall, golemSprite, golemStand } from './golemPaint'
 import { GOLEM } from '../engine/bossGolem'
 import { boxSprite } from '../engine/bossBlackBox'
@@ -87,6 +87,22 @@ const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierC
 FRONTIER_FOE_LOOKS.stillsand!.spitter = 'cactus'
 
 const T = TILE
+
+/** The four neighbours a one-px outline is drawn at, and the pale one of a foe held still (TIME WAITS). */
+const AROUND = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const
+const STILL_PALE = '#eef6ff'
+
+/** How far off the ground FALCON is, px: on its perch a little, on the wing high, coming down through its dive. */
+function falconLift(e: Enemy): number {
+  const m = e.ai.mode
+  if (m === 'perch') return 4
+  if (m === 'fly') return 12
+  if (m === 'tell') return 16
+  if (m !== 'dive') return 0
+  const left = Math.hypot((e.ai.tx as number) - e.x, (e.ai.ty as number) - e.y)
+  const whole = Math.hypot((e.ai.tx as number) - (e.ai.sx as number), (e.ai.ty as number) - (e.ai.sy as number))
+  return whole > 0.01 ? Math.round(16 * Math.min(1, left / whole)) : 0
+}
 
 /** A tough foe's colours (its outline and bar, and a boss's bar): pink, gold while it is open; the bar's rim and what it has lost. */
 const TOUGH_PINK = '#ff2fa0'
@@ -911,6 +927,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     // Blade behind the body when facing up (on the screen: a turned camera may see another side).
     const away = facingDir(h.dir, facing) === 'up'
     if (blade && away) drawBlade(g, s, x, feet - 7, lights)
+    // While time waits, one px of cyan pulses round the hero (steady under reduced motion).
+    if (!heroBare && timeStands(s) && (frameReduced || Math.floor(time * 3) % 2 === 0)) for (const [dx, dy] of AROUND) put(g, name, x + dx, feet + dy, mirror, false, sx, sy, '#2ff3ff')
     if (!heroBare) put(g, name, x, feet, mirror, false, sx, sy)
     // The Steamhouse's robe, over the figure the view draws.
     if (h.robe) drawRobe(g, x, feet)
@@ -1126,6 +1144,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Drawn from the front: singing while it tells and strikes, dazed while it is open.
       case 'bard': return { name: e.ai.mode === 'open' ? 'bard_dazed' : 'bard_sing', flip: e.dir === 'left' }
       case 'golem': return { name: golemSprite(e), flip: false }
+      // FALCON: on its perch, on the wing, in its dive, stuck with the quartz in its chest showing; dazzled by a blow.
+      case 'falcon': {
+        const m = e.ai.mode
+        const pose = e.hitT !== undefined && e.hitT < FALCON.blind ? 'blind' : m === 'stuck' ? 'quartz' : m === 'dive' ? 'dive' : m === 'fly' || m === 'tell' ? 'fly' : 'perch'
+        return { name: `falcon_${pose}`, flip: e.dir === 'left' }
+      }
       // Its poses: horn out while it tells, rolling, boring, dazed; else it walks.
       case 'grok': {
         const pose = ({ tell: 'ram', roll: 'roll', drill: 'drill', dazed: 'dazed' } as Record<string, string>)[e.ai.mode]
@@ -1230,6 +1254,19 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     // (Behind its banner, there is nothing of the Sycophant to draw, shadow and all.)
     if (e.kind === 'sycophant' && !sycophantShown(e)) return
+    if (e.kind === 'falcon') {
+      // Small pictures at twice their size, as Mixtral's; off the ground on the wing, its shadow under it.
+      const up = falconLift(e)
+      shadow(g, x, feet - 1, Math.round(e.r * T * (up > 6 ? 1.3 : 1.7)))
+      const c = doubledSprite(name, flip, flashing(e) ? '#ffffff' : undefined)
+      const left = Math.round(x + shiver(e) - c.width / 2)
+      const top = Math.round(feet - up - c.height)
+      if (timeStands(s)) for (const [dx, dy] of AROUND) g.drawImage(doubledSprite(name, flip, STILL_PALE), left + dx, top + dy)
+      g.drawImage(c, left, top)
+      const open = bossOpen(e)
+      lights.push({ x: e.x, y: e.y - 0.5, r: 2.2, color: open ? TOUGH_GOLD : '#c4fbff', a: open ? 0.6 : 0.5 })
+      return
+    }
     if (e.kind !== 'eye' && e.kind !== 'blade' && !flat) shadow(g, x, feet - 1, Math.round(e.r * T * 1.6))
     if (flying && !flat) feet -= 6 + Math.round(Math.sin(time * 6 + e.home.x) * 1.5)
     if (e.kind === 'skull' && (e.ai.mode === 'hop' || e.ai.mode === 'dodge')) feet -= Math.round(Math.sin(Math.max(0, 1 - e.ai.t / 0.34) * Math.PI) * 5)
@@ -1318,6 +1355,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (e.ai.tell > 0) lights.push({ x: e.x, y: e.y - 0.4, r: 1.4, color: '#ffffff', a: 0.8 })
       else if (toughOpen(e)) lights.push({ x: e.x, y: e.y - 0.4, r: 1.4, color: TOUGH_GOLD, a: 0.8 })
     }
+    // While time waits, a foe wears a pale outline.
+    if (timeStands(s)) for (const [dx, dy] of AROUND) put(g, name, x + shiver(e) + dx, feet + dy, flip, false, sx, sy, STILL_PALE)
     put(g, name, x + shiver(e), feet, flip, flashing(e), sx, sy)
     if (e.kind === 'eye') {
       const a = e.ai.ang as number ?? 0
@@ -1403,7 +1442,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const fx = stood?.x ?? e.x
       const foot = (stood?.y ?? e.y + e.r) + 1 / T
       const at = place(fx, foot, view.lift?.(fx, foot - 0.01) ?? 0)
-      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' ? 2 : e.kind === 'bard' ? BARD_SCALE : 1)) - standsAbove(e)
+      const head = Math.round(at.y) - Math.round(figureTop(name, flip, view.art, e.kind === 'mixtral' || e.kind === 'orca' || e.kind === 'falcon' ? 2 : e.kind === 'bard' ? BARD_SCALE : 1)) - standsAbove(e)
       // Stunned: its stars turn in the gap between its head and the bar.
       const dazed = ((e.kind === 'knight' || e.kind === 'llama' || e.kind === 'mixtral' || e.kind === 'grok') && e.ai.mode === 'dazed') || (e.kind === 'mistral' && e.ai.mode === 'down')
       if (e.stun > 0 || dazed) drawStars(g, at.x, head - 1)
@@ -1428,6 +1467,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * the king hovers, its picture hung 8 px low, and Mistral and the twins fly while they are up.
    */
   function standsAbove(e: Enemy): number {
+    if (e.kind === 'falcon') return falconLift(e)
     if (e.kind === 'king') return (e.ai.mode === 'down' ? 0 : 8) - 8
     if (e.kind === 'sycophant') return SYCO_HOVER
     // (The Weaver's face hangs about its middle, its box a little under its foot point.)
@@ -1533,7 +1573,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     // (The isometric view stands its own lantern: `lampItem` has no card there.)
     if (s.lamp) items.push(lampItem(g, s, cx, cy, time, ui.reducedMotion))
     if (!ui.attract) queueHeap(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
-    if (!ui.attract) queueExam(g, world, s, cx, cy, items)
+    if (!ui.attract) queueExam(g, world, s, cx, cy, time, ui.reducedMotion, items)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
@@ -2306,6 +2346,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function drawFx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash = 1, foes: FoeView = { art: 0 }) {
     const h = s.hero
+    // TIME WAITS: the world one step paler, under the sparks and the bars, the hero left in full colour.
+    if (timeStands(s)) { const at = place(h.x, h.y); drawStillWash(g, at.x, at.y - 6) }
     // Dust at the hero's heels: off a roll, behind the finisher's lunge, where a run turns round.
     for (const what of heroFx) {
       const a = h.swing?.a ?? Math.atan2(h.vy, h.vx)

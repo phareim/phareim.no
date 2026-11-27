@@ -30,6 +30,7 @@ export function itemSpriteName(item: ItemId): string {
     case 'magnet': return 'item_magnet'
     case 'stomp': return 'item_stomp'
     case 'lens': return 'item_lens'
+    case 'duck': return 'item_duck'
     // Each Sacred Weight wears its own band.
     case 'weightMeaning': return 'item_weight_meaning'
     case 'weightReasons': return 'item_weight_reasons'

@@ -12,6 +12,7 @@ import { sycophantLanes } from './bossSycophant'
 import { golemStencils } from './bossGolem'
 import type { LaneWorld } from './gifts'
 import { boxStencils } from './bossBlackBox'
+import { falconStencils } from './bossFalcon'
 
 export type StencilShape =
   /** A lane from (x0, y0) to (x1, y1) along `a`, `w` tiles wide, and `cap` tiles on past each end. */
@@ -96,6 +97,7 @@ export function stencilsOf(e: Enemy, lw?: LaneWorld): Stencil[] {
   if (e.kind === 'sycophant') return sycophantLanes(e, lw)
   if (e.kind === 'golem') return golemStencils(e)
   if (e.kind === 'blackbox') return boxStencils(e)
+  if (e.kind === 'falcon') return falconStencils(e)
   const out: Stencil[] = []
   // How far a tell of `whole` s has run, 0 to 1.
   const run = (whole: number) => Math.max(0, Math.min(1, 1 - e.ai.tell / whole))

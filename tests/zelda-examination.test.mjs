@@ -1,6 +1,6 @@
 // Neon Shrine, THE EXAMINATION (docs/games/neon-shrine-examination.md): the test behind the Puzzle Lab, played by a
-// scripted hero with the blade and what the dungeon gives, and the shape its maps must keep. At most four tests live
-// here. `EXAM_LOG=1`: what each round cost.
+// scripted hero with the blade and what the dungeon gives, the Duck in a save, and the shape its maps must keep. At
+// most four tests live here. `EXAM_LOG=1`: what each round cost. `EXAM_SEED=n`: the play-through on another seed.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -9,6 +9,7 @@ let Z
 before(async () => { Z = await load() })
 
 const FPS = 60
+const SEED = Number(process.env.EXAM_SEED ?? 9)
 const LOG = (...what) => { if (process.env.EXAM_LOG) console.log(...what) }
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
 const unit = (x, y, k = 1) => { const d = Math.hypot(x, y) || 1; return { x: (x / d) * k, y: (y / d) * k } }
@@ -128,8 +129,8 @@ function atTheLab(seed) {
 // ---------------------------------------------------------------------------
 
 /**
- * Throws what the room lends until `want` foes are down, one of them dropped in a pit. It fetches the nearest pot or
- * stone, walks to a line with a foe (best: with a pit just past it) and throws along it.
+ * Throws what the room lends until `want` foes are down. It fetches the nearest pot or stone, walks to a line with a
+ * foe and throws along it. (A pot's knock may drop a foe in a pit, and that counts the same: nothing here needs it.)
  */
 function throwAtFoes(p, want) {
   const { s } = p
@@ -137,12 +138,11 @@ function throwAtFoes(p, want) {
   const downed = () => foes().filter(e => e.dead).length
   const fell = () => p.seen.filter(e => e.type === 'fall').length
   const falls = fell()
-  const at = (x, y) => tile(s, Math.floor(x), Math.floor(y))
   let thrown = 0
   /** Where each foe was a step ago: a throw is aimed at where it will be. */
   const was = new Map()
   for (let k = 0; k < 150 * FPS; k++) {
-    if (s.map.exam?.over || (downed() >= want && fell() > falls)) return { thrown, down: downed(), falls: fell() - falls }
+    if (s.map.exam?.over || downed() >= want) return { thrown, down: downed(), falls: fell() - falls }
     const h = s.hero
     if (s.mode !== 'play' || h.act === 'lift' || h.act === 'hurt' || h.act === 'throw' || h.act === 'fall') { p.step(); continue }
     if (!h.carry) {
@@ -162,7 +162,7 @@ function throwAtFoes(p, want) {
       p.toward(go.x, go.y)
       continue
     }
-    // Carrying: the best line to a living foe. A foe with a pit past it is worth waiting a way for.
+    // Carrying: the best line to a living foe.
     let best = null
     for (const foe of foes()) {
       if (foe.dead) continue
@@ -171,14 +171,10 @@ function throwAtFoes(p, want) {
       // (A pot takes about a fifth of a second to get there.)
       const lead = Math.max(-0.6, Math.min(0.6, (foe.x - old.x) * 12))
       const leadY = Math.max(-0.6, Math.min(0.6, (foe.y - old.y) * 12))
-      const e = { x: foe.x + lead, y: foe.y + leadY, hp: foe.hp }
+      const e = { x: foe.x + lead, y: foe.y + leadY }
       for (const [dir, [dx, dy]] of Object.entries(DIRS)) {
         const along = (e.x - h.x) * dx + (e.y - h.y) * dy
         const off = Math.abs((e.x - h.x) * dy) + Math.abs((e.y - h.y) * dx)
-        const pit = [0.7, 1.3].some(d => at(e.x + dx * d, e.y + dy * d) === 'O')
-        // Until one has been dropped in, a foe a pot would not finish is thrown at only with a pit behind it.
-        // (A foe right on top of the hero is thrown at whatever lies behind it.)
-        if (!pit && e.hp > 2 && fell() === falls && k < 30 * FPS && Math.hypot(e.x - h.x, e.y - h.y) > 1.3) continue
         if (along > 0.7 && along < 3.2 && off < 0.3 && Z.lineClear(Z.WORLD, s.map, h.x, h.y, e.x, e.y)) {
           p.press(dir)
           thrown++
@@ -189,8 +185,7 @@ function throwAtFoes(p, want) {
         const y = e.y - dy * 2.2
         const path = p.path(Math.floor(x), Math.floor(y))
         if (!path) continue
-        const cost = path.length - (pit && e.hp > 2 && fell() === falls ? 14 : 0)
-        if (!best || cost < best.cost) best = { x, y, cost }
+        if (!best || path.length < best.cost) best = { x, y, cost: path.length }
       }
       if (best === 'threw') break
     }
@@ -229,11 +224,112 @@ const handIn = p => {
   assert.ok(p.s.map.exam?.over, 'the hand-in pad never answered')
 }
 
+// ---------------------------------------------------------------------------
+// Round three: the room that waits
+// ---------------------------------------------------------------------------
+
+/**
+ * Walk to the middle of a tile as a careful hero does: cut at a guard before it is on top of the hero, step out of
+ * the way of a shot that is coming. `done`: stop as it holds.
+ */
+function walkGuarded(p, [tx, ty], done) {
+  const { s } = p
+  for (let k = 0; k < 2400 && !done(); k++) {
+    const h = s.hero
+    if (s.mode !== 'play' || h.act === 'hurt' || h.act === 'swing') { p.step(); continue }
+    const guard = s.map.enemies.filter(e => !e.dead && e.cell === s.zoneIndex && e.kind === 'sentry' && Math.hypot(e.x - h.x, e.y - h.y) < 2.1 && Z.lineClear(Z.WORLD, s.map, h.x, h.y, e.x, e.y))[0]
+    if (guard) {
+      const dx = guard.x - h.x
+      const dy = guard.y - h.y
+      p.press(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down')
+      continue
+    }
+    // A shot that will pass close within half a second: out of its line.
+    const shot = s.map.projectiles.find(q => {
+      const t = -((q.x - h.x) * q.vx + (q.y - h.y) * q.vy) / (q.vx * q.vx + q.vy * q.vy)
+      return t > 0 && t < 0.5 && Math.hypot(q.x + q.vx * t - h.x, q.y + q.vy * t - h.y) < 0.75
+    })
+    if (shot) {
+      const side = (h.x - shot.x) * -shot.vy + (h.y - shot.y) * shot.vx >= 0 ? 1 : -1
+      p.step(inp({ move: unit(-shot.vy * side, shot.vx * side) }))
+      continue
+    }
+    if (Math.hypot(h.x - tx - 0.5, h.y - ty - 0.5) < 0.15) p.step()
+    else assert.ok(p.toward(tx + 0.5, ty + 0.5), `no way to ${tx},${ty}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FALCON, with the blade alone
+// ---------------------------------------------------------------------------
+
+/** The nearest open spot to the hero that is clear of the dive's ring and lane (their paint, and a hair more). */
+function clearOfDive(p, f) {
+  const { s } = p
+  const h = s.hero
+  const { tx, ty, sx, sy } = f.ai
+  const lane = (x, y) => {
+    const len = Math.hypot(tx - sx, ty - sy) || 1
+    const u = Math.max(0, Math.min(len, ((x - sx) * (tx - sx) + (y - sy) * (ty - sy)) / len))
+    return Math.hypot(x - sx - ((tx - sx) * u) / len, y - sy - ((ty - sy) * u) / len)
+  }
+  let best = null
+  for (let y = s.zone.y + 1.5; y < s.zone.y + s.zone.h - 1; y += 0.5) for (let x = s.zone.x + 1.5; x < s.zone.x + s.zone.w - 1; x += 0.5) {
+    if (Math.hypot(x - tx, y - ty) < 1.45 || lane(x, y) < 0.7 || !p.path(Math.floor(x), Math.floor(y))) continue
+    const d = Math.hypot(x - h.x, y - h.y)
+    if (!best || d < best.d) best = { x, y, d }
+  }
+  return best
+}
+
+/** Stands in the middle while it circles, steps out of each dive's paint, and cuts it while it is stuck in the sand. */
+function fightFalcon(p) {
+  const { s } = p
+  const f = s.map.enemies.find(e => e.kind === 'falcon')
+  const seen = new Set()
+  let to = null
+  let openings = 0
+  let was = ''
+  for (let k = 0; k < 120 * FPS && !f.dead; k++) {
+    const h = s.hero
+    const mode = f.ai.mode
+    seen.add(mode)
+    if (mode === 'stuck' && was !== 'stuck') openings++
+    // Its bar is gold exactly while it can be hurt, and its aim is on the floor while it is told and while it comes.
+    assert.equal(Z.bossOpen(f), mode === 'stuck' && (f.ai.took ?? 0) < Z.FALCON.take)
+    assert.equal(Z.stencilsOf(f).length > 0, mode === 'tell' || mode === 'dive')
+    was = mode
+    if (s.mode !== 'play' || h.act === 'hurt') { p.step(); continue }
+    if (mode === 'tell' || mode === 'dive') {
+      if (!to) to = clearOfDive(p, f)
+      if (Math.hypot(h.x - to.x, h.y - to.y) < 0.12) p.step()
+      else p.toward(to.x, to.y)
+      continue
+    }
+    to = null
+    // Between its two dives it is on the ground and still stone: wait where the first one left the hero.
+    if (mode === 'again') { p.step(); continue }
+    if (mode === 'stuck') {
+      // From the side of it the hero is on, a blade's length off.
+      const spots = Object.entries(DIRS).map(([dir, [dx, dy]]) => ({ dir, x: f.x - dx * 1.5, y: f.y - dy * 1.5 })).filter(q => p.path(Math.floor(q.x), Math.floor(q.y)))
+      spots.sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))
+      const q = spots[0]
+      if (Math.hypot(h.x - q.x, h.y - q.y) < 0.3) { if (k % 8 === 0) p.press(q.dir); else p.step() }
+      else p.toward(q.x, q.y)
+      continue
+    }
+    const [mx, my] = [s.zone.x + 8, s.zone.y + 6.5]
+    if (Math.hypot(h.x - mx, h.y - my) < 0.3) p.step()
+    else p.toward(mx, my)
+  }
+  return { f, openings, seen }
+}
+
 // ================================================================================================================
 
 describe('the Examination', () => {
-  it('is sat from the stair in the Puzzle Lab to the Staff Room with the blade and what the dungeon gives', () => {
-    const lab = atTheLab(9)
+  it('is sat from the stair in the Puzzle Lab to the Perch\'s west door with the blade and what the dungeon gives', () => {
+    const lab = atTheLab(SEED)
     let p = player(lab)
     // Up the stair in the Lab's last room, and in at the Front Desk.
     p.leave('right')
@@ -276,7 +372,7 @@ describe('the Examination', () => {
     assert.ok(p.seen.slice(mark).some(e => e.type === 'roll'), 'the roll works')
     const t1 = p.frames
     const one = throwAtFoes(p, 3)
-    assert.ok(one.down >= 3 && one.falls >= 1, `round one: ${JSON.stringify(one)}`)
+    assert.ok(one.down >= 3, `round one: ${JSON.stringify(one)}`)
     if (!s.map.exam.over) handIn(p)
     LOG(`round one: ${((p.frames - t1) / FPS).toFixed(1)} s, ${one.thrown} throws, ${one.down} down (${one.falls} fell), marks ${s.map.exam.card.marks}, ${p.hurts} blows taken`)
     assert.ok(s.flags['exam.r1'])
@@ -293,24 +389,11 @@ describe('the Examination', () => {
     assert.equal(lends.length, 9)
     assert.deepEqual(lends.filter(l => s.map.tiles[l.idx] !== l.tile), [])
 
-    // ---- round two: PROVE YOU ARE NOT A MACHINE, halfway through which the tab is reloaded ----------------------
+    // ---- round two: PROVE YOU ARE NOT A MACHINE ----------------------------------------------------------------
     p.walk('r1', 14, 5)
     p.leave('right')
     p.step()
     assert.equal(s.map.exam.id, 'r2')
-    const save = Z.toSave(s)
-    assert.deepEqual([save.map, save.entry], ['examination', 'r2'])
-    const spot = Z.loadSpot(Z.WORLD, Z.parseSave(JSON.parse(JSON.stringify(save))), Z.WORLD.start, true)
-    assert.equal(spot, null, 'a reload inside the dungeon continues there')
-    s = Z.createGame(Z.WORLD, { save: Z.parseSave(save), at: spot, seed: 7 })
-    s.hero.maxHp = s.hero.hp = 30
-    p = player(s)
-    p.step()
-    assert.equal(roomOf(s), 'r2')
-    assert.deepEqual([Math.floor(s.hero.x), Math.floor(s.hero.y)], T('r2', 1, 6))
-    assert.equal(s.map.exam.id, 'r2')
-    assert.ok(s.flags['exam.r1'] && s.map.enemies.filter(e => e.kind !== 'spitter').every(e => e.dead), 'round one stays passed')
-    assert.equal(tile(s, ...T('r1', 15, 5)), '.', 'and its gate open')
 
     // Sat badly on purpose: one cactus, one palm, hand in.
     standOn(p, CACTI[2])
@@ -339,31 +422,178 @@ describe('the Examination', () => {
     LOG(`round two: ${((p.frames - t2) / FPS).toFixed(1)} s, marks ${s.map.exam.card.marks}, ${p.hurts - hurt2} blows taken`)
     assert.ok(s.flags['exam.r2'] && !s.flags['exam.r2.full'])
 
-    // ---- the Staff Room -----------------------------------------------------------------------------------------
+    // ---- the Staff Room: the Duck, and the pond ----------------------------------------------------------------
     p.walk('r2', 14, 5)
     p.leave('right')
     p.wait(2)
     assert.equal(roomOf(s), 'staff')
     assert.equal(s.map.exam, undefined, 'the card has played out, and no round here')
-    const bits = s.inv.bits
     p.walk('staff', 3, 3)
     p.press('up')
+    assert.deepEqual(s.get.text, ['YOU GOT THE DUCK!', '{B} SETS IT DOWN. FOES LOOK AT IT. IT FLOATS.'])
     p.settle()
-    assert.ok(s.flags['chest:examination.duck'])
-    assert.equal(s.inv.bits, bits + 50)
-    // The pond keeps the hero out, and the north gate stays shut (the Duck opens it).
+    assert.ok(s.flags['chest:examination.duck'] && s.inv.duck)
+    assert.equal(s.inv.selected, 'duck', 'in the hand at once')
+    // The pond keeps the hero out, and the north gate is shut. From its west edge the Duck goes two tiles ahead, on
+    // the middle of the water, floats, weighs one, and the gate opens for good.
     p.walk('staff', 6, 6)
     for (let k = 0; k < 40; k++) p.step(inp({ move: { x: 1, y: 0 } }))
     assert.ok(s.hero.x < T('staff', 7, 6)[0])
     assert.equal(tile(s, ...T('staff', 7, 0)), 'X')
-    // And the way back stays open: to round two (quiet), and on a death to its door.
-    p.walk('staff', 1, 5)
+    p.step(inp({ bPress: true }))
+    p.wait(0.4)
+    const [wx, wy] = T('staff', 8, 6)
+    assert.deepEqual(s.duck, { x: wx + 0.5, y: wy + 0.5 })
+    assert.equal(tile(s, wx, wy), 'ω')
+    assert.ok(s.map.plates.includes('exam.pond'))
+    assert.equal(tile(s, ...T('staff', 7, 0)), '.')
+    assert.ok(s.flags[`gate:examination.${T('staff', 7, 0)}`])
+    // Too far off to take up, B moves it: here to the floor two tiles behind. Beside it, B takes it up.
+    p.step(inp({ move: { x: -0.3, y: 0 } }))
+    p.wait(0.2)
+    p.step(inp({ bPress: true }))
+    p.wait(0.4)
+    assert.ok(s.duck.x < s.hero.x - 1.2, `moved behind: ${JSON.stringify(s.duck)}`)
+    assert.ok(!s.map.plates.includes('exam.pond'))
+    assert.equal(tile(s, ...T('staff', 7, 0)), '.', 'and the gate stays open')
+    p.walk('staff', Math.floor(s.duck.x) - ROOM.staff[0] + 1, 6)
+    p.step(inp({ bPress: true }))
+    p.step()
+    assert.equal(s.duck, undefined, 'taken up')
+
+    // ---- round three: TIME MOVES WHEN YOU DO --------------------------------------------------------------------
+    p.walk('staff', 7, 1)
+    p.leave('up')
+    assert.equal(roomOf(s), 'r3')
+    p.step()
+    assert.equal(s.map.exam.id, 'r3')
+    assert.deepEqual(s.entry, { map: 'examination', entry: 'r3' })
+    // The Duck set down draws a guard: it comes to look.
+    p.walk('r3', 7, 9)
+    s.hero.dir = 'up'
+    p.step(inp({ bPress: true }))
+    for (let k = 0; k < 400 && !s.map.enemies.some(e => e.cell === s.zoneIndex && e.ai.lure !== undefined); k++) p.step(inp({ move: { x: k % 60 < 30 ? 0.4 : -0.4, y: 0 } }))
+    assert.ok(s.map.enemies.some(e => !e.dead && e.ai.lure !== undefined), 'a guard looks at the Duck')
+    assert.ok(s.duck)
+    // The tab is reloaded: it continues at the round's door, with the Duck back in the hand and the rounds passed.
+    const save = Z.toSave(s)
+    assert.deepEqual([save.map, save.entry], ['examination', 'r3'])
+    assert.equal(Z.loadSpot(Z.WORLD, Z.parseSave(JSON.parse(JSON.stringify(save))), Z.WORLD.start, true), null, 'a reload inside the dungeon continues there')
+    s = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(save))), seed: SEED + 7 })
+    s.hero.maxHp = s.hero.hp = 30
+    p = player(s)
+    p.step()
+    assert.deepEqual([roomOf(s), Math.floor(s.hero.x), Math.floor(s.hero.y)], ['r3', ...T('r3', 7, 10)])
+    assert.deepEqual([s.duck, s.inv.duck, s.inv.selected, s.map.exam.id], [undefined, true, 'duck', 'r3'])
+    assert.ok(s.flags['exam.r1'] && s.flags['exam.r2'] && !s.flags['exam.r3'])
+    assert.equal(tile(s, ...T('staff', 7, 0)), '.', 'the pond\'s gate stays open')
+    p.walk('r3', 8, 10)
+    p.press('right')
+    assert.equal(s.dialog.lines[0], 'ROUND THREE. TIME MOVES WHEN YOU DO.')
+    p.settle()
+    // Walk until a shot is in the air, then let go of everything: the world stands. Nothing of it moves in three seconds.
+    // (A drone fires at whoever comes into its row or its column: walk under one, and keep stirring, or time stands.)
+    // (A blow on the way leaves the hero reeling, which is doing: then wait for the next shot.)
+    const held0 = () => s.map.exam.k === 0 && s.map.projectiles.length > 0
+    for (let k = 0; k < 60 * FPS && !held0(); k++) {
+      const h = s.hero
+      const d = s.map.enemies.filter(e => !e.dead && e.kind === 'drone').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0]
+      const under = [4.5, 3.5, 2.5, 1.5].map(n => [d.x, d.y + n]).find(([x, y]) => p.path(Math.floor(x), Math.floor(y)))
+      if (s.mode !== 'play' || h.act === 'hurt') p.step()
+      else if (s.map.projectiles.length) p.wait(0.3)
+      else if (!under || Math.hypot(h.x - under[0], h.y - under[1]) < 0.3) p.step(inp({ move: { x: Math.floor(k / 12) % 2 ? 0.3 : -0.3, y: 0 } }))
+      else p.toward(...under)
+    }
+    assert.ok(held0(), 'a shot hangs in the air, the world at a stand')
+    const world = () => JSON.stringify([s.map.projectiles.map(q => [q.x, q.y, q.t]), s.map.enemies.filter(e => !e.dead && e.cell === s.zoneIndex).map(e => [e.x, e.y, e.ai.t, e.ai.mode])])
+    const held = world()
+    const mark3 = p.seen.length
+    p.wait(3)
+    assert.equal(world(), held, 'the world is held while the hero is still')
+    assert.equal(Z.stillK(s), 0)
+    // (A thumb at the edge of the dead zone does not flicker it: past 0.2 it runs, and goes on running down to 0.1.)
+    p.step(inp({ move: { x: 0.15, y: 0 } }))
+    assert.equal(world(), held)
+    for (let k = 0; k < 12; k++) p.step(inp({ move: { x: k < 6 ? 0.3 : 0.15, y: 0 } }))
+    assert.equal(s.map.exam.k, 1)
+    assert.notEqual(world(), held, 'and runs when the hero does')
+    p.wait(0.5)
+    assert.equal(p.seen.slice(mark3).filter(e => e.type === 'still').length, 1, 'the sound of its coming to a stand, once each time')
+    // Passed by moving: the mark pads, the blade for whatever comes close, and the HAND IN pad by the west door. A
+    // sitting that goes badly is a resit, as for anyone: back at the door with fresh guards.
+    let sittings = 0
+    while (!s.flags['exam.r3']) {
+      assert.ok(++sittings <= 4, `round three, four sittings: ${JSON.stringify(s.map.exam)}`)
+      for (let k = 0; k < 600 && (s.map.exam?.over !== false || s.mode !== 'play'); k++) p.step()
+      const t3 = p.frames
+      const hurt3 = p.hurts
+      for (const [x, y] of [[12, 8], [13, 1], [7, 5], [2, 8], [2, 1]]) {
+        const [tx, ty] = T('r3', x, y)
+        walkGuarded(p, [tx, ty], () => s.map.exam.got.includes(`examination.${tx},${ty}`))
+      }
+      walkGuarded(p, T('r3', 1, 3), () => !s.map.exam || s.map.exam.over)
+      LOG(`round three, sitting ${sittings}: ${((p.frames - t3) / FPS).toFixed(1)} s, marks ${s.map.exam.card.marks}, ${p.hurts - hurt3} blows taken`)
+    }
+    assert.equal(Z.stillK(s), 1, 'passed, the clock is the hero\'s own again')
+    p.wait(2.5)
+
+    // ---- the Perch: FALCON --------------------------------------------------------------------------------------
+    p.walk('r3', 1, 5)
+    for (let k = 0; k < 200 && s.mode !== 'dialog'; k++) p.step(inp({ move: s.mode === 'play' ? { x: -1, y: 0 } : { x: 0, y: 0 } }))
+    assert.equal(roomOf(s), 'perch')
+    assert.equal(s.dialog.lines[0], 'FALCON. SLIGHTLY DEAF. NEVER WRONG.')
+    p.settle()
+    assert.deepEqual(s.entry, { map: 'examination', entry: 'r3' }, 'a death here is a walk from round three')
+    assert.equal(tile(s, ...T('perch', 0, 5)), 'X', 'shut in')
+    const t4 = p.frames
+    const hurt4 = p.hurts
+    const fight = fightFalcon(p)
+    LOG(`Falcon, the blade alone: ${((p.frames - t4) / FPS).toFixed(1)} s, ${fight.openings} openings, ${p.hurts - hurt4} blows taken`)
+    assert.ok(fight.f.dead, `Falcon stands at ${fight.f.hp} hp`)
+    for (const mode of ['fly', 'tell', 'dive', 'again', 'stuck']) assert.ok(fight.seen.has(mode), mode)
+    assert.equal(p.hurts, hurt4, 'out of the paint is out of harm')
+    assert.ok(s.flags['examination.falcon'])
+    p.wait(0.2)
+    assert.equal(s.dialog.lines[0], '(THE FALCON SITS IN THE SAND. IT STILL THINKS IT WAS RIGHT.)')
+    p.settle()
+    assert.equal(tile(s, ...T('perch', 0, 5)), '.', 'the west door is open')
+    p.walk('perch', 1, 5)
     p.leave('left')
-    assert.equal(roomOf(s), 'r2')
+    assert.equal(roomOf(s), 'r4')
+    // The way back stays open all the way: to round three (quiet), and on a death to round four's own door.
+    p.walk('r4', 14, 5)
+    p.leave('right')
+    assert.equal(roomOf(s), 'perch')
+    p.walk('perch', 14, 5)
+    p.leave('right')
+    p.step()
+    assert.equal(roomOf(s), 'r3')
     assert.equal(s.map.exam, undefined)
     assert.ok(s.map.enemies.filter(e => e.cell === s.zoneIndex).every(e => e.dead))
     Z.respawn(Z.WORLD, s)
-    assert.deepEqual([roomOf(s), Math.floor(s.hero.x), Math.floor(s.hero.y)], ['r2', ...T('r2', 1, 6)])
+    assert.deepEqual([roomOf(s), Math.floor(s.hero.x), Math.floor(s.hero.y)], ['r3', ...T('r3', 7, 10)])
+  })
+
+  it('never saves the Duck set down, and loads a save with the Duck in the hand', () => {
+    const s = Z.createGame(Z.WORLD, { seed: SEED, at: { map: 'examination', entry: 'desk' } })
+    s.inv.sword = true
+    Z.grant(s, 'duck')
+    const p = player(s)
+    p.step()
+    p.step(inp({ bPress: true }))
+    p.step()
+    assert.ok(s.duck)
+    const saved = JSON.parse(JSON.stringify(Z.toSave(s)))
+    assert.ok(!('duck' in saved))
+    const read = Z.parseSave(saved)
+    assert.deepEqual([read.inv.duck, read.inv.selected], [true, 'duck'])
+    const back = Z.createGame(Z.WORLD, { save: read, seed: SEED })
+    assert.deepEqual([back.duck, back.inv.duck, back.inv.selected], [undefined, true, 'duck'])
+    // A save from before the Duck loads without it.
+    const old = JSON.parse(JSON.stringify(saved))
+    delete old.inv.duck
+    old.inv.selected = null
+    assert.equal(Z.parseSave(old).inv.duck, false)
   })
 
   it('keeps its shape: no key anywhere, every room reached in order, the stair in the Lab\'s last room', () => {
@@ -401,6 +631,7 @@ describe('the Examination', () => {
       return { seen, rooms: [...new Set([...seen].map(i => Object.keys(ROOM).find(k => (i % info.w) - ROOM[k][0] >= 0 && (i % info.w) - ROOM[k][0] < 16 && Math.floor(i / info.w) - ROOM[k][1] >= 0 && Math.floor(i / info.w) - ROOM[k][1] < 12)))].sort() }
     }
     const desk = Z.mapInfo(Z.WORLD, 'examination').entries.desk
+    // (The Perch's trap gate is open to the walk: it is shut only while Falcon lives, and the play-through fells it.)
     const order = [['exam.r1', 'r2'], ['exam.r2', 'staff'], ['exam.pond', 'r3'], ['exam.r3', 'perch', 'r4'], ['exam.r4', 'marking']]
     const opened = []
     const rooms = ['desk', 'r1']

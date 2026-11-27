@@ -29,6 +29,8 @@ export interface PuzzleInfo {
   valves: Map<number, string>
   /** Weighed plate tiles → plate id (pans sharing an id are one scale). */
   weights: Map<number, string>
+  /** The float plates' tiles (a `sluice` mark with `float`): weighed while full, by what floats there. */
+  floats: Set<number>
   /** Plate ids whose tiles are all scale pans or a mix with one: they need equal weight. */
   scales: Set<string>
   /** Authored mirrors per camera room: [tile, char]. */
@@ -55,7 +57,7 @@ export function puzzleInfo(info: MapInfo): PuzzleInfo {
     on: info.base.some(t => PUZZLE_TILES.has(t)),
     physical: false, ice: info.base.includes('α'),
     emitters: [], receivers: new Map(), boulders: new Map(), sluices: [], sluiceOf: new Map(), valves: new Map(),
-    weights: new Map(), scales: new Set(), mirrors: new Map(), sockets: new Map(), boards: [],
+    weights: new Map(), floats: new Set(), scales: new Set(), mirrors: new Map(), sockets: new Map(), boards: [],
   }
   // (Tubes alone leave the combat as it was: no foe falls for them.)
   p.physical = info.base.some(t => PUZZLE_TILES.has(t) && !TUBE_TILES.has(t)) || !!info.def.physics
@@ -75,6 +77,7 @@ export function puzzleInfo(info: MapInfo): PuzzleInfo {
       if (!g) { g = { key, flag: e.flag, invert: !!e.invert, tiles: [] }; groups.set(key, g); p.sluices.push(g) }
       g.tiles.push(idx)
       p.sluiceOf.set(idx, g)
+      if (e.float) { p.weights.set(idx, e.float); p.floats.add(idx) }
     }
   }
   info.base.forEach((t, idx) => {

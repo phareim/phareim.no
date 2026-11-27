@@ -1,12 +1,16 @@
 /**
  * THE EXAMINATION's drawing (`engine/exam.ts`), shared by both painters:
- * - on the floor, under everything that stands (`floorMarks.ts`): the pads, and the stencil shapes of its fights;
- * - standing in the world: the words over a HAND IN pad;
- * - on the HUD: the strip of the round under way (its rule's short name, marks and the pass mark) and the score card.
+ * - on the floor, under everything that stands (`floorMarks.ts`): the pads, the ring in the pond's middle, and the
+ *   stencil shapes of its fights;
+ * - standing in the world: the words over a HAND IN pad, and THE DUCK set down;
+ * - over the world: the pale wash of a room that waits (TIME WAITS), round the hero;
+ * - on the HUD: the strip of the round under way (its rule's short name, marks and the pass mark, and a clock with
+ *   still hands while time waits) and the score card.
  */
 import type { GameState, World } from '../types'
-import { EXAM, TILE } from '../types'
+import { EXAM, STILL, TILE } from '../types'
 import { cellDef, cellIndex, mapInfo, type PadInfo } from '../engine/map'
+import { puzzleInfo } from '../engine/puzzles/info'
 import type { Stencil } from '../engine/stencils'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { sprite } from './sheet'
@@ -32,6 +36,7 @@ const seen = (s: GameState, p: PadInfo) => p.cell === s.zoneIndex || (!!s.scroll
 
 export function drawPads(g: G, world: World, s: GameState, cx: number, cy: number) {
   const info = mapInfo(world, s.map.id)
+  drawFloats(g, world, s, cx, cy)
   for (const p of info.pads) {
     if (!seen(s, p)) continue
     const round = cellDef(info, p.cell)?.round
@@ -52,11 +57,40 @@ export function drawPads(g: G, world: World, s: GameState, cx: number, cy: numbe
     if (quiet) { dim(g, x, y, w, 0.45); continue }
     if (latched) {
       dim(g, x, y, w, 0.55)
-      if (p.worth > 0) sign(g, x, y, w, s.view === 'iso', CYAN, TICK)
+      // (A pane's tick is the hero's cyan; a mark pad's is gold, as the stone it lies on.)
+      if (p.worth > 0) sign(g, x, y, w, s.view === 'iso', p.pic ? CYAN : GOLD, TICK)
       else sign(g, x, y, w, s.view === 'iso', PINK, CROSS)
       continue
     }
     ring(g, x + w / 2, y + w / 2, w / 2 - 2, fill, p.handin ? '#fff4ff' : CYAN)
+  }
+}
+
+/**
+ * The ring in the middle of a pond (a float plate): the middle counts. A broken ring of foam while nothing floats
+ * on it, whole and lit gold while it is held.
+ */
+function drawFloats(g: G, world: World, s: GameState, cx: number, cy: number) {
+  const info = mapInfo(world, s.map.id)
+  const p = puzzleInfo(info)
+  for (const i of p.floats) {
+    const x = i % s.map.w
+    const y = Math.floor(i / s.map.w)
+    const cell = cellIndex(info, x + 0.5, y + 0.5)
+    if (cell !== s.zoneIndex && s.scroll?.index !== cell) continue
+    if (s.map.tiles[i] !== 'ω') continue
+    const lit = s.map.plates.includes(p.weights.get(i)!)
+    const mx = (x + 0.5) * T - cx
+    const my = (y + 0.5) * T - cy
+    // (Wider than the Duck, so that it shows round what floats in it.)
+    for (const [color, off] of [[INK, 1], [lit ? GOLD : '#fff4ff', 0]] as const) {
+      g.fillStyle = color
+      for (let n = 0; n < 96; n++) {
+        if (!lit && n % 12 >= 6) continue
+        const a = (n / 96) * Math.PI * 2
+        g.fillRect(Math.round(mx + Math.cos(a) * 12 - 1), Math.round(my + Math.sin(a) * 12 - 1) + off, 2, 2)
+      }
+    }
   }
 }
 
@@ -112,11 +146,18 @@ function sign(g: G, x: number, y: number, w: number, iso: boolean, color: string
 const TICK = [[-10, 0, -4, 5], [-4, 5, 10, -6]] as const
 const CROSS = [[-8, -6, 8, 6], [8, -6, -8, 6]] as const
 
-/** A mark pad with no picture: a dark stone with a gold ring in it. */
+/** A mark pad with no picture: a gold-rimmed stone with a gold lozenge in it (never to be taken for a hole). */
 function markPad(g: G, x: number, y: number, w: number) {
   g.fillStyle = INK
   g.fillRect(x + 1, y + 1, w - 2, w - 2)
-  frame(g, x + 2, y + 2, w - 4, GOLD_DARK)
+  g.fillStyle = GOLD
+  g.fillRect(x + 2, y + 2, w - 4, w - 4)
+  g.fillStyle = GOLD_DARK
+  g.fillRect(x + 4, y + 4, w - 8, w - 8)
+  g.fillStyle = '#fff1b0'
+  const mx = x + w / 2
+  const my = y + w / 2
+  for (let i = -3; i < 3; i++) { const half = 3 - Math.abs(i + 0.5) + 0.5; g.fillRect(Math.round(mx - half), my + i, Math.round(half * 2), 1) }
 }
 
 /** The HAND IN pad: a gold plate in the floor (its words stand over it, `queueExam`). */
@@ -130,16 +171,74 @@ function handInPad(g: G, x: number, y: number, w: number, quiet: boolean) {
   g.fillRect(x + 4, y + 4, w - 8, w - 8)
 }
 
+/**
+ * THE DUCK where it was set down: on the floor over a small shadow, on water riding low with a ripple round it and a
+ * slow bob (none under reduced motion).
+ */
+function queueDuck(g: G, s: GameState, cx: number, cy: number, time: number, reduced: boolean, items: Item[]) {
+  const d = s.duck
+  if (!d) return
+  const wet = s.map.tiles[Math.floor(d.y) * s.map.w + Math.floor(d.x)] === 'ω'
+  items.push({
+    x: d.x,
+    y: d.y,
+    foot: 6 / T,
+    draw: () => {
+      const pic = sprite('item_duck')
+      const px = Math.round(d.x * T - cx)
+      const bob = wet && !reduced ? Math.round(Math.sin(time * 3)) : 0
+      const feet = Math.round(d.y * T - cy + 6) + bob
+      if (wet) {
+        // The ripple: a flat broken line either side of it.
+        const wide = reduced ? 10 : 9 + (Math.floor(time * 2) % 3)
+        g.fillStyle = '#bff6ff'
+        g.fillRect(px - wide, feet - 2, 4, 1)
+        g.fillRect(px + wide - 4, feet - 2, 4, 1)
+        g.fillRect(px - 5, feet, 10, 1)
+        // (Its bottom two rows are under the water.)
+        g.drawImage(pic, 0, 0, pic.width, pic.height - 3, px - 8, feet - pic.height + 2, pic.width, pic.height - 3)
+        return
+      }
+      g.fillStyle = 'rgba(11,6,22,0.35)'
+      g.fillRect(px - 5, feet - 2, 11, 2)
+      g.fillRect(px - 3, feet, 7, 1)
+      g.drawImage(pic, px - 8, feet - pic.height + 1)
+    },
+  })
+}
+
+/** Does the hero's room stand still enough to show it (TIME WAITS, under `STILL.pale`)? */
+export function timeStands(s: GameState): boolean {
+  const x = s.map.exam
+  return !!x && x.rule === 'still' && !x.over && x.cell === s.zoneIndex && x.k < STILL.pale
+}
+
+/**
+ * The room one step paler while it waits: a wash over the world with the hero left clear of it, in full colour.
+ * (`mx`, `my`: the hero's middle on this canvas.)
+ */
+export function drawStillWash(g: G, mx: number, my: number) {
+  const x = Math.round(mx)
+  const y = Math.round(my)
+  const wash = g.createRadialGradient(x, y, 11, x, y, 34)
+  wash.addColorStop(0, 'rgba(214,226,255,0)')
+  wash.addColorStop(1, 'rgba(214,226,255,0.22)')
+  g.fillStyle = wash
+  g.fillRect(-4096, -4096, 8192, 8192)
+}
+
 /** The words over each HAND IN pad of the round under way, on a gold plate that stands. */
-export function queueExam(g: G, world: World, s: GameState, cx: number, cy: number, items: Item[]) {
+export function queueExam(g: G, world: World, s: GameState, cx: number, cy: number, time: number, reduced: boolean, items: Item[]) {
+  queueDuck(g, s, cx, cy, time, reduced, items)
   const x = s.map.exam
   if (!x || x.over) return
   for (const p of mapInfo(world, s.map.id).pads) {
     if (!p.handin || p.cell !== x.cell || !seen(s, p)) continue
     const mx = p.x + p.size / 2
     // The isometric view stands the desk beside the niche in front of the pad: the words go high over it. From above
-    // nothing is in the way, and they sit just over the pad, a little inward, clear of the corner chart.
+    // nothing is in the way, and they sit just over the pad, a little inward, clear of the room's edge and the chart.
     const iso = s.view === 'iso'
+    const inward = (p.x % mapInfo(world, s.map.id).cw) < mapInfo(world, s.map.id).cw / 2 ? 0.75 : -0.75
     items.push({
       x: mx,
       y: p.y + p.size / 2,
@@ -148,7 +247,7 @@ export function queueExam(g: G, world: World, s: GameState, cx: number, cy: numb
         const dAt = textWidth('HAN') + 2
         const inAt = dAt + textWidth('D') + 5
         const tw = inAt + textWidth('IN')
-        const px = Math.round((mx - (iso ? 0 : 0.75)) * T - cx - tw / 2)
+        const px = Math.round((mx + (iso ? 0 : inward)) * T - cx - tw / 2)
         const py = Math.round((p.y + p.size / 2) * T - cy - (iso ? 30 : 18))
         g.fillStyle = INK
         g.fillRect(px - 3, py - 3, tw + 6, 13)
@@ -249,14 +348,39 @@ export function drawExamStrip(g: G, world: World, s: GameState, vw: number, row:
   if (!round) return
   const name = RULE_NAMES[x.id]
   const score = `MARKS ${x.marks}   PASS ${round.pass}`
-  const w = Math.max(textWidth(name), textWidth(score))
+  // While time waits, a small clock stands left of the rule's name, its hands still.
+  const clock = timeStands(s) ? CLOCK + 3 : 0
+  const w = Math.max(textWidth(name) + clock * 2, textWidth(score))
   const clear = Math.round((vw - w) / 2) < taken + 3 ? under : row
   const y = vw < NARROW ? Math.max(clear, UNDER_CORNER) : clear
   // A dark plate behind the two rows: they read over a lit wall as over the floor.
   g.fillStyle = 'rgba(11,6,22,0.62)'
   g.fillRect(Math.round((vw - w) / 2) - 3, y - 2, w + 6, ROW * 2 + 2)
-  drawText(g, name, Math.round((vw - textWidth(name)) / 2), y, colors.rule, colors.outline)
+  const nx = Math.round((vw - textWidth(name)) / 2)
+  drawText(g, name, nx, y, colors.rule, colors.outline)
+  if (clock) drawStillClock(g, nx - clock, y - 1)
   drawText(g, score, Math.round((vw - textWidth(score)) / 2), y + ROW, x.marks >= round.pass ? colors.pass : colors.text, colors.outline)
+}
+
+/** A 9 px clock face, its hands at ten to two. */
+const CLOCK = 9
+const CLOCK_ROWS = [
+  '..kkkkk..',
+  '.kwwwwwk.',
+  'kwkwwwkwk',
+  'kwwkwkwwk',
+  'kwwwkwwwk',
+  'kwwwwwwwk',
+  'kwwwwwwwk',
+  '.kwwwwwk.',
+  '..kkkkk..',
+]
+function drawStillClock(g: G, x: number, y: number) {
+  CLOCK_ROWS.forEach((row, j) => [...row].forEach((ch, i) => {
+    if (ch === '.') return
+    g.fillStyle = ch === 'k' ? INK : '#fff4ff'
+    g.fillRect(x + i, y + j, 1, 1)
+  }))
 }
 
 const PAPER = '#fbf1d8'
