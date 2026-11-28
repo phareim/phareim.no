@@ -29,7 +29,7 @@ before(async () => {
   Z = await bundle([
     `export * from './bindings'`, `export * from './keysStore'`, `export { createInput } from './input'`, `export * from './keys'`,
     `export { WORLD } from './world/index'`, `export { createGame, toSave } from './engine/index'`, `export { clearLocalSave } from './localSave'`,
-    `export * from './render/keysPage'`, `export { drawHud, drawMenuTabs, menuTabs, menuTabsY, hudScale, hudFont, NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
+    `export * from './render/keysPage'`, `export { itemsPageContent } from './render/itemsPage'`, `export { drawHud, drawMoves, drawMenuTabs, menuTabs, menuTabsY, hudScale, hudFont, NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
     `export { cornerParts, cornerShape } from './render/corner'`, `export { drawExitLabels, createLabels } from './render/exits'`,
   ].join('\n'))
 })
@@ -129,6 +129,11 @@ test('keys through the real input: the first ones, a change, a swap, what is ref
   assert.deepEqual(Z.bindings(), table)
   assert.equal(Z.subst('PRESS {A}, THEN {B}.', Z.keyboardKeys()), 'PRESS F, THEN U.')
   assert.equal(Z.keyboardKeys().menu.items, 'I')
+  // The pages call the item button by its key: ITEMS' heading, the HOP CUT's row and the MOVES legend.
+  const page = listening(Z.NEON_SKIN)
+  const game = Z.createGame(Z.WORLD, { seed: 7, at: { map: 'overworld', entry: 'start' } })
+  Z.drawMoves(nowhere(), game, 320, 200, Z.keyboardKeys(), page.skin)
+  assert.deepEqual([Z.itemsPageContent(game, { button: Z.shortKeys(Z.keyboardKeys()).b }).head, page.said.includes('U'), page.said.includes('B'), page.said.includes('F SWORD  L ROLL  U ITEM')], ['ON U', true, false, true])
   Z.saveKeys(Z.defaultKeys())
   assert.deepEqual([Z.bindings(), JSON.parse(localStorage.getItem(Z.KEYS_STORE)).map], [Z.defaultKeys(), { dance: 'KeyU' }])
 

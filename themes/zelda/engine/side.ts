@@ -77,6 +77,7 @@ export interface SideHero {
   /** Seconds since take-off while letting go may still cut the rise; -1: nothing to cut. */
   jumpT: number
   ladder: boolean
+  clung?: boolean
   regrab: number
   drop: number
   /** The input is a thumb's (`Input.autoFace`): the longer windows. */
@@ -119,6 +120,9 @@ export function sideOf(c: Ctx): SideHero {
       cam: h.y, anchor: h.y, snap: false,
     }
     sd.ground = !!footing(c, h.x, h.y + HERO_R + 0.2, FOOT)
+    // (Put down in the air on a ladder, as under the stair into the Boards' shaft: hanging on it. `clung`: a side still
+    // held from the way in does not take him off it.)
+    sd.ladder = sd.clung = !sd.ground && ladderNear(c) !== null
     if (h.dir === 'up' || h.dir === 'down') h.dir = sd.face
   }
   if (sd.cell !== c.s.zoneIndex) {
@@ -304,7 +308,8 @@ export function sideMove(c: Ctx, inp: Input, dt: number) {
 function climb(c: Ctx, inp: Input, sd: SideHero, dt: number) {
   const h = c.s.hero
   const side = pushes(inp.move.x)
-  if (side && Math.abs(inp.move.x) > 0.7 && Math.abs(inp.move.x) > Math.abs(inp.move.y)) {
+  if (!side) sd.clung = false
+  if (side && !sd.clung && Math.abs(inp.move.x) > 0.7 && Math.abs(inp.move.x) > Math.abs(inp.move.y)) {
     sd.ladder = false
     sd.regrab = SIDE.regrab
     sd.vx = side * HERO_SPEED * 0.6

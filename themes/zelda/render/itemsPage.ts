@@ -1,6 +1,6 @@
 /**
  * The ITEMS page of the menu, in the MAP page's manner (`mapPage.ts`): no window and no HUD, the corner's colours on
- * the page's own veil (`PAGE_VEIL`), from the menu's tabs at the top to the touch deck. From the top: ON B, a grid of
+ * the page's own veil (`PAGE_VEIL`), from the menu's tabs at the top to the touch deck. From the top: ON and the item button's name, a grid of
  * 3 × 3 sockets, one for each thing B can hold in the order of `B_ITEMS`; the name of the one under the cursor and
  * what it does (`B_WORDS`); ALWAYS, what needs no slot; the seven Sacred Weights on their beam, once one is held;
  * the heart pieces, with a keyring's keys where there is one; and the QUEST. Wider than tall, the grid and its line
@@ -16,7 +16,7 @@
 import { B_ITEMS, B_WORDS, WEIGHTS, type GameState, type Inventory, type UseItem } from '../types'
 import { hasBigKey, hasWeight, keyCount } from '../engine/map'
 import { objective } from '../progress'
-import { KEYBOARD_KEYS, type HudKeys, type MenuKeys } from '../keys'
+import { KEYBOARD_KEYS, shortKeys, type HudKeys, type MenuKeys } from '../keys'
 import { drawMenuTabs, hudFont, menuTabsBox, menuTabsY, type HudFont, type HudSkin, type TabKeys } from './hud'
 import { Buf, CORNER_SKIN, type CornerPicture } from './corner'
 import { MARK_INKS, type Box } from './worldMap'
@@ -105,6 +105,8 @@ const ERRANDS: ReadonlyArray<{ icon: string; carried: (s: GameState) => boolean 
 ]
 
 export interface ItemsContent {
+  /** The grid's heading: ON and the item button's name. */
+  head: string
   cells: Socket[]
   always: string[]
   /** The seven pans in `WEIGHTS`' order (the icon of each held, else null); null with none held: no row at all. */
@@ -118,7 +120,7 @@ export interface ItemsContent {
   hints: Array<Array<{ text: string; tone: 'dim' | 'cool' | 'hot' | 'prize' }>>
 }
 
-export function itemsPageContent(s: GameState, o: { muted?: boolean; view?: string; names?: MenuKeys } = {}): ItemsContent {
+export function itemsPageContent(s: GameState, o: { muted?: boolean; view?: string; names?: MenuKeys; button?: string } = {}): ItemsContent {
   const names = o.names ?? KEYBOARD_KEYS.menu
   const held = WEIGHTS.map(w => (hasWeight(s, w.id) ? `item_weight_${w.word.toLowerCase()}` : null))
   const menu: ItemsContent['hints'][number] = [
@@ -127,6 +129,7 @@ export function itemsPageContent(s: GameState, o: { muted?: boolean; view?: stri
   ]
   if (o.view) menu.push({ text: `${names.view} VIEW ${o.view}`, tone: 'prize' })
   return {
+    head: `ON ${o.button ?? KEYBOARD_KEYS.b}`,
     cells: sockets(s.inv),
     always: ALWAYS.filter(a => a.owned(s)).map(a => a.icon(s)),
     weights: held.some(Boolean) ? held : null,
@@ -334,7 +337,7 @@ function sizeQuest(o: ItemsLayoutOpts, room: number, most: number, sp: Spacing):
 
 type PickPart = Pick<ItemsLayout, 'heading' | 'grid' | 'cells' | 'line'>
 
-/** ON B, the grid and the line under it: `w` wide, the grid in its middle. */
+/** The heading, the grid and the line under it: `w` wide, the grid in its middle. */
 function sizePick(o: ItemsLayoutOpts, cell: number, w: number, sp: Spacing): Sized<PickPart> {
   const F = o.font
   const side = GRID_COLS * cell + (GRID_COLS - 1) * sp.cellGap + 2
@@ -346,9 +349,9 @@ function sizePick(o: ItemsLayoutOpts, cell: number, w: number, sp: Spacing): Siz
     at: (x, y) => {
       const gx = x + Math.floor((w - side) / 2)
       const gy = y + LINE + sp.head
-      const head = textW(F, 'ON B')
+      const head = textW(F, o.content.head)
       return {
-        heading: label(F, 'ON B', x + Math.floor((w - head) / 2), y),
+        heading: label(F, o.content.head, x + Math.floor((w - head) / 2), y),
         grid: { x: gx, y: gy, w: side, h: side },
         cells: Array.from({ length: GRID_CELLS }, (_, i) => ({
           x: gx + 1 + (i % GRID_COLS) * (cell + sp.cellGap), y: gy + 1 + Math.floor(i / GRID_COLS) * (cell + sp.cellGap), w: cell, h: cell,
@@ -551,7 +554,7 @@ export function itemsPageFor(s: GameState, vw: number, vh: number, o: ItemsPageO
   const density = skin.density ?? 1
   const css = o.css ?? (density > 1 ? 2 : 1.5)
   const opts: ItemsLayoutOpts = {
-    content: itemsPageContent(s, { muted: o.muted, view: o.view, names: o.keys.menu }),
+    content: itemsPageContent(s, { muted: o.muted, view: o.view, names: o.keys.menu, button: shortKeys(o.keys).b }),
     density,
     css,
     keys: !o.keys.touch,

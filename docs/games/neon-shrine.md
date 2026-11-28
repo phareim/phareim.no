@@ -1477,10 +1477,12 @@ classic picture. `/?view=<id>` asks for one.
     (`parseSave`'s `OLD_ARTS`), with `item:artHop` set so the Keeper does not teach it
     twice; no boss teaches anything now.
   - *The MOVES page* (N, the second of the menu's four pages; on touch the deck's
-    page button goes round ITEMS, MOVES, MAP, LOG): every combo with its buttons (A the
-    blade in the hot colour, R the roll in the cool one) and a bar to its mastery,
-    MASTER in gold once it is (a full gold bar where the word would run into the
-    buttons; B, the hop, in gold); under them the hop in its slot (dim while resting,
+    page button goes round ITEMS, MOVES, MAP, LOG): every combo with its buttons (the
+    blade in the hot colour, the roll in the cool one, the item button in gold, each
+    called by its bound key's name beside a keyboard and by the pad's letter on touch,
+    `shortKeys` in `keys.ts`; long names take a second row; a legend names the three)
+    and a bar to its mastery, MASTER in gold once it is (a full gold bar where the word
+    would run into the buttons); under them the hop in its slot (dim while resting,
     underlined in hand) with what it does, or `?` and where to find it (where to go,
     never how). No window: it lies on `PAGE_VEIL` with the tabs at the top, like
     the menu's other pages. It fits a phone on its side, and upright indoors (lab:
@@ -1886,7 +1888,7 @@ squares. Two of it:
   MAP page's manner: no window, no HUD behind it, the corner's colours on the
   page's own veil (`PAGE_VEIL`), the menu's tabs at the top. Top to bottom on an
   upright phone:
-  - **ON B**: a grid of 3 × 3 cells, one for each thing of `B_ITEMS` in its order,
+  - **ON** and the item button's name (the bound key's; B on touch): a grid of 3 × 3 cells, one for each thing of `B_ITEMS` in its order,
     44 × 44 CSS px or more. An owned one shows its icon (bombs with their count);
     one not owned, and every cell after the last, is an empty socket with a dim
     outline and no hint. The one in hand has a gold frame. The cursor, cyan
@@ -2147,7 +2149,7 @@ lines call them THE SWORD BUTTON, THE ROLL BUTTON, THE ITEM BUTTON and THE
 SWAP BUTTON (`keys.ts`, `{ROLL}` in a line: the blade's own lines name
 the chain and the roll); on a phone lying on its side
 they sit lower and more side by side, the roll a size smaller over B, so
-the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP, LOG); on ITEMS SOUND ON/OFF and TO TOWN, and a tap on a cell of the grid puts it on B; on MOVES ITEMS; on MAP VIEW; on LOG nothing more, and OLDER, NEWER and the DEV MODE row are pressed on the page); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+the row stays out of the stick's 60 %; in the top-right corner a tap on the chart (or the stub indoors) opens the menu and a tap on the Sun Prism turns the view (paused, the deck holds the menu's buttons: RESUME and the next page round (ITEMS, MOVES, MAP, LOG); on ITEMS SOUND ON/OFF and TO TOWN, and a tap on a cell of the grid puts it on B; on MOVES ITEMS; on MAP VIEW; on LOG nothing more, and OLDER, NEWER and the DEV MODE row are pressed on the page); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close; a question with answers to press, below under the Steamhouse's attendants, takes its answers only);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
@@ -2285,8 +2287,10 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
   walks inside the ring (default 2.5 tiles, drawn white and dashed flat on the
   floor, `render/steamPaint.ts`) in a visit, the brain opens the attendant's
   first talk branch: a two-way ask whose first answer is NO, so the cursor starts
-  on it; a tap confirms the cursor and picks no side (`TalkAsk.noTapSide`), so YES
-  is the stick or the arrow, then A, and a thumb that taps through says NO. YES starts THE BATH when its reply is read (`TalkAsk.after`, `Dialog
+  on it; a tap picks no side (`TalkAsk.noTapSide`): a mouse's click confirms the
+  cursor, and on the touch deck each answer is a button of 44 CSS px or more, a touch
+  on one chooses it and a touch anywhere else, or while the line types, does nothing.
+  The stick and A work as in any question. YES starts THE BATH when its reply is read (`TalkAsk.after`, `Dialog
   after.bath`). After a NO, or B, a clock fills over 5.0 s while the hero stays
   in the ring (white arc over the head, pink for its last 1.5 s; outside the ring
   it drains at twice the speed, and it never runs in a dialog); full, the

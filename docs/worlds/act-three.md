@@ -25,7 +25,7 @@ so. The way back down lands on the cellar's entry `upstairs`.
 Key, back along the Leg, the great door, the cable, the Hallucinator, the Weight, the stair down to the gangway. The
 ring holds 2 small keys and 2 locked doors, the Big Key and the great door.
 
-**The Boards' shaft** is entered from the Flats on the ladder itself, just under the stair: any press with down in it climbs, and none walks him back up. BARD's arena runs to the room's east wall (x 15), and the three pieces' blows between them reach every spot of the floor.
+**The Boards' shaft** is entered from the Flats on the ladder itself, just under the stair: he hangs there until pressed (a side still held from the Flats does not take him off), any press with down in it climbs, and none walks him back up. BARD's arena runs to the room's east wall (x 15), and the three pieces' blows between them reach every spot of the floor.
 
 **The gondola** is one room: the stair in at the west (`stair`), the plate at x 6.5 to 8.5, the way out in an alcove at
 the east behind a plain gate that opens on the flag `hallucinator`. The three bodies share one mark and one `once`

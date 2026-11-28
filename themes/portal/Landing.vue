@@ -159,9 +159,15 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
   transition: opacity 0.5s ease;
 }
 
-/* Clear of the A button. */
+/* On touch it is at the top, clear of the stick's side and the buttons: under the corner and the tag that hangs from it;
+   on its side, between the hearts and the corner, which leave the middle free. */
 .portal-hint--touch {
-  bottom: calc(124px + var(--app-safe-bottom, 0px));
+  top: calc(env(safe-area-inset-top, 0px) + 160px);
+  bottom: auto;
+}
+
+@media (orientation: landscape) {
+  .portal-hint--touch { top: calc(env(safe-area-inset-top, 0px) + 56px); }
 }
 
 .portal-hint--gone {

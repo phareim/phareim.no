@@ -7,7 +7,7 @@
 //   await b.key('Enter'); await b.hold('ArrowUp', 400)
 //   await b.shot('/home/petter/zshots/x.png'); b.errors; await b.close()
 import { spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -63,6 +63,14 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
     '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio', '--use-mock-keychain', '--password-store=basic', '--allow-file-access-from-files',
     `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, ...args, 'about:blank',
   ], { stdio: 'ignore' })
+  const exited = new Promise(done => { proc.once('exit', done); proc.once('error', done) })
+  /** Kill the browser, wait for it to be gone, and remove the profile made above (that directory only). */
+  const discard = async () => {
+    proc.kill('SIGKILL')
+    await Promise.race([exited, sleep(3000)])
+    // (Its helpers may still be writing for a moment: `rmSync` tries again.)
+    try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }) } catch (e) { console.warn(`cdp: ${profile} not removed: ${e.message}`) }
+  }
   let targets
   for (let i = 0; i < 160; i++) {
     try { targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (targets.length) break } catch { /* not yet */ }
@@ -71,7 +79,7 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
   const page = targets?.find(t => t.type === 'page')
   if (!page) {
     // A browser that never answered must not be left running.
-    proc.kill('SIGKILL')
+    await discard()
     throw new Error('chromium did not start within 40 s (server busy?)')
   }
   const ws = new WebSocket(page.webSocketDebuggerUrl)
@@ -123,9 +131,9 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
     // Snap's chromium-browser is a wrapper: killing it orphans the real
     // browser, so ask the browser itself to quit first.
     async close() {
-      try { await Promise.race([send('Browser.close'), sleep(1500)]) } catch { /* ignore */ }
+      try { await Promise.race([send('Browser.close'), sleep(1500)]); await Promise.race([exited, sleep(2000)]) } catch { /* ignore */ }
       try { ws.close() } catch { /* ignore */ }
-      proc.kill('SIGKILL')
+      await discard()
     },
   }
   return b

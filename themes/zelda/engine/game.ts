@@ -560,6 +560,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
       c.ev.push({ type: 'choose' })
     }
     if (inp.aPress && inp.tapSide && !d.ask?.noTapSide) d.choice = inp.tapSide < 0 ? 0 : 1
+    if (inp.aPress && inp.pick !== undefined) d.choice = inp.pick
     if (d.ask && inp.aPress) {
       // The reply carries the offer's own flags, and the pick's `after` (the Steamhouse's YES starts the bath).
       const pick = d.ask.after?.[d.choice ?? 0]

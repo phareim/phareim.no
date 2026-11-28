@@ -467,6 +467,7 @@ describe('Act Three', () => {
     }
     for (const move of [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0.707, y: 0.707 }, { x: 1, y: 0.6 }]) assert.deepEqual(down(move), ['actbard', true], `pressing ${JSON.stringify(move)}`)
     assert.equal(down({ x: 1, y: 0 })[0], 'actbard', 'RIGHT alone stays in the room')
+    assert.deepEqual([down({ x: 0, y: 0 }), down({ x: -1, y: 0 })], [['actbard', false], ['actbard', false]], 'hands off, or LEFT still held from the Flats: hanging on the ladder, under the stair')
 
     // BARD's floor has no free corner: with the hero standing at each spot, some piece's blow is stencilled on it.
     for (let x = 1.5; x <= 14.5; x += 0.25) {
