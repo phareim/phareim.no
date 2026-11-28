@@ -1,7 +1,8 @@
 // The scripted walk from the Keeper's hut to the Sun Prism (god mode, bosses killed directly), played by
-// zelda-engine.test.mjs's full run and by zelda-action-button.test.mjs. The caller brings the player's hands:
-// `Z` the engine, `OX` the overworld's x offset, and `inp`, `step`, `settle`, `walkTo`, `face`, `pressA`,
-// `killCell`. `s` is a new game out of the hut door.
+// zelda-engine.test.mjs's full run, by zelda-action-button.test.mjs and by zelda-whole-game.test.mjs. The caller
+// brings the player's hands: `Z` the engine, `OX` the overworld's x offset, and `inp`, `step`, `settle`, `walkTo`,
+// `face`, `pressA`, `killCell`. `s` is a game out of the hut door with nothing of the first quest done: a new one, or
+// one that has been through the dungeons (its hearts and pieces are counted from what it comes with).
 import assert from 'node:assert/strict'
 
 export function prismRun(s, { Z, OX, inp, step, settle, walkTo, face, pressA, killCell }) {
@@ -15,12 +16,14 @@ export function prismRun(s, { Z, OX, inp, step, settle, walkTo, face, pressA, ki
   // Heart piece behind the woods boulder (OX+24,5): bomb from below
   walkTo(s, OX + 24, 6)
   face(s, 'up')
+  s.inv.selected = 'bombs'
+  const pieces = s.inv.pieces
   step(s, inp({ bPress: true }))
   for (let k = 0; k < 150; k++) { s.hero.invuln = 1; step(s) }
   walkTo(s, OX + 24, 5)
   walkTo(s, OX + 24, 3)
   settle(s)
-  assert.equal(s.inv.pieces, 1)
+  assert.equal(s.inv.pieces, (pieces + 1) % 4)
   // Rubble at the shrine (the static vines in front of it died with the Gate, in the Wildwood run): bomb it
   s.flags.gateShut = true
   step(s)
@@ -107,9 +110,10 @@ export function prismRun(s, { Z, OX, inp, step, settle, walkTo, face, pressA, ki
   killCell(s)
   assert.ok(s.flags.boss)
   for (let k = 0; k < 20; k++) step(s)
+  const hearts = s.hero.maxHp
   walkTo(s, 22, 8)
   settle(s)
-  assert.equal(s.hero.maxHp, 8)
+  assert.equal(s.hero.maxHp, hearts + 2)
   walkTo(s, 25, 8)
   settle(s)
   assert.equal(s.mode, 'won')
