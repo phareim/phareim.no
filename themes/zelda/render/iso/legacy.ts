@@ -960,7 +960,7 @@ export default function isoView(kit: Kit): View {
     const near = nearExit(s)
     const ref = near ? shift(near.x, near.y) : shift(s.hero.x, s.hero.y)
     // The windows change dress halfway through the turn, with the picture.
-    kit.hudLayer(s, ui, dt, bx - ref.x, by - ref.y, S(s.hero.x, s.hero.y).y, par.windows === '16-bit' && k > 0.5 ? WINDOW_SKIN : NEON_SKIN)
+    kit.hudLayer(s, ui, dt, bx - ref.x, by - ref.y, S(s.hero.x, s.hero.y).y, par.windows === '16-bit' && k > 0.5 ? WINDOW_SKIN : NEON_SKIN, undefined, { at: S, px: 1 })
   }
 
   return { draw, turn: Math.PI / 4 }

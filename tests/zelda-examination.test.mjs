@@ -4,10 +4,19 @@
 // what each round and fight cost. `EXAM_SEED=n`: the play-through on another seed.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import { load } from './zelda-load.mjs'
 
 let Z
 before(async () => { Z = await load() })
+
+/** The dungeon's painter, bundled for node (its layout of the Titan's cards is pure). */
+async function painter() {
+  const out = createRequire(import.meta.url)('esbuild').buildSync({
+    entryPoints: [new URL('../themes/zelda/render/examination.ts', import.meta.url).pathname], bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+  })
+  return import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+}
 
 const FPS = 60
 const SEED = Number(process.env.EXAM_SEED ?? 9)
@@ -888,7 +897,7 @@ describe('the Examination', () => {
     assert.deepEqual([roomOf(s), s.mode], ['r1', 'play'])
   })
 
-  it('beats a hero who only stands in the Titan\'s hall, by its stamps', () => {
+  it('beats a hero who only stands in the Titan\'s hall, by its stamps', async () => {
     const s = Z.createGame(Z.WORLD, { seed: SEED, at: { map: 'examtop', entry: 'stair' } })
     s.inv.sword = true
     let stamps = 0
@@ -915,6 +924,23 @@ describe('the Examination', () => {
     // hand (4.2 tiles a second) as without.
     assert.equal(bandAnswered(0.3, false), 0, 'out of the band, 0.3 s late')
     assert.equal(bandAnswered(0.3, true), 0, 'and with a pot in hand')
+    // Its two cards never lie on it, nor on each other: over its head or either side, on a wide screen and a phone,
+    // with it in the middle, at each edge and half off the screen, hung afresh or held from where they last were.
+    const { titanBox, titanCardBoxes } = await painter()
+    const meet = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+    const covered = []
+    for (const area of [{ vw: 320, vh: 200 }, { vw: 195, vh: 422, pads: { w: 128, h: 82 } }]) {
+      const screen = { top: 0, left: 0, right: 0, bottom: 0, ...area }
+      const { vw, vh } = screen
+      let was
+      for (const [x, y] of [[vw / 2, vh / 2], [vw / 2, 66], [vw / 2, vh - 8], [20, vh / 2], [vw - 20, vh / 2], [vw - 40, 80], [-30, vh / 2]]) {
+        const boxes = titanCardBoxes({ x, y }, { x: vw / 2, y: vh / 2 + 40 }, 1, screen, was)
+        was = boxes.map(b => ({ x: b.x - x, y: b.y - y }))
+        const body = titanBox({ x, y }, 1)
+        if (boxes.some(b => meet(b, body) || b.x < 0 || b.y < 0 || b.x + b.w > vw || b.y + b.h > vh) || meet(...boxes)) covered.push({ vw, x, y, boxes })
+      }
+    }
+    assert.deepEqual(covered, [])
   })
 
   it('keeps the smaller rules: the Duck is never saved nor draws a foe out of a blow, Falcon follows its hit points and rises, a stone never buries the Weight', () => {

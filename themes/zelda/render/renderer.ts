@@ -97,7 +97,8 @@ const STILL_PALE = '#eef6ff'
 function falconLift(e: Enemy): number {
   const m = e.ai.mode
   if (m === 'perch') return 4
-  if (m === 'rise') return 8
+  // (It comes up off the floor over the whole of its rise, to where it flies.)
+  if (m === 'rise') return Math.round(12 * (1 - Math.max(0, e.ai.t) / FALCON.rise))
   if (m === 'fly') return 12
   if (m === 'tell') return 16
   if (m !== 'dive') return 0
@@ -2152,11 +2153,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // An intertitle card: over the stage, under the hearts (`card.ts`).
       if (s.card && !pageUp) drawCard(g, s.card, sp.vw, sp.vh, shortKeys(ui.keys).a, ui.reducedMotion)
       if (hud && !pageUp) {
-        // THE BENCHMARK TITAN's two cards, over its head: under the hearts and the corner, which they never cover.
+        // THE BENCHMARK TITAN's two cards, over its head or either side of it: never over it, the hero, the hearts or the pads.
         drawTitanCards(g, s, (x, y) => {
           const at = stands.at(x, y)
           return { x: (ox - sp.ox + at.x * scale) / sp.scale, y: (oy - sp.oy + at.y * scale) / sp.scale }
-        }, stands.px * scale / sp.scale, { vw: sp.vw, top, left, right }, time, ui.reducedMotion)
+        }, stands.px * scale / sp.scale, { vw: sp.vw, vh: sp.vh, top, left, right, bottom, pads: ui.touch ? { w: Math.ceil(256 * dpr / sp.scale), h: Math.ceil(164 * dpr / sp.scale) } : undefined }, time, ui.reducedMotion)
         g.save()
         g.translate(left, top)
         drawHud(g, s, sp.vw - left - right, time, ui.touch, skin, world)
