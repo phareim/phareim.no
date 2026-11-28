@@ -2292,7 +2292,8 @@ way: in the lobby, in a robe, at full hearts. The loop is never a lock.
   floor, `render/steamPaint.ts`) in a visit, the brain opens the attendant's
   first talk branch: a two-way ask whose first answer is NO, so the cursor starts
   on it; a tap picks no side (`TalkAsk.noTapSide`): a mouse's click confirms the
-  cursor, and on the touch deck each answer is a button of 44 CSS px or more, a touch
+  cursor, and on the touch deck each answer is a button of 44 CSS px or more (a box with
+  them at the top of the screen starts under the hearts and the counters, in every dress), a touch
   on one chooses it and a touch anywhere else, or while the line types, does nothing.
   The stick and A work as in any question. YES starts THE BATH when its reply is read (`TalkAsk.after`, `Dialog
   after.bath`). After a NO, or B, a clock fills over 5.0 s while the hero stays

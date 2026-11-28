@@ -1,7 +1,7 @@
 <template>
   <!-- `px16` on every root (and on the canvas, for the page's hint beside it): the HTML wears the 16-bit dress while the canvas HUD does.
     The canvas also says when the game is paused or someone is talking, so that hint can step aside. -->
-  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused, 'zelda-canvas--talking': talking }" />
+  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused, 'zelda-canvas--talking': talking, 'zelda-canvas--banner': bannered }" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
   <EscHold :class="{ px16: dress16 }" :data-dev="devOn || undefined" class="zelda-esc" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
@@ -376,6 +376,8 @@ const hasSword = ref(false)
 const sideRoom = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
 const talking = ref(false)
+/** A room's name banner hangs: on an upright phone it has the page's hint's place. */
+const bannered = ref(false)
 const { navigationLocked, launch } = useTheme()
 const { enter: enterFrame } = useFrame()
 const sound = useSound()
@@ -1925,6 +1927,7 @@ function frame(nowMs: number) {
   // is still short of its half, so the dress never crosses over for a turn that will not happen.
   stepRule(renderer.viewState())
   if (ui.banner && !state.card) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
+  bannered.value = !!ui.banner
   syncDeck()
   stepAPad(nowMs)
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
@@ -2183,6 +2186,11 @@ onBeforeUnmount(() => {
    Words before the first step (a reload in a room that speaks): it would lie on a keyboard's dialog box. */
 .zelda-canvas--paused ~ .portal-hint,
 .zelda-canvas--talking ~ .portal-hint {
+  visibility: hidden;
+}
+
+/* A room's name banner hangs where the touch hint does, on a phone either way up: the hint waits for it to go. */
+.zelda-canvas--banner ~ .portal-hint--touch {
   visibility: hidden;
 }
 

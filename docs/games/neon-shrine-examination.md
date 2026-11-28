@@ -77,7 +77,7 @@ penalty? }`. Its state is live and never saved (`MapState.exam`); what lasts is
   foes, shots and thrown pots are gone at once, and the card plays.
 - **The card:** a corner of an exam paper over the top third of the screen for
   2.2 s (`EXAM.card`): the round, a box for every two marks with a line at the
-  pass mark, and a stamp, PASSED or RESIT (KEPT after a failed resit: the pass stands). Play goes on under it; it cannot be
+  pass mark, and a stamp, PASSED or RESIT (KEPT after a failed resit, in PASSED's gold: the pass stands). Play goes on under it; it cannot be
   skipped, and it is no ending.
 - **The resit:** after a RESIT card a fade back to the same map at the round's
   entry, loaded afresh: foes, pots, panes. No heart is lost and nothing is taken.
@@ -238,8 +238,8 @@ the B icon, on the HUD and on the floor.
   lands (a heart, once). A Duck in the ring hops aside;
 - **stuck** 2.4 s (3.6 s if it dived at the Duck): open (gold bar), harmless to
   touch. The blade takes 6 at most an opening; thrown pots and blasts hurt too;
-- **rise** 0.4 s: it gathers itself, shut to blows and harmless to touch, then flies
-  (its picture is the perch's: a stand-in until the wings-up frame is drawn).
+- **rise** 0.4 s: it comes up off the floor, shut to blows and harmless to touch, to the
+  height it flies at (its picture is the perch's: a stand-in until the wings-up frame is drawn).
 
 A dive of no length (its target where it sits) hurts by its ring alone. In every other state every blow clanks off it, and its touch costs a heart (in
 the dive, only the lane and ring do). The disc and the hook never hurt it. At
@@ -308,10 +308,15 @@ It falls once (`examination.titan`): the way back opens, the Weight lies where i
 fell (`atFall`), and a line is said.
 
 **The cards on screen** are painted on the HUD's layer (`drawTitanCards`, called
-by `hudLayer`; the isometric view says where a ground point lies, `Stands`): over
-its head, 48×32 HUD px each, kept whole on the screen and clear of the hearts,
-the item box and the corner chart. With the Titan off the screen (the isometric
-camera follows the hero) they stay at the nearest edge.
+by `hudLayer`; both isometric painters say where a ground point lies, `Stands`),
+48×32 HUD px each, and never lie on the Titan (its figure and bar), the hero, the
+hearts and the item box, the corner chart or the touch pads. `titanCardBoxes`
+(pure) places them: side by side over its head where there is room above it, slid
+by one card at most; else one either side at head height, each at the free spot
+nearest to that (against a side wall both may stand on one side, one above the
+other). Placed, they stay where they hang (from its feet) while that is free,
+and move only to come back over its head. With the Titan off the screen (the
+isometric camera follows the hero) they stay at the nearest edge.
 
 ## Drawing
 

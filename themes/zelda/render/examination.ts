@@ -355,27 +355,106 @@ const CARD_PIC: Record<TitanKind, string> = {
   BLADE: 'item_sword', SPIN: 'card_spin', POT: 'pot', BOULDER: 'card_boulder', BOMB: 'item_bombbag', DISC: 'item_disc', HOOK: 'item_hook',
   BEAM: 'item_weight', OTHER: 'item_weight',
 }
-/** A card, 3 tiles wide and 2 tall, and the room between the two. */
+/** A card, 3 tiles wide and 2 tall, and the room between the two frames. */
 const CARD_W = 48
 const CARD_H = 32
-const CARD_GAP = 6
+const CARD_GAP = 2
 
-/** A figure's height over its feet, classic px, with its bar. */
-const TITAN_HEAD = 52
-/** On a wide HUD the hearts, the counters and the item box take this much of the left edge, down to `UNDER_HEARTS`. */
+/** The Titan's figure with its bar, classic px: how far it reaches either side of its foot point and above it. */
+const TITAN_HALF = 25
+const TITAN_TALL = 56
+/** On the HUD the hearts, the counters and the item box take this much of the top left corner. */
 const HEARTS_WIDE = 122
 const UNDER_HEARTS = 36
-/** On a wide HUD the corner chart takes this much of the right edge, down to `UNDER_CORNER`. */
-const CORNER_WIDE = 84
+/** And the corner chart this much of the top right (as far down as `UNDER_CORNER`). */
+const CORNER_WIDE = 90
+
+/** A rectangle on the HUD, logical px. */
+export interface Box { x: number; y: number; w: number; h: number }
+/** The HUD's size and safe insets; `pads`: what the touch pads take of its bottom right corner (none: no deck). */
+export interface CardArea { vw: number; vh: number; top: number; left: number; right: number; bottom: number; pads?: { w: number; h: number } }
+
+/** What the cards keep clear of on the figure: all of it, with the bar that says it is open. */
+export const titanBox = (feet: Vec, px: number): Box => ({ x: feet.x - TITAN_HALF * px, y: feet.y - TITAN_TALL * px, w: TITAN_HALF * 2 * px, h: (TITAN_TALL + 2) * px })
 
 /**
- * The two cards over the Titan, the older left and the newer right, each a picture over the kind's word: gold-framed
- * while it is open, pink as a blow of that kind is turned aside, turning over as a new kind takes its place. They are
- * painted on the HUD's layer (crisp, over every light), `at` a ground point on it and `px` the HUD's px per classic
- * px of a standing figure: over its head, pushed no further than keeps them whole on the screen and clear of the
- * hearts, the item box and the corner chart.
+ * Where the two cards go: their frames' boxes, the older left of (or above) the newer. Side by side over its head
+ * where there is room above it on the screen, slid by one card at most; else one either side of it at head height,
+ * each at the free spot nearest to that. Never over the Titan, the hero, the hearts and the item box, the corner chart
+ * or the touch pads. `feet`, `hero`: their ground points on the HUD; `px`: HUD px per classic px of a standing figure.
+ * `was`: where they hung last, from its feet: they stay there while that is free and no better of the two kinds of
+ * place has opened (over its head before a side, its middle before aside), so a hero walking round it does not toss
+ * them about.
  */
-export function drawTitanCards(g: G, s: GameState, at: (x: number, y: number) => Vec, px: number, area: { vw: number; top: number; left: number; right: number }, time: number, reduced: boolean) {
+export function titanCardBoxes(feet: Vec, hero: Vec, px: number, area: CardArea, was?: [Vec, Vec]): [Box, Box] {
+  const w = CARD_W + 4
+  const h = CARD_H + 4
+  const titan = titanBox(feet, px)
+  const right = area.vw - area.right
+  const bottom = area.vh - area.bottom
+  const keep: Box[] = [
+    titan,
+    { x: hero.x - 14 * px, y: hero.y - 24 * px, w: 28 * px, h: 34 * px },
+    { x: area.left, y: area.top, w: HEARTS_WIDE, h: UNDER_HEARTS },
+    { x: right - CORNER_WIDE, y: area.top, w: CORNER_WIDE, h: UNDER_CORNER },
+    ...(area.pads ? [{ x: right - area.pads.w, y: bottom - area.pads.h, ...area.pads }] : []),
+  ]
+  /** The free spot for a box `bw` wide nearest (ix, iy), a step down or up counting double a step aside. */
+  const nearest = (ix: number, iy: number, bw: number, taken: Box[]) => {
+    const [x0, x1, y0, y1] = [area.left + 1, right - bw - 1, area.top + 1, bottom - h - 1]
+    const inX = (v: number) => Math.round(Math.max(x0, Math.min(x1, v)))
+    const inY = (v: number) => Math.round(Math.max(y0, Math.min(y1, v)))
+    // (The nearest free spot has each side at the wished one or flush with an edge.)
+    const xs = [ix, x0, x1, ...taken.flatMap(k => [Math.floor(k.x - bw), Math.ceil(k.x + k.w)])].map(inX)
+    const ys = [iy, y0, y1, ...taken.flatMap(k => [Math.floor(k.y - h), Math.ceil(k.y + k.h)])].map(inY)
+    let best: { x: number; y: number; cost: number } | null = null
+    for (const x of xs) {
+      for (const y of ys) {
+        const cost = (x - inX(ix)) ** 2 + 4 * (y - iy) ** 2
+        if (best && cost >= best.cost) continue
+        if (taken.every(k => x + bw <= k.x || x >= k.x + k.w || y + h <= k.y || y >= k.y + k.h)) best = { x, y, cost }
+      }
+    }
+    return best
+  }
+  const both = w * 2 + CARD_GAP
+  const headY = Math.floor(titan.y) - h
+  const aside = nearest(feet.x - both / 2, headY, both, keep)
+  const clamped = Math.max(area.left + 1, Math.min(right - both - 1, feet.x - both / 2))
+  const over = !!aside && aside.y === headY && Math.abs(aside.x - clamped) <= w
+  if (was) {
+    const held = was.map(o => ({ x: Math.round(feet.x + o.x), y: Math.round(feet.y + o.y), w, h }))
+    // (A px of give: the feet are whole px here and the keep-outs are not.)
+    const free = (b: Box) => b.x >= area.left && b.y >= area.top && b.x + w <= right && b.y + h <= bottom && keep.every(k => b.x + w <= k.x + 1 || b.x >= k.x + k.w - 1 || b.y + h <= k.y + 1 || b.y >= k.y + k.h - 1)
+    // (Room over its head wins over a flank held, and the middle of that room over a place aside.)
+    const heldOver = held.every(b => b.y + h <= titan.y + 1)
+    // (From a side they go up only when that is near the middle: a hero walking by does not toss them to and fro.)
+    const better = over && Math.abs(aside.x - clamped) <= (heldOver ? 1 : w / 3)
+    if (held.every(free) && !better) return [held[0]!, held[1]!]
+  }
+  if (aside && over) return [{ x: aside.x, y: headY, w, h }, { x: aside.x + w + CARD_GAP, y: headY, w, h }]
+  const ideal = [Math.floor(titan.x) - w, Math.ceil(titan.x + titan.w)]
+  // Whichever is placed first, the pair that strays less.
+  const pairs = [[0, 1], [1, 0]].map(([a, b]) => {
+    const first = nearest(ideal[a!]!, Math.round(titan.y), w, keep)
+    const second = first && nearest(ideal[b!]!, Math.round(titan.y), w, [...keep, { x: first.x, y: first.y, w, h }])
+    return first && second ? { spots: [first, second], cost: first.cost + second.cost } : null
+  }).filter(p => !!p).sort((p, q) => p.cost - q.cost)
+  const spots = pairs[0]?.spots ?? [{ x: area.left + 1, y: headY }, { x: area.left + 1 + w + CARD_GAP, y: headY }]
+  const [a, b] = [...spots].sort((p, q) => p.x - q.x || p.y - q.y)
+  return [{ x: a!.x, y: a!.y, w, h }, { x: b!.x, y: b!.y, w, h }]
+}
+
+/** Where each Titan's cards hung in the last frame painted, from its feet. */
+const hung = new WeakMap<Enemy, [Vec, Vec]>()
+
+/**
+ * The two cards by the Titan, the older and the newer, each a picture over the kind's word: gold-framed while it is
+ * open, pink as a blow of that kind is turned aside, turning over as a new kind takes its place. They are painted on
+ * the HUD's layer (crisp, over every light), `at` a ground point on it and `px` the HUD's px per classic px of a
+ * standing figure, where `titanCardBoxes` says.
+ */
+export function drawTitanCards(g: G, s: GameState, at: (x: number, y: number) => Vec, px: number, area: CardArea, time: number, reduced: boolean) {
   const e = s.map.enemies.find(o => o.kind === 'titan' && !o.dead && o.cell === s.zoneIndex)
   if (!e) return
   const now = titanCards(e)
@@ -384,15 +463,12 @@ export function drawTitanCards(g: G, s: GameState, at: (x: number, y: number) =>
   const kinds = flip > 0.5 ? [(e.ai.was as TitanKind | undefined) ?? now[0], now[0]] as const : now
   const wide = Math.max(2, Math.round(CARD_W * (flip > 0 ? Math.abs(flip - 0.5) * 2 : 1)))
   const open = titanOpen(e)
-  const both = CARD_W * 2 + CARD_GAP
   const feet = at(e.x, e.y + e.r)
-  const x0 = Math.round(Math.max(area.left + 3, Math.min(area.vw - area.right - both - 3, feet.x - both / 2)))
-  // How high they may go: between the two corners of a wide screen, to its top.
-  const underCorner = area.vw < NARROW || x0 + both > area.vw - area.right - CORNER_WIDE
-  const highest = underCorner ? UNDER_CORNER + 3 : x0 < area.left + HEARTS_WIDE ? UNDER_HEARTS : 3
-  const y = Math.round(Math.max(area.top + highest, feet.y - TITAN_HEAD * px - CARD_H))
+  const boxes = titanCardBoxes(feet, at(s.hero.x, s.hero.y), px, area, hung.get(e))
+  hung.set(e, [{ x: boxes[0].x - feet.x, y: boxes[0].y - feet.y }, { x: boxes[1].x - feet.x, y: boxes[1].y - feet.y }])
   kinds.forEach((kind, i) => {
-    const x = x0 + i * (CARD_W + CARD_GAP) + Math.round((CARD_W - wide) / 2)
+    const x = boxes[i]!.x + 2 + Math.round((CARD_W - wide) / 2)
+    const y = boxes[i]!.y + 2
     const turned = ((e.ai.turnT as number | undefined) ?? 0) > 0 && e.ai.turned === kind
     const hot = turned && (reduced || Math.floor(time * 14) % 2 === 0)
     const rim = turned || open ? 1 : 0
@@ -546,8 +622,10 @@ export function drawExamCard(g: G, s: GameState, vw: number, vh: number, reduced
   // The stamp, a moment after, slightly crooked: each letter and its piece of the frame a px lower than the last pair.
   if (reduced || card.t > 0.55) {
     const word = card.passed ? 'PASSED' : card.resit ? 'KEPT' : 'RESIT'
-    const ink = card.passed ? '#a86e00' : '#e0187a'
-    const wash = card.passed ? '#ffd23f' : '#ffc2e6'
+    // (KEPT is in PASSED's ink: the pass stands. Pink says it was lost.)
+    const stands = card.passed || card.resit
+    const ink = stands ? '#a86e00' : '#e0187a'
+    const wash = stands ? '#ffd23f' : '#ffc2e6'
     const sw = textWidth(word) + 12
     const sx = Math.round((vw - sw) / 2) + 6
     const sy = y + 36
@@ -562,7 +640,7 @@ export function drawExamCard(g: G, s: GameState, vw: number, vh: number, reduced
     }
     let at = 6
     for (const ch of word) {
-      drawText(g, ch, sx + at, sy + 3 + drop(at + 2), card.passed ? '#5a3600' : ink)
+      drawText(g, ch, sx + at, sy + 3 + drop(at + 2), stands ? '#5a3600' : ink)
       at += textWidth(ch) + 1
     }
   }

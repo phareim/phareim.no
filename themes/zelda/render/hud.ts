@@ -326,7 +326,8 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
   const x = Math.round((vw - w) / 2)
   const top = heroScreenY > vh * 0.58
   let y = top ? 8 : vh - h - 8
-  if (top && skin.underHud && s.inv.sword) {
+  // (A question with buttons is tall enough to lie on the hearts in any skin.)
+  if (top && (skin.underHud || press) && s.inv.sword) {
     // Under the hearts, the counters and the item box, if the tallest box this talk will show (its plate and a question's row with it) still ends well over the hero's head: the box then stays where it is from line to line.
     const under = 4 + Math.ceil(Math.ceil(s.hero.maxHp / 2) / 10) * 9 + 2 + 9 + 6
     const reach = tallestRows(d.lines, d.who, !!skin.plate, F, inner, keys) * (GLYPH_H + 4) + 14 + askH + 8 + (skin.plate ? 10 : 0)
