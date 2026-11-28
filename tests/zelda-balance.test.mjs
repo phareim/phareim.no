@@ -1,8 +1,8 @@
 // THE BALANCE and THE SUPPLY ROOM (docs/games/neon-shrine-balance.md): a few end-to-end tests, four at the most
 // (Petter, 2026-11-27). A scripted player goes from the Shrine's pedestal down to the machine's hall, each store
-// room by each of its ways, pressing what a player presses, and fights THE PAPERCLIP MAXIMIZER with the blade to its
-// last question; a hero who stands still loses to it; its fight keeps its place across a save and a death; and the maps
-// hold together. Not every Weight and treasure can be won in the world yet, so the player is handed them.
+// room by each of its ways, pressing what a player presses, fights THE PAPERCLIP MAXIMIZER with the blade, answers its
+// last question, sees the second ending and walks home; a hero who stands still loses to it; its fight keeps its place
+// across a save and a death; and the maps hold together. The player is handed the Weights and the treasures.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -132,7 +132,7 @@ function player(s, { clip = false } = {}) {
 }
 
 describe('The Balance', () => {
-  it('goes from the pedestal through the lid, the Balance and the three store rooms, each by each of its ways, and fights the machine with the blade to its question', () => {
+  it('goes from the pedestal through the lid, the Balance and the three store rooms, each by each of its ways, fights the machine with the blade, says NO to its question, and ends the game the second way', () => {
     // The pedestal: floor until the prism is in hand, and no stair under a hero who stands on the spot.
     let s = hero()
     delete s.flags['item:prism']
@@ -332,36 +332,110 @@ describe('The Balance', () => {
     assert.deepEqual([parts[1].hp, parts[2].hp, parts[3].hp], [24, 16, 8])
     assert.deepEqual([...rounds], Z.WEIGHTS.map(w => w.id))
     assert.ok([1, 2, 3, 4, 5, 6, 7].every(n => Z.has(back, `maximizer.w${n}`)) && Z.has(back, 'maximizer.q'))
-    // Nothing is asked yet and the machine stands: the hero safe, the floor bare, the game in play, no ending.
-    fight(back, () => ({}), () => back.mode === 'play', 5)
-    run(back, 3)
-    assert.deepEqual([back.mode, boss(back).hp, boss(back).dead, back.clips, Z.stencilsOf(boss(back)).length, Z.stationOf(boss(back))], ['play', 1, false, undefined, 0, null])
-    assert.ok(!back.map.tiles.includes('▩') && Z.has(back, 'won') && !Z.has(back, 'maximizer') && !Z.has(back, 'ending2'))
-    assert.ok(!ev2.some(e => e.type === 'won' || e.type === 'bossDown' || e.type === 'died'))
-    // And the question is what a save from here comes back to.
-    const asked = reload(back)
-    run(asked, 0.1)
-    assert.deepEqual([boss(asked).ai.mode, boss(asked).hp], ['question', 1])
     if (process.env.BALANCE_LOG) console.log(`maximizer: part one ${(parts[2].at - parts[1].at).toFixed(1)} s, part three ${(back.elapsed - parts[3].at).toFixed(1)} s; ${ev2.filter(e => e.type === 'hurt').length} blows taken`)
+    // (Seven rounds, each with its blow to read: no quick hero is done before the paint has landed.)
+    assert.ok(back.elapsed - parts[3].at > 45, 'part three takes its time')
+    const flags = Object.keys(back.flags)
+
+    // THE QUESTION: the floor bare, the hero safe, and a moment later it asks, the cursor on NO.
+    const q = () => back.mode === 'dialog' && back.dialog.ask && back.dialog.line === back.dialog.lines.length - 1
+    const asks = () => { for (let k = 0; k < 600 && !q(); k++) { if (back.mode === 'dialog') tick(back); else step(back) } assert.ok(q(), 'it asks') }
+    asks()
+    assert.deepEqual([back.dialog.ask.options, back.dialog.choice, back.dialog.who, boss(back).hp, back.clips], [['YES', 'NO'], 1, 'MAXIMIZER', 1, undefined])
+    assert.ok(!back.map.tiles.includes('▩') && !back.map.bombs.length)
+    // B backs out of it; it asks again.
+    step(back, { bPress: true })
+    assert.equal(back.mode, 'play')
+    run(back, 0.5)
+    assert.equal(back.mode, 'play', 'a breath first')
+    asks()
+    // YES: the row of hearts shows as clips for a moment, nothing is taken, and the question comes back.
+    const mine = () => json([back.hero.hp, back.hero.maxHp, back.clips ?? 0, back.inv])
+    const had = mine()
+    run(back, 2)
+    step(back, { move: { x: -1, y: 0 } })
+    step(back, { a: true, aPress: true })
+    assert.equal(back.dialog.lines[0], 'MAXIMIZER: LOVELY. HOLD STILL.')
+    for (let k = 0; k < 20 && back.mode === 'dialog'; k++) tick(back)
+    run(back, 0.2)
+    assert.ok(back.clipFlash > 2 && !Z.has(back, 'maximizer.yes'))
+    assert.deepEqual(mine(), had)
+    asks()
+    assert.deepEqual([back.dialog.lines[0], back.dialog.lines.length, back.dialog.choice, back.clipFlash], ['(IT DID NOT TAKE.)', 2, 1, undefined])
+    // NO, with a thumb that has only been cutting: A, and A again.
+    const end = []
+    for (let k = 0; k < 600 && boss(back).ai.mode !== 'down'; k++) end.push(...step(back, { a: k % 12 === 0, aPress: k % 12 === 0 }))
+    assert.equal(boss(back).ai.mode, 'down')
+    assert.deepEqual([boss(back).hp, boss(back).dead, end.filter(e => e.type === 'bossDown').length], [0, false, 1])
+    // A tab closed in the middle of the fall comes back to the question, so the ending is never lost.
+    run(back, 1.5)
+    const cut = reload(back)
+    run(cut, 0.1)
+    assert.deepEqual([boss(cut).ai.mode, boss(cut).hp, Z.has(cut, 'maximizer'), Z.has(cut, 'ending2')], ['question', 1, false, false])
+
+    // THE SECOND ENDING: the mode, the flag, the event, the gate open; and not one thing of the first ending's.
+    for (let k = 0; k < 600 && back.mode === 'play'; k++) end.push(...step(back))
+    assert.deepEqual([back.mode, Z.has(back, 'ending2'), Z.has(back, 'maximizer'), boss(back).dead], ['end2', true, true, true])
+    assert.deepEqual([end.filter(e => e.type === 'end2').length, end.filter(e => e.type === 'bossDown').length, [tile(back, 7, 10), tile(back, 8, 10)]], [1, 1, ['.', '.']])
+    assert.ok(![...ev2, ...end].some(e => e.type === 'won' || e.type === 'died'))
+    assert.deepEqual(Object.keys(back.flags).filter(f => !flags.includes(f) && !f.startsWith('gate:')).sort(), ['ending2', 'maximizer'])
+    assert.ok(Z.has(back, 'won'), 'the first ending is as it was')
+    // The world holds still under the page; the first ending's way back does not move it.
+    const held = back.elapsed
+    Z.resumeAfterWin(back)
+    run(back, 1)
+    assert.deepEqual([back.mode, back.elapsed, Z.has(back, 'maximizer.after')], ['end2', held, false])
+    // Played on: one line in the quiet hall, once, and the way home through doors still open to the Shrine.
+    Z.resumeAfterEnd2(back)
+    run(back, 0.1)
+    assert.deepEqual([back.mode, back.dialog?.lines], ['dialog', ['(THE HALL IS QUIET. ONE CLIP LIES ON THE FLOOR.)']])
+    P.settle(back)
+    run(back, 1)
+    assert.equal(back.mode, 'play')
+    through(back, 7, 11, 'supply')
+    assert.equal(back.entry.entry, 'fromhall')
+    // South through the three store rooms (the Dark Store by the door the Lamp's way opened).
+    P.walkTo(back, 7, 10)
+    P.walkTo(back, 11, 13)
+    P.settle(back)
+    P.walkTo(back, 7, 22)
+    P.walkTo(back, 7, 25)
+    P.settle(back)
+    through(back, 7, 34, 'balance')
+    through(back, 7, 10, 'shrine')
+    assert.deepEqual([back.entry.entry, back.mode], ['lid', 'play'])
 
     // And reloaded in the Dark Store, back at the Counting Room's stair: two rooms back, through doors still open.
     const mid = reload(l)
     assert.deepEqual([mid.map.id, mid.entry.entry, tile(mid, 3, 12), tile(mid, 7, 24)], ['supply', 'in', '.', '.'])
   })
 
-  it('is lost by a hero who stands still: the lane comes to them until the hearts are gone', () => {
-    const s = hero()
-    s.hero.maxHp = s.hero.hp = 20
-    Z.enterMap(Z.WORLD, s, 'supplyroom', 'in', [])
-    const under = []
-    let secs = 0
-    for (; secs < 90 && s.mode !== 'dying'; secs += s.mode === 'dialog' ? 0 : 1 / 60) {
-      const mode = boss(s).ai.mode
-      if (tick(s).some(e => e.type === 'hurt')) under.push(mode)
+  it('is lost by a hero who stands still, in every part and every round: the paint comes to them', () => {
+    const begun = ['maximizer.card', 'maximizer.p2', 'maximizer.t2']
+    const third = [...begun, 'maximizer.p3', 'maximizer.t3', 'maximizer.clipline']
+    const rounds = Z.WEIGHTS.map((w, i) => ({ name: `round ${i + 1}`, part: 3, hp: 8 - i, flags: [...third, ...Z.WEIGHTS.slice(0, i).map((_, n) => `maximizer.w${n + 1}`)] }))
+    // (In part one also from behind the ring's piles, where a blow has thrown them: cover holds one lane, not two.)
+    const cases = [{ name: 'part one', part: 1, hp: 24, flags: [] }, { name: 'part one, in cover', part: 1, hp: 24, flags: [], at: [2, 5] }, { name: 'part two', part: 2, hp: 16, flags: begun }, ...rounds]
+    const took = []
+    for (const c of cases) {
+      const s = hero()
+      s.hero.maxHp = s.hero.hp = 20
+      for (const f of c.flags) s.flags[f] = true
+      Z.enterMap(Z.WORLD, s, 'supplyroom', 'in', [])
+      step(s)
+      if (c.at) [s.hero.x, s.hero.y] = c.at
+      const under = []
+      let secs = 0
+      for (; secs < 200 && s.mode !== 'dying'; secs += s.mode === 'dialog' ? 0 : 1 / 60) {
+        const mode = boss(s).ai.mode
+        if (tick(s).some(e => e.type === 'hurt')) under.push(mode)
+      }
+      assert.equal(s.mode, 'dying', `${c.name}: ${s.hero.hp} half hearts left after ${secs.toFixed(0)} s`)
+      assert.deepEqual([boss(s).ai.part, boss(s).hp, new Set(under)], [c.part, c.hp, new Set([c.part < 3 ? 'reach' : 'blow'])], c.name)
+      if (c.name === 'part one') assert.equal(under.length, 10)
+      took.push(`${c.name} ${secs.toFixed(1)} s (${under.length} blows)`)
     }
-    assert.equal(s.mode, 'dying', `${s.hero.hp} half hearts left after ${secs.toFixed(0)} s`)
-    assert.deepEqual([under.length, new Set(under), boss(s).hp], [10, new Set(['reach']), 24])
-    if (process.env.BALANCE_LOG) console.log(`a still hero of ten hearts dies after ${secs.toFixed(1)} s`)
+    if (process.env.BALANCE_LOG) console.log(`a still hero of ten hearts dies: ${took.join(', ')}`)
   })
 
   it('keeps its place and the hero\'s hearts: a save mid fight holds no clip, and a death starts the round reached', () => {
@@ -439,5 +513,25 @@ describe('The Balance', () => {
     for (let k = 0; k < 400 && !Z.has(s, 'balance.level'); k++) { if (s.mode === 'dialog') P.settle(s); else step(s) }
     P.settle(s)
     assert.ok(Z.has(s, 'balance.level') && tile(s, 7, 5) === '>' && Z.weightCount(s) === 7)
+
+    // A save from after the second ending: the hall holds no machine, its gate stays open, and its line is said once.
+    for (const f of ['maximizer', 'ending2', 'maximizer.card']) s.flags[f] = true
+    const after = reload(s)
+    Z.enterMap(Z.WORLD, after, 'supplyroom', 'in', [])
+    run(after, 0.2)
+    assert.deepEqual([after.dialog?.lines, boss(after)?.dead ?? true], [['(THE HALL IS QUIET. ONE CLIP LIES ON THE FLOOR.)'], true])
+    P.settle(after)
+    run(after, 3)
+    assert.deepEqual([after.mode, tile(after, 7, 10), Z.has(after, 'ending2'), Z.has(after, 'won')], ['play', '.', true, true])
+    Z.enterMap(Z.WORLD, after, 'supplyroom', 'in', [])
+    run(after, 0.2)
+    assert.equal(after.mode, 'play')
+    // The ending's flag opens no way a hero without the prism has not got: the lid is the prism's.
+    const none = hero([])
+    delete none.flags['item:prism']
+    none.inv.prism = false
+    none.flags.ending2 = true
+    Z.enterMap(Z.WORLD, none, 'shrine', 'start', [])
+    assert.equal(tile(none, 25, 9), '.')
   })
 })

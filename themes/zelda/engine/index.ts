@@ -1,5 +1,5 @@
 /** Public engine API used by Zelda.vue, the renderer and the tests. */
-export { createGame, stepGame, respawn, resumeAfterWin, toSave, parseSave, cameraFor, enterMap, hasEntry, loadSpot, awayMap, atlasAt, asksToLeave, asksChoice } from './game'
+export { createGame, stepGame, respawn, resumeAfterWin, resumeAfterEnd2, toSave, parseSave, cameraFor, enterMap, hasEntry, loadSpot, awayMap, atlasAt, asksToLeave, asksChoice } from './game'
 export { mapDef, mapInfo, cellIndex, cellRect, cellDef, tileAt, raised, crystalAt, has, keyCount, addKeys, hasBigKey, cellIsDark, condMet, setSession } from './map'
 export { shardPos, SHARD_R, enemyActive } from './enemies'
 // A door whose map did not come (`World.lazy`).

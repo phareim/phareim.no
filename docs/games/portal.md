@@ -36,7 +36,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | `themes/zelda/NewsStand.vue` | The newsstand's panel: the rack and one piece at a time, its own keys; its own chunk, loaded when the stand is first used |
 | `themes/zelda/news.ts` | sleeper.phareim.md: `fetchIndex`, `fetchArticle`, `cleanHtml` (the allowlist the feed's HTML goes through); `fetch` passed in. Only the panel's chunk imports it |
 | `themes/zelda/newsLinks.ts` | `NEWS_BASE` and `WRITING_URL`, apart, so the page's hidden index gets the addresses without the fetch code |
-| `themes/portal/Landing.vue` | The page: the shell, the first-move hint, the ending panel, the hidden link index |
+| `themes/portal/Landing.vue` | The page: the shell, the first-move hint, the two ending panels, the hidden link index |
 
 **Controls.** (The first keys; Neon Shrine's menu has a KEYS page that changes
 them, `docs/games/neon-shrine.md`.) Arrows or WASD walk; Space, J, Z or Enter is A (talk, read,
@@ -363,7 +363,9 @@ SPACE TO TALK" / "DRAG TO WALK · TAP TO TALK") fades in and goes at the first
 step; it is skipped once `portal.return` exists. Winning shows the ending
 panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after
 1.2 s closes it and play goes on where the prism was taken, the run kept
-(the NEW GAME machine in Petter's house is the way to a fresh quest). A visually hidden `nav` holds the
+(the NEW GAME machine in Petter's house is the way to a fresh quest). The
+second ending, under the Shrine, has a panel of its own (ENOUGH.), dismissed
+the same way (`docs/games/neon-shrine-balance.md`). A visually hidden `nav` holds the
 h1 name, the blurbs from `themes/content.ts`, a link to every live game,
 sleeper.phareim.md and phareim.md (named in the page, since the stand is no
 link), the other links out and the three profiles. It shows as a panel

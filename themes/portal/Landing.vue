@@ -1,6 +1,6 @@
 <template>
   <main class="portal-landing">
-    <Zelda @moved="moved = true" @phase="p => phase = p" @result="onResult" />
+    <Zelda @moved="moved = true" @phase="p => phase = p" @result="onResult" @end2="onEnd2" />
     <p class="portal-hint" :class="{ 'portal-hint--gone': moved || phase !== 'play', 'portal-hint--touch': isTouch }" aria-hidden="true">
       {{ hint('ARROWS TO WALK · SPACE TO TALK', 'DRAG TO WALK · TAP TO TALK') }}
     </p>
@@ -14,6 +14,18 @@
         <p v-if="isNewBest" class="portal-end-best">NEW BEST!</p>
         <p class="portal-end-start">{{ hint('PRESS ENTER TO KEEP EXPLORING', 'TAP TO KEEP EXPLORING') }}</p>
         <p class="portal-end-note">A NEW GAME WAITS IN PETTER'S HOUSE</p>
+      </div>
+    </div>
+
+    <!-- The second ending: over the Supply Room, where the machine fell. A panel of its own, nothing of the first's. -->
+    <div v-if="phase === 'end2'" class="portal-end2">
+      <div class="portal-end2-panel" role="status">
+        <img v-if="clipHeart" class="portal-end2-clip" :src="clipHeart" alt="" aria-hidden="true">
+        <h2 class="portal-end2-title">ENOUGH.</h2>
+        <p class="portal-end2-line">THE ORDER IS FILLED.</p>
+        <p class="portal-end2-time">{{ formatPlayTime(end2?.elapsed ?? 0) }}</p>
+        <p class="portal-end2-people">STILL HERE: SOLVEIG, ASLAK, <span class="portal-end2-name">MS. B,</span> ARNE, LENNY, GUNN, VEGA</p>
+        <p class="portal-end2-start">{{ hint('PRESS ENTER TO KEEP EXPLORING', 'TAP TO KEEP EXPLORING') }}</p>
       </div>
     </div>
 
@@ -42,7 +54,8 @@
 /**
  * The Portal's page: the world (town, coast and Neon Shrine, `zelda/Zelda.vue`)
  * fills the locked viewport, a hint says how to walk until the first step,
- * the ending panel shows when the quest is won, and a hidden index carries
+ * the ending panel shows when the quest is won (and another, of its own, for
+ * the second ending under the Shrine), and a hidden index carries
  * the same places as real links. The links' addresses come from the world's
  * exits, so the town and the index cannot drift apart; the newsstand's two
  * come from `zelda/newsLinks.ts`, where the stand's own addresses live.
@@ -54,15 +67,25 @@ import { worldExits } from '~/themes/zelda/world/core'
 import { NEWS_BASE, WRITING_URL } from '~/themes/zelda/newsLinks'
 import { formatPlayTime } from '~/themes/zelda/progress'
 import { setTreeCounts } from '~/themes/zelda/render/tree'
+import { sprite } from '~/themes/zelda/render/sheet'
 
 const { hint, isTouch } = useInputMode()
 const moved = ref(false)
-const phase = ref<'play' | 'won'>('play')
+const phase = ref<'play' | 'won' | 'end2'>('play')
 const result = ref<{ elapsed: number; best: number | null } | null>(null)
 const isNewBest = computed(() => !!result.value && result.value.best !== null && result.value.best === result.value.elapsed)
 
 function onResult(r: { elapsed: number; best: number | null }) {
   result.value = r
+}
+
+// The second ending's own: its time, and its picture, the drawn clip heart (a STAND-IN for a picture of the page's
+// own). The heart is one of the dungeons' sprites, which are loaded by whoever can be here.
+const end2 = ref<{ elapsed: number } | null>(null)
+const clipHeart = ref('')
+function onEnd2(e: { elapsed: number }) {
+  end2.value = e
+  clipHeart.value = sprite('clip_heart').toDataURL()
 }
 
 // Back from a game or a page: the visitor has walked here before, so no hint.
@@ -263,6 +286,88 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
 }
 
 .portal-end-start { animation: none; }
+}
+
+/* The second ending's panel: silver and paper where the first is neon and gold. Only the world takes taps. */
+.portal-end2 {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.portal-end2-panel {
+  box-sizing: border-box;
+  max-width: min(100%, 420px);
+  padding: 1.5em 1.6em 1.4em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  text-transform: uppercase;
+  color: #1b1830;
+  background: #e8ecf4;
+  box-shadow: 0 -4px 0 0 #8b93a8, 0 4px 0 0 #8b93a8, -4px 0 0 0 #8b93a8, 4px 0 0 0 #8b93a8, 0 14px 40px rgba(4, 2, 10, 0.6);
+}
+
+/* The clip bent into a heart: 16 px drawn, six times as large, on a dark tile so its white wire shows. */
+.portal-end2-clip {
+  width: 96px;
+  height: 96px;
+  margin: 0 0 0.9em;
+  padding: 12px;
+  background: #1b1830;
+  image-rendering: pixelated;
+  box-sizing: content-box;
+}
+
+.portal-end2-title {
+  margin: 0 0 0.3em;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.portal-end2-line {
+  margin: 0 0 0.6em;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.portal-end2-time {
+  margin: 0 0 0.7em;
+  font-size: 32px;
+  line-height: 1.1;
+  color: #4a3f8f;
+}
+
+.portal-end2-people {
+  margin: 0 0 0.9em;
+  max-width: 19em;
+  font-size: 16px;
+  line-height: 22px;
+  color: #575f78;
+}
+
+.portal-end2-name {
+  white-space: nowrap;
+}
+
+.portal-end2-start {
+  margin: 0;
+  font-size: 16px;
+  line-height: 20px;
+  color: #a3105f;
+  animation: portal-end-blink 1.1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-end2-start { animation: none; }
 }
 
 /* Visually hidden, until a keyboard user tabs into a link. */

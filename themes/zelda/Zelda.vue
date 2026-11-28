@@ -198,8 +198,10 @@
  * the ways out. The game is `engine/` (pure), `world/` (data) and `render/`
  * (Canvas). Always in play: no title. Phases: play → won (the ending panel
  * is the page's, `portal/Landing.vue`) → play again: the run is kept and
- * the hero plays on; the NEW GAME machine in Petter's house is the only
- * reset (its lines close into `startOver`, and the shell asks yes or no).
+ * the hero plays on; later, under the Shrine, play → end2 (the second
+ * ending, a panel of its own, `finishEnd2`) → play again. The NEW GAME
+ * machine in Petter's house is the only reset (its lines close into
+ * `startOver`, and the shell asks yes or no).
  *
  * The world here is `world/core.ts`: the dungeons' maps are a chunk of their own, fetched near a door into one
  * and waited for behind the door's fade, or at a reload inside one (`dungeonLoad.ts`).
@@ -261,7 +263,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { abortWarp, artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
+import { abortWarp, artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterEnd2, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
 import { jumpIcon } from './render/side'
 import { A_PAD, createAPad } from './aPad'
 import { fetchSession } from './account'
@@ -312,8 +314,11 @@ const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
 const FeedbackButton = defineAsyncComponent(() => import('./feedback/FeedbackButton.vue'))
 const FeedbackPanel = defineAsyncComponent(() => import('./feedback/FeedbackPanel.vue'))
 
-/** 'boot': a page load that waits for the dungeon its save is in (`waitForDungeon`); nothing steps and no menu opens. */
-type Phase = 'play' | 'won' | 'boot'
+/**
+ * 'won' and 'end2': the two endings, each under its own panel of the page (`portal/Landing.vue`).
+ * 'boot': a page load that waits for the dungeon its save is in (`waitForDungeon`); nothing steps and no menu opens.
+ */
+type Phase = 'play' | 'won' | 'end2' | 'boot'
 type ShownPhase = Exclude<Phase, 'boot'>
 type Spot = World['start']
 
@@ -322,6 +327,8 @@ const emit = defineEmits<{
   moved: []
   phase: [phase: ShownPhase]
   result: [result: { elapsed: number; best: number | null }]
+  /** The second ending: its page is told the play time (it keeps no best of its own). */
+  end2: [end: { elapsed: number }]
 }>()
 
 const RETURN_KEY = 'portal.return'
@@ -331,7 +338,7 @@ const OUT_KEY = 'zelda.out'
 const STUCK_S = 2.5
 /** A URL exit waits longer (the next site may be slow), but not forever: Esc or Stop can cancel the navigation. */
 const STUCK_URL_S = 8
-/** The ending panel ignores keys and taps this long, so the press that took the prism does not skip it. */
+/** An ending panel ignores keys and taps this long, so the press that took the prism (or said NO) does not skip it. */
 const WON_GRACE_MS = 1200
 /** The start-over question ignores YES this long, so a tap mashed through the machine's lines does not answer it. */
 const RESET_GRACE_MS = 600
@@ -597,7 +604,7 @@ const input: GameInput = createInput({
   idle: () => phase.value !== 'play',
   paused: () => paused.value || panel.value !== null,
   dialog: () => state.mode === 'dialog',
-  onIdleTap: () => { if (phase.value === 'won') keepExploring() },
+  onIdleTap: () => { if (ended()) keepExploring() },
   onKey: shellKey,
 })
 
@@ -782,7 +789,7 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   renderer.setParams(def.engine, def.params)
   // No turn where nothing would play it: reduced motion, a paused game, an open panel, the ending.
   if (arriving) renderer.arrive(def.engine, nightLeft(), !reducedMotion.value)
-  else renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null || phase.value === 'won')
+  else renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null || ended())
   viewShown = def.id
   pausedDrawn = false
   syncSound()
@@ -1289,7 +1296,7 @@ function placeItemCells() {
 
 /** Ending, pause-screen and pause keys (`menuCommand`, bindings.ts); the game keys are input.ts's. */
 function shellKey(e: KeyboardEvent): boolean {
-  if (phase.value === 'won') {
+  if (ended()) {
     if (takes(e.code) && !e.repeat) { e.preventDefault(); keepExploring() }
     return true
   }
@@ -1690,10 +1697,36 @@ function finishWon() {
   emit('result', { elapsed: state.elapsed, best })
 }
 
-/** From the ending: back into the world, where the prism was taken. */
+/**
+ * The second ending (the Supply Room): the run is saved as any save is, with no best time and no clear of the quest
+ * (those are the first ending's, `finishWon`), and the page shows its own panel.
+ */
+function finishEnd2() {
+  const save = toSave(state)
+  if (save) {
+    save.savedAt = Date.now()
+    writeLocalSave(save)
+    profileSave.push({ data: save, savedAt: save.savedAt })
+    ownsSave = true
+    pendingPull = null
+  }
+  input.clear()
+  playTrack('ending')
+  wonAt = performance.now()
+  setPhase('end2')
+  emit('end2', { elapsed: state.elapsed })
+}
+
+/** An ending's panel is up: the world holds still under it. */
+function ended() {
+  return phase.value === 'won' || phase.value === 'end2'
+}
+
+/** From an ending: back into the world, where the prism was taken, or into the machine's quiet hall. */
 function keepExploring() {
-  if (phase.value !== 'won' || performance.now() - wonAt < WON_GRACE_MS) return
-  resumeAfterWin(state)
+  if (!ended() || performance.now() - wonAt < WON_GRACE_MS) return
+  if (phase.value === 'end2') resumeAfterEnd2(state)
+  else resumeAfterWin(state)
   input.clear()
   setPhase('play')
   track = null
@@ -1848,7 +1881,7 @@ function frame(nowMs: number) {
   // A turn caught by a pause, a panel or the ending would hang half done (the world is drawn once, or five times a
   // second): finish it. The picture follows in this frame, not at the next slow tick, and a view that threw being
   // asked is followed before the dress and the corner are stepped for it.
-  if ((paused.value || panel.value || phase.value === 'won') && renderer.viewState().turning) {
+  if ((paused.value || panel.value || ended()) && renderer.viewState().turning) {
     renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true)
     pausedDrawn = false
     if (!renderer.viewState().turning) slowT = 0
@@ -1877,9 +1910,11 @@ function frame(nowMs: number) {
   ui.view = viewLabel.value
   ui.rule = ruleBadge.value
 
-  // The ending: the world stays put behind the page's panel. Nothing steps, so
+  // An ending: the world stays put behind the page's panel. Nothing steps, so
   // it is redrawn at a fifth of the rate rather than 60 times a second.
   if (phase.value === 'won') { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
+  // (The second one's pale flash goes out first, at the full rate.)
+  if (phase.value === 'end2') { if (nowMs - wonAt < WON_GRACE_MS || slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
   // Paused: dt is 0, so the picture is already identical to last frame's. Draw
   // it once more in case the pause was what changed it, then leave the pixels
   // alone until something resumes.
@@ -1938,6 +1973,7 @@ function frame(nowMs: number) {
   if (holdStep(state, WORLD, doorHold, dt) === 'abort') doorShut()
   drawFrame(nowMs, dt)
   if (state.mode === 'won') finishWon()
+  if (state.mode === 'end2') finishEnd2()
 }
 
 /**

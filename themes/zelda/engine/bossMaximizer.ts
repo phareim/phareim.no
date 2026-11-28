@@ -2,7 +2,7 @@
  * THE PAPERCLIP MAXIMIZER (`EnemyKind` 'maximizer', the boss of the Supply Room; docs/games/neon-shrine-balance.md).
  * A machine: it never leaves its home and its touch does no harm. Every harm in the fight is drawn on the floor before
  * it lands (`maximizerStencils`), and what hurts is asked of the same shapes (`inStencil`). One bar of 24, in three
- * parts; the fight stops at 1 with the machine in `question`, never at 0.
+ * parts; blows stop it at 1, with the machine in `question`, never at 0.
  *
  * PARTS ONE AND TWO (24 to 16, 16 to 8) run a cycle: `work` (part one: THE RING turns the floor into piles, a cyan
  * lane left open; part two: THE QUOTA, three circles, each of which takes a heart for a clip), `reach` (one lane at
@@ -10,21 +10,29 @@
  * hit point starts a `beat`: the floor sweeps clean and the next part's flag is set.
  *
  * PART THREE (8 to 1) takes four hearts and brings the seven Weights down onto stations, one live at a time
- * (`stationOf`): `call` (the Weight comes down), `blow` (told, landed, rested, again), and when the hero stands on the
- * station `trick` (the blow cancelled, a heart given back) and `open` (one blow of any kind takes 1). The seventh such
- * cut sets `maximizer.q`: `question`.
+ * (`stationOf`): `call` (the Weight comes down), `blow` (told, landed, rested, again; the station is dim until the
+ * round's first blow has landed), and when the hero stands on the lit station `trick` (the blow cancelled, a heart
+ * given back, that Weight's own picture, `render/maximizerTricks.ts`) and `open` (one blow of any kind takes 1). The
+ * seventh such cut sets `maximizer.q`: `question`.
+ *
+ * THE QUESTION is a dialog with two answers, asked with the cursor on NO. YES is a joke (`clipFlash`, a display alone)
+ * and the question again. NO is the end: `down` (the fall, timed from this brain, which is why the machine is kept alive
+ * through it), and its last step sets the flags `maximizer` and `ending2` and the mode `end2`: the second ending. It
+ * writes nothing the first ending writes.
  *
  * What is saved is flags alone (`maximizer.p2`, `.p3`, `.w1` to `.w7`, `.q`): on its first tick the brain reads the
- * part, the round, its hit points and the hero's clips from them, so a death or a reload starts at what was reached.
+ * part, the round, its hit points and the hero's clips from them, so a death or a reload starts at what was reached
+ * (anywhere in the fall: at the question).
  * The room is the whole map and its one door is a trap gate: places here are the room's own tiles.
  */
-import type { Enemy, GameState, MapState, Vec, WeightId } from '../types'
+import type { Enemy, GameEvent, GameState, MapState, TalkAsk, Vec, WeightId } from '../types'
 import { HERO_R, ROLL_IFRAMES } from '../types'
 import { CLIP_PILE } from '../world/tiles'
 import { clipHeart, clipLimit, setClips, unclipHeart } from './clips'
 import { type Ctx, hurtHero } from './combat'
 import { duckHop } from './duck'
 import type { LaneWorld } from './gifts'
+import { openDialog } from './hero'
 import { circleBlocked, has, setFlag, solidTile, tileAt } from './map'
 import { inStencil, type Stencil, type StencilShape } from './stencils'
 import { clamp, rnd } from './util'
@@ -40,12 +48,13 @@ export const MAXI = {
   tell: 1.4,
   flash: 0.15,
   carry: 0.3,
-  /** `reach`: the lane told, then standing; its length and width; the fork's angle each side of the hero's line. */
+  /** `reach`: the lane told, then standing; its length and width. */
   reach: 1,
   strike: 0.3,
   len: 10,
   wide: 1.4,
-  fork: (40 * Math.PI) / 180,
+  /** The fork's two lanes: one along the hero's line, the other this far from it (twice the 40°) toward the floor. */
+  fork: (80 * Math.PI) / 180,
   /** `ask`: open this long, `take` hit points at most; then a breath before the next `work`. */
   ask: 2.4,
   take: 4,
@@ -82,12 +91,20 @@ export const MAXI = {
   open: 3,
   /** The pose of a blow that hurt it. */
   hurt: 0.3,
+  /** The question: asked this long after it is reached, or after B has backed out of it; YES shows its clips this long. */
+  askAfter: 1,
+  yes: 2.5,
+  /** The fall: it goes down, then the hall rests a moment, and the second ending begins. `jolt`: its hurt pose first. */
+  fall: 3,
+  after: 2,
+  jolt: 0.8,
   /**
-   * Where the screen holds less than the room (the isometric view): the camera leans from the hero toward what matters
-   * (the lit station, else the machine), halfway or as far as brings it a tile inside the picture, the hero kept
-   * `margin` tiles inside the side edges; the point it heeds moves at this rate.
+   * Where the screen holds less than the room (the isometric view): the camera keeps the hero `margin` tiles inside the
+   * side edges and the live station (else the machine) `station` tiles inside them where both fit; the point it heeds
+   * moves at the rate `gaze`.
    */
-  margin: 1.5,
+  margin: 1,
+  station: 1.5,
   gaze: 4,
 } as const
 
@@ -113,6 +130,17 @@ const ENTRY: Rect = { x0: 6, y0: 8, x1: 10, y1: 10 }
 export const FOOT: Vec = { x: 8.5, y: 5.5 }
 /** The cyan lane: every tile whose middle is this near the line from the hero's tile to the foot. */
 const WAY = 1.5
+
+/** The last question, its two answers and what each sets (`dialog`, `engine/game.ts`). */
+export const QUESTION = 'MAXIMIZER: WOULD YOU LIKE TO BE CLIPS TOO? THERE IS ROOM.'
+const ANSWERS: TalkAsk = {
+  options: ['YES', 'NO'],
+  replies: [
+    ['MAXIMIZER: LOVELY. HOLD STILL.'],
+    ['MAXIMIZER: NO?', 'MAXIMIZER: NO. THAT IS ENOUGH. THANK YOU.', '(A LAST CLIP DROPS. NOBODY COUNTS IT.)'],
+  ],
+  set: ['maximizer.yes', 'maximizer.no'],
+}
 
 const inRect = (r: Rect, x: number, y: number) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1
 const num = (e: Enemy, k: string) => (e.ai[k] as number | undefined) ?? 0
@@ -205,6 +233,9 @@ function blowShapes(e: Enemy, k: number): Stencil[] {
   return out
 }
 
+/** The shapes of the last blow told, whatever the machine does now (the tricks' pictures draw them). */
+export const lastBlow = (e: Enemy): Stencil[] => (e.ai.kind ? blowShapes(e, 1) : [])
+
 /** What the floor shows of the machine now (`stencilsOf`). Pink hurts or takes; cyan stays; a `fake` lane is nothing. */
 export function maximizerStencils(e: Enemy, lw?: LaneWorld): Stencil[] {
   const m = e.ai.mode
@@ -230,8 +261,12 @@ export function maximizerStencils(e: Enemy, lw?: LaneWorld): Stencil[] {
     const el = MAXI.blowTell + MAXI.land + MAXI.blowRest - e.ai.t
     return el < MAXI.blowTell + MAXI.land ? blowShapes(e, clamp(el / MAXI.blowTell, 0, 1)) : []
   }
-  // A blow the station cancelled: its paint goes out, faint, and nothing lands.
-  if (m === 'trick' && e.ai.cancel && MAXI.trick - e.ai.t < MAXI.fade) return blowShapes(e, num(e, 'k')).map(s => ({ ...s, dim: true }))
+  if (m === 'trick') {
+    // THE LENS's trick: the one real lane stays, faint, while the false ones go out (`render/maximizerTricks.ts`).
+    if (e.ai.kind === 'fan') return blowShapes(e, 1).filter(s => !s.fake).map(s => ({ ...s, dim: true }))
+    // A blow the station cancelled: its paint goes out, faint, and nothing lands.
+    if (e.ai.cancel && MAXI.trick - e.ai.t < MAXI.fade) return blowShapes(e, num(e, 'k')).map(s => ({ ...s, dim: true }))
+  }
   return []
 }
 
@@ -243,15 +278,18 @@ export function maximizerFlash(m: MapState, e: Enemy): number[] {
 
 /**
  * The stations as they are to be drawn: those of the finished rounds (dim, empty), the live one (`down`: how far its
- * Weight has come down, 0 to 1; `lit`: it waits for the hero, else it is spent and the machine stands open), and how
- * strongly the whole floor of them shows (it fades at the question). Null outside part three.
+ * Weight has come down, 0 to 1; `lit`: it waits for the hero, which it does once the round's first blow has landed;
+ * `spent`: it has been stood on and the machine stands open; neither: it is still dim), and how strongly the whole
+ * floor of them shows (it fades at the question). Null outside part three.
  */
-export function stationOf(e: Enemy): { done: Station[]; live: (Station & { down: number; lit: boolean }) | null; fade: number } | null {
+export function stationOf(e: Enemy): { done: Station[]; live: (Station & { down: number; lit: boolean; spent: boolean }) | null; fade: number } | null {
   const m = e.ai.mode as string
-  if (e.dead || e.ai.part !== 3 || m === 'beat') return null
+  if (e.dead || e.ai.part !== 3 || m === 'beat' || m === 'down') return null
   if (m === 'question') return e.ai.t > 0 ? { done: [...STATIONS], live: null, fade: Math.min(1, e.ai.t) } : null
   const i = num(e, 'round') - 1
-  const live = m === 'intro' ? null : { ...STATIONS[i]!, down: m === 'call' ? clamp(1 - e.ai.t / MAXI.call, 0, 1) : 1, lit: m === 'call' || m === 'blow' }
+  const lit = m === 'blow' && !!e.ai.struck
+  const spent = m === 'trick' || m === 'open'
+  const live = m === 'intro' ? null : { ...STATIONS[i]!, down: m === 'call' ? clamp(1 - e.ai.t / MAXI.call, 0, 1) : 1, lit, spent }
   return { done: STATIONS.slice(0, i), live, fade: 1 }
 }
 
@@ -269,31 +307,33 @@ export function clipFlights(s: GameState): Array<{ p: number; n: number }> {
 }
 
 /**
- * What the isometric view looks at in its room, null in any other: from the hero toward the lit station (else the
- * machine), halfway or far enough to show it, moved no further than keeps the hero on a picture `halfW` × `halfH`
- * tiles from its middle, so that on a phone the station to run to, or the machine to strike, is in sight.
+ * What the isometric view looks at in its room, null in any other: a point that keeps the hero and what they are going
+ * to (the live station, else the machine) both in a picture `halfW` × `halfH` tiles from its middle, halfway between
+ * where there is room. Where the two are further apart than the picture is wide, the hero stays `margin` tiles inside
+ * its edge and the picture reaches as far toward the other as that allows (an arrow at the edge says the rest).
  */
 export function maximizerFocus(s: GameState, halfW: number, halfH: number): Vec | null {
-  const e = s.scroll ? undefined : s.map.enemies.find(o => o.kind === 'maximizer' && !o.dead)
+  const e = s.scroll ? undefined : s.map.enemies.find(o => o.kind === 'maximizer' && (!o.dead || s.mode === 'end2'))
   if (!e || e.ai.gx === undefined) return null
   const h = s.hero
   // (The screen's two ways in this view: across is x - y, down is x + y at half the height.)
-  const lean = (d: number, half: number, most: number) => {
-    const far = Math.max(Math.abs(d) / 2, Math.abs(d) - (half - 1))
-    return Math.sign(d) * Math.max(0, Math.min(far, most))
+  const keep = (d: number, half: number, hero: number, other: number) => {
+    const both = clamp(d / 2, d - (half - other), d + (half - other))
+    return clamp(both, -Math.max(0, half - hero), Math.max(0, half - hero))
   }
   const dx = num(e, 'gx') - h.x
   const dy = num(e, 'gy') - h.y
-  const across = lean(dx - dy, halfW, halfW - MAXI.margin)
-  const down = lean(dx + dy, halfH * 2, halfH * 2 - 4)
+  const across = keep(dx - dy, halfW, MAXI.margin, MAXI.station)
+  // (A station up the screen wants more room: its Weight hangs over it, and the HUD lies along the top.)
+  const down = keep(dx + dy, halfH * 2, MAXI.margin * 3, MAXI.station * (dx + dy < 0 ? 5 : 3))
   return { x: h.x + (down + across) / 2, y: h.y + (down - across) / 2 }
 }
 
-/** Eases the point the camera heeds toward what matters now. */
+/** Eases the point the camera heeds toward what matters now: a station from the moment its Weight starts down. */
 function gaze(e: Enemy, dt: number) {
   const live = e.ai.part === 3 ? stationOf(e)?.live : undefined
   // (Its figure stands a little south of its middle.)
-  const to = live?.lit ? live : { x: e.x, y: e.y + 0.5 }
+  const to = live && !live.spent ? live : { x: e.x, y: e.y + 0.5 }
   const k = e.ai.gx === undefined ? 1 : Math.min(1, MAXI.gaze * dt)
   e.ai.gx = ((e.ai.gx as number | undefined) ?? to.x) * (1 - k) + to.x * k
   e.ai.gy = ((e.ai.gy as number | undefined) ?? to.y) * (1 - k) + to.y * k
@@ -348,6 +388,9 @@ const heroTile = (s: GameState): Vec => ({ x: Math.floor(s.hero.x) + 0.5, y: Mat
 /** Its first tick: the part, the round, its hit points and the hero's clips, all from the saved flags. */
 function begin(c: Ctx, e: Enemy) {
   const s = c.s
+  // (An answer is acted on at once; one a save caught in between is dropped, and the question asked again.)
+  delete s.flags['maximizer.yes']
+  delete s.flags['maximizer.no']
   const asked = has(s, 'maximizer.q')
   const part = asked || has(s, 'maximizer.p3') ? 3 : has(s, 'maximizer.p2') ? 2 : 1
   let won = asked ? STATIONS.length : 0
@@ -374,7 +417,8 @@ function work(e: Enemy, lead = 0) {
 function aimLanes(c: Ctx, e: Enemy, kind: Blow, x: number, y: number) {
   const a = Math.atan2(y - e.y, x - e.x)
   let angles = [a]
-  if (kind === 'fork') angles = [a - MAXI.fork, a + MAXI.fork]
+  // The fork: one lane at the hero, the other swung toward the open floor below the machine, never into the top wall.
+  if (kind === 'fork') angles = [a, a + (Math.cos(a) < 0 ? -1 : 1) * MAXI.fork]
   if (kind === 'fan') {
     // One of the six is the hero's own line; which, the dice say.
     const real = Math.floor(rnd(c.s) * MAXI.fan.length)
@@ -392,18 +436,40 @@ function aimLanes(c: Ctx, e: Enemy, kind: Blow, x: number, y: number) {
 }
 
 function reach(c: Ctx, e: Enemy) {
-  const at = heroTile(c.s)
-  aimLanes(c, e, num(e, 'part') === 2 ? 'fork' : 'lane', at.x, at.y)
+  // Where the hero stands as the tell begins: a lane along that line, so standing still is never safe.
+  const h = c.s.hero
+  aimLanes(c, e, num(e, 'part') === 2 ? 'fork' : 'lane', h.x, h.y)
   e.ai.landed = false
   mode(e, 'reach', MAXI.reach + MAXI.strike)
   c.ev.push({ type: 'clip', x: e.x, y: e.y, what: 'tell' })
 }
 
+/** Knocks flat the piles a lane of `wide` along `a` stopped against, `run` along it: cover holds one lane. */
+function topple(c: Ctx, e: Enemy, a: number, wide: number, run: number) {
+  if (run >= MAXI.len) return
+  const m = c.s.map
+  const ux = Math.cos(a)
+  const uy = Math.sin(a)
+  for (let k = -2; k <= 2; k++) {
+    const v = (k / 2) * (wide / 2 - 0.01)
+    const x = Math.floor(e.x + ux * run - uy * v)
+    const y = Math.floor(e.y + uy * run + ux * v)
+    if (tileAt(m, x, y) !== CLIP_PILE) continue
+    m.tiles[y * m.w + x] = '.'
+    m.version++
+    c.ev.push({ type: 'clip', x: x + 0.5, y: y + 0.5, what: 'topple' })
+  }
+}
+
 /** The paint lands: a hero in it is hurt (once; the mercy after a blow holds the rest of the strike). */
 function strike(c: Ctx, e: Enemy) {
   const h = c.s.hero
-  if (!e.ai.landed) { e.ai.landed = true; c.ev.push({ type: 'slam', x: e.x, y: e.y + 1.5 }) }
-  for (const s of blowShapes(e, 1)) {
+  const first = !e.ai.landed
+  if (first) { e.ai.landed = true; c.ev.push({ type: 'slam', x: e.x, y: e.y + 1.5 }) }
+  // (The paint that lands is the paint that was told: the piles it stopped at go down after it has been asked.)
+  const shapes = blowShapes(e, 1)
+  if (first && num(e, 'part') === 1) for (let i = 0; i < num(e, 'n'); i++) topple(c, e, num(e, `a${i}`), MAXI.wide, num(e, `l${i}`))
+  for (const s of shapes) {
     if (s.fake || !inStencil(s, h.x, h.y)) continue
     const from = s.t === 'ring' ? s : e
     hurtHero(c, MAXI.dmg, from.x, from.y, false, true)
@@ -520,6 +586,8 @@ function beat(c: Ctx, e: Enemy) {
 function call(c: Ctx, e: Enemy) {
   const st = STATIONS[num(e, 'round') - 1]!
   e.ai.armed = true
+  // Dim until a blow of this round has landed: there is paint to read in every round.
+  e.ai.struck = false
   e.ai.away = 0
   e.ai.cancel = false
   mode(e, 'call', MAXI.call)
@@ -543,6 +611,19 @@ function fire(c: Ctx, e: Enemy) {
   if (e.ai.paid !== round) { e.ai.paid = round; unclipHeart(c.s) }
   mode(e, 'trick', MAXI.trick)
   c.ev.push({ type: 'clip', x: c.s.hero.x, y: c.s.hero.y, what: 'station' })
+  // What each Assessor's trick sounds like and throws off (its picture is `render/maximizerTricks.ts`; the treasure's
+  // own engine is not asked, so a station works for a hero who has not got it).
+  const st = STATIONS[round - 1]!
+  const heard: Record<WeightId, GameEvent> = {
+    weightMeaning: { type: 'echo', x: st.x, y: st.y },
+    weightReasons: { type: 'lamp', x: st.x, y: st.y, up: false },
+    weightNo: { type: 'refuse', x: FOOT.x, y: FOOT.y },
+    weightSurprise: { type: 'duck', x: st.x, y: st.y, down: true },
+    weightFingers: { type: 'stomp', x: st.x, y: st.y, on: 'ground' },
+    weightCredit: { type: 'latch', x: st.x, y: st.y },
+    weightSources: { type: 'lens' },
+  }
+  c.ev.push(heard[st.weight])
 }
 
 /** The last question's stand: nothing on the floor, nothing that can hurt. `fade`: s the stations take to go out. */
@@ -554,7 +635,77 @@ function question(c: Ctx, e: Enemy, fade: number) {
   sweep(c.s.map, () => true)
   c.s.map.bombs.length = 0
   mode(e, 'question', fade)
+  e.ai.wait = MAXI.askAfter
+  e.ai.flash = 0
   c.ev.push({ type: 'clip', x: e.x, y: e.y, what: 'mark' })
+}
+
+/** Puts the question, after `lead`: the cursor on NO, so a thumb that has been cutting does not say YES. */
+function ask(c: Ctx, e: Enemy, lead: string[] = []) {
+  openDialog(c, [...lead, QUESTION], 'MAXIMIZER')
+  c.s.dialog!.ask = ANSWERS
+  c.s.dialog!.choice = 1
+  // (B backs out of it; it is asked again this long after.)
+  e.ai.wait = MAXI.askAfter
+}
+
+/** The question, standing: what was answered, the clips YES shows, and the asking again. */
+function asking(c: Ctx, e: Enemy, dt: number) {
+  const s = c.s
+  if (s.flags['maximizer.no']) {
+    delete s.flags['maximizer.no']
+    fall(c, e)
+    return
+  }
+  if (s.flags['maximizer.yes']) {
+    delete s.flags['maximizer.yes']
+    e.ai.flash = MAXI.yes
+    s.clipFlash = MAXI.yes
+    c.ev.push({ type: 'clip', x: s.hero.x, y: s.hero.y, what: 'grab' })
+    return
+  }
+  if (num(e, 'flash') > 0) {
+    e.ai.flash = num(e, 'flash') - dt
+    s.clipFlash = Math.max(0, num(e, 'flash'))
+    if (num(e, 'flash') > 0) return
+    delete s.clipFlash
+    ask(c, e, ['(IT DID NOT TAKE.)'])
+    return
+  }
+  e.ai.wait = num(e, 'wait') - dt
+  if (num(e, 'wait') <= 0) ask(c, e)
+}
+
+/** NO: it goes down. The bar empties, every clip is a heart again, the floor is bare; the shell saves. */
+function fall(c: Ctx, e: Enemy) {
+  const s = c.s
+  e.hp = 0
+  setClips(s, 0)
+  delete s.clipFlash
+  e.ai.sent = 0
+  sweep(s.map, () => true)
+  mode(e, 'down', MAXI.fall + MAXI.after)
+  c.ev.push({ type: 'bossDown', kind: e.kind })
+  s.shake = Math.max(s.shake, 0.6)
+}
+
+/**
+ * The fall's last step: the foe's `once` flag by hand (its room is then clear, and the trap gate opens), the machine
+ * gone without a second `bossDown`, and the second ending: the flag `ending2`, the mode, the event. Nothing of the
+ * first ending's is touched.
+ */
+function finish(c: Ctx, e: Enemy) {
+  const s = c.s
+  setFlag(s, e.once ?? 'maximizer')
+  e.dead = true
+  setFlag(s, 'ending2')
+  s.mode = 'end2'
+  const h = s.hero
+  h.swing = null
+  h.spin = null
+  h.charge = -1
+  h.act = 'idle'
+  c.ev.push({ type: 'end2', elapsed: s.elapsed })
 }
 
 export function maximizer(c: Ctx, e: Enemy, dt: number) {
@@ -631,8 +782,9 @@ export function maximizer(c: Ctx, e: Enemy, dt: number) {
         ai.away = num(e, 'away') + dt
         if (num(e, 'away') >= MAXI.off) ai.armed = true
       } else ai.away = 0
-      if (on && ai.armed && !h.air && h.act !== 'dead') { fire(c, e); return }
       const el = MAXI.blowTell + MAXI.land + MAXI.blowRest - ai.t
+      if (el >= MAXI.blowTell + MAXI.land && !ai.struck) { ai.struck = true; c.ev.push({ type: 'clip', x: st.x, y: st.y, what: 'weight' }) }
+      if (on && ai.armed && ai.struck && !h.air && h.act !== 'dead') { fire(c, e); return }
       if (el >= MAXI.blowTell && el < MAXI.blowTell + MAXI.land) strike(c, e)
       if (ai.t <= 0) blow(c, e)
       return
@@ -644,8 +796,11 @@ export function maximizer(c: Ctx, e: Enemy, dt: number) {
       if (ai.t <= 0) { ai.armed = false; ai.away = 0; blow(c, e) }
       return
     case 'question':
+    case 'down':
       // Safe from here on, even from a bomb of the hero's own.
       if (s.map.bombs.length || s.map.blasts.length) h.invuln = Math.max(h.invuln, 0.5)
+      if (ai.mode === 'question') asking(c, e, dt)
+      else if (ai.t <= 0) finish(c, e)
       return
   }
 }

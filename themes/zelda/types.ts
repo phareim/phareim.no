@@ -628,6 +628,8 @@ export interface TalkAsk {
   after?: [Dialog['after'], Dialog['after']]
   /** A tap does not pick a side: it confirms the cursor (which starts on the first option). The attendants' offer. */
   noTapSide?: true
+  /** A flag per answer, set as its reply closes: THE PAPERCLIP MAXIMIZER's brain reads which was said. */
+  set?: [string, string]
 }
 
 /** Entity placed by a marker char in the rows. */
@@ -1516,6 +1518,8 @@ export interface Follower {
 
 /** 'exit' is terminal like 'won': the screen stays dark and the shell navigates away. */
 export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won' | 'exit'
+  /** The second ending (the Supply Room's): the world holds still under its page, like 'won', and is not 'won'. */
+  | 'end2'
 
 export interface Dialog {
   lines: string[]
@@ -1621,6 +1625,8 @@ export interface GameState {
   lens?: Lens
   /** Hearts turned to paper clips, from the end of the row (`engine/clips.ts`): a cap on `hero.hp`. Never saved. */
   clips?: number
+  /** Seconds the HUD still shows every heart as a clip (the Maximizer's YES): a picture alone. Never saved. */
+  clipFlash?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -1709,6 +1715,8 @@ export type GameEvent =
   | { type: 'recited'; move: 'C' | 'S' | 'R' | 'H'; x: number; y: number; a: number }
   | { type: 'bossDown'; kind: EnemyKind }
   | { type: 'won'; elapsed: number }
+  /** The second ending: THE PAPERCLIP MAXIMIZER has fallen. */
+  | { type: 'end2'; elapsed: number }
   | { type: 'exit'; id: string; to: ExitTarget }
   | { type: 'startOver' } // the NEW GAME machine's lines closed: the shell asks yes or no
   | { type: 'panel'; id: string; panel: PanelId } // the login console was used: the shell opens its panel
@@ -1774,9 +1782,10 @@ export type GameEvent =
   | { type: 'pan'; x: number; y: number }
   /**
    * THE PAPERCLIP MAXIMIZER (`engine/bossMaximizer.ts`): a blow told, the ring's piles standing, a heart taken for a
-   * clip, a Weight coming down, a station stood on, and a mark worth saving (a part begun, a round cut).
+   * clip, a Weight coming down or its station lighting, a station stood on, a pile knocked flat by a lane, and a mark
+   * worth saving (a part begun, a round cut).
    */
-  | { type: 'clip'; x: number; y: number; what: 'tell' | 'ring' | 'grab' | 'weight' | 'station' | 'mark' }
+  | { type: 'clip'; x: number; y: number; what: 'tell' | 'ring' | 'grab' | 'weight' | 'station' | 'topple' | 'mark' }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)
