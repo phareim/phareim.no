@@ -59,6 +59,10 @@ const REWORDED = {
   'f6275c3': null,
   '7090e39': null,
   'b7aabf9': null,
+  '730900d': 'the Shrine has rooms nobody has opened yet',
+  'fb07f2b': 'something waits in the last room under the Shrine',
+  'b5fcf21': 'the last rooms under the Shrine are finished',
+  '461d4d7': "on a phone an attendant's answers are buttons you press, the menu calls each button by its key, the first hint keeps clear of your thumbs, and the ladder into the Boards holds you",
 }
 /** The list's line for a commit (not yet in the pixel face); null: it has none. */
 export const lineOf = (hash, subject) => { const k = hash.slice(0, 7); return k in REWORDED ? REWORDED[k] : subject.slice(PREFIX.length) }
