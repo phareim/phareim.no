@@ -289,7 +289,7 @@ export function stationOf(e: Enemy): { done: Station[]; live: (Station & { down:
   if (e.dead || e.ai.part !== 3 || m === 'beat' || m === 'down') return null
   if (m === 'question') return e.ai.t > 0 ? { done: [...STATIONS], live: null, fade: Math.min(1, e.ai.t) } : null
   const i = num(e, 'round') - 1
-  const lit = m === 'blow' && !!e.ai.struck
+  const lit = m === 'blow' && !!e.ai.struck && e.ai.armed !== false
   const spent = m === 'trick' || m === 'open'
   const live = m === 'intro' ? null : { ...STATIONS[i]!, down: m === 'call' ? clamp(1 - e.ai.t / MAXI.call, 0, 1) : 1, lit, spent }
   return { done: STATIONS.slice(0, i), live, fade: 1 }
@@ -647,6 +647,7 @@ function ask(c: Ctx, e: Enemy, lead: string[] = []) {
   openDialog(c, [...lead, QUESTION], 'MAXIMIZER')
   c.s.dialog!.ask = ANSWERS
   c.s.dialog!.choice = 1
+  c.s.dialog!.rest = 0.6
   // (B backs out of it; it is asked again this long after.)
   e.ai.wait = MAXI.askAfter
 }
@@ -759,7 +760,7 @@ export function maximizer(c: Ctx, e: Enemy, dt: number) {
     }
     case 'reach':
       if (MAXI.reach + MAXI.strike - ai.t >= MAXI.reach) strike(c, e)
-      if (ai.t <= 0) { ai.took = 0; mode(e, 'ask', MAXI.ask) }
+      if (ai.t <= 0) { ai.took = 0; ai.lampTook = 0; mode(e, 'ask', MAXI.ask) }
       return
     case 'ask':
       if (ai.t <= 0) { ai.cycle = num(e, 'cycle') + 1; work(e, MAXI.rest) }

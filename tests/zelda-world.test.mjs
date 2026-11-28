@@ -335,6 +335,8 @@ describe('the lands', () => {
     }
     // Every room's card and events say their lines on a page too, in every map.
     for (const d of Object.values(Z.WORLD.maps)) for (const c of Object.values(d.cells ?? {})) lines.push(...(c.card ? [c.card.title, ...c.card.lines] : []), ...(c.events ?? []).flatMap(e => e.lines ?? []))
+    // Luna's talk, too: every branch and every page of it.
+    for (const b of Z.WORLD.luna) lines.push(...b.lines, ...(b.ask ? [...b.ask.options, ...b.ask.replies.flat()] : []))
     for (const l of new Set(lines)) {
       const shown = X.subst(l, X.TOUCH_KEYS)
       assert.match(shown, /^[A-Z0-9ÆØÅ .,!?'":;\-()/#%&+=*·↑↓←→\n]*$/, `not in the font: ${l}`)

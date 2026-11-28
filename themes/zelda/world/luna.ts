@@ -5,7 +5,8 @@ export const LUNA_TALK: TalkBranch[] = [
   {
     when: { notFlag: 'lab1.power' },
     lines: [
-      'LUNA: THE LAB IS INSIDE THE FENCE, NORTH OF THE CAMP. A HEAVY BLOCK SITS IN FRONT OF THE DOOR. FACE IT AND PRESS {A}. I WILL MOVE IT.',
+      'LUNA: THE LAB IS INSIDE THE FENCE, NORTH OF THE CAMP.',
+      'LUNA: A HEAVY BLOCK SITS IN FRONT OF THE DOOR. FACE IT AND PRESS {A}. I WILL MOVE IT.',
       'LUNA: MY BLOCKS SLIDE UNTIL SOMETHING STOPS THEM. THINK FIRST.',
       'LUNA: INSIDE, THE POWER IS OFF. THE BREAKER IS DOWNSTAIRS.',
     ],
@@ -36,5 +37,5 @@ export const LUNA_TALK: TalkBranch[] = [
   { when: { flags: ['item:prism'], not: ['maximizer', 'luna.hum'] }, set: 'luna.hum', lines: ['LUNA: THE PEDESTAL HUMS. LIKE SOMEONE COUNTING.'] },
   // Once, after the second ending: it has stopped.
   { when: { flags: ['maximizer'], not: ['luna.hush'] }, set: 'luna.hush', lines: ['LUNA: THE HUM STOPPED.', 'LUNA: I CAN HEAR THE SEA. IT WAS THERE ALL ALONG.'] },
-  { lines: ['LUNA: FRIENDS DON\'T LIE. YOU DID IT.', 'LUNA: … CAN WE GET WAFFLES NOW?'] },
+  { lines: ['LUNA: FRIENDS DON\'T LIE. YOU DID IT.', 'LUNA: ... CAN WE GET WAFFLES NOW?'] },
 ]

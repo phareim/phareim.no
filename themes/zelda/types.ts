@@ -804,6 +804,8 @@ export interface CellDef {
   dark?: boolean
   /** A dark room is lit once this flag is set (the lab's power). */
   lit?: string
+  /** Tiles (the map's own) where the storm lamp may not stand: the hero still walks there (`lampMayStand`). */
+  noLamp?: Rect
   /** While the hero is in the room and a foe of it lives, it is played on its chart (`render/chartRoom.ts`). */
   chart?: true
   track?: TrackId
@@ -1543,6 +1545,9 @@ export interface Dialog {
   ask?: TalkAsk
   /** A direction was held last frame (the choice moves once per press). */
   held?: boolean
+  /** A ignores a page for this many seconds once it is fully typed (a typing page still completes at a press); `hold` counts it down. */
+  rest?: number
+  hold?: number
 }
 
 export interface GameState {
