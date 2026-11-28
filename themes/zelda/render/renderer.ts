@@ -42,6 +42,7 @@ import { GOLEM } from '../engine/bossGolem'
 import { boxSprite } from '../engine/bossBlackBox'
 import { drawBalanceFloor, drawBalanceHud, drawBalanceOver, maximizerSprite, queueBalance } from './balance'
 import { drawClipFlights } from './clipHearts'
+import { trickSway } from './maximizerTricks'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -678,6 +679,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           pulse(e.x, e.y, 2.4, '#ff2fa0', 0.16)
           break
         case 'won': flashT = 1; flashColor = '#ffd23f'; break
+        // The second ending: a pale silver one. (None under reduced motion: it would hang over the page's still world.)
+        case 'end2': if (!frameReduced) { flashT = 0.7; flashColor = '#dfe6f2' } break
         // An echo left: a ring where it stands; its blows flash there; a pot back on its stand.
         case 'echo': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.45, color: '#2ff3ff', size: 1 }); pulse(e.x, e.y, 2.4, '#2ff3ff', 0.25); break
         // THE NO met a blow: a gold ring bursts where it met it (the ring is the clue; the sound only confirms).
@@ -708,7 +711,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         // The Weaver's hand down, or its bite: dust, and no flash over what is to be read.
         case 'slam': dust(e.x - 0.8, e.y - 0.3, 6); dust(e.x + 0.8, e.y - 0.3, 6); break
         // The Maximizer: silver off the hero for a clip taken, cyan on a station stood on.
-        case 'clip': if (e.what === 'grab') spark(e.x, e.y - 0.4, 8, '#e6ecf5', 4, 0.35); else if (e.what === 'station') { spark(e.x, e.y, 8, '#2ff3ff', 4, 0.35); pulse(e.x, e.y, 2.2, '#2ff3ff', 0.25) } break
+        case 'clip': if (e.what === 'grab') spark(e.x, e.y - 0.4, 8, '#e6ecf5', 4, 0.35); else if (e.what === 'topple') spark(e.x, e.y, 4, '#e6ecf5', 3, 0.3); else if (e.what === 'station') { spark(e.x, e.y, 8, '#2ff3ff', 4, 0.35); pulse(e.x, e.y, 2.2, '#2ff3ff', 0.25) } break
         // The Magnet: cyan on the metal it takes, a grey spark at the hand for a tap that takes nothing.
         case 'latch': spark(e.x, e.y, 6, '#2ff3ff', 4, 0.3); pulse(e.x, e.y, 1.8, '#2ff3ff', 0.18); break
         case 'fizzle': spark(e.x, e.y, 5, '#8f86b8', 3, 0.25); break
@@ -1398,7 +1401,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.kind === 'maximizer') lights.push({ x: e.x, y: e.y + 0.4, r: 3.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.6 : 0.45 })
     // While time waits, a foe wears a pale outline.
     if (timeStands(s)) for (const [dx, dy] of AROUND) put(g, name, x + shiver(e) + dx, feet + dy, flip, false, sx, sy, STILL_PALE)
-    put(g, name, x + shiver(e), feet, flip, flashing(e), sx, sy)
+    put(g, name, x + shiver(e) + trickSway(e, time, frameReduced), feet, flip, flashing(e), sx, sy)
     if (e.kind === 'eye') {
       const a = e.ai.ang as number ?? 0
       const hot = e.ai.tell > 0 || e.ai.mode === 'aim'
@@ -1722,6 +1725,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (let i = beforeExits; i < items.length; i++) items[i]!.big = true
     for (const e of m.enemies) {
       if (e.dead) {
+        // Under the second ending's page the machine lies where it fell; played on, it is gone.
+        if (e.kind === 'maximizer' && s.mode === 'end2') items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, big: true, draw: () => drawEnemy(g, s, e, cx, cy, lights) })
         // Just fallen: the pop, where it stood.
         if (e.deathT !== undefined && e.deathT < DEATH_POP && !e.away && !BIG.has(e.kind) && (!roomed(kind) || e.cell === s.zoneIndex)) {
           items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.y, draw: () => drawDeathPop(g, s, e, cx, cy) })

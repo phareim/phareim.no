@@ -15,7 +15,8 @@ the coast. Design (story, maps, progression, enemies, look):
 `themes/zelda/DESIGN.md`.
 
 Under the Shrine's pedestal, once the prism is taken: the Balance for the seven
-Weights and the way to the Supply Room (`docs/games/neon-shrine-balance.md`).
+Weights, the way to the Supply Room and the game's second ending
+(`docs/games/neon-shrine-balance.md`).
 
 Around the hand-made maps lie seven lands drawn by hand, all on one grid
 with the coast and the Wildwood (`docs/worlds/atlas.md`, how they are built:

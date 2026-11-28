@@ -139,12 +139,16 @@ const SUPPLYROOM: MapDef = {
     '0,0': {
       name: 'THE SUPPLY ROOM',
       track: 'boss',
-      // The card, the first clip, and the two later parts as they begin (`engine/bossMaximizer.ts` sets the flags).
+      // The music is the hall's own again once the machine is down.
+      calm: 'maximizer',
+      // The card, the first clip, the two later parts as they begin (`engine/bossMaximizer.ts` sets the flags), and the
+      // hall after the second ending.
       events: [
         { lines: ['THE PAPERCLIP MAXIMIZER.', 'IT WAS ASKED FOR ENOUGH. NOBODY SAID HOW MANY THAT WAS.'], set: 'maximizer.card' },
         { when: { flag: 'maximizer.sawclip' }, lines: ['(ONE OF YOUR HEARTS IS A PAPER CLIP NOW.)'], set: 'maximizer.clipline' },
         { when: { flag: 'maximizer.p2' }, lines: ['IT HAS BEGUN TO COUNT YOU.'], set: 'maximizer.t2' },
         { when: { flag: 'maximizer.p3' }, lines: ['(THE WEIGHTS COME DOWN, ONE AT A TIME.)'], set: 'maximizer.t3' },
+        { when: { flags: ['maximizer'] }, lines: ['(THE HALL IS QUIET. ONE CLIP LIES ON THE FLOOR.)'], set: 'maximizer.after' },
       ],
     },
   },

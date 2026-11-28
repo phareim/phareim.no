@@ -1,17 +1,15 @@
 ## Neon Shrine — The Balance and the Supply Room
 
 Under the Neon Shrine's pedestal: a balance with seven empty pans, three store
-rooms, and the hall at the far end. Its place in the larger design:
-`docs/worlds/sacred-weights.md`. Code: `world/balance.ts` (the maps),
-`engine/balance.ts` (the pans and the level), `engine/bossMaximizer.ts` (the
-boss), `engine/clips.ts` (hearts turned to clips), `render/balance.ts` (both
-painters' pictures), `render/clipHearts.ts` (the HUD's clips),
-`render/spritesMaximizer.ts`. Test: `tests/zelda-balance.test.mjs`.
-
-**What is built:** the lid, the Balance, the three store rooms, and in the
-Supply Room THE PAPERCLIP MAXIMIZER up to its last question. The question is not
-asked yet, the machine does not fall, and the second ending is not built. Not
-every Weight can be won yet, so the Balance's floor cannot be opened by playing.
+rooms, and the hall at the far end, where the game has its second ending. Its
+place in the larger design: `docs/worlds/sacred-weights.md`. Code:
+`world/balance.ts` (the maps), `engine/balance.ts` (the pans and the level),
+`engine/bossMaximizer.ts` (the boss, its question and its fall),
+`engine/clips.ts` (hearts turned to clips), `render/balance.ts` (both painters'
+pictures), `render/maximizerTricks.ts` (the seven tricks),
+`render/clipHearts.ts` (the HUD's clips), `render/spritesMaximizer.ts`; the
+second ending's shell is `Zelda.vue` (`finishEnd2`) and its page
+`themes/portal/Landing.vue`. Test: `tests/zelda-balance.test.mjs`.
 
 ## The lid
 
@@ -88,15 +86,23 @@ Each has two ways; every B item is a tap.
 An open floor with a sign, and its way back through a door behind a trap gate:
 it shuts behind the hero, since the machine lives there.
 
+The camera of the isometric view, where a screen holds less than the room, keeps
+the hero and what they are going to (the live station, from the moment its
+Weight starts down; else the machine) both in the picture, and where the two are
+further apart than the picture is wide it keeps the hero and reaches as far
+toward the other as it can. A lit station past the screen's edge has a cyan arrow
+at that edge. (`maximizerFocus`; the arrow is the one that marks a hero the
+machine hides.)
+
 ## The Paperclip Maximizer
 
 A copier overgrown with giant clips at the north middle (8.5, 3.5). It never
 moves, and walking into it does no harm: **every harm is painted on the floor
 before it lands**, and what is painted is what hurts (a lane or a circle costs
 two half hearts). One bar of 24, notched at the two places a part ends (16 and
-8). It opens with its card, once. In the isometric view, where a screen holds less
-than the room, the camera leans from the hero toward the lit station, else the
-machine. A hero its figure hides is marked by a cyan arrow over it.
+8). It opens with its card, once. A hero its figure hides is marked by a cyan
+arrow over it. **A hero who stands still loses**, in every part and every
+round.
 
 It takes harm only while its bar is gold. Anything that strikes counts then (the
 blade, the echo, a bomb, the disc, the hook, the lamp's beam, the stomp), and at
@@ -119,9 +125,10 @@ A cycle of about 7 s:
    Part two, **the quota**: three circles, on the hero's tile and 3.2 to each
    side. A circle that holds the hero when they land (1.4 s) takes one heart for
    a clip: no hurt, one a volley.
-2. **reach** (1 s told, 0.3 s standing). Part one: one lane at the hero's tile,
-   10 long. Part two: two, 40° to either side of the hero's line, which stays
-   free. **A lane ends at the first pile it would touch.**
+2. **reach** (1 s told, 0.3 s standing). Part one: one lane at where the hero
+   stands as the tell begins, 10 long. Part two: two, one along that line and
+   one 80° from it, toward the open floor. **A lane ends at the first pile it
+   would touch**, and as it lands knocks that pile flat: cover holds one lane.
 3. **ask** (2.4 s, gold). The blade takes 4 hit points at most.
 4. A breath of 0.6 s, and `work` again.
 
@@ -133,31 +140,67 @@ with its line, and the hearts fill.
 
 Four hearts turn to clips, and the seven Weights come down onto **stations**,
 one live at a time: a brass disc two tiles across with its word, the Weight's
-icon over it, a cyan ring and column. The Weight comes down (1.2 s); then the
-machine blows (1.5 s told, 0.25 s landing, 1 s rest, again), until the hero
-**stands on the disc**. That cancels a blow still being told, gives one heart
-back (once a round), flashes at the machine (0.8 s) and opens it for 3 s: one
-blow of any kind takes 1, and the next round begins. An opening left uncut
-relights the station, which fires again only after the hero has stood off it
-for 0.3 s.
+icon over it. The Weight comes down (1.2 s) and the machine blows (1.5 s told,
+0.25 s landing, 1 s rest, again). **The disc is dim until the round's first blow
+has landed**; then it is lit (a cyan ring and column), and a hero who **stands on
+it** fires it. That cancels a blow still being told, gives one heart back (once a
+round), plays that Weight's trick (0.8 s) and opens the machine for 3 s: one blow
+of any kind takes 1, and the next round begins. An opening left uncut relights
+the station, which fires again only after the hero has stood off it for 0.3 s.
 
-| Round | Weight | Station | Its blow |
-|---|---|---|---|
-| 1 | MEANING | (3, 4.5) | one lane |
-| 2 | REASONS | (13, 4.5) | one lane |
-| 3 | NO | (3, 2.5) | the fork |
-| 4 | SURPRISE | (13, 2.5) | the fork |
-| 5 | FINGERS | (6, 7) | three circles |
-| 6 | CREDIT | (13, 7) | three circles |
-| 7 | SOURCES | (2.5, 7) | six lanes, one real; the five others hatched with a dotted edge, harmless |
+| Round | Weight | Station | Its blow | Its trick |
+|---|---|---|---|---|
+| 1 | MEANING | (3, 4.5) | one lane | a cyan ghost of the hero rises and its cut, a cyan arc, reaches the machine |
+| 2 | REASONS | (13, 4.5) | one lane | a cyan beam from the station to the machine |
+| 3 | NO | (3, 2.5) | the fork | a gold ring bursts at its foot and the lanes go out in gold |
+| 4 | SURPRISE | (13, 2.5) | the fork | a duck squeaks on the station; the machine turns to look |
+| 5 | FINGERS | (6, 7) | three circles | a shock ring runs across the floor; the machine rocks |
+| 6 | CREDIT | (13, 7) | three circles | a striped crate flies into its foot and sticks; it chokes |
+| 7 | SOURCES | (2.5, 7) | six lanes, one real; the five others hatched with a dotted edge, harmless | the false lanes turn to cyan dots and are gone; the real one stays, faint |
 
-The seventh cut leaves the bar at 1: **the question**. The floor is bare, nothing
-can hurt, and the machine stands there.
+The fork's two lanes are the hero's line and one 80° from it. A trick is its
+picture and a sound: no treasure's own engine is asked, so a station works for
+whoever stands on it.
+
+The seventh cut leaves the bar at 1: **the question**.
+
+### The question and the fall
+
+The floor is bare and nothing can hurt. A second later the machine asks:
+"WOULD YOU LIKE TO BE CLIPS TOO? THERE IS ROOM." The cursor starts on **NO**. B
+backs out, and it asks again after 1 s.
+
+- **YES** is a joke that costs nothing: the HUD shows every heart as a clip for
+  2.5 s (`GameState.clipFlash`, a picture alone), then "(IT DID NOT TAKE.)" and
+  the question again.
+- **NO** is answered in three pages, then the machine goes **down** (3 s, the bar
+  empty, `bossDown`), the hall rests 2 s, and in one step: the flag `maximizer`
+  (so the trap gate opens), the flag `ending2`, the mode `end2`, the event `end2`.
+
+The machine is alive until that last step, since the fall is timed by its brain. A
+save anywhere in the fall resumes at the question.
+
+## The second ending
+
+| | The first (the Prism) | The second (the Supply Room) |
+|---|---|---|
+| Mode, shell phase | `won` | `end2` |
+| Flags | `won` | `ending2`, `maximizer` |
+| Best time (`zeldaBest`) | written | never |
+| Profile push | the save, `best`, `won` | the save alone |
+| Page | THE SUN SETS AT LAST, time, NEW BEST! | ENOUGH. / THE ORDER IS FILLED. / time / STILL HERE: seven names |
+
+The world holds still under the page, the machine lying where it fell. Enter or a
+tap after 1.2 s closes it (`resumeAfterEnd2`): the machine is gone, one clip lies
+on the floor with its line, the gate is open, and the way leads back up through
+the store rooms to the Balance (its plate now reads RETURNED) and the Shrine.
+Luna says one thing about it. The lid is the prism's, so the second ending never
+comes before the first.
 
 ### Death and reload
 
 Only flags are saved: `maximizer.p2`, `.p3` (a part begun), `.w1` to `.w7` (a
-round cut), `.q` (the question). A death or a reload puts the hero at the hall's
+round cut), `.q` (the question), and at the end `maximizer` and `ending2`. A death or a reload puts the hero at the hall's
 entry, and the brain's first step takes from the flags the part, the round, the
 hit points (24, 16, 8 less the rounds cut, 1 at the question), and the clips a
 first try would hold at that round.

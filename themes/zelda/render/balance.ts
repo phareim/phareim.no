@@ -4,13 +4,14 @@
  * pans' labels; and on the HUD the counter again, for a phone that sees only part of the room. Also the one thing
  * the Dark Store asks of the top-down painters: THE LENS's hidden chest and its ring (`engine/lens.ts`). And what the
  * Supply Room adds to THE PAPERCLIP MAXIMIZER (`engine/bossMaximizer.ts`): which frame it shows, the stations, the
- * tiles that flash before they are piles, and the flash at the machine when a station is stood on (the seven discs,
- * their ring and column and the flash are code STAND-INS).
+ * tiles that flash before they are piles, the arrow to a station past the screen's edge, and the calls into the seven
+ * tricks' pictures (`maximizerTricks.ts`). The discs, their ring and column and the arrow are code STAND-INS.
  */
 import type { Enemy, GameState, World, WeightId } from '../types'
 import { HERO_R, TILE, WEIGHTS } from '../types'
 import { LEVEL_FLAG, PANS, panFlag, pansHeld } from '../engine/balance'
 import { MAXI, maximizerFlash, stationOf, type Station } from '../engine/bossMaximizer'
+import { drawTrickFloor, drawTrickOver, queueTrick, trickFrame } from './maximizerTricks'
 import { has, mapInfo } from '../engine/map'
 import { LENS, glassThings } from '../engine/lens'
 import { drawText, textWidth } from '../../base/pixel/font'
@@ -232,8 +233,9 @@ function digits(g: G, mx: number, my: number, n: number, level: boolean) {
  * labels are kept inside the room's 16 tiles. A label the hero stands behind thins out.
  */
 export function drawBalanceOver(g: G, s: GameState, place: Place, flat: boolean) {
-  trickFlash(g, s, place)
+  drawTrickOver(g, s, place)
   behindMark(g, s, place, flat)
+  stationMark(g, s, place)
   if (!here(s)) return
   beam(g, s, place)
   const mid = place(8.5, 1, 0.6)
@@ -284,6 +286,10 @@ const CYAN = '#2ff3ff'
 /** The frame it shows: its chains up while a blow is told and lands, its arms down while it asks or stands open. */
 export function maximizerSprite(e: Enemy, time: number): string {
   const m = e.ai.mode
+  // The fall: a jolt, then down, and down it stays under the second ending's page.
+  if (e.dead || (m === 'down' && e.ai.t <= MAXI.fall + MAXI.after - MAXI.jolt)) return 'maxi_down'
+  if (m === 'down') return 'maxi_hurt'
+  if (m === 'trick') { const own = trickFrame(e); if (own) return own }
   if (m === 'beat' || ((e.ai.hurt as number | undefined) ?? 0) > 0) return 'maxi_hurt'
   if (m === 'reach' || (m === 'blow' && e.ai.t > MAXI.blowRest)) return 'maxi_reach'
   if (m === 'ask' || m === 'open' || m === 'question') return 'maxi_ask'
@@ -293,22 +299,32 @@ export function maximizerSprite(e: Enemy, time: number): string {
 const boss = (s: GameState) => (s.map.id === 'supplyroom' ? s.map.enemies.find(e => e.kind === 'maximizer' && !e.dead) : undefined)
 const stationWord = (st: Station) => WEIGHTS.find(w => w.id === st.weight)!.word
 
-/** A brass disc two tiles across, its word stamped under it; a finished round's is a dim empty one. */
-function disc(g: G, x: number, y: number, st: Station, done: boolean) {
+/**
+ * A station's disc, two tiles across, its word stamped under it. `lit`: bright brass; `dim` (its Weight still on the
+ * way, or no blow of its round landed yet): the same in shadow; `done`: a finished round's, flat grey and empty.
+ */
+function disc(g: G, x: number, y: number, st: Station, look: 'lit' | 'dim' | 'done') {
+  const dim = look === 'dim'
+  const done = look === 'done'
   oval(g, x, y + 1, 16, 15, 'rgba(4,2,10,0.55)')
   oval(g, x, y, 15, 14, INK)
-  oval(g, x, y, 14, 13, done ? '#8a7444' : BRASS_DARK)
-  oval(g, x, y - 1, 13, 12, done ? '#75638c' : BRASS)
+  oval(g, x, y, 14, 13, done ? '#8a7444' : dim ? '#6a5428' : BRASS_DARK)
+  oval(g, x, y - 1, 13, 12, done ? '#75638c' : dim ? '#97793a' : BRASS)
   // (Spent, it is a flat grey plate with a brass lip: a disc, not a hole.)
-  oval(g, x, y, 9, 8, done ? '#655578' : DISH)
+  oval(g, x, y, 9, 8, done ? '#655578' : dim ? '#7d632c' : DISH)
   if (done) return
-  oval(g, x, y, 7, 6, BRASS_DARK)
+  oval(g, x, y, 7, 6, dim ? '#594619' : BRASS_DARK)
   const word = stationWord(st)
   const w = textWidth(word)
-  drawText(g, word, Math.round(x - w / 2), Math.round(y + 17), BRASS_LIGHT, INK)
+  // (A dark slip under the word, so it reads over a stencil's paint.)
+  g.fillStyle = 'rgba(11,6,22,0.85)'
+  g.fillRect(Math.round(x - w / 2) - 2, Math.round(y + 16), w + 4, 10)
+  drawText(g, word, Math.round(x - w / 2), Math.round(y + 17), dim ? '#d8c8a0' : BRASS_LIGHT, INK)
 }
 
 export function drawMaximizerFloor(g: G, s: GameState, cx: number, cy: number, time: number, reduced: boolean) {
+  // After the second ending: the one clip nobody counted, where the line says it lies.
+  if (s.map.id === 'supplyroom' && has(s, 'maximizer')) g.drawImage(sprite('clip_0'), Math.round(8.5 * T - cx) - 8, Math.round(6.6 * T - cy) - 8)
   const e = boss(s)
   if (!e) return
   // The ring's tiles flash before they stand as piles.
@@ -317,14 +333,14 @@ export function drawMaximizerFloor(g: G, s: GameState, cx: number, cy: number, t
   if (!st) return
   g.save()
   g.globalAlpha = st.fade
-  for (const d of st.done) disc(g, Math.round(d.x * T - cx), Math.round(d.y * T - cy), d, true)
+  for (const d of st.done) disc(g, Math.round(d.x * T - cx), Math.round(d.y * T - cy), d, 'done')
   const live = st.live
   if (live) {
     const x = Math.round(live.x * T - cx)
     const y = Math.round(live.y * T - cy)
     // (It fades in as its Weight comes down.)
     g.globalAlpha = st.fade * Math.min(1, 0.25 + live.down)
-    disc(g, x, y, live, false)
+    disc(g, x, y, live, live.lit || live.spent ? 'lit' : 'dim')
     if (live.lit) {
       // The cyan ring: it breathes outward from the disc, over and over.
       const p = reduced ? 0.4 : (time * 0.9) % 1
@@ -341,10 +357,12 @@ export function drawMaximizerFloor(g: G, s: GameState, cx: number, cy: number, t
     }
   }
   g.restore()
+  drawTrickFloor(g, s, cx, cy)
 }
 
 /** The live station's column of light and its Weight's icon over it at twice the size, coming down as it is called. */
 function queueStation(g: G, s: GameState, cx: number, cy: number, items: SceneItem[], lights: Light[], time: number) {
+  queueTrick(g, s, cx, cy, items, lights)
   const e = boss(s)
   const live = e ? stationOf(e)?.live : undefined
   if (!live) return
@@ -363,37 +381,60 @@ function queueStation(g: G, s: GameState, cx: number, cy: number, items: SceneIt
           g.fillRect(x - 1, y - (k + 1) * 11, 2, 11)
         }
       }
-      g.globalAlpha = was * Math.min(1, 0.3 + live.down)
+      g.globalAlpha = was * Math.min(1, 0.3 + live.down) * (live.lit || live.spent ? 1 : 0.75)
       const spr = sprite(iconName(live.weight))
-      const bob = live.lit && live.down >= 1 ? Math.round(Math.sin(time * 3) * 2) : 0
+      const bob = live.lit ? Math.round(Math.sin(time * 3) * 2) : 0
       // Waiting, it hangs over the disc; once taken it rests in it.
-      const foot = y + (live.lit ? -7 : 8) - up + bob
+      const foot = y + (live.spent ? 8 : -7) - up + bob
       g.drawImage(spr, x - spr.width, foot - spr.height * 2, spr.width * 2, spr.height * 2)
       g.globalAlpha = was
     },
   })
   if (live.lit) lights.push({ x: live.x, y: live.y, r: 2.4, color: CYAN, a: 0.75 * live.down })
+  // (Dim is not dark: in the 8-bit view's dusk an unlit disc would read as a hole.)
+  else if (!live.spent) lights.push({ x: live.x, y: live.y, r: 2, color: BRASS_LIGHT, a: 0.55 * live.down })
 }
 
-/** The trick's flash: a cyan burst at the machine (the seven tricks' own pictures take its place later). */
-function trickFlash(g: G, s: GameState, place: Place) {
-  const e = boss(s)
-  if (!e || e.ai.mode !== 'trick') return
-  const p = Math.max(0, Math.min(1, 1 - e.ai.t / MAXI.trick))
-  // (Over its figure, which stands on its foot point, a radius south of its middle, in every view.)
-  const at = place(e.x, e.y + e.r, 1.7)
-  const x = Math.round(at.x)
-  const y = Math.round(at.y)
-  g.globalAlpha = 0.7 * (1 - p)
-  oval(g, x, y, Math.round(8 + p * 22), Math.round(6 + p * 16), CYAN)
-  g.globalAlpha = 1 - p
-  g.fillStyle = CYAN
-  for (let k = 0; k < 12; k++) {
-    const a = (k / 12) * Math.PI * 2
-    const r = 18 + p * 34
-    g.fillRect(Math.round(x + Math.cos(a) * r) - 1, Math.round(y + Math.sin(a) * r * 0.75) - 1, 3, 3)
+/**
+ * A cyan arrow with a dark rim, its tip at (x, y), pointing `way`, `rows` px long: over a hero the machine hides, and
+ * at the screen's edge toward a lit station that is past it.
+ */
+function arrow(g: G, x: number, y: number, way: 'down' | 'up' | 'left' | 'right', rows: number) {
+  const along = way === 'left' || way === 'right'
+  const sign = way === 'down' || way === 'right' ? 1 : -1
+  for (const [grow, color] of [[1, INK], [0, CYAN]] as const) {
+    g.fillStyle = color
+    // Back from the tip, each row (or column) a px wider on both sides.
+    for (let row = -grow; row < rows + grow; row++) {
+      const half = Math.max(0, row) + grow
+      const at = -sign * row
+      if (along) g.fillRect(x + at, y - half, 1, half * 2 + 1)
+      else g.fillRect(x - half, y + at, half * 2 + 1, 1)
+    }
   }
-  g.globalAlpha = 1
+}
+
+/**
+ * A lit station the picture does not hold (a phone sees half the room): an arrow at the edge nearest it. Kept under
+ * the HUD at the top and, on an upright screen, above where the thumbs' pads lie.
+ */
+function stationMark(g: G, s: GameState, place: Place) {
+  const e = boss(s)
+  const live = e ? stationOf(e)?.live : undefined
+  if (!live?.lit) return
+  const m = g.getTransform()
+  const w = g.canvas.width / (m.a || 1)
+  const h = g.canvas.height / (m.d || 1)
+  const at = place(live.x, live.y)
+  if (at.x > 8 && at.x < w - 8 && at.y > 8 && at.y < h - 8) return
+  const x = Math.round(Math.max(5, Math.min(w - 6, at.x)))
+  const y = Math.round(Math.max(48, Math.min(h > w ? h * 0.66 : h - 14, at.y)))
+  // (Whichever edge it is further past.)
+  const overX = Math.max(8 - at.x, at.x - (w - 8))
+  const overY = Math.max(8 - at.y, at.y - (h - 8))
+  const way = overX >= overY ? (at.x < w / 2 ? 'left' : 'right') : at.y < h / 2 ? 'up' : 'down'
+  const bob = Math.floor(s.elapsed * 4) % 2 * 2
+  arrow(g, x + (way === 'left' ? bob : way === 'right' ? -bob : 0), y + (way === 'up' ? bob : way === 'down' ? -bob : 0), way, 10)
 }
 
 /**
@@ -412,11 +453,5 @@ function behindMark(g: G, s: GameState, place: Place, flat: boolean) {
   const x = Math.round(at.x)
   const y = Math.round(at.y)
   if (Math.abs(x - foot.x) > 28 || y - 8 > foot.y || y - 8 < foot.y - 60) return
-  const tip = y - 18 + (Math.floor(s.elapsed * 4) % 2)
-  for (let row = 0; row < 6; row++) {
-    g.fillStyle = INK
-    g.fillRect(x - row - 1, tip - row - 1, row * 2 + 3, 1)
-    g.fillStyle = CYAN
-    g.fillRect(x - row, tip - row, row * 2 + 1, 1)
-  }
+  arrow(g, x, y - 18 + (Math.floor(s.elapsed * 4) % 2), 'down', 6)
 }

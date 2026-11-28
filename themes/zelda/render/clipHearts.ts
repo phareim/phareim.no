@@ -1,8 +1,8 @@
 /**
  * HEARTS TURNED TO CLIPS on the HUD (`engine/clips.ts`, THE PAPERCLIP MAXIMIZER's fight): the last hearts of the row
  * are drawn as clips, grey-silver beside the red ones (`hud_heart_clip`: the drawn heart of `spritesMaximizer.ts` in
- * the classic skin, a plain silver heart in the finer one, `hud16.ts`), and a clip on its way flies from the hero to
- * the heart it becomes, over everything.
+ * the classic skin, a heart of bent silver wire in the finer one, `hud16.ts`), and a clip on its way flies from the
+ * hero to the heart it becomes, over everything. After a YES to its last question the whole row shows as clips.
  */
 import type { GameState, Vec } from '../types'
 import { clipFlights } from '../engine/bossMaximizer'
@@ -11,8 +11,14 @@ import type { HudSkin } from './hud'
 
 type G = CanvasRenderingContext2D
 
-/** How many hearts, from the end of the row, are drawn as clips: one whose clip is still in the air is a heart yet. */
-export const clipsShown = (s: GameState) => (s.clips ? Math.max(0, s.clips - clipFlights(s).length) : 0)
+/**
+ * How many hearts, from the end of the row, are drawn as clips: one whose clip is still in the air is a heart yet.
+ * While the Maximizer's YES shows (`GameState.clipFlash`, a picture alone) it is every one of them.
+ */
+export const clipsShown = (s: GameState) => {
+  if (s.clipFlash) return Math.ceil(s.hero.maxHp / 2)
+  return s.clips ? Math.max(0, s.clips - clipFlights(s).length) : 0
+}
 
 /** The clips in the air. `from`: the hero on this HUD's grid; `left`, `top`: where the hearts' corner was moved to. */
 export function drawClipFlights(g: G, s: GameState, from: Vec, skin: HudSkin, left: number, top: number) {

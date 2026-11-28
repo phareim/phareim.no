@@ -129,6 +129,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   for (const e of s.map.enemies) if (s.wounds?.[e.id]) wound(e, s.wounds[e.id]!)
   // No heart stays a paper clip past the room (`clips.ts`).
   delete s.clips
+  delete s.clipFlash
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   delete h.side
@@ -295,6 +296,7 @@ function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEve
     case 'get': return getItem(c, dt, inp)
     case 'dying': return dying(c, dt)
     case 'won': case 'exit': return
+    case 'end2': return
   }
 }
 
@@ -572,7 +574,9 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     if (d.ask && inp.aPress) {
       // The reply carries the offer's own flags, and the pick's `after` (the Steamhouse's YES starts the bath).
       const pick = d.ask.after?.[d.choice ?? 0]
-      openDialog(c, d.ask.replies[d.choice ?? 0], d.who, d.after || pick ? { ...d.after, ...pick } : null)
+      const said = d.ask.set?.[d.choice ?? 0]
+      const after = d.after || pick ? { ...d.after, ...pick } : null
+      openDialog(c, d.ask.replies[d.choice ?? 0], d.who, said ? { ...after, set: [...(after?.set ?? []), said] } : after)
       return
     }
     if (inp.aPress && d.choice === 1) { closeWithoutLeaving(c); return }
@@ -652,11 +656,20 @@ export function resumeAfterWin(s: GameState) {
   s.hero.actT = 0
 }
 
+/** After the second ending: the machine is gone, its hall's gate open, and play goes on from where the hero stood. */
+export function resumeAfterEnd2(s: GameState) {
+  if (s.mode !== 'end2') return
+  s.mode = 'play'
+  s.hero.act = 'idle'
+  s.hero.actT = 0
+}
+
 export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameEvent[] {
   s.dying = null
   s.mode = 'play'
   // (Every heart a heart again before they are filled: `clips.ts`.)
   delete s.clips
+  delete s.clipFlash
   s.hero.hp = s.hero.maxHp
   s.hero.robe = false
   s.hero.invuln = 1.2

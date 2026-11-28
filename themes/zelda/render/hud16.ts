@@ -251,8 +251,25 @@ const KEY = [
   '................',
 ]
 const DRAWN: Record<string, string[]> = { hud_heart_full: HEART_FULL, hud_heart_half: HEART_HALF, hud_heart_empty: HEART_EMPTY, hud_bit: BIT, hud_bomb: BOMB, hud_key: KEY }
-/** A heart that is a paper clip for now (`clipHearts.ts`): the full heart in grey-silver (a STAND-IN). */
-DRAWN.hud_heart_clip = HEART_FULL.map(r => r.replace(/[mwpPD]/g, c => ({ m: 'v', w: 'v', p: 'x', P: 'X', D: 'X' })[c]!))
+/** A heart that is a paper clip for now (`clipHearts.ts`): one silver wire bent into a heart, twice round (a STAND-IN). */
+DRAWN.hud_heart_clip = [
+  '..kkkk...kkkk...',
+  '.kvvvvk.kvvxxk..',
+  'kvkkkkvkvkkkkxk.',
+  'kvk..kkvkk..kxk.',
+  'kvk.kk.k.kk.kxk.',
+  'kvkkvvkkkxXkkXk.',
+  'kvkvkkvkxkkXkXk.',
+  '.kvkk.kvk..kkXk.',
+  '..kvk..k..kxkk..',
+  '...kvk...kxkk...',
+  '....kvk.kxXk....',
+  '.....kvkxXk.....',
+  '......kxXk......',
+  '.......kk.......',
+  '................',
+  '................',
+]
 
 /** The pointing glove at an answer. */
 const HAND = [
