@@ -85,7 +85,7 @@ export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number, throu
   if (roomed(c.info.def.kind)) {
     const z = cellRect(c.info, e.cell)
     const nx = clamp(x, z.x + 1 + e.r, z.x + z.w - 1 - e.r)
-    const ny = afoot ? y : clamp(y, z.y + 1 + e.r, z.y + z.h - 1 - e.r)
+    const ny = afoot ? y : clamp(y, z.y + 1 + e.r, z.y + z.h - 1 - e.r + doorway(e))
     if (nx !== x || ny !== y) hit = true
     x = nx
     y = ny
@@ -101,6 +101,9 @@ export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number, throu
   return hit
 }
 
+/** A tough hound's room reaches one row further south: an open doorway on the border row is no seat out of its lunge. */
+const doorway = (e: Enemy) => (e.kind === 'hound' && e.tough ? 1 : 0)
+
 /**
  * Where a straight run of `len` tiles from where `e` stands ends, along the unit way (ux, uy): at its length, or at
  * the first wall (a charge's, which goes through the echo).
@@ -114,7 +117,7 @@ export function lineEnd(c: Ctx, e: Enemy, ux: number, uy: number, len: number): 
     const step = Math.min(0.075, len - gone)
     const r = moveCircle(c.w, c.s.map, x, y, e.r, ux * step, uy * step, mode(e))
     const nx = bounded ? clamp(r.x, z.x + 1 + e.r, z.x + z.w - 1 - e.r) : r.x
-    const ny = bounded ? clamp(r.y, z.y + 1 + e.r, z.y + z.h - 1 - e.r) : r.y
+    const ny = bounded ? clamp(r.y, z.y + 1 + e.r, z.y + z.h - 1 - e.r + doorway(e)) : r.y
     const blocked = r.hitX || r.hitY || nx !== r.x || ny !== r.y
     x = nx
     y = ny
@@ -617,6 +620,8 @@ function hound(c: Ctx, e: Enemy, dt: number) {
 function prowl(c: Ctx, e: Enemy, dt: number, tell: number) {
   const ai = e.ai
   const h = c.s.hero
+  const grace = (ai.grace as number | undefined) ?? 0
+  if (grace > 0) ai.grace = grace - dt
   if (!seesHero(c, e, 8)) {
     const v = dirVec(e.dir)
     if (walk(c, e, v.x * 1.5, v.y * 1.5, dt) || ai.t <= 0) { e.dir = pick(c.s, DIRS); ai.t = rndRange(c.s, 0.8, 1.6) }
@@ -633,7 +638,7 @@ function prowl(c: Ctx, e: Enemy, dt: number, tell: number) {
   const vy = (dy / d) * radial + (dx / d) * side * 2.4
   if (walk(c, e, vx, vy, dt)) ai.side = -side
   e.dir = toDir(-dx, -dy, e.dir)
-  if (ai.t <= 0 && d < 5.5) {
+  if (ai.t <= 0 && d < 5.5 && grace <= 0) {
     ai.mode = 'tell'
     ai.t = tell
     ai.tell = tell

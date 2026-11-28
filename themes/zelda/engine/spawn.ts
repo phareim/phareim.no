@@ -76,5 +76,6 @@ export function resetEnemy(e: Enemy) {
   e.knock = null
   e.flash = 0
   e.echoInvuln = 0
-  e.ai = { mode: 'idle', t: e.first ?? 0.4, tell: 0 }
+  // (`grace`: no tell before that many seconds of prowling, whatever a patrol does to the clock; a dark hound's is 2.5.)
+  e.ai = { mode: 'idle', t: e.first ?? (e.dark ? 2.5 : 0.4), tell: 0, ...(e.first !== undefined || e.dark ? { grace: e.first ?? 2.5 } : {}) }
 }

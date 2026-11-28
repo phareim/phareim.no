@@ -557,6 +557,9 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     d.chars = Math.min(line.length, d.chars + dt * TYPE_SPEED)
     if (Math.floor(d.chars) > before && line[Math.floor(d.chars) - 1] !== ' ') c.ev.push({ type: 'text' })
   }
+  // A dialog with a `rest` (the Supply Room's last question and its replies) ignores A for that long once a page is typed.
+  if (d.rest && d.chars >= line.length) d.hold = d.hold === undefined ? d.rest : d.hold - dt
+  if ((d.hold ?? 0) > 0 && inp.pick === undefined) inp = { ...inp, aPress: false }
   // Lines that lead out of the world (an exit, the NEW GAME machine): B backs out at any line.
   if (inp.bPress && ((d.after && (d.after.exit || d.after.startOver)) || (d.ask && asksChoice(d)))) { closeWithoutLeaving(c); return }
   // Tracked on every line, so a direction still held from walking up never moves the cursor.
@@ -577,6 +580,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
       const said = d.ask.set?.[d.choice ?? 0]
       const after = d.after || pick ? { ...d.after, ...pick } : null
       openDialog(c, d.ask.replies[d.choice ?? 0], d.who, said ? { ...after, set: [...(after?.set ?? []), said] } : after)
+      if (d.rest) s.dialog!.rest = d.rest
       return
     }
     if (inp.aPress && d.choice === 1) { closeWithoutLeaving(c); return }
@@ -585,6 +589,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
   if (d.chars < line.length) { d.chars = line.length; return }
   d.line++
   d.chars = 0
+  delete d.hold
   if (d.line < d.lines.length) return
   // Close
   s.dialog = null

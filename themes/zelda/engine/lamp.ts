@@ -24,7 +24,7 @@ import { BIG, burnFoe, LAMP_BURNS, type Ctx } from './combat'
 import { phiOpen } from './heapFoes'
 import { echoOnTile } from './echo'
 import type { Emitter } from './puzzles/info'
-import { cellIndex, cellIsDark, circleOnTile, tileAt, type MapInfo } from './map'
+import { cellDef, cellIndex, cellIsDark, circleOnTile, tileAt, type MapInfo } from './map'
 import { STATS } from './spawn'
 import { dirVec } from './util'
 
@@ -106,6 +106,8 @@ export function lampMayStand(c: Ctx, tx: number, ty: number): boolean {
   if (!FLOOR.has(m.tiles[idx]!) || TILE_INFO[m.tiles[idx]!].solid) return false
   if (c.info.def.kind === 'dungeon' && cellIndex(c.info, tx + 0.5, ty + 0.5) !== cellIndex(c.info, s.hero.x, s.hero.y)) return false
   if (c.info.gates.some(g => g.tiles.includes(idx))) return false
+  const nl = cellDef(c.info, cellIndex(c.info, tx + 0.5, ty + 0.5))?.noLamp
+  if (nl && tx >= nl.x && tx < nl.x + nl.w && ty >= nl.y && ty < nl.y + nl.h) return false
   // (The Lamp Room's south pad is where its Weight will lie: a lamp may stand there until it does, and the Box's fall
   // takes the lamp home.)
   if (c.info.marks.some(k => k.x === tx && k.y === ty && TAKEN.has(k.ent.t) && !(k.ent.t === 'item' && k.ent.item === 'weightReasons'))) return false

@@ -58,7 +58,8 @@ const SUPPLY: MapDef = {
   cell: { w: 16, h: 12 },
   cells: {
     '0,0': { name: 'THE LOADING BAY' },
-    '0,1': { name: 'THE DARK STORE', dark: true, lit: 'supply.lit' },
+    // (No lamp stands in the lane between the blocks and the receiver: the light has to come past the blocks.)
+    '0,1': { name: 'THE DARK STORE', dark: true, lit: 'supply.lit', noLamp: { x: 7, y: 14, w: 1, h: 4 } },
     '0,2': { name: 'THE COUNTING ROOM' },
   },
   rows: [
@@ -105,7 +106,7 @@ const SUPPLY: MapDef = {
     'g': { tile: 'X', ent: { t: 'gate', open: { flag: 'supply.lever3' } } },
     'J': { ent: { t: 'lever', flag: 'supply.lever3' } },
     'Q': { ent: { t: 'entry', id: 'fromhall', dir: 'down' } },
-    'h': { ent: { t: 'enemy', kind: 'hound', tough: true, dir: 'down' } },
+    'h': { ent: { t: 'enemy', kind: 'hound', tough: true, first: 2.5, dir: 'down' } },
     'a': { ent: { t: 'sign', lines: ['LOADING BAY. NOTHING LEAVES WITHOUT A COUNT.'] } },
     // The Dark Store: the receiver behind the square blocks (the Lamp's way), the chest only the glass shows (the Lens's).
     'e': { tile: 'X', ent: { t: 'gate', open: { flag: 'supply.lit' } } },

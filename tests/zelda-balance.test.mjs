@@ -53,6 +53,24 @@ function tap(s, item, x, y, dir) {
   P.useB(s, item, dir, 80)
 }
 
+/** Walk to tile (tx, ty) as a hero who can be hurt: no refilled hearts, no shield (`P.walkTo` has both). */
+function afoot(s, tx, ty) {
+  let p = P.path(s, tx, ty)
+  assert.ok(p, `no path to ${tx},${ty}`)
+  let i = 0
+  for (let n = 0; n < 1800; n++) {
+    if (s.mode === 'dialog') { P.settle(s); continue }
+    const h = s.hero
+    if (Math.floor(h.x) === tx && Math.floor(h.y) === ty && Math.hypot(h.x - tx - 0.5, h.y - ty - 0.5) < 0.12) return
+    while (i < p.length - 1 && Math.floor(h.x) === p[i][0] && Math.floor(h.y) === p[i][1] && Math.hypot(h.x - p[i][0] - 0.5, h.y - p[i][1] - 0.5) < 0.25) i++
+    const [gx, gy] = p[Math.min(i, p.length - 1)]
+    const d = Math.hypot(gx + 0.5 - h.x, gy + 0.5 - h.y) || 1
+    step(s, { move: { x: (gx + 0.5 - h.x) / d, y: (gy + 0.5 - h.y) / d } })
+    if (n % 90 === 89) { p = P.path(s, tx, ty) ?? p; i = 0 }
+  }
+  assert.fail(`afoot ${tx},${ty} timed out at ${s.hero.x.toFixed(2)},${s.hero.y.toFixed(2)}`)
+}
+
 const boss = s => s.map.enemies.find(e => e.kind === 'maximizer')
 
 /** One step of the machine's hall: a line read and put away as a player does it, or `input()` played. */
@@ -210,6 +228,16 @@ describe('The Balance', () => {
     north(s, 7, 24, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 7, 20))
     P.settle(s)
     const dark = Z.toSave(s)
+    // The lane between the blocks and the receiver is no place for the Lamp: walking round the blocks and setting it
+    // down there is refused (the hero still walks there), and nothing is lit.
+    const round = Z.createGame(Z.WORLD, { seed: 7, save: Z.parseSave(json(dark)) })
+    Z.setViewRule(round, 'flat')
+    north(round, 7, 24, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 7, 20))
+    P.settle(round)
+    for (const y of [16, 14]) {
+      tap(round, 'lamp', 7, y, 'up')
+      assert.ok(!round.lamp && !Z.has(round, 'supply.lit') && Math.floor(round.hero.y) === y, `no lamp stands at 7,${y - 1}`)
+    }
     // By the Lamp, on the view rule: from above the beam ends at the square blocks; turned, it goes through them.
     Z.setViewRule(s, 'flat')
     tap(s, 'lamp', 7, 21, 'up')
@@ -242,25 +270,50 @@ describe('The Balance', () => {
     assert.deepEqual([tile(l, 3, 12), Z.keyCount(l), Z.has(l, 'supply.lit')], ['.', 0, false])
     north(l, 3, 12, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 3, 5))
 
-    // The Loading Bay by the Duck, from its own door: set it down in the south, east of the middle, and walk the west
-    // wall to the lever while both hounds stand looking at it. No blow is struck at either.
+    // The Loading Bay by the Duck, from its east gate, by a hero who can be hurt: set it down in the south, east of the
+    // middle, and walk the west wall to the lever while both hounds stand looking at it. No blow is struck at either,
+    // and over a handful of seeds he loses no more than a heart on the way.
     P.settle(s)
-    const d = Z.createGame(Z.WORLD, { seed: 7, save: Z.parseSave(json(Z.toSave(s))) })
-    north(d, 7, 24, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 7, 20))
-    P.settle(d)
-    Z.setViewRule(d, 'iso')
-    north(d, 11, 12, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 11, 5))
-    P.settle(d)
-    tap(d, 'duck', 8, 8, 'right')
-    assert.ok(d.duck, 'the Duck is down')
-    run(d, 1)
-    const watching = d.map.enemies.filter(e => e.kind === 'hound' && e.ai.lure > 0)
-    assert.equal(watching.length, 2, 'both look at it')
-    P.walkTo(d, 2, 3)
-    P.swing(d, 'up')
-    run(d, 0.2)
-    assert.ok(gate(d, 'supply.7,2') && d.map.enemies.filter(e => e.kind === 'hound' && !e.dead && e.hp === e.maxHp).length === 2)
-    through(d, 7, 1, 'supplyroom')
+    const gateSave = json(Z.toSave(s))
+    const lost = []
+    for (const seed of [7, 11, 23, 41, 59]) {
+      const d = Z.createGame(Z.WORLD, { seed, save: Z.parseSave(gateSave) })
+      north(d, 7, 24, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 7, 20))
+      P.settle(d)
+      Z.setViewRule(d, 'iso')
+      north(d, 11, 12, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 11, 5))
+      P.settle(d)
+      d.hero.hp = d.hero.maxHp
+      d.hero.invuln = 0
+      afoot(d, 8, 8)
+      P.face(d, 'right')
+      d.inv.selected = 'duck'
+      step(d, { bPress: true })
+      assert.ok(d.duck, `seed ${seed}: the Duck is down`)
+      run(d, 1)
+      assert.equal(d.map.enemies.filter(e => e.kind === 'hound' && e.ai.lure > 0).length, 2, `seed ${seed}: both look at it`)
+      afoot(d, 2, 3)
+      P.swing(d, 'up')
+      run(d, 0.2)
+      assert.ok(gate(d, 'supply.7,2') && d.map.enemies.filter(e => e.kind === 'hound' && !e.dead && e.hp === e.maxHp).length === 2, `seed ${seed}: the lever, and no blow struck`)
+      lost.push(d.hero.maxHp - d.hero.hp)
+      if (seed === 7) through(d, 7, 1, 'supplyroom')
+    }
+    if (process.env.BALANCE_LOG) console.log(`duck walk, hit points lost over five seeds: ${lost}`)
+    assert.ok(lost.every(n => n <= 2), `hit points lost on the Duck's way: ${lost}`)
+
+    // A doorway is no seat: a hero who stands on the open tile of the Bay's south wall is reached by a lunge.
+    const camp = Z.createGame(Z.WORLD, { seed: 7, save: Z.parseSave(gateSave) })
+    north(camp, 7, 24, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 7, 20))
+    P.settle(camp)
+    north(camp, 11, 12, Z.cellIndex(Z.mapInfo(Z.WORLD, 'supply'), 11, 5))
+    P.settle(camp)
+    P.walkTo(camp, 11, 11)
+    camp.hero.hp = camp.hero.maxHp
+    camp.hero.invuln = 0
+    let camped = 0
+    for (let k = 0; k < 60 * 20 && !camped && camp.mode === 'play'; k++) camped += step(camp).filter(e => e.type === 'hurt').length
+    assert.ok(camped > 0 && Math.floor(camp.hero.y) === 11, 'a hero camped in the doorway is hit')
 
     // The Loading Bay, by the No: let the hounds come, refuse each lunge with a cut, and cut while it reels.
     // (No hand of god here: the hero's own hearts, and nothing that shields him.)
@@ -362,9 +415,25 @@ describe('The Balance', () => {
     assert.deepEqual(mine(), had)
     asks()
     assert.deepEqual([back.dialog.lines[0], back.dialog.lines.length, back.dialog.choice, back.clipFlash], ['(IT DID NOT TAKE.)', 2, 1, undefined])
-    // NO, with a thumb that has only been cutting: A, and A again.
+    // NO, with a thumb that has only been cutting: A ten times a second. Each page (the question, the three of the
+    // reply) stands at least 0.6 s fully typed before a press takes it.
     const end = []
-    for (let k = 0; k < 600 && boss(back).ai.mode !== 'down'; k++) end.push(...step(back, { a: k % 12 === 0, aPress: k % 12 === 0 }))
+    const stood = []
+    let page = null
+    let from = 0
+    let k = 0
+    for (; k < 900 && boss(back).ai.mode !== 'down'; k++) {
+      const d = back.mode === 'dialog' ? back.dialog : null
+      const id = d ? `${d.lines[0]}|${d.line}` : null
+      const typed = d && d.chars >= d.lines[d.line].length
+      if (id !== page) { if (page && from >= 0) stood.push(k - from); page = id; from = -1 }
+      if (typed && from < 0) from = k
+      end.push(...step(back, { a: k % 6 === 0, aPress: k % 6 === 0 }))
+    }
+    if (page && from >= 0) stood.push(k - from)
+    assert.equal(stood.length, 4, 'the question and its three pages were each shown')
+    if (process.env.BALANCE_LOG) console.log(`frames each page stood typed: ${stood}`)
+    assert.ok(stood.every(n => n >= 36), `frames each page stood typed before it was answered: ${stood}`)
     assert.equal(boss(back).ai.mode, 'down')
     assert.deepEqual([boss(back).hp, boss(back).dead, end.filter(e => e.type === 'bossDown').length], [0, false, 1])
     // A tab closed in the middle of the fall comes back to the question, so the ending is never lost.
@@ -436,6 +505,63 @@ describe('The Balance', () => {
       took.push(`${c.name} ${secs.toFixed(1)} s (${under.length} blows)`)
     }
     if (process.env.BALANCE_LOG) console.log(`a still hero of ten hearts dies: ${took.join(', ')}`)
+
+    // The echo cuts the machine only for a hero who is beside it: from afar it clanks, from beside it counts.
+    const e1 = hero()
+    e1.hero.maxHp = e1.hero.hp = 40
+    Z.enterMap(Z.WORLD, e1, 'supplyroom', 'in', [])
+    step(e1)
+    fight(e1, () => ({}), () => boss(e1).ai.mode === 'ask', 60)
+    const m1 = boss(e1)
+    const c1 = Z.ctx(Z.WORLD, e1, [])
+    const full = m1.hp
+    Object.assign(e1.hero, { x: 2.5, y: 9.5 })
+    Z.hitEnemy(c1, m1, 1, 8.5, 5.5, 'echo')
+    assert.equal(m1.hp, full, 'an echo\'s cut from afar clanks')
+    Object.assign(e1.hero, { x: m1.x, y: m1.y + 2.5 })
+    Z.hitEnemy(c1, m1, 1, 8.5, 5.5, 'echo')
+    assert.equal(m1.hp, full - 1, 'from beside it counts')
+
+    // The Lamp's beam is one hit point an opening: set down by a hero who then stands still, it takes some, and
+    // never more than one in an opening, so part one is not cleared.
+    const l1 = hero()
+    l1.hero.maxHp = l1.hero.hp = 40
+    Z.enterMap(Z.WORLD, l1, 'supplyroom', 'in', [])
+    step(l1)
+    P.settle(l1)
+    Object.assign(l1.hero, { x: 2.5, y: 3.5 })
+    P.useB(l1, 'lamp', 'right', 20)
+    assert.ok(l1.lamp, 'the lamp stands')
+    let ask = null
+    let beam = 0
+    let most = 0
+    for (let k = 0; k < 60 * 30; k++) {
+      const m = boss(l1)
+      tick(l1)
+      if (m.ai.mode === 'ask' && !ask) ask = m.hp
+      if (m.ai.mode !== 'ask' && ask !== null) { most = Math.max(most, ask - m.hp); beam += ask - m.hp; ask = null }
+      assert.ok(l1.mode === 'play' || l1.mode === 'dialog', 'the hero stands')
+    }
+    if (process.env.BALANCE_LOG) console.log(`lamp beam: ${beam} in 30 s, ${most} at most an opening, hp ${boss(l1).hp}, hero ${l1.hero.hp}`)
+    assert.ok(beam > 0 && most <= 1 && boss(l1).ai.part === 1, `the beam took ${beam} in all, ${most} at most an opening, part ${boss(l1).ai.part}`)
+
+    // A station is drawn lit only when it will fire: after an opening left uncut, the hero still on it, it is dim.
+    const t1 = hero()
+    t1.hero.maxHp = t1.hero.hp = 40
+    for (const f of third) t1.flags[f] = true
+    Z.enterMap(Z.WORLD, t1, 'supplyroom', 'in', [])
+    step(t1)
+    let sawLit = false
+    let lit = null
+    for (let k = 0; k < 60 * 40 && lit === null; k++) {
+      const m = boss(t1)
+      const st = Z.stationOf(m)?.live
+      if (st?.lit) { sawLit = true; Object.assign(t1.hero, { x: st.x, y: st.y }) }
+      if (m.ai.mode === 'trick' || m.ai.mode === 'open') Object.assign(t1.hero, { x: Z.STATIONS[0].x, y: Z.STATIONS[0].y })
+      tick(t1)
+      if (m.ai.mode === 'blow' && m.ai.armed === false) lit = Z.stationOf(m).live.lit
+    }
+    assert.ok(sawLit && lit === false, `lit before it fired: ${sawLit}; lit after an uncut opening: ${lit}`)
   })
 
   it('keeps its place and the hero\'s hearts: a save mid fight holds no clip, and a death starts the round reached', () => {

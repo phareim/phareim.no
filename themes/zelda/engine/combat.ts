@@ -244,7 +244,16 @@ export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
   const cap = e.kind === 'maximizer' ? maximizerCap(e) : Infinity
   if (!cap) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
   dmg = Math.min(dmg, cap)
-  if (e.kind === 'maximizer') e.ai.took = ((e.ai.took as number | undefined) ?? 0) + dmg
+  if (e.kind === 'maximizer') {
+    // (The beam is one blow an asking: its own count, reset with the asking's.)
+    if (e.ai.mode === 'ask') {
+      const left = 1 - ((e.ai.lampTook as number | undefined) ?? 0)
+      if (left <= 0) return false
+      dmg = Math.min(dmg, left)
+      e.ai.lampTook = ((e.ai.lampTook as number | undefined) ?? 0) + dmg
+    }
+    e.ai.took = ((e.ai.took as number | undefined) ?? 0) + dmg
+  }
   e.hp -= dmg
   e.flash = 0.14
   const killed = e.hp <= 0
@@ -510,7 +519,8 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
     // THE PAPERCLIP MAXIMIZER: any blow while it is open, as much as the opening still allows (never past the part's
     // floor); at any other time it clanks, with no shove and no mercy time (`bossMaximizer.ts`).
     case 'maximizer': {
-      const cap = maximizerCap(e)
+      // (The echo cuts it only for a hero who is there: from further off than 3.5 tiles its blow clanks.)
+      const cap = src === 'echo' && Math.hypot(c.s.hero.x - e.x, c.s.hero.y - e.y) > 3.5 ? 0 : maximizerCap(e)
       if (!cap) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
       const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
       maximizerStruck(c, e)

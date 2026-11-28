@@ -150,7 +150,7 @@ and its baked isometric family (`halfBoat`); burning, it is washed pink with fle
 The tough hound with the mark's `dark: true` (allowed on a tough hound only, `validate.ts`): its hit points, poise,
 two lunges and 1 s spent are the tough hound's (`TOUGH`). Different (`DARK_HOUND`): each lunge is aimed as its tell
 **begins**, both tells are 0.7 s, and the lane (2 wide, to where the lunge and its bite end) lies on the floor all the
-while, in every light. Its body is drawn only in the lamp's beam, in a lit room or within 0.9 tiles of the lamp's tile
+while, in every light. Its first tell comes no sooner than 2.5 s after its room is entered. Its body is drawn only in the lamp's beam, in a lit room or within 0.9 tiles of the lamp's tile
 (`unseen`, `engine/lamp.ts`); else two pink eyes at head height and its bar. The eyes shut for 0.16 s every 3.4 s (a little out of step from hound to
 hound, never while a blow is told, never under reduced motion). The beam stuns it as any tough foe.
 

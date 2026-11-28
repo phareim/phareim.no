@@ -68,11 +68,16 @@ Each has two ways; every B item is a tap.
   sides; a receiver straight behind it.
   - *Lamp:* set it down facing north in line with the receiver. From above the
     blocks stop the beam; turned to the isometric view it passes, lights the
-    room and opens the east gate.
+    room and opens the east gate. The lane between the blocks and the receiver
+    is walkable but no lamp stands on it (`CellDef.noLamp`, the buzz), so the
+    light has to come past the blocks.
   - *Lens:* a hidden chest in the west part holds the small key for the west
     door. Both doors lead into the Loading Bay.
-- **The Loading Bay.** Two tough hounds. A lever in the north-west alcove opens
-  the gate before the stair out.
+- **The Loading Bay.** Two tough hounds; neither tells before 2.5 s of prowling
+  (`first`, counted as `ai.grace`), so the Duck can be set down from either
+  doorway. A tough hound's room reaches the open doorway tiles of its south
+  wall: a hero standing there is within a lunge. A lever in the north-west alcove
+  opens the gate before the stair out.
   - *Duck:* set down in the south of the room, east of the middle, within sight
     of both: they stand looking at it while the hero walks to the lever. (Far in
     the south-east corner it is out of the western hound's sight.)
@@ -106,7 +111,10 @@ round.
 
 It takes harm only while its bar is gold. Anything that strikes counts then (the
 blade, the echo, a bomb, the disc, the hook, the lamp's beam, the stomp), and at
-any other time clanks, with no shove and no mercy time. Nothing stuns it.
+any other time clanks, with no shove and no mercy time. Nothing stuns it. Two
+limits: the echo's cut counts only while the hero is within 3.5 tiles of the
+machine (from further off it clanks), and the lamp's beam takes at most 1 hit
+point of an opening in parts one and two (`ai.lampTook`, reset with `took`).
 
 ### Parts one and two (24 to 16, 16 to 8)
 
@@ -145,8 +153,9 @@ icon over it. The Weight comes down (1.2 s) and the machine blows (1.5 s told,
 has landed**; then it is lit (a cyan ring and column), and a hero who **stands on
 it** fires it. That cancels a blow still being told, gives one heart back (once a
 round), plays that Weight's trick (0.8 s) and opens the machine for 3 s: one blow
-of any kind takes 1, and the next round begins. An opening left uncut relights
-the station, which fires again only after the hero has stood off it for 0.3 s.
+of any kind takes 1, and the next round begins. An opening left uncut leaves
+the station dim (it is drawn lit only while it will fire); it fires again only
+after the hero has stood off it for 0.3 s.
 
 | Round | Weight | Station | Its blow | Its trick |
 |---|---|---|---|---|
@@ -168,7 +177,9 @@ The seventh cut leaves the bar at 1: **the question**.
 
 The floor is bare and nothing can hurt. A second later the machine asks:
 "WOULD YOU LIKE TO BE CLIPS TOO? THERE IS ROOM." The cursor starts on **NO**. B
-backs out, and it asks again after 1 s.
+backs out, and it asks again after 1 s. A ignores the question, and each page of
+NO's reply, for 0.6 s once it is typed (`Dialog.rest`; a press while it types
+completes it; the cursor, B and a touch on an answer's button are never held).
 
 - **YES** is a joke that costs nothing: the HUD shows every heart as a clip for
   2.5 s (`GameState.clipFlash`, a picture alone), then "(IT DID NOT TAKE.)" and
