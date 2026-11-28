@@ -116,6 +116,8 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '▧': { ...S, hook: false },
   // A spring pad (`engine/stomp.ts`): ground like any other, but to the stomp.
   '▲': S,
+  // A pile of paper clips (`engine/bossMaximizer.ts`): a low wall, in the way of walkers and of its lanes alone.
+  '▩': LOW,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]
@@ -125,6 +127,8 @@ export const LADDER = 'Ħ' as const
 export const PLATFORM = '¯' as const
 /** The spring pad (`engine/stomp.ts`). */
 export const SPRING = '▲' as const
+/** The pile of paper clips the Maximizer's ring lays (`engine/bossMaximizer.ts`). */
+export const CLIP_PILE = '▩' as const
 
 /** The square block and the diamond block: the tiles the view makes solid or floor. */
 export const SQUARE_BLOCK = '□' as const

@@ -11,6 +11,7 @@ import { inStencil, stencilsOf, type Stencil } from '../engine/stencils'
 import { flightLane, throwerLanes } from '../engine/gifts'
 import { drawDash, drawFace, drawLanes, drawStrip } from './lighthouse'
 import { drawPads, drawShape } from './examination'
+import { drawMaximizerFloor } from './balance'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -38,6 +39,8 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
     if (cellIndex(info, x + 0.5, y + 0.5) !== s.zoneIndex && !s.scroll) continue
     stand(g, x * T - cx, y * T - cy, m.tiles[l.idx] !== l.tile, time, reduced)
   }
+  // The Maximizer's stations and its flashing tiles lie under its paint (`balance.ts`).
+  drawMaximizerFloor(g, s, cx, cy, time, reduced)
   const marks: Stencil[] = []
   const lw = { w: world, s }
   for (const e of m.enemies) {
@@ -47,25 +50,29 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
   // The Steamhouse's gifts: the throws being told, and the way still ahead of each one in the air.
   marks.push(...throwerLanes(lw))
   for (const p of m.projectiles) if (p.kind === 'gift') marks.push(flightLane(p, lw))
+  // Never up the walls: the room's floor only, with the open tiles of its border (a doorway's mouth: a blow that lands
+  // there is painted there). Found once, a row's run at a time, so that a room with a second wall row or a pillar
+  // keeps the paint off it.
+  let floor: Path2D | null = null
+  if (dungeon && marks.length) {
+    const z = s.zone
+    floor = new Path2D()
+    for (let y = z.y; y < z.y + z.h; y++) {
+      let from = -1
+      for (let x = z.x; x <= z.x + z.w; x++) {
+        const edge = x === z.x || y === z.y || x === z.x + z.w - 1 || y === z.y + z.h - 1
+        const open = x < z.x + z.w && (edge ? !solidTile(world, m, x, y, 'enemy') : m.tiles[y * m.w + x] !== '#')
+        if (open && from < 0) from = x
+        else if (!open && from >= 0) { floor.rect(from * T - cx, y * T - cy, (x - from) * T, T); from = -1 }
+      }
+    }
+  }
   for (const st of marks) {
     g.save()
-    // Never up the walls: the room's floor only.
-    if (dungeon) {
-      const z = s.zone
-      g.beginPath()
-      g.rect((z.x + 1) * T - cx, (z.y + 1) * T - cy, (z.w - 2) * T, (z.h - 2) * T)
-      // ...and the open tiles of its border (a doorway's mouth): a blow that lands there is painted there.
-      for (let k = 0; k < z.w * z.h; k++) {
-        const tx = z.x + (k % z.w)
-        const ty = z.y + Math.floor(k / z.w)
-        const edge = tx === z.x || ty === z.y || tx === z.x + z.w - 1 || ty === z.y + z.h - 1
-        if (edge && !solidTile(world, m, tx, ty, 'enemy')) g.rect(tx * T - cx, ty * T - cy, T, T)
-      }
-      g.clip()
-    }
+    if (floor) g.clip(floor)
     if (st.t === 'ray') ray(g, st, cx, cy, time, reduced)
     else if (st.t === 'strip') drawStrip(g, st, cx, cy, time, reduced)
-    else if (st.t === 'disc' || st.t === 'box' || st.t === 'path') drawShape(g, st, cx, cy, time, reduced)
+    else if (st.t === 'disc' || st.t === 'path') drawShape(g, st, cx, cy, time, reduced)
     else if (st.t === 'face') drawFace(g, st, cx, cy, time, reduced)
     else if (st.t === 'dash') drawDash(g, st, cx, cy, time, reduced)
     else paint(g, st, cx, cy, time, reduced)
@@ -79,7 +86,7 @@ export function drawFloorMarks(g: G, world: World, s: GameState, cx: number, cy:
  * deepens as the tell runs out, a hard edge, and down a lane the chevrons of the way it will be run. A copy's is
  * fainter, and dotted at the edge. Footsteps are only prints: nothing is hit there.
  */
-function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' | 'path' | 'face' | 'dash' }>, cx: number, cy: number, time: number, reduced: boolean) {
+function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'path' | 'face' | 'dash' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const faint = st.dim ? 0.55 : 1
   if (st.t === 'steps') { steps(g, st, cx, cy, faint); return }
   const box = bounds(st)
@@ -87,8 +94,28 @@ function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' 
   const x1 = Math.ceil(box.x1 * T - cx)
   const y0 = Math.floor(box.y0 * T - cy)
   const y1 = Math.ceil(box.y1 * T - cy)
-  const at = (px: number, py: number) => inStencil(st, (px + 0.5 + cx) / T, (py + 0.5 + cy) / T)
-  const blink = !reduced && !st.dim && st.k > 0.65 && Math.floor(time * 14) % 2 === 0
+  // (A lane's own test with its way worked out once: six of them are painted at a time. The same sum as `inStencil`.)
+  let at = (px: number, py: number) => inStencil(st, (px + 0.5 + cx) / T, (py + 0.5 + cy) / T)
+  if (st.t === 'lane') {
+    const ux = Math.cos(st.a)
+    const uy = Math.sin(st.a)
+    const far = Math.hypot(st.x1 - st.x0, st.y1 - st.y0) + st.cap
+    const across = st.w / 2
+    at = (px, py) => {
+      const dx = (px + 0.5 + cx) / T - st.x0
+      const dy = (py + 0.5 + cy) / T - st.y0
+      const u = dx * ux + dy * uy
+      return u >= -st.cap && u <= far && Math.abs(dy * ux - dx * uy) <= across
+    }
+  }
+  // Cyan stays (a way left open): dashed at the edge, hardly filled. A false lane is hatched, its edge dotted.
+  const cyan = st.tone === 'cyan'
+  const fake = !!st.fake
+  // The one true lane among false ones is filled solid.
+  const sole = st.fake === false
+  // (A field of tiles, the Maximizer's ring, stays pink: a pale blink over fifty of them would read as another colour.)
+  const tiles = st.t === 'box'
+  const blink = !reduced && !st.dim && !cyan && !fake && !tiles && st.k > 0.65 && Math.floor(time * 14) % 2 === 0
   const run = reduced ? 0 : time * 2.5
   const half = st.t === 'lane' ? st.w / 2 : 0
   for (let py = y0; py < y1; py++) {
@@ -99,20 +126,26 @@ function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' 
       let now = 0
       if (px < x1 && at(px, py)) {
         now = 1
-        if (!at(px - 2, py) || !at(px + 2, py) || !at(px, py - 2) || !at(px, py + 2)) now = st.dim && (px + py) % 4 < 2 ? 1 : 2
+        const gx = px + Math.round(cx)
+        const gy = py + Math.round(cy)
+        const dash = cyan ? (((gx + gy) % 8) + 8) % 8 >= 5 : fake && (((gx + gy) % 5) + 5) % 5 >= 2
+        if (!at(px - 2, py) || !at(px + 2, py) || !at(px, py - 2) || !at(px, py + 2)) now = dash || (st.dim && (px + py) % 4 < 2) ? 1 : 2
+        else if (fake) { if ((((gx - gy) % 6) + 6) % 6 === 0) now = 3 }
         else if (st.t === 'lane') {
           const wx = (px + 0.5 + cx) / T - st.x0
           const wy = (py + 0.5 + cy) / T - st.y0
           const u = wx * Math.cos(st.a) + wy * Math.sin(st.a)
           const v = Math.abs(wy * Math.cos(st.a) - wx * Math.sin(st.a))
           const phase = u + v * 0.55 - run
-          if (v < half * 0.62 && u > 0.2 && phase - Math.floor(phase) < 0.16) now = 3
+          // Down a danger's lane the chevrons of its way; down the open way a broken line to its end.
+          if (cyan) { if (v < 0.1 && u - Math.floor(u * 2) / 2 < 0.28) now = 3 }
+          else if (v < half * 0.62 && u > 0.2 && phase - Math.floor(phase) < 0.16) now = 3
         }
       }
       if (now === ink) continue
       if (ink) {
-        g.globalAlpha = faint * (ink === 1 ? 0.2 + 0.25 * st.k : ink === 2 ? 1 : 0.85)
-        g.fillStyle = ink === 2 && blink ? PINK_LIGHT : PINK
+        g.globalAlpha = faint * (ink === 1 ? (cyan ? 0.12 : fake ? 0.05 : tiles ? 0.35 + 0.45 * st.k : sole ? 0.55 + 0.35 * st.k : 0.2 + 0.25 * st.k) : fake ? (ink === 2 ? 0.7 : 0.4) : ink === 2 ? 1 : 0.85)
+        g.fillStyle = cyan ? CYAN : ink === 2 && blink ? PINK_LIGHT : PINK
         g.fillRect(from, py, px - from, 1)
       }
       ink = now
@@ -123,7 +156,8 @@ function paint(g: G, st: Exclude<Stencil, { t: 'ray' | 'strip' | 'disc' | 'box' 
 }
 
 /** The tiles a stencil lies within. */
-function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' | 'strip' | 'disc' | 'box' | 'path' | 'face' | 'dash' }>): { x0: number; y0: number; x1: number; y1: number } {
+function bounds(st: Exclude<Stencil, { t: 'steps' | 'ray' | 'strip' | 'disc' | 'path' | 'face' | 'dash' }>): { x0: number; y0: number; x1: number; y1: number } {
+  if (st.t === 'box') return { x0: st.x, y0: st.y, x1: st.x + st.w, y1: st.y + st.h }
   if (st.t !== 'lane') return { x0: st.x - st.r, y0: st.y - st.r, x1: st.x + st.r, y1: st.y + st.r }
   const pad = Math.hypot(st.cap, st.w / 2)
   return { x0: Math.min(st.x0, st.x1) - pad, y0: Math.min(st.y0, st.y1) - pad, x1: Math.max(st.x0, st.x1) + pad, y1: Math.max(st.y0, st.y1) + pad }

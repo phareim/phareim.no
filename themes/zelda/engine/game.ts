@@ -118,6 +118,8 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   // The storm lamp is back in the hand (before the old map is let go: its tile gets its floor again).
   lampHome(s)
   s.map = loadMap(world, s, mapId)
+  // No heart stays a paper clip past the room (`clips.ts`).
+  delete s.clips
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   delete h.side
@@ -629,6 +631,8 @@ export function resumeAfterWin(s: GameState) {
 export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameEvent[] {
   s.dying = null
   s.mode = 'play'
+  // (Every heart a heart again before they are filled: `clips.ts`.)
+  delete s.clips
   s.hero.hp = s.hero.maxHp
   s.hero.robe = false
   s.hero.invuln = 1.2

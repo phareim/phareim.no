@@ -89,7 +89,7 @@ function sees(world: World, m: MapState, from: Vec, target: number, still: boole
  * stair or chest, nothing lying there to pick up, nobody standing on it, and no other flight on its way to it.
  * `landing`: it is about to come down, when a flier overhead is no matter.
  */
-function free(world: World, s: GameState, i: number, self?: IronFlight, landing = false): boolean {
+function free(world: World, s: GameState, i: number, self?: IronFlight, landing = false, minded = true): boolean {
   const m = s.map
   const info = mapInfo(world, m.id)
   const tx = i % m.w
@@ -101,7 +101,7 @@ function free(world: World, s: GameState, i: number, self?: IronFlight, landing 
   if (tx <= z.x || ty <= z.y || tx >= z.x + z.w - 1 || ty >= z.y + z.h - 1) return false
   if (info.chests.has(i) || info.gates.some(g => g.tiles.includes(i))) return false
   if (info.warps.some(w => tx >= w.x && tx < w.x + w.w && ty >= w.y && ty < w.y + w.h)) return false
-  if (circleOnTile(s.hero.x, s.hero.y, HERO_R, tx, ty)) return false
+  if (minded && circleOnTile(s.hero.x, s.hero.y, HERO_R, tx, ty)) return false
   if (s.echo && Math.floor(s.echo.x) === tx && Math.floor(s.echo.y) === ty) return false
   if (m.pickups.some(p => tileOfPoint(m, p.x, p.y) === i) || m.drops.some(d => d.kind === 'key' && tileOfPoint(m, d.x, d.y) === i)) return false
   if (m.enemies.some(e => !e.dead && !(landing && STATS[e.kind].flying) && circleOnTile(e.x, e.y, e.r, tx, ty))) return false
@@ -185,8 +185,25 @@ function strands(world: World, s: GameState, then: { on?: number; off?: number; 
 }
 
 /** May a piece come to rest on tile `i`: free for it, and nobody shut in by it. `off`: the tile it would leave. */
-const rests = (world: World, s: GameState, i: number, self?: IronFlight, landing = false, off?: number) =>
-  free(world, s, i, self, landing) && !strands(world, s, { on: i, off }, self)
+const rests = (world: World, s: GameState, i: number, self?: IronFlight, landing = false, off?: number, minded = true) =>
+  free(world, s, i, self, landing, minded) && !strands(world, s, { on: i, off }, self)
+
+/**
+ * A hero who only leans over a weighed plate (`θ`) from the tile before it is stepped back off it for a crate to come
+ * to rest there: where he is set, or null (not leaning on such a tile, or no room behind him). Without this a pull
+ * from the far third of that tile leaves the crate one tile short.
+ */
+function leanBack(world: World, s: GameState, i: number): Vec | null {
+  const m = s.map
+  const h = s.hero
+  const tx = i % m.w
+  const ty = Math.floor(i / m.w)
+  if (m.tiles[i] !== 'θ' || i === tileOfPoint(m, h.x, h.y) || !circleOnTile(h.x, h.y, HERO_R, tx, ty)) return null
+  const off = HERO_R + 0.001
+  const x = h.x < tx ? Math.min(h.x, tx - off) : h.x > tx + 1 ? Math.max(h.x, tx + 1 + off) : h.x
+  const y = h.y < ty ? Math.min(h.y, ty - off) : h.y > ty + 1 ? Math.max(h.y, ty + 1 + off) : h.y
+  return circleBlocked(world, m, x, y, HERO_R) ? null : { x, y }
+}
 
 /** Where loose iron from tile `from` would come down: the last free tile of its line to the hero, short of any iron. */
 function looseLanding(world: World, s: GameState, from: number): number | null {
@@ -198,7 +215,7 @@ function looseLanding(world: World, s: GameState, from: number): number | null {
   for (const i of line(m, a.x, a.y, b.x, b.y)) {
     if (i === from) continue
     if (i === hero || isIron(m.tiles[i]!)) break
-    if (rests(world, s, i, undefined, false, from)) best = i
+    if (rests(world, s, i, undefined, false, from) || (leanBack(world, s, i) && rests(world, s, i, undefined, false, from, false))) best = i
   }
   return best
 }
@@ -337,6 +354,9 @@ export function useMagnet(c: Ctx, inp: Input) {
     e.knock = null
     return
   }
+  // (Leaning over the plate it is bound for, he steps back off it.)
+  const back = plan.t === 'loose' ? leanBack(c.w, s, plan.to) : null
+  if (back) { h.x = back.x; h.y = back.y }
   const ch = m.tiles[plan.idx]!
   st.flights.push({ ch, x: plan.x, y: plan.y, from: plan.idx, to: plan.to, home: st.away[plan.idx] ?? plan.idx })
   delete st.away[plan.idx]

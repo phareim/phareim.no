@@ -30,6 +30,7 @@ import { WEAVER_RAW } from './spritesWeaver'
 import { COPILOT_SIDE_RAW } from './spritesCopilotSide'
 import { FRONTIER_RAW } from './frontierSprites'
 import { HALLUCINATOR_SPRITES } from './spritesHallucinator'
+import { MAXIMIZER_RAW } from './spritesMaximizer'
 import { TREE_RAW } from './tree'
 import { DRAWN_SHAPE, heroFrames } from './heroFrames'
 
@@ -1631,6 +1632,7 @@ const RAW: Record<string, Rows> = {
   ...WEAVER_RAW,
   ...COPILOT_SIDE_RAW,
   ...HALLUCINATOR_SPRITES,
+  ...MAXIMIZER_RAW,
 }
 
 

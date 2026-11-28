@@ -20,6 +20,7 @@ import { sycophant } from './bossSycophant'
 import { copilot } from './bossCopilot'
 import { weaver } from './bossWeaver'
 import { falcon } from './bossFalcon'
+import { maximizer } from './bossMaximizer'
 import { lured } from './duck'
 import { examBossHarmless } from './exam'
 import { BIG, type Ctx, hurtHero, hitEnemy, toughOpen } from './combat'
@@ -207,6 +208,7 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'blackbox': blackbox(c, e, dt); break
     case 'falcon': falcon(c, e, dt); break
     case 'hallucinator': hallucinator(c, e, dt); break
+    case 'maximizer': maximizer(c, e, dt); break
   }
   contact(c, e)
 }
@@ -223,6 +225,7 @@ function contact(c: Ctx, e: Enemy) {
     (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) || (e.calm && !e.ai.angry) || toughOpen(e) ||
     (e.kind === 'mixtral' && (e.ai.mode === 'dazed' || e.ai.mode === 'rouse')) || (e.kind === 'parrot' && parrotHarmless(e))
     || examBossHarmless(e)
+    || e.kind === 'maximizer'
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     // THE NO: a cut at the right moment refuses the blow (`refuse.ts`).
     if (tryRefuse(c, e)) return

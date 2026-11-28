@@ -16,6 +16,7 @@ import { artRest, isArt, knowsArt, mastered, moveCount } from '../engine/moves'
 import { magnetRest } from '../engine/magnet'
 import { PAGE_VEIL } from './mapPage'
 import { drawExamStrip } from './examination'
+import { clipsShown } from './clipHearts'
 
 type G = CanvasRenderingContext2D
 
@@ -189,9 +190,11 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   const low = h.hp <= 2
   const step = skin.heartStep ?? 9
   const hs = skin.heartScale ?? 1
+  // The hearts that are paper clips for now (`clipHearts.ts`), from the end of the row.
+  const clipped = hearts - clipsShown(s)
   for (let i = 0; i < hearts; i++) {
     const hp = h.hp - i * 2
-    const name = hp >= 2 ? 'hud_heart_full' : hp === 1 ? 'hud_heart_half' : 'hud_heart_empty'
+    const name = i >= clipped ? 'hud_heart_clip' : hp >= 2 ? 'hud_heart_full' : hp === 1 ? 'hud_heart_half' : 'hud_heart_empty'
     const x = 4 + (i % 10) * step
     const y = 4 + Math.floor(i / 10) * step - (low && hp > 0 && Math.floor(time * 4) % 2 === 0 ? 1 : 0)
     if (hs === 1) icon(g, skin, name, x, y)

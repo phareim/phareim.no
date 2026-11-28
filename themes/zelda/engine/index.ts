@@ -49,3 +49,6 @@ export { puzzleKits, solveKit, solveGrid, stampKit, type PuzzleKit, type KitSolu
 export * from './explore'
 // The Examination (`exam.ts`): the world's share of the hero's clock where time waits.
 export { stillK } from './exam'
+// The Supply Room's boss: its numbers, its stations, what it paints; and the hearts it turns to clips.
+export { MAXI, STATIONS, FOOT, maximizerStencils, maximizerFlash, ringTiles, quotaCircles, stationOf, clipFlights } from './bossMaximizer'
+export { heroCap, clipLimit, setClips, clipHeart, unclipHeart } from './clips'

@@ -59,6 +59,8 @@ export type SfxName =
   // The Examination: the Duck, and time coming to a stand (the menu's select, lowered)
   | 'squeak'
   | 'hush'
+  // The Supply Room: a paper clip's small bright click
+  | 'clip'
 
 export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
@@ -2763,6 +2765,12 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     echoCut() {
       nz({ dur: 0.15, vol: 0.26, f: 660, to: 2800, q: 1.6, at: 0.02 })
       tone({ f: 465, to: 825, dur: 0.08, vol: 0.05, at: 0.02, verb: true })
+    },
+    // A paper clip: two small dry clicks of wire.
+    clip() {
+      nz({ dur: 0.025, vol: 0.22, type: 'highpass', f: 6000 })
+      tone({ f: 2637, to: 2350, dur: 0.035, type: 'triangle', vol: 0.12 })
+      tone({ f: 3520, dur: 0.045, type: 'triangle', vol: 0.09, at: 0.055 })
     },
     // THE NO: the clank, a step higher and with a gold ring after it.
     refuse() {

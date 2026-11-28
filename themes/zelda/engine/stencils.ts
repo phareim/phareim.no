@@ -13,6 +13,7 @@ import { golemStencils } from './bossGolem'
 import type { LaneWorld } from './gifts'
 import { boxStencils } from './bossBlackBox'
 import { falconStencils } from './bossFalcon'
+import { maximizerStencils } from './bossMaximizer'
 
 export type StencilShape =
   /** A lane from (x0, y0) to (x1, y1) along `a`, `w` tiles wide, and `cap` tiles on past each end. */
@@ -34,8 +35,12 @@ export type StencilShape =
   | { t: 'face'; x: number; y: number; vert: boolean; n: number; glow?: 'cyan' | 'pink'; spin?: number }
   /** The Black Box's: the dashed way of a beam to come. Nothing there is hit (the beam itself is). */
   | { t: 'dash'; x0: number; y0: number; x1: number; y1: number; hue: 'cyan' | 'pink' }
-/** `k`: 0 to 1 as its tell runs out; `dim`: a copy's, painted fainter. */
-export type Stencil = StencilShape & { k: number; dim?: boolean }
+/**
+ * `k`: 0 to 1 as its tell runs out; `dim`: a copy's, painted fainter. `tone`: pink is danger (the default), cyan the
+ * hero's (a way that stays). `fake`: a lane that does not hurt, painted hatched with a dotted edge. (The last two are
+ * painted for lanes, rings and boxes: `render/floorMarks.ts`.)
+ */
+export type Stencil = StencilShape & { k: number; dim?: boolean; tone?: 'pink' | 'cyan'; fake?: boolean }
 
 /** Is a hero's middle at (x, y) in the paint? */
 export function inStencil(s: StencilShape, x: number, y: number): boolean {
@@ -98,6 +103,7 @@ export function stencilsOf(e: Enemy, lw?: LaneWorld): Stencil[] {
   if (e.kind === 'golem') return golemStencils(e)
   if (e.kind === 'blackbox') return boxStencils(e)
   if (e.kind === 'falcon') return falconStencils(e)
+  if (e.kind === 'maximizer') return maximizerStencils(e, lw)
   const out: Stencil[] = []
   // How far a tell of `whole` s has run, 0 to 1.
   const run = (whole: number) => Math.max(0, Math.min(1, 1 - e.ai.tell / whole))

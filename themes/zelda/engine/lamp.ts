@@ -170,7 +170,8 @@ export function stepLamp(c: Ctx, dt: number) {
     const inBeam = !STATS[e.kind].invulnerable && (!BIG.has(e.kind) || LAMP_BURNS.has(e.kind)) && inLampBeam(s, e)
     if (!inBeam) { if (burn !== undefined) delete ai.lampBurn; continue }
     // The first touch stuns, unless it shrugs the stun off still (its own clock, or the tough foe's).
-    if (burn === undefined && e.stun <= 0 && shrug <= 0 && ((ai.shrug as number | undefined) ?? 0) <= 0) {
+    // (Nothing stuns the Maximizer.)
+    if (burn === undefined && e.kind !== 'maximizer' && e.stun <= 0 && shrug <= 0 && ((ai.shrug as number | undefined) ?? 0) <= 0) {
       e.stun = TOUGH.stunHook
       if (e.kind === 'orca') orcaStunned(e)
       ai.lampShrug = TOUGH.stunHook + TOUGH.shrug

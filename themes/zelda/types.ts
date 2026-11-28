@@ -317,6 +317,7 @@ export type TileChar =
   | '▦' // a cart: railed
   | '▧' // a bolt: metal fixed in the stone (the Magnet takes the hero to it)
   | '▲' // a spring pad, flush with the floor: ground to stand on; only a stomp springs it (`engine/stomp.ts`)
+  | '▩' // a pile of paper clips (the Supply Room, laid by its boss, never saved): walkers and lanes stop, shots pass
 
 // ---------------------------------------------------------------------------
 // Items
@@ -572,6 +573,7 @@ export type EnemyKind =
   | 'blackbox' // boss (the Lighthouse): never moves; a lamp's beam comes out of another face, and its three receivers open it
   | 'falcon' // miniboss (the Examination): circles, stencils a dive and takes it; open only while stuck in the sand
   | 'hallucinator' // boss, side maps: three bodies, one real; open at the bow's gold rail (`engine/bossHallucinator.ts`)
+  | 'maximizer' // boss (the Supply Room): never moves; its harm is on the floor, open while it asks (`engine/bossMaximizer.ts`)
 
 /**
  * The two sides of the view rule (`engine/map.ts`, `blockUp`): 'flat' every view of the classic drawing engine (the
@@ -1587,6 +1589,8 @@ export interface GameState {
   cardsSeen: string[]
   /** THE LENS's clock, once it is owned (`engine/lens.ts`). Never saved. */
   lens?: Lens
+  /** Hearts turned to paper clips, from the end of the row (`engine/clips.ts`): a cap on `hero.hp`. Never saved. */
+  clips?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -1738,6 +1742,11 @@ export type GameEvent =
   | { type: 'theEnd'; phase: 'begin' | 'over' | 'torn' | 'fall' }
   /** A Weight has gone down onto its pan in the Balance. */
   | { type: 'pan'; x: number; y: number }
+  /**
+   * THE PAPERCLIP MAXIMIZER (`engine/bossMaximizer.ts`): a blow told, the ring's piles standing, a heart taken for a
+   * clip, a Weight coming down, a station stood on, and a mark worth saving (a part begun, a round cut).
+   */
+  | { type: 'clip'; x: number; y: number; what: 'tell' | 'ring' | 'grab' | 'weight' | 'station' | 'mark' }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

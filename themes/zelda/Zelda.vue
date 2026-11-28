@@ -1756,6 +1756,8 @@ function handleEvents(events: GameEvent[]) {
       case 'pad': a?.sfx(e.ok ? 'coin' : 'error'); break
       case 'stamp': a?.sfx(e.passed ? 'chest' : 'error'); save = true; break
       case 'pan': a?.sfx('coin'); save = true; break
+      // The Maximizer: a Weight's chime, a station's plate, a clip's click; a mark is a part begun or a round cut.
+      case 'clip': if (e.what === 'mark') save = true; else a?.sfx(e.what === 'weight' ? 'coin' : e.what === 'station' ? 'plate' : 'clip'); break
       case 'shoot': a?.sfx(e.kind === 'laser' ? 'laser' : 'pellet'); break
       case 'buy': if (!e.ok) a?.sfx('error'); break
       case 'bath': if (e.phase === 'begin') a?.sfx('bath'); else if (e.phase === 'robeOff') a?.sfx('cut'); save = save || e.phase === 'arrive'; break

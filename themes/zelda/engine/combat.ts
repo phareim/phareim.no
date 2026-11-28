@@ -16,6 +16,7 @@ import { halluFall, halluMercy, halluOpen, halluRule, halluStruck } from './boss
 import { heapRule, phiOpen } from './heapFoes'
 import { COPILOT, copilotStill } from './bossCopilot'
 import { golemCap, golemFell, golemOpen } from './bossGolem'
+import { maximizerCap, maximizerStruck } from './bossMaximizer'
 import { WEAVER } from './bossWeaver'
 import { chance, clamp, nextId, rnd } from './util'
 import { addKeys, cellRect, circleBlocked, mapInfo, setFlag, type MapInfo } from './map'
@@ -139,6 +140,10 @@ BOSSES.add('golem')
 // Act Three's boss (`bossHallucinator.ts`): three bodies of one kind.
 BIG.add('hallucinator')
 BOSSES.add('hallucinator')
+// The Supply Room's (`bossMaximizer.ts`). The storm lamp's beam is a blow to it, and never stuns it (`lamp.ts`).
+BIG.add('maximizer')
+BOSSES.add('maximizer')
+LAMP_BURNS.add('maximizer')
 
 /** The blade, whoever holds it: the hero's chain, moves and spin, and the echo's. */
 const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'echo'
@@ -199,6 +204,8 @@ export function bossOpen(e: Enemy): boolean {
     // Stuck in the sand, while this opening still has blows to give.
     case 'falcon': return mode === 'stuck' && ((e.ai.took as number | undefined) ?? 0) < FALCON.take
     case 'hallucinator': return halluOpen(e)
+    // As it asks, while this asking still has blows to give; in part three, open for its one blow.
+    case 'maximizer': return maximizerCap(e) > 0
     default: return false
   }
 }
@@ -224,11 +231,17 @@ export interface HitOpts {
  */
 export function burnFoe(c: Ctx, e: Enemy, dmg: number): boolean {
   if (e.dead || STATS[e.kind].invulnerable || (BIG.has(e.kind) && !LAMP_BURNS.has(e.kind))) return false
+  // (The Maximizer's: only while it is open, inside the opening's cap.)
+  const cap = e.kind === 'maximizer' ? maximizerCap(e) : Infinity
+  if (!cap) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
+  dmg = Math.min(dmg, cap)
+  if (e.kind === 'maximizer') e.ai.took = ((e.ai.took as number | undefined) ?? 0) + dmg
   e.hp -= dmg
   e.flash = 0.14
   const killed = e.hp <= 0
   c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed })
   if (killed) killEnemy(c, e)
+  if (e.kind === 'maximizer') maximizerStruck(c, e)
   return true
 }
 
@@ -474,6 +487,15 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (cap === null) { halluMercy(e, src === 'echo', opt); return false }
       const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
       halluStruck(c, e, src === 'echo', opt)
+      return hit
+    }
+    // THE PAPERCLIP MAXIMIZER: any blow while it is open, as much as the opening still allows (never past the part's
+    // floor); at any other time it clanks, with no shove and no mercy time (`bossMaximizer.ts`).
+    case 'maximizer': {
+      const cap = maximizerCap(e)
+      if (!cap) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
+      const hit = damage(c, e, dmg, fromX, fromY, { ...opt, cap })
+      maximizerStruck(c, e)
       return hit
     }
     case 'deepseek':

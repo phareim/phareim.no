@@ -50,7 +50,7 @@ const isDoor = (t: TileChar) => t === 'L' || t === 'K' || t === 'X'
 const isTree = (t: TileChar) => t === 'T'
 const isBuilding = (t: TileChar) => t === 'H' || t === 'M'
 /** Things that stand alone on their tile. */
-const CARDS = new Set<TileChar>(['*', 'o', 'r', 'R', 't', 'S', 'G', '$', 'I', 'c', 'Y', '|', '}', 'b', 'B', 'i', 'β', 'μ', 'ν', 'π', 'ρ', 'κ', 'ξ', 'Θ', 'Λ', 'Φ', 'Ξ', '▣', '▤', '▥', '▦', '▧'])
+const CARDS = new Set<TileChar>(['*', 'o', 'r', 'R', 't', 'S', 'G', '$', 'I', 'c', 'Y', '|', '}', 'b', 'B', 'i', 'β', 'μ', 'ν', 'π', 'ρ', 'κ', 'ξ', 'Θ', 'Λ', 'Φ', 'Ξ', '▣', '▤', '▥', '▦', '▧', '▩'])
 /** Things that come in rows: a row along x stands up as one strip, a row along y lies down. */
 const RUNS = new Set<TileChar>(['F', '¤', 'n', 'w', '(', '[', 'q', 'l'])
 

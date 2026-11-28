@@ -137,6 +137,8 @@ const INK: Record<string, string> = {
   Y: '#c4861c',
   E: '#fff1b0',
   o: '#ff8a3d',
+  // The silver of a heart turned to a clip.
+  v: '#ffffff', x: '#c9d0de', X: '#8b93a8',
 }
 
 /** The hearts, twice as fine as the classic 8 × 8: a light on the left lobe, a shaded right side, a dark rim. */
@@ -249,6 +251,8 @@ const KEY = [
   '................',
 ]
 const DRAWN: Record<string, string[]> = { hud_heart_full: HEART_FULL, hud_heart_half: HEART_HALF, hud_heart_empty: HEART_EMPTY, hud_bit: BIT, hud_bomb: BOMB, hud_key: KEY }
+/** A heart that is a paper clip for now (`clipHearts.ts`): the full heart in grey-silver (a STAND-IN). */
+DRAWN.hud_heart_clip = HEART_FULL.map(r => r.replace(/[mwpPD]/g, c => ({ m: 'v', w: 'v', p: 'x', P: 'X', D: 'X' })[c]!))
 
 /** The pointing glove at an answer. */
 const HAND = [
