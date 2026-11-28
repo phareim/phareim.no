@@ -40,7 +40,8 @@ import { drawExamCard, drawStillWash, drawTitanCards, drawTitanFall, queueExam, 
 import { drawGolem, drawGolemFall, golemSprite, golemStand } from './golemPaint'
 import { GOLEM } from '../engine/bossGolem'
 import { boxSprite } from '../engine/bossBlackBox'
-import { drawBalanceFloor, drawBalanceHud, drawBalanceOver, queueBalance } from './balance'
+import { drawBalanceFloor, drawBalanceHud, drawBalanceOver, maximizerSprite, queueBalance } from './balance'
+import { drawClipFlights } from './clipHearts'
 import { toDir } from '../engine/util'
 import { PARROT } from '../engine/parrot'
 import { folkTop } from './iso/folk'
@@ -702,6 +703,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
         // The Weaver's hand down, or its bite: dust, and no flash over what is to be read.
         case 'slam': dust(e.x - 0.8, e.y - 0.3, 6); dust(e.x + 0.8, e.y - 0.3, 6); break
+        // The Maximizer: silver off the hero for a clip taken, cyan on a station stood on.
+        case 'clip': if (e.what === 'grab') spark(e.x, e.y - 0.4, 8, '#e6ecf5', 4, 0.35); else if (e.what === 'station') { spark(e.x, e.y, 8, '#2ff3ff', 4, 0.35); pulse(e.x, e.y, 2.2, '#2ff3ff', 0.25) } break
         // The Magnet: cyan on the metal it takes, a grey spark at the hand for a tap that takes nothing.
         case 'latch': spark(e.x, e.y, 6, '#2ff3ff', 4, 0.3); pulse(e.x, e.y, 1.8, '#2ff3ff', 0.18); break
         case 'fizzle': spark(e.x, e.y, 5, '#8f86b8', 3, 0.25); break
@@ -1154,6 +1157,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // Drawn from the front: singing while it tells and strikes, dazed while it is open.
       case 'bard': return { name: e.ai.mode === 'open' ? 'bard_dazed' : 'bard_sing', flip: e.dir === 'left' }
       case 'golem': return { name: golemSprite(e), flip: false }
+      case 'maximizer': return { name: maximizerSprite(e, time), flip: false }
       // FALCON: on its perch, on the wing, in its dive, stuck with the quartz in its chest showing; dazzled by a blow.
       case 'falcon': {
         const m = e.ai.mode
@@ -1386,6 +1390,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (e.ai.tell > 0) lights.push({ x: e.x, y: e.y - 0.4, r: 1.4, color: '#ffffff', a: 0.8 })
       else if (toughOpen(e)) lights.push({ x: e.x, y: e.y - 0.4, r: 1.4, color: TOUGH_GOLD, a: 0.8 })
     }
+    // The Maximizer's own light: pale, gold while it is open.
+    if (e.kind === 'maximizer') lights.push({ x: e.x, y: e.y + 0.4, r: 3.2, color: bossOpen(e) ? TOUGH_GOLD : '#c4fbff', a: bossOpen(e) ? 0.6 : 0.45 })
     // While time waits, a foe wears a pale outline.
     if (timeStands(s)) for (const [dx, dy] of AROUND) put(g, name, x + shiver(e) + dx, feet + dy, flip, false, sx, sy, STILL_PALE)
     put(g, name, x + shiver(e), feet, flip, flashing(e), sx, sy)
@@ -1500,6 +1506,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (e.hp <= 0) return
     g.fillStyle = toughOpen(e) || bossOpen(e) ? TOUGH_GOLD : TOUGH_PINK
     g.fillRect(x + 1, y + 1, Math.max(1, Math.round(((w - 2) * Math.min(e.hp, e.maxHp)) / e.maxHp)), 1)
+    // The Maximizer's three parts: a notch in the bar where one ends.
+    if (e.kind === 'maximizer') for (const at of [8, 16]) { g.fillStyle = TOUGH_RIM; g.fillRect(x + 1 + Math.round(((w - 2) * at) / e.maxHp), y, 1, 3) }
   }
 
   /**
@@ -1615,7 +1623,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (s.lamp) items.push(lampItem(g, s, cx, cy, time, ui.reducedMotion))
     if (!ui.attract) queueHeap(g, world, s, cx, cy, time, ui.reducedMotion, items, lights)
     if (!ui.attract) queueExam(g, world, s, cx, cy, time, ui.reducedMotion, items)
-    if (!ui.attract) queueBalance(g, world, s, cx, cy, items, lights)
+    if (!ui.attract) queueBalance(g, world, s, cx, cy, items, lights, ui.reducedMotion ? 0 : time)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
@@ -2162,6 +2170,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin)
         g.restore()
       }
+      // A heart on its way to being a clip, over everything.
+      if (s.clips && !pageUp) drawClipFlights(g, s, { x: s.hero.x * T - lx, y: heroRow - 8 }, skin, left, top)
       if (ui.paused && ui.page === 'moves' && !ui.confirmReset) drawMoves(g, s, sp.vw, sp.vh, ui.keys, skin, top)
       // (The MAP page lies on this skin's grid: the deck's top comes to it from the shell's CSS px.)
       else if (ui.paused && ui.page === 'map' && !ui.confirmReset) drawMapPage(g, world, s, sp.vw, sp.vh, { keys: ui.keys, e: ui.turn ?? 0, css: sp.scale / dpr, deck: ui.deckTop == null ? null : Math.floor((ui.deckTop * dpr - sp.oy) / sp.scale), safe: { top, left, right, bottom }, focus: ui.prismFocus, rule: ui.rule, placed: p => { prismAt = p.gemHit && targetOnScreen(p.gemHit, sp, dpr, { w: W / dpr, h: H / dpr }) } }, skin)

@@ -306,7 +306,7 @@ export function queueExam(g: G, world: World, s: GameState, cx: number, cy: numb
  * it from the edge to the middle (a path: from its start to its end) as its landing nears; `dim` is a fainter copy.
  * Painted px by px, so the edges stay hard.
  */
-export function drawShape(g: G, st: Extract<Stencil, { t: 'disc' | 'box' | 'path' }>, cx: number, cy: number, time: number, reduced: boolean) {
+export function drawShape(g: G, st: Extract<Stencil, { t: 'disc' | 'path' }>, cx: number, cy: number, time: number, reduced: boolean) {
   const blink = !reduced && st.k > 0.65 && Math.floor(time * 14) % 2 === 0
   const edge = blink ? PINK_LIGHT : PINK
   // Distance to the shape's edge, in px, positive inside; and how far into the fill a point is (0 first, 1 last).
@@ -318,14 +318,6 @@ export function drawShape(g: G, st: Extract<Stencil, { t: 'disc' | 'box' | 'path
     const r = st.r * T
     box = [mx - r, my - r, mx + r, my + r]
     at = (x, y) => { const d = r - Math.hypot(x - mx, y - my); return { in: d, f: d / r } }
-  } else if (st.t === 'box') {
-    const x0 = st.x * T - cx - (st.w * T) / 2
-    const y0 = st.y * T - cy - (st.h * T) / 2
-    const x1 = x0 + st.w * T
-    const y1 = y0 + st.h * T
-    box = [x0, y0, x1, y1]
-    const half = Math.min(st.w, st.h) * T / 2
-    at = (x, y) => { const d = Math.min(x - x0, x1 - x, y - y0, y1 - y); return { in: d, f: d / half } }
   } else {
     const ax = st.x0 * T - cx
     const ay = st.y0 * T - cy

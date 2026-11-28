@@ -21,7 +21,7 @@ been looked at there. Briefs, reports and pictures of the work are under `tmp/du
 - [ ] Cards (intertitles, score cards, THE END).
 - [x] Dungeon maps in a chunk of their own (commit e4008c7, 2026-11-27): `world/dungeons.ts` is the one place a dungeon is added; the home page's world is 59.5 KB gzip (ceiling 62 KB), the dungeons' chunk 10 KB (ceiling 22 KB).
 - [ ] The side engine in a chunk of its own.
-- [ ] The dungeons' fights and painters in the dungeons' chunk. Their sprite rows are there (`render/spritesDungeons.ts`, `dungeonChunk.ts`; merged 2026-11-27): the isometric view's ceilings are 1.5 MB minified and 490 KB gzip, the dungeon chunk's 50 KB gzip. The painters and the bosses' engines still ride on the home page (about 112 KB minified, 42 KB gzip to gain): they need a table by map or kind that `dungeonChunk.ts` fills.
+- [ ] The dungeons' fights and painters in the dungeons' chunk. Their sprite rows are there (`render/spritesDungeons.ts`, `dungeonChunk.ts`; merged 2026-11-27): the isometric view's ceilings are 1.5 MB minified and 490 KB gzip, the dungeon chunk's 58 KB gzip (52 KB used). The painters and the bosses' engines still ride on the home page (about 112 KB minified, 42 KB gzip to gain): they need a table by map or kind that `dungeonChunk.ts` fills.
 
 ## Dungeons
 
@@ -54,7 +54,7 @@ State on 2026-11-27, night: all seven dungeons are whole on master. "Played by s
 - [ ] THE BALANCE under the Shrine's pedestal.
   - Part one is in (commit cc10621): the way down, the pans, the Dark Store.
 - [ ] THE SUPPLY ROOM and THE PAPERCLIP MAXIMIZER.
-  - Being built as part two.
+  - Part two is in (the merge of `dungeon-balance`, 2026-11-28): the Loading Bay, the Supply Room, the Maximizer's three parts up to its question, clips for hearts. Played to the question by script in both views; the phone's isometric run stopped in round 7 under a slow headless browser. Part three (the question, the fall, the second ending) is not built. Its pictures for stations, the flash and the clip hearts are stand-ins.
 - [ ] The second ending.
 - [ ] One new branch on one person in each land that points at its door.
 

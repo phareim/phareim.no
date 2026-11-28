@@ -218,6 +218,8 @@ describe('the dungeons\' chunk', () => {
     // The home page's modules as the site splits them: what arrives at once, and the chunk as a file of its own.
     const dir = mkdtempSync(join(tmpdir(), 'zelda-chunk-'))
     const had = globalThis.document
+    // (The floor's paint is clipped to a path of the room's floor: node has no Path2D.)
+    globalThis.Path2D ??= class { rect() {} }
     try {
       writeFileSync(join(dir, 'package.json'), '{"type":"module"}')
       esbuild.buildSync({

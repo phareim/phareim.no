@@ -43,6 +43,8 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   // Three of them share one fight, and only its crates hurt (`bossHallucinator.ts`).
   hallucinator: { hp: 10, r: 1.0, dmg: 0, flying: true },
   titan: { hp: 15, r: 1.1, dmg: 2 },
+  // (It harms by what it draws on the floor, never by touch: `engine/bossMaximizer.ts`.)
+  maximizer: { hp: 24, r: 1.5, dmg: 2 },
 }
 
 export function spawnEnemy(

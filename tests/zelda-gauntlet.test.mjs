@@ -25,6 +25,7 @@ ELSEWHERE.blackbox = 'zelda-lighthouse.test.mjs'
 ELSEWHERE.falcon = 'zelda-examination.test.mjs'
 ELSEWHERE.hallucinator = 'zelda-act-three.test.mjs'
 ELSEWHERE.titan = 'zelda-examination.test.mjs'
+ELSEWHERE.maximizer = 'zelda-balance.test.mjs'
 
 /**
  * Each boss: its map, the flag its fall sets, the B item the fight takes, and the states the two fights must have

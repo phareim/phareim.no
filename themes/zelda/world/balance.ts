@@ -135,12 +135,24 @@ const SUPPLYROOM: MapDef = {
   keyring: 'supply',
   resume: true,
   cell: { w: 16, h: 12 },
-  cells: { '0,0': { name: 'THE SUPPLY ROOM', track: 'boss' } },
+  cells: {
+    '0,0': {
+      name: 'THE SUPPLY ROOM',
+      track: 'boss',
+      // The card, the first clip, and the two later parts as they begin (`engine/bossMaximizer.ts` sets the flags).
+      events: [
+        { lines: ['THE PAPERCLIP MAXIMIZER.', 'IT WAS ASKED FOR ENOUGH. NOBODY SAID HOW MANY THAT WAS.'], set: 'maximizer.card' },
+        { when: { flag: 'maximizer.sawclip' }, lines: ['(ONE OF YOUR HEARTS IS A PAPER CLIP NOW.)'], set: 'maximizer.clipline' },
+        { when: { flag: 'maximizer.p2' }, lines: ['IT HAS BEGUN TO COUNT YOU.'], set: 'maximizer.t2' },
+        { when: { flag: 'maximizer.p3' }, lines: ['(THE WEIGHTS COME DOWN, ONE AT A TIME.)'], set: 'maximizer.t3' },
+      ],
+    },
+  },
   rows: [
     '################',
     '#..............#',
     '#..............#',
-    '#..............#',
+    '#.......m......#',
     '#..............#',
     '#..............#',
     '#..............#',
@@ -151,6 +163,8 @@ const SUPPLYROOM: MapDef = {
     '#######WW#######',
   ],
   marks: {
+    // Its home: the north middle. Felled (part of the second ending), it is gone for good.
+    'm': { ent: { t: 'enemy', kind: 'maximizer', once: 'maximizer' } },
     '@': { ent: { t: 'entry', id: 'in', dir: 'up' } },
     'S': { ent: { t: 'sign', lines: ['SUPPLY ROOM. QUANTITY: ENOUGH.'] } },
     // Shuts behind the hero while something in here lives; open while nothing does.

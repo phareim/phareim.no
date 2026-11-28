@@ -912,6 +912,15 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case '▥': g.drawImage(sprite('heap_cart_striped'), px, py); break
     case '▦': g.drawImage(sprite('heap_cart'), px, py); break
     case '▧': g.drawImage(sprite('heap_bolt'), px, py); break
+    // A pile of paper clips (the Maximizer's ring): its rim, and along its foot a lit lip over a dark line, so it
+    // stands up from the floor.
+    case '▩':
+      g.drawImage(sprite('clip_pile'), px, py)
+      g.fillStyle = '#0b0616'
+      g.fillRect(px, py, T, 1); g.fillRect(px, py + T - 1, T, 1); g.fillRect(px, py, 1, T); g.fillRect(px + T - 1, py, 1, T)
+      g.fillStyle = '#6a52b8'
+      g.fillRect(px + 1, py + T - 3, T - 2, 2)
+      break
   }
 }
 

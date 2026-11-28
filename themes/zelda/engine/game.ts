@@ -119,13 +119,16 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   lampHome(s)
   // A boss that has been hurt keeps its wounds when the hero leaves its map (`GameState.wounds`, by the foe's id).
   for (const e of s.map?.enemies ?? []) {
-    if (!BIG.has(e.kind) || e.kind === 'sycophant') continue
+    // (Not the Sycophant, whose hit points are a script's cuts, nor the Maximizer, which starts each part at its own count.)
+    if (!BIG.has(e.kind) || e.kind === 'sycophant' || e.kind === 'maximizer') continue
     if (!e.dead && e.hp > 0 && e.hp < e.maxHp) (s.wounds ??= {})[e.id] = e.hp
     else if (s.wounds) delete s.wounds[e.id]
   }
   examForget(s, mapId)
   s.map = loadMap(world, s, mapId)
   for (const e of s.map.enemies) if (s.wounds?.[e.id]) wound(e, s.wounds[e.id]!)
+  // No heart stays a paper clip past the room (`clips.ts`).
+  delete s.clips
   const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   delete h.side
@@ -646,6 +649,8 @@ export function resumeAfterWin(s: GameState) {
 export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameEvent[] {
   s.dying = null
   s.mode = 'play'
+  // (Every heart a heart again before they are filled: `clips.ts`.)
+  delete s.clips
   s.hero.hp = s.hero.maxHp
   s.hero.robe = false
   s.hero.invuln = 1.2

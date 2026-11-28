@@ -35,6 +35,7 @@ import { sycophantFocus, sycophantFrame } from '../../engine/bossSycophant'
 import { houseTile } from '../steamPaint'
 import { golemFocus } from '../../engine/bossGolem'
 import { boxFocus } from '../../engine/bossBlackBox'
+import { maximizerFocus } from '../../engine/bossMaximizer'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { drawLatchLines } from '../heapMarks'
 import { chestStar, createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -81,6 +82,8 @@ const FOOT = 3
 const UP = 10
 /** A view block's height, tiles: lower than a wall (1), so what stands behind it shows. */
 const VIEW_BLOCK_H = 0.625
+/** A pile of paper clips (the Maximizer's ring) stands this high: a low wall that sight and shots pass. */
+const PILE_H = 0.4
 
 /** The lamp post whose glass is a street lamp's colour (`tiles.ts`; a realm's are `looks.ts` `MOOD.lamp`). */
 const LAMP_PROPS: Record<string, PropKind> = { '#ff4fb8': 'lampPink', '#3ff0ff': 'lampCyan', '#ffd23f': 'lampGold', '#ffb13f': 'lampAmber', '#c87ae0': 'lampViolet' }
@@ -1021,7 +1024,7 @@ export default function isoView(kit: Kit): View {
     const cClassic = proj(cf.x, cf.y)
     let c = cClassic
     if (!ui.cam) {
-      const at = boxFocus(s, vw / 2 / T, vh / 2 / T, true) ?? golemFocus(s, sycophantFocus(s))
+      const at = boxFocus(s, vw / 2 / T, vh / 2 / T, true) ?? maximizerFocus(s, vw / 2 / T, vh / 2 / T) ?? golemFocus(s, sycophantFocus(s))
       const focus = { x: at.x, y: at.y + 6 / T }
       let ci: Vec
       if (s.scroll) {
@@ -1267,6 +1270,15 @@ export default function isoView(kit: Kit): View {
           bare(sx, sy - up, T, T + up)
           continue
         }
+      }
+      if (shp.k === 'card' && t === '▩') {
+        // A pile of paper clips: a low heap, the clips' picture on its top, and on the sides that show the violet lip
+        // along the picture's foot (the same clips again would lie flat).
+        bare(sx, sy, T, T)
+        quad(tx, ty, PILE_H, 0, tx + 1, ty, PILE_H, 0, tx + 1, ty + 1, PILE_H, 0, tx, ty + 1, PILE_H, 0, sx, sy, sx + T, sy + T, 0, 0)
+        if (tileOf(tx, ty + 1) !== '▩') quad(tx, ty + 1, PILE_H, 0, tx + 1, ty + 1, PILE_H, 0, tx + 1, ty + 1, 0, 0, tx, ty + 1, 0, 0, sx + 1, sy + T - 3, sx + T - 1, sy + T - 1, 1, 0, southShade, 0, 1)
+        if (tileOf(tx + 1, ty) !== '▩') quad(tx + 1, ty, PILE_H, 0, tx + 1, ty + 1, PILE_H, 0, tx + 1, ty + 1, 0, 0, tx + 1, ty, 0, 0, sx + 1, sy + T - 3, sx + T - 1, sy + T - 1, 2, 0, eastShade, 0, 1)
+        continue
       }
       if (shp.k === 'card' && isViewBlock(t)) {
         // A view block that is up: a low block of the room's own wall materials, its shape cut into the top. It
