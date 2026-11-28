@@ -87,7 +87,7 @@ const FRONTIER_FOE_LOOKS: Record<string, Partial<Record<Enemy['kind'], FrontierC
 
 const T = TILE
 
-/** The four neighbours a one-px outline is drawn at, and the pale one of a foe held still (TIME WAITS). */
+/** The four neighbours a one-px outline is drawn at, and the pale one of a foe held still (TIME MOVES). */
 const AROUND = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const
 const STILL_PALE = '#eef6ff'
 
@@ -95,6 +95,7 @@ const STILL_PALE = '#eef6ff'
 function falconLift(e: Enemy): number {
   const m = e.ai.mode
   if (m === 'perch') return 4
+  if (m === 'rise') return 8
   if (m === 'fly') return 12
   if (m === 'tell') return 16
   if (m !== 'dive') return 0
@@ -2391,7 +2392,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function drawFx(g: G, s: GameState, dt: number, place: Place, paused: boolean, squash = 1, foes: FoeView = { art: 0 }) {
     const h = s.hero
-    // TIME WAITS: the world one step paler, under the sparks and the bars, the hero left in full colour.
+    // TIME MOVES: the world one step paler, under the sparks and the bars, the hero left in full colour.
     if (timeStands(s)) { const at = place(h.x, h.y); drawStillWash(g, at.x, at.y - 6) }
     // THE BALANCE's beam, counter and labels, under every effect (`squash` under 1: another view than from above).
     if (h.x > -10) drawBalanceOver(g, s, place, squash >= 1)

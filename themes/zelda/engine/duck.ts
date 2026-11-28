@@ -117,11 +117,24 @@ export function duckHop(c: Ctx, clear: (x: number, y: number) => boolean = () =>
   }
 }
 
-/** Whom a decoy can draw at all: no boss, nothing that cannot be hurt, no calm one left in peace, no tough one mid strike. */
+/** The modes a foe's brains use between a blow's tell and its rest: a decoy draws none of them away, and none is left standing in one. */
+const COMMITTED = ['tell', 'alert', 'charge', 'dash', 'lunge', 'strike', 'aim', 'sweep', 'go', 'back', 'dazed', 'spent', 'cool', 'rest']
+
+/** Whom a decoy can draw at all: no boss, nothing that cannot be hurt, no calm one left in peace, none mid blow (its tell, strike or rest). */
 function gullible(e: Enemy): boolean {
   // (PHI is a miniboss that comes five at a time, and none of them is in `BIG`.)
   if (BIG.has(e.kind) || e.kind === 'phi' || STATS[e.kind].invulnerable || (e.calm && !e.ai.angry)) return false
-  return !e.tough || !['tell', 'strike', 'lunge', 'spent', 'rest'].includes(e.ai.mode as string)
+  return !COMMITTED.includes(e.ai.mode as string)
+}
+
+/** A look is over: a foe somehow left in a committed mode goes back to its calm one, with a short fresh wait (it never resumes a blow). */
+function lookOver(e: Enemy) {
+  delete e.ai.lure
+  e.ai.bored = DUCK.bored
+  if (!COMMITTED.includes(e.ai.mode as string)) return
+  e.ai.mode = 'idle'
+  e.ai.t = 0.5
+  e.ai.tell = 0
 }
 
 /** A blow has landed on a foe that was looking (`combat.ts` `hitEnemy`): the looking is over for a while. */
@@ -143,11 +156,11 @@ export function lured(c: Ctx, e: Enemy, dt: number): boolean {
   const sees = !!d && gullible(e) && Math.hypot(d.x - e.x, d.y - e.y) <= DUCK.sight && lineClear(c.w, c.s.map, e.x, e.y, d.x, d.y)
   if (!sees) {
     // Taken from under its nose (or walked out of its sight): it has had enough of that for a while.
-    if (looking > 0) { delete ai.lure; ai.bored = DUCK.bored }
+    if (looking > 0) lookOver(e)
     return false
   }
   const left = (looking > 0 ? looking : DUCK.look) - dt
-  if (left <= 0) { delete ai.lure; ai.bored = DUCK.bored; return false }
+  if (left <= 0) { lookOver(e); return false }
   ai.lure = left
   ai.tell = 0
   const dx = d.x - e.x

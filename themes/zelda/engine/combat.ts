@@ -37,7 +37,7 @@ export function ctx(w: World, s: GameState, ev: GameEvent[]): Ctx {
  * The spot nearest a fallen foe, well inside its room, where a hero can stand: what it leaves must not lie in a pillar,
  * under a pot or in a doorway's wall.
  */
-function footing(c: Ctx, e: Enemy): { x: number; y: number } {
+export function footing(c: Ctx, e: { x: number; y: number; cell: number }): { x: number; y: number } {
   const z = cellRect(c.info, e.cell)
   for (let r = 0; r <= 4; r += 0.25) {
     for (let i = 0; i < (r ? 16 : 1); i++) {

@@ -467,7 +467,7 @@ export const DARK_HOUND = { tell: 0.7, w: 2, near: 0.9 } as const
  */
 export const EXAM = { hold: 0.35, still: 1, card: 2.2 } as const
 /**
- * TIME WAITS (`CellDef.round.rule` 'still', `engine/exam.ts`): the world's share of the hero's clock eases to 1 at
+ * TIME MOVES (`CellDef.round.rule` 'still', `engine/exam.ts`): the world's share of the hero's clock eases to 1 at
  * `up` a second while the hero does something (the stick past `on`, and still so until it falls under `off`; or a
  * move under way) and to 0 at `down` a second while the hero does not. Under `pale` the room shows that it waits.
  */
@@ -481,11 +481,12 @@ export const DUCK = { take: 1.2, sight: 7, near: 1.4, speed: 2.2, look: 8, bored
 /**
  * FALCON (`engine/bossFalcon.ts`). It rests on its perch `perch` s, circles `fly` s at `flySpeed` tiles/s, hovers
  * `tell` s (`tell2` with half its hit points gone) while its dive is stencilled, a lane `lane` wide to a ring of `ring`
- * tiles, dives it at `dive` tiles/s, and is stuck `stuck` s (`stare` s if it dived at the Duck). With half gone it
+ * tiles, dives it at `dive` tiles/s, and is stuck `stuck` s (`stare` s if it dived at the Duck), then rises `rise` s before it
+ * flies. With half gone it
  * dives twice, the second aim taken `again` s after the first lands. Only stuck is it open: the blade takes `take` hit
  * points an opening at most. `dmg`: half hearts for its touch, its lane and its ring.
  */
-export const FALCON = { perch: 1.6, fly: 2.4, flySpeed: 4, tell: 0.9, tell2: 0.65, lane: 0.5, ring: 1.1, dive: 12, stuck: 2.4, stare: 3.6, again: 0.5, take: 6, blind: 0.3, dmg: 2 } as const
+export const FALCON = { perch: 1.6, fly: 2.4, flySpeed: 4, tell: 0.9, tell2: 0.65, lane: 0.5, ring: 1.1, dive: 12, stuck: 2.4, stare: 3.6, rise: 0.4, again: 0.5, take: 6, blind: 0.3, dmg: 2 } as const
 /**
  * THE BENCHMARK TITAN (`engine/bossTitan.ts`). It walks `walk` s at `speed` tiles/s and stops `keep` tiles off, holds
  * its stamp up `tell` s (`tell2` at half) over a square of `stamp` tiles, brings it down (`slam` s; at half the second
@@ -493,7 +494,7 @@ export const FALCON = { perch: 1.6, fly: 2.4, flySpeed: 4, tell: 0.9, tell2: 0.6
  * Duck within `sight` turns its head for `look` s, then not again for `again` s. A blow of a new kind takes `blow`;
  * `flip` and `flash`: the cards' turn, and the pink of a blow turned aside.
  */
-export const TITAN = { walk: 2.2, speed: 1.5, keep: 4, tell: 0.9, tell2: 0.7, slam: 0.25, second: 0.35, rest: 3, rest2: 2.6, stamp: 3, half: 7, sight: 9, look: 3, again: 8, blow: 3, flip: 0.3, flash: 0.35 } as const
+export const TITAN = { walk: 2.2, speed: 1.5, keep: 4, tell: 0.9, tell2: 0.8, slam: 0.25, second: 0.35, rest: 3, rest2: 2.6, stamp: 3, half: 7, sight: 9, look: 3, again: 8, blow: 3, flip: 0.3, flash: 0.35 } as const
 export type RoundId = 'r1' | 'r2' | 'r3' | 'r4'
 /** What a pane on the floor shows. A cactus is worth marks; any other picture takes them. */
 export type PadPic = 'cactus' | 'palm' | 'stone' | 'cloud' | 'bones'
@@ -513,7 +514,7 @@ export interface RoundDef {
   penalty?: { hurt?: number; shatter?: number }
 }
 /** The score card, as a round ended: `t` seconds of it played. */
-export interface ExamCard { id: RoundId; entry: string; cell: number; marks: number; pass: number; max: number; passed: boolean; t: number }
+export interface ExamCard { id: RoundId; entry: string; cell: number; marks: number; pass: number; max: number; passed: boolean; /** A failed resit: the pass stands. */ resit?: boolean; t: number }
 /** The round under way, or just over (never saved: the flags `exam.<id>` and `exam.<id>.full` are what lasts). */
 export interface ExamState {
   id: RoundId
