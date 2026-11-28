@@ -59,7 +59,7 @@ State on 2026-11-27, night: all seven dungeons are whole on master. "Played by s
   - Stand-ins: the stations, the tricks, the clip hearts, the pile, the pans, the beam and the counter's digits.
 - [ ] The second ending.
   - In: NO to the Maximizer opens a page of its own (`end2`, the flag `ending2`), which writes no best time and no profile win; the first ending is unchanged. Its picture is a stand-in.
-- [ ] One new branch on one person in each land that points at its door.
+- [x] Somebody in each land points at its door (read from the world's files, 2026-11-28): the Mound Elder and a sign (Seter Fell), Grandad's worry about the light (Yule Fjord: he never says "lighthouse"; the place is named so), Ms. B, a bath guest and two signs (the Sporelight), the Tourist and the sign by the stair (Stillsand), Lenny and a sign (Rerun Estates), Sigge and a sign in the Underglow (nobody up in Lumenby), Birger, Vega, Bo and the chalk on the beam (Fogstage). The Balance is named by nobody: Luna only says the pedestal hums.
 
 ## Each dungeon, before its box is ticked
 - [ ] Played from its door to its Weight with real keys in a browser, and on a 390 wide touch screen.
