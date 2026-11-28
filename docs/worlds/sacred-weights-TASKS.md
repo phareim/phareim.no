@@ -37,7 +37,8 @@ State on 2026-11-27, night: all seven dungeons are whole on master. "Played by s
   - Whole in three parts (commits ee76f0b, 458f645, 047ddde). Played by script.
   - Reviewed: the findings that held are fixed (commit 89a57ff), not seen in a browser. The banner and the pile of paper are drawn by code.
 - [ ] 4. Stillsand: THE EXAMINATION. The Duck. THE BENCHMARK TITAN. Weight: SURPRISE.
-  - Whole in three parts (commits c2694b7, 8506b1e, 44e0771): the Front Desk, four rounds with their marks, the Staff Room, the Duck, Falcon, the Marking Room, the Titan's Hall. Played by script; the phone fights against the Titan were uneven in headless Chrome and want a real thumb. Its review is running.
+  - Whole in three parts (commits c2694b7, 8506b1e, 44e0771): the Front Desk, four rounds with their marks, the Staff Room, the Duck, Falcon, the Marking Room, the Titan's Hall. Played by script; the phone fights against the Titan were uneven in headless Chrome and want a real thumb.
+  - Reviewed: sixteen findings held and are fixed (the merge of `dungeon-examfix`, 2026-11-28), not seen in a browser.
   - Stand-ins: the hollow pot, the Titan's SPIN and BOULDER cards, the Titan down, the Duck on the floor.
 - [ ] 5. Rerun Estates: THE LATE SHOW. The Stomp. Copilot. THE UNCANNY WEAVER. Weight: FINGERS.
   - Whole in three parts (commits 1274b3d, 752714e, a271f20). Played by script.
