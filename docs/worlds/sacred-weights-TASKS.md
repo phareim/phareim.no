@@ -32,23 +32,23 @@ State on 2026-11-27, night: all seven dungeons are whole on master. "Played by s
   - Reviewed: twelve findings held and are fixed (commit 7c45f62). Open: the Parrot's doorway lets a hero break off the fight.
 - [ ] 2. Yule Fjord: THE LIGHTHOUSE. The Storm Lamp. Orca. THE BLACK BOX. Weight: REASONS.
   - Whole in three parts (commits 77c3c5a, 75b5ce0, 3fd52a9). Played by script.
-  - Reviewed: ten findings held and are fixed (commit 4583fa8); the fixes have not been seen in a browser.
+  - Reviewed: ten findings held and are fixed (commit 4583fa8), seen in a local browser.
 - [ ] 3. The Sporelight: THE STEAMHOUSE. The No. THE SYCOPHANT. Weight: NO.
   - Whole in three parts (commits ee76f0b, 458f645, 047ddde). Played by script.
-  - Reviewed: the findings that held are fixed (commit 89a57ff), not seen in a browser. The banner and the pile of paper are drawn by code.
+  - Reviewed: the findings that held are fixed (commit 89a57ff), seen in a local browser. The banner and the pile of paper are drawn by code.
 - [ ] 4. Stillsand: THE EXAMINATION. The Duck. THE BENCHMARK TITAN. Weight: SURPRISE.
   - Whole in three parts (commits c2694b7, 8506b1e, 44e0771): the Front Desk, four rounds with their marks, the Staff Room, the Duck, Falcon, the Marking Room, the Titan's Hall. Played by script; the phone fights against the Titan were uneven in headless Chrome and want a real thumb.
-  - Reviewed: sixteen findings held and are fixed (the merge of `dungeon-examfix`, 2026-11-28), not seen in a browser.
+  - Reviewed: sixteen findings held and are fixed (the merge of `dungeon-examfix`, 2026-11-28) and were seen in a local browser the same night, with the Titan's cards moved clear of its body.
   - Stand-ins: the hollow pot, the Titan's SPIN and BOULDER cards, the Titan down, the Duck on the floor.
 - [ ] 5. Rerun Estates: THE LATE SHOW. The Stomp. Copilot. THE UNCANNY WEAVER. Weight: FINGERS.
   - Whole in three parts (commits 1274b3d, 752714e, a271f20). Played by script.
-  - Reviewed: ten findings held and are fixed (commit 2f09aaa), not seen in a browser.
+  - Reviewed: ten findings held and are fixed (commit 2f09aaa), seen in a local browser.
 - [ ] 6. Lumenby: THE HEAP under the Underglow. The Magnet. Grok, Phi. THE SCRAPE GOLEM. Weight: CREDIT.
   - Whole in three parts (commits ed347e9, 7718b1d, fed7639). Played by script.
   - Reviewed: the findings that held are fixed (commit f95e0ff), not seen in a browser. The carts, the rails and the Golem's tell and spit frames are drawn art; the crate, the scrap and the bolt are code stand-ins (their drawn pictures in `tmp/dungeons/art/heap2/` read worse at 1x).
 - [ ] 7. Fogstage: ACT THREE. The Lens. Bard. THE HALLUCINATOR. Weight: SOURCES.
   - Whole in three parts (commits 46c9e60, 91c7f02, 26c0594). Played by script.
-  - Reviewed: nine findings held and are fixed (the merge of `dungeon-act3fix`, 2026-11-27), not seen in a browser.
+  - Reviewed: nine findings held and are fixed (the merge of `dungeon-act3fix`, 2026-11-27), seen in a local browser.
 
 ## The end
 - [ ] THE BALANCE under the Shrine's pedestal.
