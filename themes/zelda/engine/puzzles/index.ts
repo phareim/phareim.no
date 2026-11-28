@@ -19,8 +19,8 @@ import { HERO_R, PUSH_TIME, roomed } from '../../types'
 import { TILE_INFO, isIron } from '../../world/tiles'
 import { WEIGHT_PLATES, isMirror } from '../../world/puzzles'
 import { STATS } from '../spawn'
-import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
-import { cellDef, cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
+import { BIG, footing, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
+import { cellDef, cellIndex, cellRect, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
 import { dirVec, nextId, toDir } from '../util'
 import { echoOnTile } from '../echo'
 import { lampDown, lampEmitters, lampHome, stepLamp } from '../lamp'
@@ -153,8 +153,18 @@ function canEnter(c: Ctx, from: number, x: number, y: number, onto = PUSH_ONTO):
   return !circleOnTile(h.x, h.y, HERO_R, x, y)
 }
 
+/** A doorway gap of the tile's camera room: on its outer ring with walkable floor just outside, or an exit or a warp. A pushed block never stops in one. */
+export function inDoorway(c: Ctx, x: number, y: number): boolean {
+  const info = c.info
+  if (info.exits.has(y * info.w + x) || info.warps.some(w => x >= w.x && x < w.x + w.w && y >= w.y && y < w.y + w.h)) return true
+  const r = cellRect(info, cellIndex(info, x + 0.5, y + 0.5))
+  const open = (ox: number, oy: number) => ox >= 0 && oy >= 0 && ox < info.w && oy < info.h && !TILE_INFO[tileAt(c.s.map, ox, oy)].solid
+  return (x === r.x && open(x - 1, y)) || (x === r.x + r.w - 1 && open(x + 1, y)) || (y === r.y && open(x, y - 1)) || (y === r.y + r.h - 1 && open(x, y + 1))
+}
+
 /**
- * Where nothing the hero pushes (or a slide carries) comes to rest: an entry's tile, a stair or warp tile, or a tile
+ * Where nothing the hero pushes (or a slide carries) comes to rest: an entry's tile, a stair or warp tile, a doorway,
+ * a hand-in pad, or a tile
  * whose filling would shut an entry of its room off from a stair, an exit or another entry it reached over open floor.
  * `from`: the tile the thing leaves, open for the count.
  */
@@ -164,7 +174,9 @@ export function badRest(c: Ctx, from: number, x: number, y: number): boolean {
   const inWarp = (i: number) => info.warps.some(w => (i % m.w) >= w.x && (i % m.w) < w.x + w.w && Math.floor(i / m.w) >= w.y && Math.floor(i / m.w) < w.y + w.h)
   const here = y * m.w + x
   const entries = Object.values(info.entries).map(e => Math.floor(e.y) * m.w + Math.floor(e.x))
-  if (inWarp(here) || entries.includes(here)) return true
+  if (inWarp(here) || entries.includes(here) || inDoorway(c, x, y)) return true
+  // (A pad that hands a round in is never buried.)
+  if (info.pads.some(p => p.handin && x >= p.x && x < p.x + p.size && y >= p.y && y < p.y + p.size)) return true
   if (!roomed(info.def.kind)) return false
   const cell = cellIndex(info, x + 0.5, y + 0.5)
   const way = (i: number) => info.exits.has(i) || inWarp(i) || entries.includes(i)
@@ -607,6 +619,8 @@ function stepBoulders(c: Ctx, ph: PhysState, dt: number) {
           // Comes to rest here.
           m.tiles[here] = 'κ'
           m.version++
+          // (What lay on the tile moves to the nearest footing: never under a stone.)
+          for (const p of m.pickups) if (Math.floor(p.x) === tx && Math.floor(p.y) === ty) Object.assign(p, footing(c, { x: p.x, y: p.y, cell: cellIndex(c.info, p.x, p.y) }))
           setFlag(s, `boulder:${m.id}:${r.home}:${here}`)
           s.shake = Math.max(s.shake, 0.2)
           c.ev.push({ type: 'push', x: tx + 0.5, y: ty + 0.5 })

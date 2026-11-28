@@ -6,6 +6,7 @@
  * - It dives down the lane. The lane hurts a hero as it passes, the ring where it lands; a Duck in the ring hops aside.
  * - Then it is stuck in the sand: open (`combat.ts` `bossRules`), harmless to touch. Longer if it dived at the Duck.
  *   In every other state it is stone to every blow, and its touch hurts (the dive's: by lane and ring alone).
+ * - Free of the sand it gathers itself (`rise`: harmless, shut to blows), then flies.
  * - With half its hit points gone it aims quicker and dives twice, stuck only after the second.
  * The numbers are `FALCON`.
  */
@@ -80,6 +81,8 @@ function aim(c: Ctx, e: Enemy) {
 export function falcon(c: Ctx, e: Enemy, dt: number) {
   const ai = e.ai
   const h = c.s.hero
+  // (The round is read off its hit points, so it holds after a return to the room as well as after a blow.)
+  if (e.hp <= STATS.falcon.hp / 2) ai.phase = 2
   switch (ai.mode) {
     case 'perch':
       if (ai.t <= 0) takeOff(c, e)
@@ -117,7 +120,7 @@ export function falcon(c: Ctx, e: Enemy, dt: number) {
       // The lane, as it passes: a hero whose middle is in the paint it has just gone over.
       const along = (h.x - sx) * ux + (h.y - sy) * uy
       const off = Math.abs((h.y - sy) * ux - (h.x - sx) * uy)
-      if (!ai.struck && along >= was - 0.05 && along <= now && off <= FALCON.lane / 2 && hurtHero(c, FALCON.dmg, e.x - ux, e.y - uy, false, true)) ai.struck = true
+      if (!ai.struck && len > 0.05 && along >= was - 0.05 && along <= now && off <= FALCON.lane / 2 && hurtHero(c, FALCON.dmg, e.x - ux, e.y - uy, false, true)) ai.struck = true
       if (now < len - 1e-6) return
       land(c, e)
       return
@@ -126,6 +129,10 @@ export function falcon(c: Ctx, e: Enemy, dt: number) {
       if (ai.t <= 0) aim(c, e)
       return
     case 'stuck':
+      // (It gathers itself first: wings up, harmless, shut to blows, and then it flies.)
+      if (ai.t <= 0) { ai.mode = 'rise'; ai.t = FALCON.rise }
+      return
+    case 'rise':
       if (ai.t <= 0) takeOff(c, e)
       return
   }

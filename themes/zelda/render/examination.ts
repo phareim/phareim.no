@@ -4,7 +4,7 @@
  *   lanes of the hall's two stones and the stencil shapes of its fights;
  * - over THE BENCHMARK TITAN, on the HUD's layer: its two cards;
  * - standing in the world: the words over a HAND IN pad, and THE DUCK set down;
- * - over the world: the pale wash of a room that waits (TIME WAITS), round the hero;
+ * - over the world: the pale wash of a room that waits (TIME MOVES), round the hero;
  * - on the HUD: the strip of the round under way (its rule's short name, marks and the pass mark, and a clock with
  *   still hands while time waits) and the score card.
  */
@@ -241,7 +241,7 @@ function queueDuck(g: G, s: GameState, cx: number, cy: number, time: number, red
   })
 }
 
-/** Does the hero's room stand still enough to show it (TIME WAITS, under `STILL.pale`)? */
+/** Does the hero's room stand still enough to show it (TIME MOVES, under `STILL.pale`)? */
 export function timeStands(s: GameState): boolean {
   const x = s.map.exam
   return !!x && x.rule === 'still' && !x.over && x.cell === s.zoneIndex && x.k < STILL.pale
@@ -435,7 +435,7 @@ export function drawTitanFall(g: G, t: number, x: number, feet: number, reduced:
 // The strip and the card
 // ---------------------------------------------------------------------------
 
-const RULE_NAMES = { r1: 'NO BLADE', r2: 'NOT A MACHINE', r3: 'TIME WAITS', r4: 'WEIGH IT' } as const
+const RULE_NAMES = { r1: 'NO BLADE', r2: 'NOT A MACHINE', r3: 'TIME MOVES', r4: 'WEIGH HOUSE' } as const
 const ROUND_NAMES = { r1: 'ROUND ONE', r2: 'ROUND TWO', r3: 'ROUND THREE', r4: 'ROUND FOUR' } as const
 
 /** The strip's two rows are 8 px each. */
@@ -553,7 +553,7 @@ export function drawExamCard(g: G, s: GameState, vw: number, vh: number, reduced
   g.fillRect(line - 1, by - 4, 3, 1)
   // The stamp, a moment after, slightly crooked: each letter and its piece of the frame a px lower than the last pair.
   if (reduced || card.t > 0.55) {
-    const word = card.passed ? 'PASSED' : 'RESIT'
+    const word = card.passed ? 'PASSED' : card.resit ? 'KEPT' : 'RESIT'
     const ink = card.passed ? '#a86e00' : '#e0187a'
     const wash = card.passed ? '#ffd23f' : '#ffc2e6'
     const sw = textWidth(word) + 12

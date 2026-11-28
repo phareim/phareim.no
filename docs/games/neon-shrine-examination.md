@@ -39,12 +39,12 @@ closed on top and at the east end, and its pillars are plain stone.
 The path is a snake from the Desk east, up and back west. Every door back the
 way the hero came is open. A round's exit is a gate on its pass flag
 (`exam.<id>`), saved as every gate is: a round is never passed twice. The
-perch's west door is a trap gate. The stair to the hall opens on all four pass
+perch's two doors, west and east, are trap gates (it holds the hero in while Falcon lives). The stair to the hall opens on all four pass
 flags; the Marking Room's south gate, down into the Desk, on its lever
 (`examination.back`). The hall's door leads back down to the Marking Room.
 
-The ways in and the continue points: `desk`, each round's door (`r1` to `r4`)
-and the hall's `stair`.
+The ways in and the continue points: `desk`, each round's door (`r1` to `r4`),
+the Marking Room's `mark` (the hall's door down) and the hall's `stair`.
 
 `MapDef.resume` marks both maps: a reload of the tab continues at the last
 stair or door (`awayMap`), and nothing else of a land comes with it.
@@ -77,7 +77,7 @@ penalty? }`. Its state is live and never saved (`MapState.exam`); what lasts is
   foes, shots and thrown pots are gone at once, and the card plays.
 - **The card:** a corner of an exam paper over the top third of the screen for
   2.2 s (`EXAM.card`): the round, a box for every two marks with a line at the
-  pass mark, and a stamp, PASSED or RESIT. Play goes on under it; it cannot be
+  pass mark, and a stamp, PASSED or RESIT (KEPT after a failed resit: the pass stands). Play goes on under it; it cannot be
   skipped, and it is no ending.
 - **The resit:** after a RESIT card a fade back to the same map at the round's
   entry, loaded afresh: foes, pots, panes. No heart is lost and nothing is taken.
@@ -108,7 +108,7 @@ s after its pot went, a stand gets one back, as soon as nothing is on the tile
 ## The rooms
 
 **The Front Desk.** The stair back to the Lab, and the INVIGILATOR, who says
-once that rules are on the doors, and after that offers the resit (below).
+once that rules are on the doors, and after that offers the resit (below) while there is one to sit; otherwise he says there is nothing to resit and sets nothing.
 
 **Round one: NO BLADE** (pass 6 of 10). Two blobs, a skull, a sentry, a dasher,
 2 marks each. Six pots and three stones on stands (5 s), three short pits. A
@@ -128,21 +128,23 @@ plate in the pond's middle. From the pond's west edge, facing east, the Duck set
 down two tiles ahead is on it; the gate opens for good. The way back west stays
 open, and the chest's condition is a flag nothing clears, so nobody is locked in.
 
-**Round three: TIME MOVES WHEN YOU DO** (pass 6 of 10; a heart lost costs 2).
+**Round three: TIME MOVES** (its sign: TIME MOVES WHEN YOU DO; pass 6 of 10; a heart lost costs 2).
 Five mark pads (2 each, latched on touch, gold ticks) among aisles of low walls,
 two drones and two sentries (the engine's own, 2 hit points a drone, 4 a
 sentry). The HAND IN pad is in a niche by the west door. The Duck draws a guard
 off its lane, which makes full marks easy; the blade alone passes.
 
-**The Perch.** Falcon, behind a trap gate on the west door. A death here goes
+**The Perch.** Falcon, behind a trap gate on each door. A death here goes
 back to round three's door (a quiet room by then).
 
-**Round four: THE WEIGH HOUSE, AS PRACTISED** (pass 8 of 10; a hollow pot broken
+**Round four: WEIGH HOUSE** (its sign: THE WEIGH HOUSE. AS PRACTISED; pass 8 of 10; a hollow pot broken
 on a weighed tile costs 2, once a tile). The Lab's Weigh House again: three pots
 on stands, the nearest to the door hollow; a push block; a heavy plate against
 the north wall; a scale of two pans two tiles apart. Two pads with a `when`, 5
 each: the heavy plate's and the scale's. HAND IN by the west door; no gate waits
-on a plate, so the round can always be handed in.
+on a plate, so the round can always be handed in. The block goes home on every entry
+(`homeBlocks`, a resit too), and no pushed thing rests on the HAND IN pad (`badRest`:
+nor in any doorway, on every puzzle map; the weighing plates still take a block).
 
 - The practised answer fails with the hollow pot: it weighs nothing and shatters.
 - With a sound pot: push the block twice south onto the left pan, carry a pot onto
@@ -156,25 +158,31 @@ appears once all four rounds have full marks. No foe.
 
 **The Titan's hall** (`examtop`). Open floor, rock corners, two pot stands at the
 west and east middle, and two boulders at the north wall, each with a lever on
-the side wall beside it. A cut lever sends its stone down its lane (columns 5
-and 10, faint pink dashes on the floor, bright while the stone rolls) to the
+the side wall beside it. A cut lever sends its stone down its lane (columns 4
+and 11, faint pink dashes on the floor, bright while the stone rolls) to the
 south end, where it rests. Both stones are home and both levers unthrown on
 every entry (`examForget`). The stones hurt the hero too (2). A trap gate
-shuts the way back while the Titan stands.
+shuts the way back while the Titan stands. The stones stand at columns 4 and 11, either side of the
+Titan's body: its home (column 9, radius 1.1) overlaps neither stone's tile, so it can
+walk from the first moment, and a stone meets it only where it has walked into a lane, and then only
+while it leans open (a BOULDER blow, so a card on it turns the stone aside); shut,
+the stone clanks off.
 
 ## The resit
 
-Talking to the INVIGILATOR (any time after the first) sets `exam.resit`, which
-`stepExam` clears: every round passed short of full marks gets
+Talking to the INVIGILATOR (any time after the first) while `exam.short` holds
+(`stepExam` keeps it true exactly while some round is passed short of full marks)
+sets `exam.resit`, which `stepExam` clears. With none short (nothing sat yet, or
+all four full) he says there is nothing to resit and sets nothing. Every round passed short of full marks gets
 `exam.<id>.again`. Such a round begins as it did the first time, with fresh foes
 and pads. Its result is a stamp and nothing else: the pass flag stays, no gate
 shuts, there is no walk back to the door, and the offer is used up. Full marks
-set `exam.<id>.full`.
+set `exam.<id>.full`; a resit that falls short is stamped KEPT.
 
 For some hours the Staff Room's chest held 50 bits in the Duck's place: a save
 with `chest:examination.duck` and no Duck is handed it on walking into the room.
 
-## Time waits (`rule: 'still'`)
+## Time moves (`rule: 'still'`)
 
 `stillK(s)` (`engine/exam.ts`) is the world's share of the hero's clock, 1
 everywhere but in such a round while it runs. `play()` multiplies it into the
@@ -209,11 +217,13 @@ the B icon, on the HUD and on the floor.
 - It **weighs one** (light plates; heavy ones with the hero; scale pans; not the
   push-block plates `_`) and it **floats**.
 - **Foes look at it** (`lured`, asked before a foe's own brain): one that is no
-  boss (nor PHI), that can be hurt, is not calm, stunned or reeling, nor (a tough
-  one) mid strike, within 7 tiles with a clear line, walks to 1.4 tiles and
+  boss (nor PHI), that can be hurt, is not calm, stunned or reeling, nor in
+  the middle of a blow (its tell, charge, dash, lunge, strike or rest: `COMMITTED`
+  in `duck.ts`; a decoy never draws a foe out of one), within 7 tiles with a clear line, walks to 1.4 tiles and
   stands facing it for 8 s, then is bored for 4. Its touch still hurts. A blow
   ends the look (3 s before the next); taking the Duck away ends it too, and the
-  foe is bored; moving the Duck within sight keeps it looking.
+  foe is bored; moving the Duck within sight keeps it looking. When a look ends a foe left in a
+  committed mode goes to `idle` with a fresh 0.5 s wait: it never resumes a blow.
 - No fight and no round needs it. Only the Staff Room's gate does.
 
 ## Falcon (`engine/bossFalcon.ts`, `FALCON`)
@@ -227,11 +237,14 @@ the B icon, on the HUD and on the floor.
 - **dive** at 12 tiles a second. The lane hurts as it passes, the ring where it
   lands (a heart, once). A Duck in the ring hops aside;
 - **stuck** 2.4 s (3.6 s if it dived at the Duck): open (gold bar), harmless to
-  touch. The blade takes 6 at most an opening; thrown pots and blasts hurt too.
+  touch. The blade takes 6 at most an opening; thrown pots and blasts hurt too;
+- **rise** 0.4 s: it gathers itself, shut to blows and harmless to touch, then flies
+  (its picture is the perch's: a stand-in until the wings-up frame is drawn).
 
-In every other state every blow clanks off it, and its touch costs a heart (in
+A dive of no length (its target where it sits) hurts by its ring alone. In every other state every blow clanks off it, and its touch costs a heart (in
 the dive, only the lane and ring do). The disc and the hook never hurt it. At
-half its hit points the tell is 0.65 s and it dives twice, aiming again 0.5 s
+half its hit points (read off its hit points at every step, so it comes back so after
+a return to the room) the tell is 0.65 s and it dives twice, aiming again 0.5 s
 after it lands, stuck only after the second. Two openings fell it. It falls once
 (`examination.falcon`): the gate opens and a line is said.
 
@@ -244,12 +257,12 @@ hands. It lifts and throws like a pot (`Hero.carry` stays `'pot'`, with
 
 ## The Benchmark Titan (`engine/bossTitan.ts`, `TITAN`)
 
-15 hit points, radius 1.1, walks, never leaves the hall; its home is in the north,
-eight tiles from the stair. A card on first entry. In turn:
+15 hit points, radius 1.1, walks, never leaves the hall; its home (column 9) is in the north, eight tiles from the
+stair (measured as the world test does, across and up). A card on first entry. In turn:
 
 - **walk** 2.2 s at 1.5 tiles a second toward the hero, stopping 4 off. Its touch
   costs a heart (as in the tell and the slam).
-- **tell** 0.9 s (0.7 at half): the stamp up; a 3×3 square on the hero's tile, aimed
+- **tell** 0.9 s (0.8 at half): the stamp up; a 3×3 square on the hero's tile, aimed
   once, filling from its edge.
 - **slam** 0.25 s: a heart to a hero in the square.
 - **rest** 3 s (2.6 at half): leaning on the stamp, harmless to touch, **open**

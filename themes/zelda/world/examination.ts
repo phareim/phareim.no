@@ -94,8 +94,8 @@ const PERCH = [
   '#..............#',
   '#..............#',
   '#..............#',
-  '0...............',
-  'X...............',
+  '0..............0',
+  'X..............X',
   '#..............#',
   '#..............#',
   '#..............#',
@@ -135,7 +135,7 @@ const MARKING = [
 
 const HALL = [
   '################',
-  '###..A....B..###',
+  '###.A......B.###',
   '##......wT....##',
   '4..............5',
   '#..............#',
@@ -162,7 +162,9 @@ const middle: Mark = { tile: 'ω', ent: { t: 'sluice', flag: 'examination.pond',
 const INVIGILATOR: TalkBranch[] = [
   { when: { flags: [], not: ['exam.met'] }, lines: ['INVIGILATOR: RULES ARE ON THE DOORS. I DO NOT REPEAT THEM.'], set: 'exam.met' },
   // (`engine/exam.ts` reads the flag and clears it: every round short of full marks is sat again.)
-  { lines: ['INVIGILATOR: A RESIT. PENS UP. THE ROOMS ARE NEW.'], set: 'exam.resit' },
+  // (`exam.short`: a round is passed short of full marks, which the engine keeps true exactly then.)
+  { when: { flag: 'exam.short' }, lines: ['INVIGILATOR: A RESIT. PENS UP. THE ROOMS ARE NEW.'], set: 'exam.resit' },
+  { lines: ['INVIGILATOR: NOTHING TO RESIT. CARRY ON.'] },
 ]
 
 export const EXAMINATION: MapDef = {
@@ -192,7 +194,7 @@ export const EXAMINATION: MapDef = {
         { when: { flag: 'examination.falcon' }, set: 'examination.falcon.down', lines: ['(THE FALCON SITS IN THE SAND. IT STILL THINKS IT WAS RIGHT.)'] },
       ],
     },
-    '1,0': { name: 'ROUND FOUR', round: { id: 'r4', entry: 'r4', pass: 8, max: 10, penalty: { shatter: 2 } } },
+    '1,0': { name: 'ROUND FOUR', homeBlocks: true, round: { id: 'r4', entry: 'r4', pass: 8, max: 10, penalty: { shatter: 2 } } },
     '0,0': { name: 'THE MARKING ROOM' },
   },
   marks: {

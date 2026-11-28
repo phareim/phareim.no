@@ -8,9 +8,10 @@
  * - Passed, the room is quiet for good (its foes are not there). Not passed, the card plays and the hero is put
  *   back at the round's door with the map loaded afresh: nothing is lost.
  * - A hero who walks out of a round that is still running abandons it; coming back begins it afresh.
- * - THE RESIT (the Invigilator, `exam.resit`): every round passed short of full marks is sat again for them
- *   (`exam.<id>.again`). It runs as before; its result is a stamp and nothing else: no gate shuts, no walk back.
- * - TIME WAITS (`rule: 'still'`): the world's clock runs only as the hero does something (`stillK`, which `play()`
+ * - THE RESIT (the Invigilator, `exam.resit`, offered only while `exam.short` holds: a round passed short of full
+ *   marks): every such round is sat again for them (`exam.<id>.again`). It runs as before; its result is a
+ *   stamp and nothing else: no gate shuts, no walk back (a resit that falls short is stamped KEPT: the pass stands).
+ * - TIME MOVES (`rule: 'still'`): the world's clock runs only as the hero does something (`stillK`, which `play()`
  *   multiplies into the time foes and things are stepped by). The hero, the pads and the cards keep their own.
  *
  * Also here: the pot stands that fill one at a time (`stand` marks with a `wait`).
@@ -29,6 +30,9 @@ export function stepExam(c: Ctx, dt: number, inp: Input) {
   hollowPot(c)
   stepStands(c, dt)
   if (s.flags['exam.resit']) offerResit(s)
+  // `exam.short` is true exactly while a round is passed short of full marks (the Invigilator offers a resit then).
+  const short = ROUNDS.some(id => has(s, `exam.${id}`) && !has(s, `exam.${id}.full`))
+  if (short !== !!s.flags['exam.short']) { if (short) setFlag(s, 'exam.short'); else delete s.flags['exam.short'] }
   if (owedDuck(c)) { acquire(c, 'duck'); return }
   const m = s.map
   const card = m.exam?.card
@@ -62,7 +66,7 @@ export function stepExam(c: Ctx, dt: number, inp: Input) {
 const DOING: ReadonlySet<string> = new Set(['swing', 'spin', 'roll', 'air', 'lift', 'throw', 'use', 'hook', 'push', 'hurt'])
 
 /**
- * TIME WAITS: `k` eases to 1 while the hero does something and to 0 while not. The stick has two thresholds, so that
+ * TIME MOVES: `k` eases to 1 while the hero does something and to 0 while not. The stick has two thresholds, so that
  * a thumb resting at the edge of its dead zone does not flicker the world.
  */
 function stepStill(c: Ctx, x: ExamState, inp: Input, dt: number) {
@@ -83,11 +87,11 @@ export function stillK(s: GameState): number {
 
 /**
  * The examination's foes in the states in which their touch does no harm (`enemies.ts` `contact`): FALCON stuck in
- * the sand, and in its dive, which hurts by its lane and ring alone (`bossFalcon.ts`); the Titan leaning on its
- * stamp or looking at the Duck (`bossTitan.ts`).
+ * the sand, rising from it, and in its dive, which hurts by its lane and ring alone (`bossFalcon.ts`); the Titan
+ * leaning on its stamp or looking at the Duck (`bossTitan.ts`).
  */
 export function examBossHarmless(e: Enemy): boolean {
-  if (e.kind === 'falcon') return e.ai.mode === 'stuck' || e.ai.mode === 'dive'
+  if (e.kind === 'falcon') return e.ai.mode === 'stuck' || e.ai.mode === 'rise' || e.ai.mode === 'dive'
   return e.kind === 'titan' && titanOpen(e)
 }
 
@@ -129,6 +133,8 @@ function end(c: Ctx, x: ExamState, round: RoundDef) {
   const m = s.map
   x.marks = Math.max(0, x.marks)
   const passed = x.marks >= round.pass
+  // (A resit that falls short keeps the pass it was sat on: its card says so.)
+  const resit = has(s, `exam.${round.id}.again`) && !passed
   delete s.flags[`exam.${round.id}.again`]
   if (passed) setFlag(s, `exam.${round.id}`)
   if (x.marks >= round.max) setFlag(s, `exam.${round.id}.full`)
@@ -140,7 +146,7 @@ function end(c: Ctx, x: ExamState, round: RoundDef) {
   m.bombs.length = 0
   m.blasts.length = 0
   m.thrown.length = 0
-  x.card = { id: round.id, entry: round.entry, cell: x.cell, marks: x.marks, pass: round.pass, max: round.max, passed, t: 0 }
+  x.card = { id: round.id, entry: round.entry, cell: x.cell, marks: x.marks, pass: round.pass, max: round.max, passed, ...(resit ? { resit } : {}), t: 0 }
   c.ev.push({ type: 'stamp', passed })
 }
 
@@ -174,9 +180,11 @@ function owedDuck(c: Ctx): boolean {
 /** Is round `id` still to be sat: not passed, or offered again by the Invigilator? */
 const sitting = (s: GameState, id: RoundId) => !has(s, `exam.${id}`) || has(s, `exam.${id}.again`)
 
+const ROUNDS = ['r1', 'r2', 'r3', 'r4'] as const
+
 function offerResit(s: GameState) {
   delete s.flags['exam.resit']
-  for (const id of ['r1', 'r2', 'r3', 'r4'] as const) if (has(s, `exam.${id}`) && !has(s, `exam.${id}.full`)) setFlag(s, `exam.${id}.again`)
+  for (const id of ROUNDS) if (has(s, `exam.${id}`) && !has(s, `exam.${id}.full`)) setFlag(s, `exam.${id}.again`)
 }
 
 /** The room's foes are not there (they carry no `once` flag, so nothing else is touched). */
