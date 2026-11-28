@@ -626,7 +626,10 @@ export interface TalkAsk {
   replies: [string[], string[]]
   /** What closing each reply does (one per answer): the Steamhouse's YES starts the bath (`engine/attendants.ts`). */
   after?: [Dialog['after'], Dialog['after']]
-  /** A tap does not pick a side: it confirms the cursor (which starts on the first option). The attendants' offer. */
+  /**
+   * A tap picks no side. A click or a key confirms the cursor (which starts on the first option); a touch chooses the
+   * answer it lands on, each drawn as a button, and does nothing anywhere else. The attendants' offer.
+   */
   noTapSide?: true
 }
 
@@ -1251,8 +1254,11 @@ export interface MapState {
   lensGone?: Array<{ i: number; t: number }>
   /** A screen scrolling by itself (`MapDef.autoscroll`, `engine/chase.ts`): its left edge (tiles) and the still moment left (s). */
   chase?: { left: number; wait: number }
-  /** A side map: a blow has shoved the hero, and no stair takes him until he is clear of them (`stepGame`). */
-  shoved?: true
+  /**
+   * A side map: a blow has shoved the hero, and no stair takes him until he is clear of them, or (`'let'`: the blow is
+   * over and the stick has been let go) until he pushes afresh (`stepGame`).
+   */
+  shoved?: true | 'let'
   /** The sandbags' clock, s since the map was loaded (`engine/sandbag.ts`). */
   bagT?: number
   /** THE BALANCE (`engine/balance.ts`): the seconds towards the next pan, or the level. */
@@ -1646,6 +1652,8 @@ export interface Input {
   autoFace: boolean
   /** A tap this frame on the left (-1) or right (1) half of the screen; picks YES or NO. */
   tapSide?: -1 | 1
+  /** A touch this frame on one of a question's answers (`TalkAsk.noTapSide`): that answer, chosen. */
+  pick?: 0 | 1
 }
 
 export const NO_INPUT: Input = { move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false }

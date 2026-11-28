@@ -26,7 +26,7 @@ import { drawMapPage, targetOnScreen } from './mapPage'
 import { drawItemsPage } from './itemsPage'
 import { drawLogPage, type ChangeLog } from './logPage'
 import { drawKeysPage, type KeysView } from './keysPage'
-import type { HudKeys } from '../keys'
+import { shortKeys, type HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
@@ -252,6 +252,8 @@ export interface Renderer {
   pagePrism(): { x: number; y: number; w: number; h: number } | null
   /** The nine cells of the ITEMS page as last painted, in CSS px from the canvas's top left; null: the page is not up. */
   itemCells(): Array<{ x: number; y: number; w: number; h: number }> | null
+  /** The answers of a question drawn as buttons (touch, `TalkAsk.noTapSide`) as last painted, in CSS px from the canvas's top left; null: none on screen. */
+  askAnswers(): Array<{ x: number; y: number; w: number; h: number }> | null
   /** The LOG page's buttons as last painted, in CSS px from the canvas's top left, and which of how many pages is up (null: not on screen). */
   logTargets(): LogTargets | null
   /** The KEYS page's buttons as last painted, in CSS px from the canvas's top left, and what each of its pages holds (null: not on screen). */
@@ -449,6 +451,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let prismAt: { x: number; y: number; w: number; h: number } | null = null
   /** The ITEMS page's cells as last painted (`Renderer.itemCells`). */
   let cellsAt: Array<{ x: number; y: number; w: number; h: number }> | null = null
+  /** A question's buttons as last painted (`Renderer.askAnswers`). */
+  let askAt: Array<{ x: number; y: number; w: number; h: number }> | null = null
   /** The LOG page's buttons as last painted (`Renderer.logTargets`). */
   let logAt: LogTargets | null = null
   /** The KEYS page's buttons as last painted (`Renderer.keysTargets`). */
@@ -2088,6 +2092,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     prismAt = null
     logAt = null
     keysAt = null
+    askAt = null
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
@@ -2140,7 +2145,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       // it has no window of its own (a label, a banner, a line).
       const pageUp = ui.paused && !ui.confirmReset
       // An intertitle card: over the stage, under the hearts (`card.ts`).
-      if (s.card && !pageUp) drawCard(g, s.card, sp.vw, sp.vh, ui.keys.touch ? 'A' : ui.keys.a, ui.reducedMotion)
+      if (s.card && !pageUp) drawCard(g, s.card, sp.vw, sp.vh, shortKeys(ui.keys).a, ui.reducedMotion)
       if (hud && !pageUp) {
         // THE BENCHMARK TITAN's two cards, over its head: under the hearts and the corner, which they never cover.
         drawTitanCards(g, s, (x, y) => {
@@ -2167,7 +2172,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (s.dialog && !pageUp) {
         g.save()
         g.translate(0, top)
-        drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin)
+        drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin, ui.keys.touch ? { css: sp.scale / dpr, placed: list => { askAt = list.map(b => targetOnScreen({ ...b, y: b.y + top }, sp, dpr, { w: W / dpr, h: H / dpr })) } } : undefined)
         g.restore()
       }
       // A heart on its way to being a clip, over everything.
@@ -2996,6 +3001,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
     pagePrism: () => prismAt,
     itemCells: () => cellsAt,
+    askAnswers: () => askAt,
     logTargets: () => logAt,
     keysTargets: () => keysAt,
   }

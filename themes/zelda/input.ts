@@ -7,8 +7,9 @@
  * Which key walks, swings, throws, rolls and swaps is `bindings.ts`'s table, read
  * as each key comes (the player changes it on the menu's KEYS page). Touch: a floating stick starts under a finger on the
  * left 60 % of the screen; a tap on the right 40 % presses A; any tap moves a
- * dialog on, and on a YES / NO line the half it lands on is the answer. A
- * finger that lands on the stick's side during a dialog and stays down is the
+ * dialog on, and on a YES / NO line the half it lands on is the answer (a
+ * question that picks no side, `TalkAsk.noTapSide`, takes a touch on one of its
+ * answers only). A finger that lands on the stick's side during a dialog and stays down is the
  * stick once the lines close. The mouse only moves dialogs on (the deck
  * buttons call pressA, pressRoll …).
  */
@@ -29,6 +30,8 @@ export interface InputHooks {
   paused(): boolean
   /** A dialog is open: any tap in the world presses A. */
   dialog(): boolean
+  /** A question up that only a touch on an answer answers: its answers' boxes, CSS px on the canvas (none while it types). Else null. */
+  answers?(): ReadonlyArray<{ x: number; y: number; w: number; h: number }> | null
   /** A pointer press and release that stayed within a few px, while idle. */
   onIdleTap?(): void
   /** Shell keys first (start, pause, menus). Return true when the key is handled. */
@@ -80,6 +83,7 @@ export function createInput(hooks: InputHooks): GameInput {
   const bKeys = new Set<string>()
   let bHeldTouch = false
   let tapSide: -1 | 1 | undefined
+  let pick: 0 | 1 | undefined
   let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
   let idleTap: { id: number; x: number; y: number } | null = null
   /** A finger that came down on the stick's side while a dialog was open: the stick, if it is still down when the lines close. */
@@ -112,8 +116,10 @@ export function createInput(hooks: InputHooks): GameInput {
       ...(bKeys.size || bHeldTouch ? { jumpHeld: true } : {}),
       autoFace: hooks.touch(),
       tapSide,
+      ...(pick !== undefined ? { pick } : {}),
     }
     tapSide = undefined
+    pick = undefined
     aPress = false
     bPress = false
     cyclePress = false
@@ -132,6 +138,7 @@ export function createInput(hooks: InputHooks): GameInput {
     bKeys.clear()
     bHeldTouch = false
     tapSide = undefined
+    pick = undefined
     stick = null
     idleTap = null
     waiting = null
@@ -151,8 +158,14 @@ export function createInput(hooks: InputHooks): GameInput {
     if (hooks.paused()) return
     // Any tap moves a dialog on; its side answers a YES / NO line.
     if (hooks.dialog()) {
-      aPress = true
-      tapSide = p.x < p.w / 2 ? -1 : 1
+      const answers = e.pointerType === 'mouse' ? null : hooks.answers?.()
+      if (answers) {
+        const on = answers.findIndex(b => p.x >= b.x && p.x < b.x + b.w && p.y >= b.y && p.y < b.y + b.h)
+        if (on === 0 || on === 1) { aPress = true; pick = on }
+      } else {
+        aPress = true
+        tapSide = p.x < p.w / 2 ? -1 : 1
+      }
       if (e.pointerType !== 'mouse' && p.x < p.w * 0.6) waiting = { id: e.pointerId, x: p.x, y: p.y }
       return
     }

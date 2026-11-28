@@ -261,7 +261,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { abortWarp, artRest, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
+import { abortWarp, artRest, asksChoice, awayMap, aWould, BIG, createGame, hasViewBlocks, HOURS, isArt, isWeight, loadSpot, magnetRest, mapInfo, resumeAfterWin, risesUnderHero, setDaytime, setSession, setViewRule, stepGame, toSave, useItems, type AWould } from './engine/index'
 import { jumpIcon } from './render/side'
 import { A_PAD, createAPad } from './aPad'
 import { fetchSession } from './account'
@@ -597,6 +597,7 @@ const input: GameInput = createInput({
   idle: () => phase.value !== 'play',
   paused: () => paused.value || panel.value !== null,
   dialog: () => state.mode === 'dialog',
+  answers: () => (touchUI.value && state.dialog?.ask?.noTapSide && asksChoice(state.dialog) ? renderer?.askAnswers() ?? [] : null),
   onIdleTap: () => { if (phase.value === 'won') keepExploring() },
   onKey: shellKey,
 })

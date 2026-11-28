@@ -342,6 +342,11 @@ function play(c: Ctx, dt: number, inp: Input) {
   // Warps. (From the side a door takes a hero who stands or climbs: a jump past one does not go through it.)
   // (A blow's shove never carries a hero from the side through a stair: one thrown onto it waits there until he steps off and on again.)
   if (c.info.def.kind === 'side' && (h.knock || h.act === 'hurt')) s.map.shoved = true
+  // (Once the blow is over and the stick has been let go, a fresh push takes the stair he was thrown onto.)
+  else if (s.map.shoved) {
+    const pushed = Math.hypot(inp.move.x, inp.move.y) > 0.3
+    if (s.map.shoved === true) { if (!pushed) s.map.shoved = 'let' } else if (pushed) delete s.map.shoved
+  }
   let onStair = false
   for (const w of c.info.warps) {
     // (A warp that waits works once its condition holds and its stair has appeared: `objects.ts`.)
@@ -563,6 +568,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
       c.ev.push({ type: 'choose' })
     }
     if (inp.aPress && inp.tapSide && !d.ask?.noTapSide) d.choice = inp.tapSide < 0 ? 0 : 1
+    if (inp.aPress && inp.pick !== undefined) d.choice = inp.pick
     if (d.ask && inp.aPress) {
       // The reply carries the offer's own flags, and the pick's `after` (the Steamhouse's YES starts the bath).
       const pick = d.ask.after?.[d.choice ?? 0]

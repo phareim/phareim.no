@@ -467,6 +467,7 @@ describe('Act Three', () => {
     }
     for (const move of [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0.707, y: 0.707 }, { x: 1, y: 0.6 }]) assert.deepEqual(down(move), ['actbard', true], `pressing ${JSON.stringify(move)}`)
     assert.equal(down({ x: 1, y: 0 })[0], 'actbard', 'RIGHT alone stays in the room')
+    assert.deepEqual([down({ x: 0, y: 0 }), down({ x: -1, y: 0 })], [['actbard', false], ['actbard', false]], 'hands off, or LEFT still held from the Flats: hanging on the ladder, under the stair')
 
     // BARD's floor has no free corner: with the hero standing at each spot, some piece's blow is stencilled on it.
     for (let x = 1.5; x <= 14.5; x += 0.25) {
@@ -487,6 +488,7 @@ describe('Act Three', () => {
     }
 
     // A blow in the doorway does not throw the hero out of the room by the stair he stands beside.
+    let thrown = 0
     for (const [map, entry] of [['actwings', 'wings'], ['actstudy', 'studyin']]) {
       const g = Z.createGame(Z.WORLD, { seed: 3, at: { map, entry } })
       g.card = null
@@ -494,6 +496,13 @@ describe('Act Three', () => {
       Z.hurtHero(Z.ctx(Z.WORLD, g, []), 1, g.hero.x + 1, g.hero.y)
       for (let i = 0; i < 120; i++) Z.stepGame(Z.WORLD, g, 1 / 60, Z.NO_INPUT)
       assert.deepEqual([g.map.id, g.mode], [map, 'play'], `hit at the entry of ${map}`)
+      // Thrown onto the stair he stays, until he pushes afresh: then it takes him.
+      if (g.map.shoved) {
+        thrown++
+        for (let i = 0; i < 40 && g.mode === 'play'; i++) Z.stepGame(Z.WORLD, g, 1 / 60, { ...Z.NO_INPUT, move: { x: -1, y: 0 } })
+        assert.equal(g.mode, 'warp', `a fresh push on the stair of ${map} takes it`)
+      }
     }
+    assert.ok(thrown > 0, 'neither blow threw the hero onto a stair')
   })
 })

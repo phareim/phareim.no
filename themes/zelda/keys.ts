@@ -16,6 +16,12 @@ export const KEYBOARD_KEYS: HudKeys & { menu: MenuKeys } = {
 /** The touch deck's buttons carry pictures, no letters: the lines name the picture. */
 export const TOUCH_KEYS: HudKeys = { a: 'THE SWORD BUTTON', b: 'THE ITEM BUTTON', cycle: 'THE SWAP BUTTON', roll: 'THE ROLL BUTTON', touch: true }
 
+/** A touch pad's letter, where a page names a button in a word. */
+export const PAD_LETTERS = { a: 'A', b: 'B', roll: 'R' }
+
+/** The shortest names a page says the buttons by: the bound keys' beside a keyboard, the pads' letters on touch. */
+export const shortKeys = (k: HudKeys): typeof PAD_LETTERS => (k.touch ? PAD_LETTERS : { a: k.a, b: k.b, roll: k.roll ?? KEYBOARD_KEYS.roll! })
+
 export function subst(text: string, k: HudKeys): string {
   return text.replace(/\{A\}/g, k.a).replace(/\{B\}/g, k.b).replace(/\{CYCLE\}/g, k.cycle).replace(/\{ROLL\}/g, k.roll ?? 'L')
 }

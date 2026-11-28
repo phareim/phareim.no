@@ -4,7 +4,7 @@
  * menu's tabs and MOVES page, and the start-over question.
  */
 import type { GameState, World } from '../types'
-import { KEYBOARD_KEYS, TOUCH_KEYS, subst, type HudKeys } from '../keys'
+import { KEYBOARD_KEYS, TOUCH_KEYS, shortKeys, subst, type HudKeys } from '../keys'
 import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount, mapDef } from '../engine/map'
@@ -301,8 +301,11 @@ function tallestRows(lines: readonly string[], who: string | null | undefined, p
   return rows
 }
 
-/** Dialog box: typed text, wrapped, bottom or top depending on the hero. */
-export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScreenY: number, keys: HudKeys, time: number, skin: HudSkin = NEON_SKIN) {
+/**
+ * Dialog box: typed text, wrapped, bottom or top depending on the hero. `touch` (the deck showing): CSS px a logical
+ * px, and where a question that picks no side (`TalkAsk.noTapSide`) says its answers came to lie: buttons there.
+ */
+export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScreenY: number, keys: HudKeys, time: number, skin: HudSkin = NEON_SKIN, touch?: { css: number; placed(answers: Array<{ x: number; y: number; w: number; h: number }>): void }) {
   const d = s.dialog
   if (!d) return
   const F = hudFont(skin)
@@ -316,14 +319,17 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
   // An exit's last line asks YES / NO on a row of its own, YES in the left half and NO in the right (touch taps a half).
   const asks = asksChoice(d)
   const textH = wrapped.length * (GLYPH_H + 4)
-  const h = textH + 14 + (asks ? GLYPH_H + 8 : 0)
+  // Answers to be pressed are 44 CSS px tall or more.
+  const press = d.ask?.noTapSide ? touch : undefined
+  const askH = press ? Math.ceil(44 / press.css) : GLYPH_H
+  const h = textH + 14 + (asks ? askH + 8 : 0)
   const x = Math.round((vw - w) / 2)
   const top = heroScreenY > vh * 0.58
   let y = top ? 8 : vh - h - 8
   if (top && skin.underHud && s.inv.sword) {
     // Under the hearts, the counters and the item box, if the tallest box this talk will show (its plate and a question's row with it) still ends well over the hero's head: the box then stays where it is from line to line.
     const under = 4 + Math.ceil(Math.ceil(s.hero.maxHp / 2) / 10) * 9 + 2 + 9 + 6
-    const reach = tallestRows(d.lines, d.who, !!skin.plate, F, inner, keys) * (GLYPH_H + 4) + 14 + GLYPH_H + 8 + (skin.plate ? 10 : 0)
+    const reach = tallestRows(d.lines, d.who, !!skin.plate, F, inner, keys) * (GLYPH_H + 4) + 14 + askH + 8 + (skin.plate ? 10 : 0)
     if (under + Math.max(h, reach) <= heroScreenY - 26) y = under
   }
   skin.panel(g, x, y, w, h, 'hot')
@@ -348,16 +354,23 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
   }
   if (asks) {
     if (!done) return
-    const oy = y + 8 + textH + 4
-    ;(d.ask?.options ?? ['YES', 'NO']).forEach((label, i) => {
+    const row = y + 8 + textH + 4
+    const oy = row + Math.floor((askH - GLYPH_H) / 2)
+    const answers = (d.ask?.options ?? ['YES', 'NO']).map((label, i) => {
       const on = (d.choice ?? 0) === i
       const cx = x + Math.round(w * (i === 0 ? 0.3 : 0.7))
       const tx = Math.round(cx - F.width(label) / 2)
-      F.draw(g, label, tx, oy, on ? skin.cool : skin.dim, on && skin.shadow ? skin.outline : undefined)
-      if (!on) return
+      // (A button is its word and room for the cursor on either side.)
+      const bw = Math.max(askH, Math.ceil(F.width(label)) + 28)
+      const box = { x: cx - Math.round(bw / 2), y: row, w: bw, h: askH }
+      if (press) skin.panel(g, box.x, box.y, box.w, box.h, on ? 'cool' : 'hot')
+      F.draw(g, label, tx, oy, on ? skin.cool : press ? skin.text : skin.dim, on && skin.shadow ? skin.outline : undefined)
+      if (!on) return box
       if (skin.pointer) skin.pointer(g, tx - 8, oy, time)
       else F.draw(g, '>', tx - 8, oy, skin.cool)
+      return box
     })
+    press?.placed(answers)
     return
   }
   if (!done) return
@@ -500,17 +513,26 @@ const ART_HINT: Record<ArtId, { find: string; does: string }> = {
   hop: { find: 'THE KEEPER HAS ONE MORE THING TO TEACH.', does: 'HOP CLEAR OF A BLOW. NO FOE CAN HIT YOU IN THE AIR.' },
 }
 
-/** How wide a combo's buttons are drawn (`drawKeys`). */
-const keysWidth = (F: HudFont, keys: string) => keys.split(' ').reduce((sum, tok, i) => sum + F.width(tok) + (i ? 4 : 0), 0)
+/** A word of a combo: what it says, the button it stands for (`MOVES`' token), and where it starts in its row. */
+interface ComboWord { text: string; tok: string; x: number }
 
-/** A combo's buttons, each token in its colour: A the blade, R the roll, B, the rest as words. */
-function drawKeys(g: G, F: HudFont, keys: string, x: number, y: number, skin: HudSkin) {
-  let cx = x
-  for (const tok of keys.split(' ')) {
-    const color = tok === 'A' ? skin.hot : tok === 'R' ? skin.cool : tok === 'B' ? skin.prize : skin.dim
-    F.draw(g, tok, cx, y, color)
-    cx += F.width(tok) + 4
+/**
+ * A combo's buttons under the names this player's go by (`shortKeys`), `gap` apart, in rows no wider than `room` (long
+ * key names take a second row).
+ */
+function comboRows(F: HudFont, combo: string, keys: HudKeys, room: number, gap: number) {
+  const k = shortKeys(keys)
+  const names: Record<string, string> = { A: k.a, R: k.roll, B: k.b }
+  const rows: Array<{ w: number; words: ComboWord[] }> = [{ w: 0, words: [] }]
+  for (const tok of combo.split(' ')) {
+    const text = names[tok] ?? tok
+    let r = rows[rows.length - 1]!
+    if (r.words.length && r.w + gap + F.width(text) > room) rows.push(r = { w: 0, words: [] })
+    const x = r.words.length ? r.w + gap : 0
+    r.words.push({ text, tok, x })
+    r.w = x + F.width(text)
   }
+  return rows
 }
 
 /**
@@ -530,26 +552,36 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const textX = 7 + 22
   const tip = F.wrap(known ? ART_HINT[art.id].does : ART_HINT[art.id].find, w - textX - 7).slice(0, 3)
   const artH = Math.max(20, tip.length * 10)
-  const panelH = 16 + MOVES.length * row + 6 + 12 + artH + 6
+  const nameW = Math.max(...MOVES.map(m => F.width(m.name)))
+  // (Beside the keys the progress bar takes 16 px at least.)
+  const combos = MOVES.map(m => comboRows(F, m.keys, keys, w - 7 - nameW - 6 - 3 - 16 - 7, keys.touch ? 4 : 6))
+  const k = shortKeys(keys)
+  const legend = `${k.a} SWORD  ${k.roll} ROLL  ${k.b} ITEM`
+  // The legend stands beside the heading where it fits, else under it.
+  const beside = F.width('COMBOS') + 6 + F.width(legend) <= w - 14
+  const under2 = beside ? [] : F.wrap(legend, w - 14)
+  const panelH = 16 + under2.length * 10 + combos.reduce((n, c) => n + c.length, 0) * row + 6 + 12 + artH + 6
   // The tabs where the other pages have them; what is under them in the middle of the screen.
   const under = drawMenuTabs(g, 'moves', vw, menuTabsY(vh, top), keys, skin)
   let y = Math.max(under, Math.round((vh - panelH - 14) / 2) + 14)
   // The combos.
   F.draw(g, 'COMBOS', x + 7, y + 6, skin.prize)
-  const legend = keys.touch ? 'A SWORD  R ROLL' : `A ${keys.a}  R ${keys.roll ?? 'L'}`
-  F.draw(g, legend, x + w - 7 - F.width(legend), y + 6, skin.faint)
-  let ry = y + 18
-  const nameW = Math.max(...MOVES.map(m => F.width(m.name)))
+  if (beside) F.draw(g, legend, x + w - 7 - F.width(legend), y + 6, skin.faint)
+  under2.forEach((line, i) => F.draw(g, line, x + 7, y + 16 + i * 10, skin.faint))
+  let ry = y + 18 + under2.length * 10
   const keysX = x + 7 + nameW + 6
-  const barW = Math.max(16, Math.min(34, w - (keysX - x) - F.width('R > BLOW') - 18))
+  const widest = Math.max(...combos.flatMap(c => c.map(r => r.w)))
+  const barW = Math.max(16, Math.floor(Math.min(34, w - (keysX - x) - widest - 17)))
   const barX = x + w - 7 - barW
   // On a narrow screen the word MASTER would run into the widest buttons: a full gold bar says it instead.
-  const word = barX + barW - F.width('MASTER') >= keysX + Math.max(...MOVES.map(m => keysWidth(F, m.keys))) + 3
-  for (const m of MOVES) {
+  const word = barX + barW - F.width('MASTER') >= keysX + widest + 3
+  for (const [i, m] of MOVES.entries()) {
     const n = moveCount(s, m.id)
     const done = mastered(s, m.id)
     F.draw(g, m.name, x + 7, ry, done ? skin.prize : n > 0 ? skin.text : skin.dim)
-    drawKeys(g, F, m.keys, keysX, ry, skin)
+    combos[i]!.forEach((r, j) => {
+      for (const { text, tok, x: at } of r.words) F.draw(g, text, keysX + at, ry + j * row, tok === 'A' ? skin.hot : tok === 'R' ? skin.cool : tok === 'B' ? skin.prize : skin.dim)
+    })
     if (done && word) F.draw(g, 'MASTER', barX + barW - F.width('MASTER'), ry, skin.prize)
     else if (done) { g.fillStyle = skin.prize; g.fillRect(barX, ry + 2, barW, 3) }
     else {
@@ -558,7 +590,7 @@ export function drawMoves(g: G, s: GameState, vw: number, vh: number, keys: HudK
       g.fillStyle = n > 0 ? skin.cool : skin.off
       g.fillRect(barX, ry + 2, Math.round((barW * Math.min(n, m.need)) / m.need), 3)
     }
-    ry += row
+    ry += row * combos[i]!.length
   }
   // The art on B: its icon in a slot (dim while it rests, underlined when in hand), its name and what it does.
   ry += 4

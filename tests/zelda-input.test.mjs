@@ -19,16 +19,18 @@ before(async () => {
 const W = 800
 let on
 let talking
+let answers
 let input
 const touch = (type, id, x, y = 300) => on[type]({ pointerId: id, pointerType: 'touch', clientX: x, clientY: y, target: null })
 
 beforeEach(() => {
   on = {}
   talking = false
+  answers = null
   globalThis.window = { innerWidth: W, addEventListener: (t, f) => { on[t] = f }, removeEventListener: () => {} }
   input = createInput({
     canvas: () => ({ getBoundingClientRect: () => ({ left: 0, top: 0, width: W }) }),
-    touch: () => true, onTouch: () => {}, idle: () => false, paused: () => false, dialog: () => talking,
+    touch: () => true, onTouch: () => {}, idle: () => false, paused: () => false, dialog: () => talking, answers: () => answers,
   })
   input.attach()
 })
@@ -69,7 +71,13 @@ describe('a thumb that lands while a dialog is open (2026-10-06)', () => {
       assert.equal(input.read().move.x, 0)
       touch('pointermove', 1, 340)
       assert.ok(input.read().move.x > 0.9)
+      touch('pointerup', 1, 340)
     }
+    // A question answered on its answers only (an attendant's): a touch beside them is nothing, on one it is that one.
+    talking = true
+    answers = [{ x: 100, y: 100, w: 80, h: 44 }, { x: 500, y: 100, w: 80, h: 44 }]
+    const asked = [300, 540, 140].map((x, n) => { touch('pointerdown', 2 + n, x, 120); const { aPress, pick, tapSide } = input.read(); return [aPress, pick, tapSide] })
+    assert.deepEqual(asked, [[false, undefined, undefined], [true, 1, undefined], [true, 0, undefined]])
   })
 })
 

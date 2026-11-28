@@ -359,7 +359,7 @@ else: give the exit a `url` again, delete `NewsStand.vue`, `news.ts`, `newsLinks
 `validate.ts`.
 
 **Page.** The canvas fills the locked viewport, and a visit starts in the isometric view (`docs/games/neon-shrine.md`, "Views"; the classic 8-bit one is a press on the Sun Prism in the corner away, or V). The hint ("ARROWS TO WALK ·
-SPACE TO TALK" / "DRAG TO WALK · TAP TO TALK") fades in and goes at the first
+SPACE TO TALK" / "DRAG TO WALK · TAP TO TALK") fades in (on touch at the top, under the corner, or between the hearts and the corner on a phone on its side) and goes at the first
 step; it is skipped once `portal.return` exists. Winning shows the ending
 panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after
 1.2 s closes it and play goes on where the prism was taken, the run kept
