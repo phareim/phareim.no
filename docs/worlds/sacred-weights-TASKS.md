@@ -54,7 +54,8 @@ State on 2026-11-27, night: all seven dungeons are whole on master. "Played by s
 - [ ] THE BALANCE under the Shrine's pedestal.
   - In (commit cc10621): the way down, the pans, the Dark Store, the Loading Bay.
 - [ ] THE SUPPLY ROOM and THE PAPERCLIP MAXIMIZER.
-  - Whole in two parts (the merges of `dungeon-balance`, 2026-11-28): three parts of the fight, clips for hearts, the seven Weights' stations and tricks, the question. Played by script, pedestal to page to hall, at 1280x800 and 390x844 in the isometric view; not unbroken in the 8-bit view; never from a fresh game. Its review is running.
+  - Whole in two parts (the merges of `dungeon-balance`, 2026-11-28): three parts of the fight, clips for hearts, the seven Weights' stations and tricks, the question. Played by script, pedestal to page to hall, at 1280x800 and 390x844 in the isometric view; not unbroken in the 8-bit view; never from a fresh game.
+  - Reviewed: eleven findings held and are fixed (the merge of `dungeon-balfix`, 2026-11-28), not seen in a browser.
   - Stand-ins: the stations, the tricks, the clip hearts, the pile, the pans, the beam and the counter's digits.
 - [ ] The second ending.
   - In: NO to the Maximizer opens a page of its own (`end2`, the flag `ending2`), which writes no best time and no profile win; the first ending is unchanged. Its picture is a stand-in.
